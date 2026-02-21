@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SMILE.app — Registro</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;1,200&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <style>
   :root {
     --bg: #EEEAE4;
@@ -1335,24 +1337,122 @@ function buildFinalSummary() {
   `;
 }
 
+// ─── FIREBASE ─────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyB5l8pl4jzcJAvPahEu4w0Ay1PyFwvCgnk",
+  authDomain: "smile-theapp.firebaseapp.com",
+  projectId: "smile-theapp",
+  storageBucket: "smile-theapp.firebasestorage.app",
+  messagingSenderId: "723824118344",
+  appId: "1:723824118344:web:aea955f3258d212343e67d"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 // ─── ACTIVATION ───────────────────────────────────────
-function activateClinic() {
+async function activateClinic() {
   const btn = document.getElementById('btn-activate');
-  btn.textContent = '⏳ Activando...';
+  btn.textContent = '⏳ Creando tu clínica...';
   btn.disabled = true;
 
-  setTimeout(() => {
-    // Hide all steps
+  try {
+    // Build clinic ID from subdomain
+    const clinicId = state.subdomain || state.clinicName.toLowerCase()
+      .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e')
+      .replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o')
+      .replace(/[úùü]/g, 'u').replace(/ñ/g, 'n')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+    // Check if clinic ID already exists
+    const existing = await db.collection('clinicas').doc(clinicId).get();
+    if (existing.exists) {
+      btn.textContent = '⚠️ Ese nombre ya existe, elige otro';
+      btn.disabled = false;
+      return;
+    }
+
+    // Calculate pricing
+    const BASE = 1200;
+    const EXTRA_USER_PRICE = 300;
+    const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
+    const extraUsers = Math.max(0, totalUsers - 1);
+    const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
+    const total = BASE + modulesTotal + (extraUsers * EXTRA_USER_PRICE);
+
+    // Trial end date (14 days)
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 14);
+
+    // Active modules list (keys for app.js)
+    const MODULE_KEYS = {
+      'Laboratorio': 'laboratorio',
+      'Nómina': 'nomina',
+      'Inventario': 'inventario',
+      'NCF · DGII': 'ncf',
+      'Reportes': 'reportes',
+      'Sucursal adicional': 'multisucursal',
+      'Expediente clínico': 'expediente',
+    };
+    const modulosActivos = state.modules.map(m => MODULE_KEYS[m.name] || m.name.toLowerCase());
+
+    // Admin password — random 6 chars alphanumeric
+    const adminPassword = Math.random().toString(36).slice(2, 8).toUpperCase();
+
+    // Build personal array with admin user
+    const personal = [
+      {
+        id: '1',
+        nombre: state.adminName,
+        tipo: 'regular',
+        password: adminPassword,
+        isAdmin: true,
+        canAccessReception: true,
+        email: state.adminEmail,
+      }
+    ];
+
+    // 1. Create main clinic document
+    await db.collection('clinicas').doc(clinicId).set({
+      facturas: [],
+      personal,
+      gastos: [],
+      avances: [],
+      cuadresDiarios: {},
+      pacientes: [],
+      citas: [],
+      laboratorios: [],
+      reversiones: [],
+      auditLogs: [],
+      lastUpdated: new Date().toISOString(),
+      usaSubcollectionPacientes: true,
+    });
+
+    // 2. Create config/settings subcollection
+    await db.collection('clinicas').doc(clinicId)
+      .collection('config').doc('settings').set({
+        nombre: state.clinicName,
+        ciudad: state.ciudad || '',
+        color: state.color || '#C4856A',
+        plan: 'clinica',
+        modulos: modulosActivos,
+        adminEmail: state.adminEmail,
+        activa: true,
+        trial: true,
+        trialHasta: trialEnd.toISOString(),
+        creadaEn: new Date().toISOString(),
+        mrr: total,
+        equipo: {
+          dentistas: counts.dentistas,
+          recepcionistas: counts.recep,
+          asistentes: counts.asist,
+        }
+      });
+
+    // ── Show success screen ──────────────────────────
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-
-    // Show success
-    const success = document.getElementById('success');
-    success.classList.add('active');
-
-    // Update progress to 100%
+    document.getElementById('success').classList.add('active');
     document.getElementById('progressFill').style.width = '100%';
 
-    // Update indicators — all done
     for (let i = 1; i <= 5; i++) {
       const ind = document.getElementById('ind-' + i);
       ind.classList.remove('active');
@@ -1360,16 +1460,9 @@ function activateClinic() {
       ind.querySelector('.step-ind-dot').textContent = '✓';
     }
 
-    // Fill success content
-    const url = `smile.app/${state.subdomain || 'tu-clinica'}`;
-    document.getElementById('successUrlText').textContent = url;
-
-    const BASE = 1200;
-    const EXTRA_USER_PRICE = 300;
-    const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
-    const extraUsers = Math.max(0, totalUsers - 1);
-    const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
-    const total = BASE + modulesTotal + (extraUsers * EXTRA_USER_PRICE);
+    // Build the real URL
+    const appUrl = `gabosmith.github.io/smile-app/?clinica=${clinicId}`;
+    document.getElementById('successUrlText').textContent = appUrl;
 
     document.getElementById('successDetails').innerHTML = `
       <div class="success-detail-card">
@@ -1381,19 +1474,23 @@ function activateClinic() {
         <div class="sd-val" style="color:var(--terracota)">RD$${total.toLocaleString()}</div>
       </div>
       <div class="success-detail-card">
-        <div class="sd-label">Administrador</div>
-        <div class="sd-val">${state.adminName}</div>
+        <div class="sd-label">Contraseña inicial</div>
+        <div class="sd-val" style="font-family:monospace;letter-spacing:2px;font-size:20px">${adminPassword}</div>
       </div>
       <div class="success-detail-card">
-        <div class="sd-label">Prueba gratis hasta</div>
+        <div class="sd-label">Trial gratis hasta</div>
         <div class="sd-val">${getFreeTrialDate()}</div>
       </div>
     `;
 
-    // Animate mockup to celebrate
     const mockup = document.getElementById('appMockup');
-    mockup.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg) scale(1.02)';
-  }, 1400);
+    if (mockup) mockup.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg) scale(1.02)';
+
+  } catch(err) {
+    console.error('Error creando clínica:', err);
+    btn.textContent = '❌ Error — intenta de nuevo';
+    btn.disabled = false;
+  }
 }
 
 function getFreeTrialDate() {
