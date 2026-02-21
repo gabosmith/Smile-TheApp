@@ -893,31 +893,33 @@
       <div class="field" style="margin-top: 28px;">
         <label>Logo positivo <span style="font-size:11px;color:var(--mid);font-weight:300">— sobre fondo claro</span></label>
         <div style="font-size:11px;color:var(--light);margin-bottom:10px;line-height:1.6">
-          El logo en color, sobre fondo blanco o claro. PNG con fondo transparente. Aparece en la app y en las facturas.
+          En color, sobre fondo blanco. PNG transparente. Aparece en la app y en las facturas.
         </div>
-        <div class="logo-upload-area" id="logoUploadArea" onclick="document.getElementById('logoInput').click()">
-          <input type="file" id="logoInput" accept="image/png,image/svg+xml" onchange="onLogoUpload(this,'positivo')">
+        <label for="logoInput" class="logo-upload-area" id="logoUploadArea">
+          <input type="file" id="logoInput" accept="image/png,image/svg+xml,image/*" style="display:none" onchange="onLogoUpload(this,'positivo')">
           <div id="uploadContent">
             <div class="upload-icon">☀️</div>
-            <div class="upload-label">Logo positivo<br><span style="font-size:11px;color:var(--light)">PNG transparente recomendado</span></div>
+            <div class="upload-label">Toca para subir logo positivo<br><span style="font-size:11px;color:var(--light)">PNG recomendado</span></div>
           </div>
-          <img class="upload-preview" id="logoPreview" src="" alt="">
-        </div>
+          <img class="upload-preview" id="logoPreview" src="" alt="" style="display:none">
+        </label>
+        <div id="logoPositivoConfirm" style="display:none;margin-top:8px;font-size:12px;color:#3a9e5f;font-weight:400">✓ Logo positivo cargado</div>
       </div>
 
       <div class="field" style="margin-top: 20px;">
         <label>Logo negativo <span style="font-size:11px;color:var(--mid);font-weight:300">— sobre fondo oscuro</span></label>
         <div style="font-size:11px;color:var(--light);margin-bottom:10px;line-height:1.6">
-          La versión en blanco de tu logo, para usar sobre el color de tu clínica. PNG transparente. Sale en el encabezado de la app y en documentos con fondo de color.
+          Versión en blanco de tu logo, para el encabezado de la app y documentos con color. PNG transparente.
         </div>
-        <div class="logo-upload-area" id="logoNegUploadArea" onclick="document.getElementById('logoNegInput').click()" style="background:var(--dark)">
-          <input type="file" id="logoNegInput" accept="image/png,image/svg+xml" onchange="onLogoUpload(this,'negativo')">
+        <label for="logoNegInput" class="logo-upload-area" id="logoNegUploadArea" style="background:var(--dark)">
+          <input type="file" id="logoNegInput" accept="image/png,image/svg+xml,image/*" style="display:none" onchange="onLogoUpload(this,'negativo')">
           <div id="uploadNegContent">
             <div class="upload-icon">🌙</div>
-            <div class="upload-label" style="color:rgba(255,255,255,0.5)">Logo negativo<br><span style="font-size:11px;color:rgba(255,255,255,0.3)">Versión blanca · PNG transparente</span></div>
+            <div class="upload-label" style="color:rgba(255,255,255,0.5)">Toca para subir logo negativo<br><span style="font-size:11px;color:rgba(255,255,255,0.3)">Versión blanca · PNG transparente</span></div>
           </div>
-          <img class="upload-preview" id="logoNegPreview" src="" alt="">
-        </div>
+          <img class="upload-preview" id="logoNegPreview" src="" alt="" style="display:none">
+        </label>
+        <div id="logoNegativoConfirm" style="display:none;margin-top:8px;font-size:12px;color:#3a9e5f;font-weight:400">✓ Logo negativo cargado</div>
       </div>
 
       <div class="step-nav">
@@ -1071,7 +1073,15 @@
             <div style="font-size:13px;color:var(--mid);line-height:1.6">La clínica define un catálogo de procedimientos con precios base. El médico selecciona de la lista al facturar. <strong>Podrás editar el catálogo desde el panel de administración de la app.</strong></div>
           </div>
         </div>
-        </div>
+      </div>
+
+      <div style="margin-top:8px;padding:14px 18px;background:var(--surface);border-radius:12px;font-size:12px;color:var(--mid);line-height:1.7">
+        💡 Esto se puede cambiar desde el panel de administración en cualquier momento.
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goBack(5)">← Atrás</button>
+        <button class="btn-next" onclick="goNext(5)">Ver resumen →</button>
       </div>
     </div>
 
@@ -1283,14 +1293,14 @@ function onLogoUpload(input, tipo) {
       preview.src = data;
       preview.style.display = 'block';
       document.getElementById('uploadNegContent').style.display = 'none';
-      document.getElementById('logoNegUploadArea').classList.add('has-logo');
+      document.getElementById('logoNegativoConfirm').style.display = 'block';
     } else {
       state.logoPositivo = data;
       const preview = document.getElementById('logoPreview');
       preview.src = data;
       preview.style.display = 'block';
       document.getElementById('uploadContent').style.display = 'none';
-      document.getElementById('logoUploadArea').classList.add('has-logo');
+      document.getElementById('logoPositivoConfirm').style.display = 'block';
       // Show in mockup
       const mockupImg = document.getElementById('mockupLogoImg');
       const mockupText = document.getElementById('mockupLogoText');
