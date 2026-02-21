@@ -587,9 +587,7 @@
       <div class="nav-item" onclick="showSection('modulos')">
         <span class="nav-icon">🧩</span> Precios módulos
       </div>
-      <div class="nav-item" onclick="showSection('servicios')">
-        <span class="nav-icon">🦷</span> Servicios dentales
-      </div>
+
     </nav>
     <div class="sidebar-bottom">
       <div class="sidebar-version">SMILE.app v1.0</div>
@@ -663,6 +661,14 @@ async function initApp() {
   showSection('overview');
 }
 
+async function recargarAdmin() {
+  const btn = document.querySelector('[onclick="recargarAdmin()"]');
+  if (btn) { btn.textContent = '↻ Cargando...'; btn.disabled = true; }
+  await loadClinicas();
+  showSection(currentSection);
+  if (btn) { btn.textContent = '↻ Actualizar'; btn.disabled = false; }
+}
+
 async function loadClinicas() {
   try {
     const snap = await db.collection('clinicas').get();
@@ -731,7 +737,7 @@ function calcMRR(plan, modulos = [], personalCount = 0) {
 function showSection(section) {
   currentSection = section;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const idx = ['overview','clinicas','nueva','modulos','servicios'].indexOf(section);
+  const idx = ['overview','clinicas','nueva','modulos'].indexOf(section);
   document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
 
   const main = document.getElementById('main');
@@ -739,7 +745,7 @@ function showSection(section) {
   else if (section === 'clinicas') renderClinicas(main);
   else if (section === 'nueva') renderNuevaClinica(main);
   else if (section === 'modulos') renderModulos(main);
-  else if (section === 'servicios') renderServicios(main);
+
 }
 
 // ── OVERVIEW ──────────────────────────────────────────
@@ -756,7 +762,10 @@ function renderOverview(main) {
           <div class="page-title">Overview</div>
           <div class="page-sub">Estado actual de SMILE.app</div>
         </div>
-        <button class="header-btn" onclick="showSection('nueva')">+ Nueva clínica</button>
+        <div style="display:flex;gap:8px">
+          <button class="header-btn" onclick="recargarAdmin()" style="background:none;border:1px solid var(--light);color:var(--mid)" title="Actualizar datos">↻ Actualizar</button>
+          <button class="header-btn" onclick="showSection('nueva')">+ Nueva clínica</button>
+        </div>
       </div>
 
       <div class="stats-grid">
@@ -885,7 +894,7 @@ function openClinicDetail(id) {
   const c = clinicas.find(x => x.id === id);
   if (!c) return;
 
-  const appUrl = `${window.location.origin}${window.location.pathname.replace('admin.html','')}index.html?clinica=${c.id}`;
+  const appUrl = `${window.location.origin}${window.location.pathname.replace('admin.html','')}app.html?clinica=${c.id}`;
 
   document.getElementById('modalTitle').textContent = c.nombre;
   document.getElementById('modalBody').innerHTML = `
@@ -1221,7 +1230,7 @@ async function toggleStatus(id) {
 }
 
 function openApp(id) {
-  const url = `${window.location.origin}${window.location.pathname.replace('admin.html','index.html')}?clinica=${id}`;
+  const url = `${window.location.origin}${window.location.pathname.replace('admin.html','')}app.html?clinica=${id}`;
   window.open(url, '_blank');
 }
 
@@ -1383,206 +1392,7 @@ async function guardarNuevoModulo() {
   renderModulosRows();
 }
 
-// ── SERVICIOS DENTALES ────────────────────────────────
-const DEFAULT_SERVICIOS = [
-  { nombre: 'Limpieza dental', categoria: 'Preventivo', precio: 1500 },
-  { nombre: 'Extracción simple', categoria: 'Cirugía', precio: 2000 },
-  { nombre: 'Extracción molar', categoria: 'Cirugía', precio: 3500 },
-  { nombre: 'Resina anterior', categoria: 'Restauración', precio: 2500 },
-  { nombre: 'Resina posterior', categoria: 'Restauración', precio: 3000 },
-  { nombre: 'Endodoncia anterior', categoria: 'Endodoncia', precio: 6000 },
-  { nombre: 'Endodoncia posterior', categoria: 'Endodoncia', precio: 8000 },
-  { nombre: 'Corona porcelana', categoria: 'Prótesis', precio: 12000 },
-  { nombre: 'Corona metal-cerámica', categoria: 'Prótesis', precio: 10000 },
-  { nombre: 'Blanqueamiento', categoria: 'Estética', precio: 5000 },
-  { nombre: 'Carilla de porcelana', categoria: 'Estética', precio: 15000 },
-  { nombre: 'Consulta / Revisión', categoria: 'Consulta', precio: 500 },
-  { nombre: 'Radiografía periapical', categoria: 'Diagnóstico', precio: 500 },
-  { nombre: 'Radiografía panorámica', categoria: 'Diagnóstico', precio: 1500 },
-  { nombre: 'Tratamiento de conducto', categoria: 'Endodoncia', precio: 7500 },
-  { nombre: 'Sellante', categoria: 'Preventivo', precio: 800 },
-  { nombre: 'Aplicación de flúor', categoria: 'Preventivo', precio: 600 },
-  { nombre: 'Perno muñón', categoria: 'Restauración', precio: 3500 },
-  { nombre: 'Prótesis parcial', categoria: 'Prótesis', precio: 20000 },
-  { nombre: 'Prótesis total', categoria: 'Prótesis', precio: 25000 },
-];
 
-const CATEGORIAS = ['Preventivo','Restauración','Endodoncia','Cirugía','Prótesis','Estética','Diagnóstico','Consulta','Ortodoncia','Otro'];
-
-let serviciosData = [];
-
-async function loadServicios() {
-  try {
-    const doc = await db.collection('smile_config').doc('servicios').get();
-    if (doc.exists) {
-      serviciosData = doc.data().lista || DEFAULT_SERVICIOS;
-    } else {
-      serviciosData = [...DEFAULT_SERVICIOS];
-      await db.collection('smile_config').doc('servicios').set({ lista: serviciosData });
-    }
-  } catch(e) {
-    serviciosData = [...DEFAULT_SERVICIOS];
-  }
-}
-
-async function saveServicios() {
-  await db.collection('smile_config').doc('servicios').set({ lista: serviciosData });
-}
-
-async function renderServicios(main) {
-  await loadServicios();
-
-  const categorias = [...new Set(serviciosData.map(s => s.categoria))].sort();
-
-  main.innerHTML = `
-    <div class="section">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Servicios dentales</div>
-          <div class="page-sub">Catálogo de procedimientos disponibles en todas las clínicas</div>
-        </div>
-        <button class="header-btn" onclick="abrirModalNuevoServicio()">+ Nuevo servicio</button>
-      </div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px" id="filtrosCategorias">
-        <button onclick="filtrarServicios('todas',this)" style="padding:8px 18px;border-radius:100px;border:none;background:var(--dark);color:var(--white);font-size:12px;font-family:inherit;cursor:pointer">Todas</button>
-        ${categorias.map(c => `<button onclick="filtrarServicios('${c}',this)" style="padding:8px 18px;border-radius:100px;border:1px solid var(--light);background:none;color:var(--mid);font-size:12px;font-family:inherit;cursor:pointer">${c}</button>`).join('')}
-      </div>
-
-      <div style="background:var(--white);border-radius:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05)">
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 100px;padding:16px 24px;border-bottom:1px solid var(--bg);font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--light)">
-          <div>Servicio</div><div>Categoría</div><div>Precio sugerido</div><div></div>
-        </div>
-        <div id="serviciosRows"></div>
-      </div>
-
-      <div style="margin-top:16px;font-size:12px;color:var(--light);text-align:center">
-        ${serviciosData.length} servicios en el catálogo
-      </div>
-    </div>
-  `;
-
-  renderServiciosRows(serviciosData);
-}
-
-function filtrarServicios(cat, btn) {
-  document.querySelectorAll('#filtrosCategorias button').forEach(b => {
-    b.style.background = 'none'; b.style.color = 'var(--mid)'; b.style.border = '1px solid var(--light)';
-  });
-  btn.style.background = 'var(--dark)'; btn.style.color = 'var(--white)'; btn.style.border = 'none';
-  const filtrados = cat === 'todas' ? serviciosData : serviciosData.filter(s => s.categoria === cat);
-  renderServiciosRows(filtrados);
-}
-
-function renderServiciosRows(lista) {
-  const container = document.getElementById('serviciosRows');
-  if (!container) return;
-
-  if (lista.length === 0) {
-    container.innerHTML = `<div style="padding:48px;text-align:center;color:var(--light);font-size:14px">Sin servicios en esta categoría</div>`;
-    return;
-  }
-
-  container.innerHTML = lista.map((s) => {
-    const idx = serviciosData.indexOf(s);
-    return `
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 100px;padding:16px 24px;border-bottom:1px solid var(--surface);align-items:center">
-      <div style="font-size:14px;color:var(--dark)">${s.nombre}</div>
-      <div><span style="background:var(--bg);padding:4px 10px;border-radius:6px;font-size:11px;color:var(--mid)">${s.categoria}</span></div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:12px;color:var(--mid)">RD$</span>
-        <input type="number" value="${s.precio}"
-          onchange="actualizarPrecioServicio(${idx}, this.value)"
-          style="width:90px;padding:6px 10px;background:var(--bg);border:1.5px solid transparent;border-radius:8px;font-size:14px;font-family:inherit;color:var(--dark);outline:none"
-          onfocus="this.style.borderColor='var(--terracota)'" onblur="this.style.borderColor='transparent';guardarServicioIndividual(${idx})">
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end">
-        <button onclick="editarServicio(${idx})" style="padding:5px 10px;background:none;border:1px solid var(--light);border-radius:8px;font-size:12px;color:var(--mid);cursor:pointer" title="Editar">✎</button>
-        <button onclick="eliminarServicio(${idx})" style="padding:5px 10px;background:none;border:1px solid var(--light);border-radius:8px;font-size:12px;color:var(--mid);cursor:pointer" title="Eliminar" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--light)';this.style.color='var(--mid)'">✕</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function actualizarPrecioServicio(idx, val) {
-  serviciosData[idx].precio = parseInt(val) || 0;
-}
-
-async function guardarServicioIndividual(idx) {
-  try {
-    await saveServicios();
-    showToast('✓ Precio actualizado');
-  } catch(e) { showToast('❌ Error'); }
-}
-
-async function eliminarServicio(idx) {
-  if (!confirm(`¿Eliminar "${serviciosData[idx].nombre}"?`)) return;
-  serviciosData.splice(idx, 1);
-  await saveServicios();
-  showToast('✓ Servicio eliminado');
-  renderServicios(document.getElementById('main'));
-}
-
-function editarServicio(idx) {
-  const s = serviciosData[idx];
-  document.getElementById('modalTitle').textContent = 'Editar servicio';
-  document.getElementById('modalBody').innerHTML = modalServicioForm(s, idx);
-  document.getElementById('modalOverlay').classList.add('open');
-}
-
-function abrirModalNuevoServicio() {
-  document.getElementById('modalTitle').textContent = 'Nuevo servicio';
-  document.getElementById('modalBody').innerHTML = modalServicioForm(null, null);
-  document.getElementById('modalOverlay').classList.add('open');
-}
-
-function modalServicioForm(s, idx) {
-  return `
-    <div style="margin-bottom:20px">
-      <label style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">Nombre del servicio</label>
-      <input type="text" id="svcNombre" value="${s ? s.nombre : ''}" placeholder="Ej: Resina anterior"
-        style="width:100%;padding:14px 18px;background:var(--bg);border:1.5px solid transparent;border-radius:12px;font-size:14px;font-family:inherit;color:var(--dark);outline:none"
-        onfocus="this.style.borderColor='var(--terracota)'" onblur="this.style.borderColor='transparent'">
-    </div>
-    <div style="margin-bottom:20px">
-      <label style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">Categoría</label>
-      <select id="svcCategoria"
-        style="width:100%;padding:14px 18px;background:var(--bg);border:1.5px solid transparent;border-radius:12px;font-size:14px;font-family:inherit;color:var(--dark);outline:none;-webkit-appearance:none">
-        ${CATEGORIAS.map(c => `<option value="${c}" ${s && s.categoria === c ? 'selected' : ''}>${c}</option>`).join('')}
-      </select>
-    </div>
-    <div style="margin-bottom:28px">
-      <label style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">Precio sugerido (RD$)</label>
-      <input type="number" id="svcPrecio" value="${s ? s.precio : ''}" placeholder="2500"
-        style="width:100%;padding:14px 18px;background:var(--bg);border:1.5px solid transparent;border-radius:12px;font-size:14px;font-family:inherit;color:var(--dark);outline:none"
-        onfocus="this.style.borderColor='var(--terracota)'" onblur="this.style.borderColor='transparent'">
-    </div>
-    <div style="display:flex;gap:12px;justify-content:flex-end">
-      <button onclick="closeModal()" style="padding:12px 24px;background:none;border:1px solid var(--light);border-radius:100px;font-size:13px;font-family:inherit;color:var(--mid);cursor:pointer">Cancelar</button>
-      <button onclick="guardarServicio(${idx !== null ? idx : 'null'})" style="padding:12px 28px;background:var(--dark);color:var(--white);border:none;border-radius:100px;font-size:13px;font-family:inherit;cursor:pointer">Guardar</button>
-    </div>
-  `;
-}
-
-async function guardarServicio(idx) {
-  const nombre    = document.getElementById('svcNombre').value.trim();
-  const categoria = document.getElementById('svcCategoria').value;
-  const precio    = parseInt(document.getElementById('svcPrecio').value) || 0;
-
-  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
-
-  if (idx === null || idx === 'null') {
-    serviciosData.push({ nombre, categoria, precio });
-    showToast('✓ Servicio agregado');
-  } else {
-    serviciosData[idx] = { nombre, categoria, precio };
-    showToast('✓ Servicio actualizado');
-  }
-
-  await saveServicios();
-  closeModal();
-  renderServicios(document.getElementById('main'));
-}
 
 
 function copyToClipboard(text) {
