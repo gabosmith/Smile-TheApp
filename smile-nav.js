@@ -1,248 +1,317 @@
 // ── SMILE GLOBAL NAV ──────────────────────────────────
-// Inject this script in any SMILE page to get the floating nav
-// <script src="smile-nav.js"></script>
+// Floating nav widget — top right corner
+// Auto-injected on all SMILE pages except the clinic app
 
 (function() {
-  const BASE = 'https://gabosmith.github.io/smile-app';
-
-  // Don't show on the clinic app itself (index.html with ?clinica=)
+  // Don't show inside the clinic app
   const params = new URLSearchParams(window.location.search);
   if (params.get('clinica')) return;
 
+  // Detect current page for active states
+  const path = window.location.pathname;
+  const isAdmin   = path.includes('admin');
+  const isOnboard = path.includes('onboarding');
+  const isHome    = !isAdmin && !isOnboard && !path.includes('app.html');
+
+  // Base URL — relative so it works on any domain
+  function url(page) {
+    // Find the base path of the repo
+    const base = path.substring(0, path.lastIndexOf('/') + 1);
+    return base + page;
+  }
+
   const css = `
-    #smile-global-nav {
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500&display=swap');
+
+    #snav-root {
       position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 20px;
+      right: 20px;
       z-index: 99999;
       font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
-    #smile-nav-pill {
-      background: rgba(30, 28, 26, 0.92);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-radius: 100px;
-      padding: 8px 8px 8px 20px;
+    /* Main toggle button */
+    #snav-toggle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(30,28,26,0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: none;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 4px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.06);
-      white-space: nowrap;
-    }
-
-    #smile-nav-logo {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 6px;
-      color: rgba(255,255,255,0.4);
-      margin-right: 8px;
-      user-select: none;
-    }
-
-    .snav-link {
-      font-size: 12px;
-      font-weight: 300;
-      color: rgba(255,255,255,0.55);
-      text-decoration: none;
-      padding: 8px 14px;
-      border-radius: 100px;
-      transition: color 0.2s, background 0.2s;
-      letter-spacing: 0.3px;
-      cursor: pointer;
-      border: none;
-      background: none;
-      font-family: inherit;
-    }
-    .snav-link:hover {
-      color: rgba(255,255,255,0.9);
-      background: rgba(255,255,255,0.07);
-    }
-    .snav-link.active {
-      color: rgba(255,255,255,0.9);
-    }
-
-    .snav-cta {
-      background: #C4856A;
-      color: white !important;
-      font-size: 11px !important;
-      letter-spacing: 1.5px !important;
-      text-transform: uppercase;
-      padding: 10px 18px !important;
-      box-shadow: 0 2px 12px rgba(196,133,106,0.4);
-      font-weight: 400 !important;
-    }
-    .snav-cta:hover {
-      background: #B5745A !important;
-      color: white !important;
-    }
-
-    /* Clinica login dropdown */
-    .snav-dropdown-wrap {
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+      transition: transform 0.2s, background 0.2s;
       position: relative;
     }
-    #snav-clinica-menu {
-      position: absolute;
-      bottom: calc(100% + 12px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(30,28,26,0.97);
-      backdrop-filter: blur(20px);
-      border-radius: 16px;
-      padding: 8px;
-      min-width: 240px;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
-      display: none;
-      flex-direction: column;
-      gap: 2px;
-    }
-    #snav-clinica-menu.open { display: flex; }
+    #snav-toggle:hover { transform: scale(1.06); }
+    #snav-toggle.open { background: rgba(30,28,26,0.97); }
 
-    .snav-menu-label {
+    /* SMILE wordmark inside button */
+    #snav-toggle-label {
+      font-size: 7px;
+      font-weight: 500;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.7);
+      line-height: 1;
+      padding-right: 1px;
+    }
+
+    /* Dropdown panel */
+    #snav-panel {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      background: rgba(22,20,18,0.97);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-radius: 18px;
+      padding: 8px;
+      width: 220px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
+      opacity: 0;
+      transform: translateY(-6px) scale(0.97);
+      transform-origin: top right;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    #snav-panel.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: all;
+    }
+
+    /* Section label */
+    .snav-section {
       font-size: 9px;
       letter-spacing: 3px;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.25);
-      padding: 8px 12px 4px;
+      color: rgba(255,255,255,0.2);
+      padding: 10px 12px 4px;
     }
 
-    .snav-menu-input {
+    /* Nav items */
+    .snav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 11px;
+      text-decoration: none;
+      color: rgba(255,255,255,0.6);
+      font-size: 13px;
+      font-weight: 300;
+      transition: background 0.15s, color 0.15s;
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+    }
+    .snav-item:hover {
+      background: rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.9);
+    }
+    .snav-item.active {
+      color: rgba(255,255,255,0.95);
+      background: rgba(255,255,255,0.05);
+    }
+    .snav-item-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.06);
+    }
+    .snav-item.active .snav-item-icon {
+      background: rgba(196,133,106,0.25);
+    }
+    .snav-item-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-left: auto;
+      background: #C4856A;
+      flex-shrink: 0;
+    }
+
+    /* Separator */
+    .snav-sep {
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+      margin: 6px 4px;
+    }
+
+    /* Clinic login mini form */
+    #snav-clinica-form {
+      padding: 4px 4px 4px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+    }
+    #snav-clinica-form.open { display: flex; }
+
+    .snav-input {
       background: rgba(255,255,255,0.07);
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 13px;
+      padding: 9px 12px;
+      font-size: 12px;
       font-family: inherit;
       color: white;
       outline: none;
       width: 100%;
       transition: border-color 0.2s;
-      margin: 2px 0;
     }
-    .snav-menu-input::placeholder { color: rgba(255,255,255,0.25); }
-    .snav-menu-input:focus { border-color: rgba(196,133,106,0.6); }
+    .snav-input::placeholder { color: rgba(255,255,255,0.22); }
+    .snav-input:focus { border-color: rgba(196,133,106,0.5); }
 
-    .snav-menu-btn {
+    .snav-go-btn {
       background: #C4856A;
       color: white;
       border: none;
       border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 12px;
+      padding: 9px 12px;
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
       font-family: inherit;
-      letter-spacing: 1px;
       cursor: pointer;
       width: 100%;
       transition: background 0.2s;
-      margin-top: 4px;
     }
-    .snav-menu-btn:hover { background: #B5745A; }
+    .snav-go-btn:hover { background: #B5745A; }
 
-    .snav-menu-sep {
-      height: 1px;
-      background: rgba(255,255,255,0.06);
-      margin: 6px 0;
-    }
-
-    .snav-menu-item {
+    /* Bottom logo */
+    .snav-bottom {
+      padding: 8px 12px 4px;
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      color: rgba(255,255,255,0.7);
-      font-size: 13px;
-      text-decoration: none;
-      transition: background 0.15s, color 0.15s;
-      cursor: pointer;
     }
-    .snav-menu-item:hover {
-      background: rgba(255,255,255,0.07);
-      color: white;
+    .snav-wordmark {
+      font-size: 9px;
+      letter-spacing: 5px;
+      color: rgba(255,255,255,0.15);
+      font-weight: 500;
     }
-    .snav-menu-icon { font-size: 15px; }
+    .snav-version {
+      font-size: 9px;
+      color: rgba(255,255,255,0.12);
+    }
 
-    @media (max-width: 600px) {
-      #smile-nav-logo { display: none; }
-      .snav-link { font-size: 11px; padding: 7px 10px; }
-      #smile-nav-pill { padding: 6px 6px 6px 10px; }
+    @media (max-width: 500px) {
+      #snav-root { top: 12px; right: 12px; }
+      #snav-panel { width: 190px; }
     }
   `;
 
-  // Detect current page
-  const path = window.location.pathname;
-  const isHome    = path.endsWith('smile-brand.html') || path === '/' || path.endsWith('/smile-app/');
-  const isOnboard = path.includes('smile-onboarding');
-  const isAdmin   = path.includes('admin');
-
-  function navLink(label, href, cls = '') {
-    const active = window.location.href.includes(href) ? 'active' : '';
-    return `<a class="snav-link ${active} ${cls}" href="${href}">${label}</a>`;
-  }
-
   const html = `
     <style>${css}</style>
-    <div id="smile-global-nav">
-      <div id="smile-nav-pill">
-        <div id="smile-nav-logo">SMILE</div>
+    <div id="snav-root">
+      <button id="snav-toggle" onclick="snavToggle()" title="Menú SMILE">
+        <span id="snav-toggle-label">SMILE</span>
+      </button>
 
-        ${navLink('Inicio', BASE + '/smile-brand.html')}
-        ${navLink('Onboarding', BASE + '/smile-onboarding.html')}
+      <div id="snav-panel">
+        <div class="snav-section">Páginas</div>
 
-        <div class="snav-dropdown-wrap">
-          <button class="snav-link" id="snav-clinica-btn" onclick="toggleClinicaMenu()">
-            Entrar a clínica ↑
-          </button>
-          <div id="snav-clinica-menu">
-            <div class="snav-menu-label">Acceder a una clínica</div>
-            <input
-              class="snav-menu-input"
-              id="snav-clinica-input"
-              placeholder="ID de tu clínica (ej: clinica-garcia)"
-              onkeydown="if(event.key==='Enter') goToClinica()"
-            >
-            <button class="snav-menu-btn" onclick="goToClinica()">Ir a mi clínica →</button>
-            <div class="snav-menu-sep"></div>
-            <div class="snav-menu-label">Accesos rápidos</div>
-            <a class="snav-menu-item" href="${BASE}/?clinica=clinica-demo">
-              <span class="snav-menu-icon">🦷</span> clinica-demo
-            </a>
-          </div>
+        <a class="snav-item ${isHome ? 'active' : ''}" href="${url('index.html')}">
+          <div class="snav-item-icon">🌐</div>
+          Inicio
+          ${isHome ? '<div class="snav-item-dot"></div>' : ''}
+        </a>
+
+        <a class="snav-item ${isAdmin ? 'active' : ''}" href="${url('admin.html')}">
+          <div class="snav-item-icon">⚙️</div>
+          Panel admin
+          ${isAdmin ? '<div class="snav-item-dot"></div>' : ''}
+        </a>
+
+        <div class="snav-sep"></div>
+        <div class="snav-section">Clínicas</div>
+
+        <button class="snav-item" onclick="snavToggleClinica()">
+          <div class="snav-item-icon">🦷</div>
+          Entrar a clínica
+        </button>
+
+        <div id="snav-clinica-form">
+          <input
+            class="snav-input"
+            id="snav-clinica-input"
+            placeholder="ID de clínica (ej: clinica-garcia)"
+            onkeydown="if(event.key==='Enter') snavGoClinica()"
+          >
+          <button class="snav-go-btn" onclick="snavGoClinica()">Entrar →</button>
         </div>
 
-        ${navLink('Admin', BASE + '/admin.html', isAdmin ? 'active' : '')}
+        <div class="snav-sep"></div>
+        <div class="snav-bottom">
+          <span class="snav-wordmark">SMILE</span>
+          <span class="snav-version">v1.0</span>
+        </div>
       </div>
     </div>
   `;
 
-  // Inject into body
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  document.body.appendChild(div);
-
-  // Close dropdown on outside click
-  document.addEventListener('click', e => {
-    const menu = document.getElementById('snav-clinica-menu');
-    const btn  = document.getElementById('snav-clinica-btn');
-    if (menu && !menu.contains(e.target) && !btn.contains(e.target)) {
-      menu.classList.remove('open');
-    }
+  // Mount
+  document.addEventListener('DOMContentLoaded', function() {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    document.body.appendChild(wrapper);
+    bindNav();
   });
 
-  window.toggleClinicaMenu = function() {
-    const menu = document.getElementById('snav-clinica-menu');
-    menu.classList.toggle('open');
-    if (menu.classList.contains('open')) {
-      setTimeout(() => document.getElementById('snav-clinica-input')?.focus(), 100);
+  // If DOM already loaded
+  if (document.readyState !== 'loading') {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    document.body.appendChild(wrapper);
+    setTimeout(bindNav, 0);
+  }
+
+  function bindNav() {
+    document.addEventListener('click', function(e) {
+      const panel = document.getElementById('snav-panel');
+      const toggle = document.getElementById('snav-toggle');
+      if (!panel || !toggle) return;
+      if (!panel.contains(e.target) && !toggle.contains(e.target)) {
+        panel.classList.remove('open');
+        toggle.classList.remove('open');
+      }
+    });
+  }
+
+  window.snavToggle = function() {
+    const panel = document.getElementById('snav-panel');
+    const toggle = document.getElementById('snav-toggle');
+    panel.classList.toggle('open');
+    toggle.classList.toggle('open');
+  };
+
+  window.snavToggleClinica = function() {
+    const form = document.getElementById('snav-clinica-form');
+    form.classList.toggle('open');
+    if (form.classList.contains('open')) {
+      setTimeout(() => document.getElementById('snav-clinica-input')?.focus(), 80);
     }
   };
 
-  window.goToClinica = function() {
-    const val = document.getElementById('snav-clinica-input').value.trim()
+  window.snavGoClinica = function() {
+    const val = document.getElementById('snav-clinica-input')?.value.trim()
       .toLowerCase().replace(/[^a-z0-9-]/g, '-');
     if (!val) return;
-    window.location.href = BASE + '/?clinica=' + val;
+    window.location.href = url('app.html') + '?clinica=' + val;
   };
 
 })();
