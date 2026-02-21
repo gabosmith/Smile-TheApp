@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMILE.app — Registro</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;1,200&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EEEAE4;
+    --surface: #F5F2EE;
+    --white: #FDFCFB;
+    --dark: #1E1C1A;
+    --mid: #9C9189;
+    --light: #CEC8C0;
+    --terracota: #C4856A;
+    --rosa: #E8C4B8;
+    --azul: #7B8FA1;
+    --clinic-color: #C4856A;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { height: 100%; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── LAYOUT ── */
+  .onboarding {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    background: var(--dark);
+    padding: 48px;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .logo {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 7px;
+    color: var(--surface);
+    margin-bottom: auto;
+  }
+
+  .preview-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 0;
+  }
+
+  /* APP PREVIEW MOCKUP */
+  .app-mockup {
+    background: var(--surface);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+    transform: perspective(800px) rotateY(-4deg) rotateX(2deg);
+    transition: all 0.6s cubic-bezier(0.34,1.2,0.64,1);
+  }
+
+  .mockup-header {
+    background: var(--clinic-color);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.4s;
+  }
+
+  .mockup-logo-preview {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    transition: all 0.3s;
+    overflow: hidden;
+  }
+
+  .mockup-logo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: none;
+  }
+
+  .mockup-clinic-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+    transition: all 0.3s;
+  }
+
+  .mockup-body {
+    padding: 16px;
+  }
+
+  .mockup-stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .mockup-stat {
+    background: var(--white);
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .mockup-stat-label { font-size: 9px; color: var(--mid); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+  .mockup-stat-val { font-size: 18px; font-weight: 200; color: var(--dark); }
+
+  .mockup-accent-bar {
+    height: 3px;
+    background: var(--clinic-color);
+    border-radius: 2px;
+    margin-bottom: 12px;
+    transition: background 0.4s;
+    width: 40%;
+  }
+
+  .mockup-list-item {
+    background: var(--white);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+
+  .mockup-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--clinic-color);
+    transition: background 0.4s;
+    flex-shrink: 0;
+  }
+
+  .mockup-line { height: 8px; background: var(--bg); border-radius: 4px; flex: 1; }
+  .mockup-line.short { width: 40%; flex: none; }
+
+  .mockup-tab-bar {
+    display: flex;
+    border-top: 1px solid var(--bg);
+    padding: 8px 0 4px;
+    margin-top: 4px;
+  }
+
+  .mockup-tab {
+    flex: 1;
+    text-align: center;
+    font-size: 9px;
+    color: var(--light);
+    padding: 4px;
+  }
+
+  .mockup-tab.active { color: var(--clinic-color); font-weight: 500; transition: color 0.4s; }
+
+  /* STEP INDICATORS */
+  .steps-indicator {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .step-ind {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    opacity: 0.35;
+    transition: opacity 0.3s;
+  }
+
+  .step-ind.active { opacity: 1; }
+  .step-ind.done { opacity: 0.6; }
+
+  .step-ind-dot {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid #4A4440;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #4A4440;
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+
+  .step-ind.active .step-ind-dot {
+    background: var(--terracota);
+    border-color: var(--terracota);
+    color: white;
+  }
+
+  .step-ind.done .step-ind-dot {
+    background: #2C2A28;
+    border-color: #3A3836;
+    color: var(--terracota);
+  }
+
+  .step-ind-label { font-size: 12px; color: #6B635C; }
+  .step-ind.active .step-ind-label { color: var(--surface); }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    padding: 48px 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  /* PROGRESS BAR */
+  .progress-bar-wrap {
+    height: 3px;
+    background: var(--light);
+    border-radius: 2px;
+    margin-bottom: 52px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--terracota);
+    border-radius: 2px;
+    transition: width 0.5s cubic-bezier(0.34,1.2,0.64,1);
+  }
+
+  /* STEP */
+  .step {
+    display: none;
+    animation: stepIn 0.4s ease forwards;
+  }
+
+  .step.active { display: block; }
+
+  @keyframes stepIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes stepOut {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(-20px); }
+  }
+
+  .step-eyebrow {
+    font-size: 11px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--terracota);
+    margin-bottom: 12px;
+  }
+
+  .step-title {
+    font-size: 36px;
+    font-weight: 200;
+    letter-spacing: -1px;
+    color: var(--dark);
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+
+  .step-sub {
+    font-size: 14px;
+    color: var(--mid);
+    line-height: 1.7;
+    margin-bottom: 40px;
+  }
+
+  /* INPUTS */
+  .field {
+    margin-bottom: 20px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-bottom: 8px;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    padding: 16px 20px;
+    background: var(--white);
+    border: 1.5px solid transparent;
+    border-radius: 14px;
+    font-size: 15px;
+    font-family: inherit;
+    font-weight: 300;
+    color: var(--dark);
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9);
+    transition: all 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .field input:focus, .field select:focus {
+    border-color: var(--terracota);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05), 0 0 0 3px rgba(196,133,106,0.12), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+
+  .field input.error { border-color: #E57373; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .subdomain-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--white);
+    border: 1.5px solid transparent;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9);
+    transition: all 0.2s;
+  }
+
+  .subdomain-wrap:focus-within {
+    border-color: var(--terracota);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05), 0 0 0 3px rgba(196,133,106,0.12);
+  }
+
+  .subdomain-prefix {
+    padding: 16px 0 16px 20px;
+    font-size: 15px;
+    color: var(--light);
+    white-space: nowrap;
+    background: transparent;
+  }
+
+  .subdomain-wrap input {
+    border: none;
+    box-shadow: none;
+    padding-left: 4px;
+    border-radius: 0;
+  }
+
+  .subdomain-wrap input:focus {
+    border: none;
+    box-shadow: none;
+  }
+
+  .subdomain-suffix {
+    padding: 16px 20px 16px 0;
+    font-size: 15px;
+    color: var(--light);
+    white-space: nowrap;
+  }
+
+  /* COLOR PICKER */
+  .color-picker-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-bottom: 12px;
+  }
+
+  .color-swatches {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .swatch {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    border: 2px solid transparent;
+  }
+
+  .swatch:hover { transform: scale(1.1); }
+
+  .swatch.selected {
+    border-color: var(--dark);
+    box-shadow: 0 0 0 3px rgba(30,28,26,0.15);
+  }
+
+  .swatch.selected::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .color-custom {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .color-custom input[type="color"] {
+    width: 40px; height: 40px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    padding: 2px;
+    background: var(--white);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .color-custom span { font-size: 13px; color: var(--mid); }
+
+  /* LOGO UPLOAD */
+  .logo-upload-area {
+    border: 2px dashed var(--light);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--white);
+    position: relative;
+  }
+
+  .logo-upload-area:hover { border-color: var(--terracota); background: rgba(196,133,106,0.03); }
+  .logo-upload-area.has-logo { border-style: solid; border-color: var(--terracota); }
+
+  .logo-upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-label { font-size: 13px; color: var(--mid); }
+  .upload-preview { max-height: 80px; max-width: 200px; object-fit: contain; display: none; margin: 0 auto; }
+
+  /* TEAM BUILDER */
+  .team-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .user-card {
+    background: var(--white);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .user-card:hover { border-color: var(--light); }
+  .user-card.selected { border-color: var(--terracota); background: rgba(196,133,106,0.04); }
+
+  .user-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .user-info-name { font-size: 13px; font-weight: 400; color: var(--dark); }
+  .user-info-role { font-size: 11px; color: var(--mid); margin-top: 2px; }
+
+  .counter-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--white);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .counter-label { font-size: 14px; color: var(--dark); }
+  .counter-sub { font-size: 12px; color: var(--mid); margin-top: 2px; }
+
+  .counter-controls { display: flex; align-items: center; gap: 16px; }
+
+  .counter-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1.5px solid var(--light);
+    background: none;
+    font-size: 18px;
+    color: var(--mid);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+
+  .counter-btn:hover { border-color: var(--terracota); color: var(--terracota); }
+  .counter-val { font-size: 20px; font-weight: 200; color: var(--dark); min-width: 24px; text-align: center; }
+
+  /* MODULES MINI */
+  .modules-mini {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .module-mini {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.2s;
+  }
+
+  .module-mini:hover { border-color: var(--light); }
+  .module-mini.selected { border-color: var(--terracota); background: rgba(196,133,106,0.04); }
+
+  .module-mini-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .module-mini-name { font-size: 13px; color: var(--dark); flex: 1; }
+  .module-mini-price { font-size: 12px; color: var(--mid); }
+  .module-mini-check { font-size: 12px; color: var(--terracota); opacity: 0; transition: opacity 0.2s; }
+  .module-mini.selected .module-mini-check { opacity: 1; }
+
+  /* SUMMARY BOX */
+  .summary-box {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    margin-top: 20px;
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--bg);
+    color: var(--mid);
+  }
+
+  .summary-row:last-child { border-bottom: none; }
+
+  .summary-total {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 12px;
+    margin-top: 4px;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--dark);
+  }
+
+  /* NAVIGATION BUTTONS */
+  .step-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 40px;
+    padding-top: 32px;
+    border-top: 1px solid var(--light);
+  }
+
+  .btn-back {
+    font-size: 13px;
+    color: var(--mid);
+    background: none;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s;
+  }
+  .btn-back:hover { color: var(--dark); }
+  .btn-back.invisible { visibility: hidden; }
+
+  .btn-next {
+    background: var(--dark);
+    color: var(--white);
+    border: none;
+    padding: 16px 36px;
+    border-radius: 100px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 16px rgba(30,28,26,0.18);
+  }
+  .btn-next:hover { background: var(--terracota); box-shadow: 0 6px 24px rgba(196,133,106,0.3); }
+  .btn-next:disabled { background: var(--light); box-shadow: none; cursor: not-allowed; }
+
+  /* SUCCESS SCREEN */
+  .success-screen {
+    display: none;
+    animation: stepIn 0.6s ease forwards;
+    text-align: center;
+    padding: 40px 0;
+  }
+
+  .success-screen.active { display: block; }
+
+  .success-icon {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: rgba(196,133,106,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin: 0 auto 32px;
+    animation: pop 0.5s 0.2s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+
+  @keyframes pop {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .success-title { font-size: 36px; font-weight: 200; letter-spacing: -1px; color: var(--dark); margin-bottom: 12px; }
+  .success-sub { font-size: 15px; color: var(--mid); line-height: 1.7; margin-bottom: 32px; }
+
+  .success-url {
+    background: var(--white);
+    border-radius: 14px;
+    padding: 16px 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    margin-bottom: 32px;
+    cursor: pointer;
+  }
+
+  .success-url-text { font-size: 15px; color: var(--terracota); letter-spacing: 1px; }
+  .success-url-copy { font-size: 11px; color: var(--mid); padding: 4px 10px; background: var(--bg); border-radius: 6px; }
+
+  .success-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    text-align: left;
+    margin-top: 24px;
+  }
+
+  .success-detail-card {
+    background: var(--white);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .sd-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--mid); margin-bottom: 6px; }
+  .sd-val { font-size: 15px; color: var(--dark); font-weight: 400; }
+
+  /* ERROR MSG */
+  .error-msg {
+    font-size: 12px;
+    color: #E57373;
+    margin-top: 6px;
+    display: none;
+  }
+
+  /* HINT */
+  .hint {
+    font-size: 12px;
+    color: var(--light);
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="onboarding">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="left-panel">
+    <div class="logo">SMILE</div>
+
+    <div class="preview-area">
+      <!-- APP MOCKUP -->
+      <div class="app-mockup" id="appMockup">
+        <div class="mockup-header" id="mockupHeader">
+          <div class="mockup-logo-preview" id="mockupLogo">
+            <img id="mockupLogoImg" src="" alt="">
+            <span id="mockupLogoText">C</span>
+          </div>
+          <div class="mockup-clinic-name" id="mockupClinicName">Tu Clínica</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-stat-row">
+            <div class="mockup-stat">
+              <div class="mockup-stat-label">Pacientes</div>
+              <div class="mockup-stat-val">148</div>
+            </div>
+            <div class="mockup-stat">
+              <div class="mockup-stat-label">Citas hoy</div>
+              <div class="mockup-stat-val">9</div>
+            </div>
+            <div class="mockup-stat">
+              <div class="mockup-stat-label">Ingresos</div>
+              <div class="mockup-stat-val">84K</div>
+            </div>
+          </div>
+          <div class="mockup-accent-bar" id="mockupAccentBar"></div>
+          <div class="mockup-list-item">
+            <div class="mockup-dot" id="mockupDot1"></div>
+            <div class="mockup-line"></div>
+            <div class="mockup-line short"></div>
+          </div>
+          <div class="mockup-list-item">
+            <div class="mockup-dot" id="mockupDot2"></div>
+            <div class="mockup-line"></div>
+          </div>
+          <div class="mockup-list-item">
+            <div class="mockup-dot" id="mockupDot3"></div>
+            <div class="mockup-line"></div>
+            <div class="mockup-line short"></div>
+          </div>
+          <div class="mockup-tab-bar">
+            <div class="mockup-tab active" id="mockupTab">🏠 Inicio</div>
+            <div class="mockup-tab">📅 Agenda</div>
+            <div class="mockup-tab">🦷 Pacientes</div>
+            <div class="mockup-tab">💳 Cobros</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP INDICATORS -->
+    <div class="steps-indicator">
+      <div class="step-ind active" id="ind-1">
+        <div class="step-ind-dot">1</div>
+        <div class="step-ind-label">Tu clínica</div>
+      </div>
+      <div class="step-ind" id="ind-2">
+        <div class="step-ind-dot">2</div>
+        <div class="step-ind-label">Identidad visual</div>
+      </div>
+      <div class="step-ind" id="ind-3">
+        <div class="step-ind-dot">3</div>
+        <div class="step-ind-label">Tu equipo</div>
+      </div>
+      <div class="step-ind" id="ind-4">
+        <div class="step-ind-dot">4</div>
+        <div class="step-ind-label">Módulos</div>
+      </div>
+      <div class="step-ind" id="ind-5">
+        <div class="step-ind-dot">5</div>
+        <div class="step-ind-label">Resumen</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="right-panel">
+
+    <!-- PROGRESS -->
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressFill" style="width: 20%"></div>
+    </div>
+
+    <!-- ── STEP 1: CLÍNICA ── -->
+    <div class="step active" id="step-1">
+      <div class="step-eyebrow">Paso 1 de 5</div>
+      <div class="step-title">Cuéntanos sobre<br>tu clínica.</div>
+      <div class="step-sub">Esta información aparecerá en tu app y en los documentos de tus pacientes.</div>
+
+      <div class="field">
+        <label>Nombre de la clínica *</label>
+        <input type="text" id="clinicName" placeholder="Ej: Clínica Dental García" oninput="onClinicNameInput(this.value)">
+        <div class="error-msg" id="err-clinicName">Por favor ingresa el nombre de tu clínica</div>
+      </div>
+
+      <div class="field">
+        <label>Tu subdominio</label>
+        <div class="subdomain-wrap">
+          <span class="subdomain-prefix">smile.app/</span>
+          <input type="text" id="subdomain" placeholder="clinica-garcia" oninput="onSubdomainInput(this.value)">
+        </div>
+        <div class="hint" id="subdomain-hint">Tu app estará en: smile.app/clinica-garcia</div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Ciudad</label>
+          <select id="ciudad">
+            <option value="">Selecciona...</option>
+            <option>Santo Domingo</option>
+            <option>Santiago</option>
+            <option>La Romana</option>
+            <option>San Pedro de Macorís</option>
+            <option>Puerto Plata</option>
+            <option>San Francisco de Macorís</option>
+            <option>Higüey</option>
+            <option>Otra</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Teléfono</label>
+          <input type="tel" id="telefono" placeholder="809-000-0000">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Nombre del administrador *</label>
+        <input type="text" id="adminName" placeholder="Dr. García" oninput="validateStep1()">
+        <div class="error-msg" id="err-adminName">Por favor ingresa tu nombre</div>
+      </div>
+
+      <div class="field">
+        <label>Email *</label>
+        <input type="email" id="adminEmail" placeholder="doctor@clinica.com" oninput="validateStep1()">
+        <div class="error-msg" id="err-adminEmail">Email inválido</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back invisible">← Atrás</button>
+        <button class="btn-next" id="next-1" onclick="goNext(1)" disabled>Continuar →</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: IDENTIDAD ── -->
+    <div class="step" id="step-2">
+      <div class="step-eyebrow">Paso 2 de 5</div>
+      <div class="step-title">Identidad<br>visual.</div>
+      <div class="step-sub">El logo y los colores de tu clínica aparecerán en toda la app y en los documentos.</div>
+
+      <div class="color-picker-label">Color principal</div>
+      <div class="color-swatches" id="colorSwatches">
+        <div class="swatch selected" style="background:#C4856A" data-color="#C4856A" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#7B8FA1" data-color="#7B8FA1" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#6B8F71" data-color="#6B8F71" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#8F7BB0" data-color="#8F7BB0" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#B08A5A" data-color="#B08A5A" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#5A7A8F" data-color="#5A7A8F" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#1E1C1A" data-color="#1E1C1A" onclick="selectColor(this)"></div>
+      </div>
+
+      <div class="color-custom">
+        <input type="color" id="customColor" value="#C4856A" oninput="onCustomColor(this.value)">
+        <span>O elige tu color exacto</span>
+      </div>
+
+      <div class="field" style="margin-top: 28px;">
+        <label>Logo de la clínica</label>
+        <div class="logo-upload-area" id="logoUploadArea" onclick="document.getElementById('logoInput').click()">
+          <input type="file" id="logoInput" accept="image/*" onchange="onLogoUpload(this)">
+          <div id="uploadContent">
+            <div class="upload-icon">🖼</div>
+            <div class="upload-label">Toca para subir tu logo<br><span style="font-size:11px;color:var(--light)">PNG o SVG recomendado · Fondo transparente ideal</span></div>
+          </div>
+          <img class="upload-preview" id="logoPreview" src="" alt="">
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goBack(2)">← Atrás</button>
+        <button class="btn-next" onclick="goNext(2)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 3: EQUIPO ── -->
+    <div class="step" id="step-3">
+      <div class="step-eyebrow">Paso 3 de 5</div>
+      <div class="step-title">Tu equipo.</div>
+      <div class="step-sub">¿Cuántas personas van a usar SMILE? Puedes agregar más usuarios después.</div>
+
+      <div class="counter-row">
+        <div>
+          <div class="counter-label">Dentistas</div>
+          <div class="counter-sub">Acceso completo a expedientes y tratamientos</div>
+        </div>
+        <div class="counter-controls">
+          <button class="counter-btn" onclick="changeCount('dentistas', -1)">−</button>
+          <div class="counter-val" id="count-dentistas">1</div>
+          <button class="counter-btn" onclick="changeCount('dentistas', 1)">+</button>
+        </div>
+      </div>
+
+      <div class="counter-row">
+        <div>
+          <div class="counter-label">Recepcionistas</div>
+          <div class="counter-sub">Gestión de agenda, cobros y pacientes</div>
+        </div>
+        <div class="counter-controls">
+          <button class="counter-btn" onclick="changeCount('recep', -1)">−</button>
+          <div class="counter-val" id="count-recep">0</div>
+          <button class="counter-btn" onclick="changeCount('recep', 1)">+</button>
+        </div>
+      </div>
+
+      <div class="counter-row">
+        <div>
+          <div class="counter-label">Asistentes</div>
+          <div class="counter-sub">Acceso limitado según rol asignado</div>
+        </div>
+        <div class="counter-controls">
+          <button class="counter-btn" onclick="changeCount('asist', -1)">−</button>
+          <div class="counter-val" id="count-asist">0</div>
+          <button class="counter-btn" onclick="changeCount('asist', 1)">+</button>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goBack(3)">← Atrás</button>
+        <button class="btn-next" onclick="goNext(3)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 4: MÓDULOS ── -->
+    <div class="step" id="step-4">
+      <div class="step-eyebrow">Paso 4 de 5</div>
+      <div class="step-title">¿Qué necesita<br>tu clínica?</div>
+      <div class="step-sub">Agrega los módulos que uses. Puedes cambiarlos en cualquier momento.</div>
+
+      <div class="modules-mini" id="modulesMini">
+        <div class="module-mini" data-price="500" data-name="Laboratorio" onclick="toggleModuleMini(this)">
+          <div class="module-mini-dot" style="background:var(--terracota)"></div>
+          <div class="module-mini-name">Laboratorio</div>
+          <div class="module-mini-price">+RD$500</div>
+          <div class="module-mini-check">✓</div>
+        </div>
+        <div class="module-mini" data-price="500" data-name="Nómina" onclick="toggleModuleMini(this)">
+          <div class="module-mini-dot" style="background:var(--azul)"></div>
+          <div class="module-mini-name">Nómina</div>
+          <div class="module-mini-price">+RD$500</div>
+          <div class="module-mini-check">✓</div>
+        </div>
+        <div class="module-mini" data-price="500" data-name="Inventario" onclick="toggleModuleMini(this)">
+          <div class="module-mini-dot" style="background:var(--rosa)"></div>
+          <div class="module-mini-name">Inventario</div>
+          <div class="module-mini-price">+RD$500</div>
+          <div class="module-mini-check">✓</div>
+        </div>
+        <div class="module-mini" data-price="400" data-name="NCF · DGII" onclick="toggleModuleMini(this)">
+          <div class="module-mini-dot" style="background:var(--light)"></div>
+          <div class="module-mini-name">NCF · DGII</div>
+          <div class="module-mini-price">+RD$400</div>
+          <div class="module-mini-check">✓</div>
+        </div>
+        <div class="module-mini" data-price="300" data-name="Reportes" onclick="toggleModuleMini(this)">
+          <div class="module-mini-dot" style="background:var(--terracota)"></div>
+          <div class="module-mini-name">Reportes</div>
+          <div class="module-mini-price">+RD$300</div>
+          <div class="module-mini-check">✓</div>
+        </div>
+        <div class="module-mini" data-price="700" data-name="Multi-sucursal" onclick="toggleModuleMini(this)">
+          <div class="module-mini-dot" style="background:var(--azul)"></div>
+          <div class="module-mini-name">Multi-sucursal</div>
+          <div class="module-mini-price">+RD$700</div>
+          <div class="module-mini-check">✓</div>
+        </div>
+        <div class="module-mini" data-price="300" data-name="Expediente clínico" onclick="toggleModuleMini(this)">
+          <div class="module-mini-dot" style="background:var(--rosa)"></div>
+          <div class="module-mini-name">Expediente clínico</div>
+          <div class="module-mini-price">+RD$300</div>
+          <div class="module-mini-check">✓</div>
+        </div>
+      </div>
+
+      <div class="summary-box">
+        <div class="summary-row">
+          <span>Plan base</span>
+          <span>RD$1,200</span>
+        </div>
+        <div id="module-summary-rows"></div>
+        <div class="summary-row">
+          <span>Usuarios adicionales (<span id="extra-users-count">0</span>)</span>
+          <span id="extra-users-price">RD$0</span>
+        </div>
+        <div class="summary-total">
+          <span>Total mensual</span>
+          <span id="step4-total">RD$1,200</span>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goBack(4)">← Atrás</button>
+        <button class="btn-next" onclick="goNext(4)">Ver resumen →</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 5: RESUMEN ── -->
+    <div class="step" id="step-5">
+      <div class="step-eyebrow">Paso 5 de 5</div>
+      <div class="step-title">Todo listo.<br>Confirma tu plan.</div>
+      <div class="step-sub">Revisa los detalles de tu clínica antes de activar tu cuenta.</div>
+
+      <div class="summary-box" id="final-summary">
+        <!-- filled by JS -->
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goBack(5)">← Atrás</button>
+        <button class="btn-next" onclick="activateClinic()" id="btn-activate">🎉 Activar mi clínica</button>
+      </div>
+    </div>
+
+    <!-- ── SUCCESS ── -->
+    <div class="success-screen" id="success">
+      <div class="success-icon">🦷</div>
+      <div class="success-title">¡Tu clínica está lista!</div>
+      <div class="success-sub">Hemos creado tu espacio en SMILE.<br>14 días gratis, sin tarjeta de crédito.</div>
+
+      <div class="success-url" onclick="copyUrl()" id="successUrl">
+        <div class="success-url-text" id="successUrlText">smile.app/tu-clinica</div>
+        <div class="success-url-copy">Copiar</div>
+      </div>
+
+      <div class="success-details" id="successDetails">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────
+const state = {
+  currentStep: 1,
+  clinicName: '',
+  subdomain: '',
+  ciudad: '',
+  adminName: '',
+  adminEmail: '',
+  color: '#C4856A',
+  logoDataUrl: null,
+  dentistas: 1,
+  recep: 0,
+  asist: 0,
+  modules: [],
+};
+
+// ─── STEP NAVIGATION ──────────────────────────────────
+function goNext(from) {
+  if (!validateStep(from)) return;
+  setStep(from + 1);
+}
+
+function goBack(from) {
+  setStep(from - 1);
+}
+
+function setStep(n) {
+  // hide current
+  document.getElementById('step-' + state.currentStep)?.classList.remove('active');
+
+  state.currentStep = n;
+
+  // show new
+  const newStep = document.getElementById('step-' + n);
+  if (newStep) {
+    newStep.classList.add('active');
+  }
+
+  // update progress
+  document.getElementById('progressFill').style.width = (n * 20) + '%';
+
+  // update indicators
+  for (let i = 1; i <= 5; i++) {
+    const ind = document.getElementById('ind-' + i);
+    ind.classList.remove('active', 'done');
+    if (i < n) ind.classList.add('done');
+    if (i === n) ind.classList.add('active');
+
+    // Update dot content
+    const dot = ind.querySelector('.step-ind-dot');
+    dot.textContent = i < n ? '✓' : i;
+  }
+
+  // special logic per step
+  if (n === 4) updateStep4Totals();
+  if (n === 5) buildFinalSummary();
+}
+
+// ─── VALIDATION ───────────────────────────────────────
+function validateStep(n) {
+  if (n === 1) {
+    let valid = true;
+
+    if (!state.clinicName.trim()) {
+      showError('clinicName', true);
+      valid = false;
+    } else showError('clinicName', false);
+
+    if (!state.adminName.trim()) {
+      showError('adminName', true);
+      valid = false;
+    } else showError('adminName', false);
+
+    if (!validateEmail(state.adminEmail)) {
+      showError('adminEmail', true);
+      valid = false;
+    } else showError('adminEmail', false);
+
+    return valid;
+  }
+  return true;
+}
+
+function validateStep1() {
+  const name = document.getElementById('clinicName').value.trim();
+  const admin = document.getElementById('adminName').value.trim();
+  const email = document.getElementById('adminEmail').value.trim();
+  state.adminName = admin;
+  state.adminEmail = email;
+  const ok = name && admin && validateEmail(email);
+  document.getElementById('next-1').disabled = !ok;
+}
+
+function validateEmail(e) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+function showError(field, show) {
+  const el = document.getElementById('err-' + field);
+  if (el) el.style.display = show ? 'block' : 'none';
+  const input = document.getElementById(field);
+  if (input) input.classList.toggle('error', show);
+}
+
+// ─── STEP 1 INPUTS ────────────────────────────────────
+function onClinicNameInput(val) {
+  state.clinicName = val;
+  // Update mockup
+  document.getElementById('mockupClinicName').textContent = val || 'Tu Clínica';
+  document.getElementById('mockupLogoText').textContent = val ? val[0].toUpperCase() : 'C';
+  // Auto-generate subdomain
+  const sub = val.toLowerCase()
+    .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e')
+    .replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o')
+    .replace(/[úùü]/g, 'u').replace(/ñ/g, 'n')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  document.getElementById('subdomain').value = sub;
+  onSubdomainInput(sub);
+  validateStep1();
+}
+
+function onSubdomainInput(val) {
+  const clean = val.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  document.getElementById('subdomain').value = clean;
+  state.subdomain = clean;
+  document.getElementById('subdomain-hint').textContent =
+    clean ? `Tu app estará en: smile.app/${clean}` : 'Tu app estará en: smile.app/tu-clinica';
+}
+
+// ─── STEP 2: COLOR & LOGO ─────────────────────────────
+function selectColor(el) {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  const color = el.dataset.color;
+  document.getElementById('customColor').value = color;
+  applyColor(color);
+}
+
+function onCustomColor(val) {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  applyColor(val);
+}
+
+function applyColor(color) {
+  state.color = color;
+  document.documentElement.style.setProperty('--clinic-color', color);
+  document.getElementById('mockupHeader').style.background = color;
+  document.getElementById('mockupAccentBar').style.background = color;
+  ['mockupDot1','mockupDot2','mockupDot3'].forEach(id => {
+    document.getElementById(id).style.background = color;
+  });
+  document.getElementById('mockupTab').style.color = color;
+}
+
+function onLogoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    state.logoDataUrl = e.target.result;
+    // Show in upload area
+    const preview = document.getElementById('logoPreview');
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    document.getElementById('uploadContent').style.display = 'none';
+    document.getElementById('logoUploadArea').classList.add('has-logo');
+    // Show in mockup
+    const mockupImg = document.getElementById('mockupLogoImg');
+    const mockupText = document.getElementById('mockupLogoText');
+    mockupImg.src = e.target.result;
+    mockupImg.style.display = 'block';
+    mockupText.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── STEP 3: COUNTERS ─────────────────────────────────
+const counts = { dentistas: 1, recep: 0, asist: 0 };
+
+function changeCount(key, delta) {
+  counts[key] = Math.max(0, counts[key] + delta);
+  if (key === 'dentistas') counts[key] = Math.max(1, counts[key]);
+  document.getElementById('count-' + key).textContent = counts[key];
+  state[key] = counts[key];
+  // Update extra users price
+  updateStep4Totals();
+}
+
+// ─── STEP 4: MODULES ──────────────────────────────────
+function toggleModuleMini(el) {
+  el.classList.toggle('selected');
+  const name = el.dataset.name;
+  const price = parseInt(el.dataset.price);
+  if (el.classList.contains('selected')) {
+    if (!state.modules.find(m => m.name === name)) {
+      state.modules.push({ name, price });
+    }
+  } else {
+    state.modules = state.modules.filter(m => m.name !== name);
+  }
+  updateStep4Totals();
+}
+
+function updateStep4Totals() {
+  const BASE = 1200;
+  const EXTRA_USER_PRICE = 300;
+  const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
+  const extraUsers = Math.max(0, totalUsers - 1);
+  const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
+
+  let modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
+  let total = BASE + modulesTotal + extraUsersCost;
+
+  // Update extra users row
+  document.getElementById('extra-users-count').textContent = extraUsers;
+  document.getElementById('extra-users-price').textContent = 'RD$' + extraUsersCost.toLocaleString();
+
+  // Update module rows
+  const rows = state.modules.map(m =>
+    `<div class="summary-row"><span>${m.name}</span><span>+RD$${m.price.toLocaleString()}</span></div>`
+  ).join('');
+  document.getElementById('module-summary-rows').innerHTML = rows;
+
+  document.getElementById('step4-total').textContent = 'RD$' + total.toLocaleString();
+}
+
+// ─── STEP 5: FINAL SUMMARY ────────────────────────────
+function buildFinalSummary() {
+  const BASE = 1200;
+  const EXTRA_USER_PRICE = 300;
+  const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
+  const extraUsers = Math.max(0, totalUsers - 1);
+  const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
+  const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
+  const total = BASE + modulesTotal + extraUsersCost;
+
+  const moduleRows = state.modules.map(m =>
+    `<div class="summary-row"><span>+ ${m.name}</span><span>RD$${m.price.toLocaleString()}</span></div>`
+  ).join('');
+
+  document.getElementById('final-summary').innerHTML = `
+    <div class="summary-row">
+      <span>🏥 Clínica</span>
+      <span style="color:var(--dark);font-weight:400">${state.clinicName}</span>
+    </div>
+    <div class="summary-row">
+      <span>🔗 Subdominio</span>
+      <span style="color:var(--terracota)">smile.app/${state.subdomain || 'tu-clinica'}</span>
+    </div>
+    <div class="summary-row">
+      <span>👤 Admin</span>
+      <span>${state.adminName}</span>
+    </div>
+    <div class="summary-row">
+      <span>👥 Equipo</span>
+      <span>${counts.dentistas} dentista${counts.dentistas > 1 ? 's' : ''}${counts.recep ? `, ${counts.recep} recep.` : ''}${counts.asist ? `, ${counts.asist} asist.` : ''}</span>
+    </div>
+    <div class="summary-row">
+      <span>Plan base</span>
+      <span>RD$1,200</span>
+    </div>
+    ${moduleRows}
+    ${extraUsers > 0 ? `<div class="summary-row"><span>Usuarios adicionales (${extraUsers})</span><span>RD$${extraUsersCost.toLocaleString()}</span></div>` : ''}
+    <div class="summary-total">
+      <span>Total mensual</span>
+      <span style="color:var(--terracota)">RD$${total.toLocaleString()}</span>
+    </div>
+    <div style="font-size:12px;color:var(--light);margin-top:12px;text-align:center">
+      14 días gratis · Sin tarjeta · Cancela cuando quieras
+    </div>
+  `;
+}
+
+// ─── ACTIVATION ───────────────────────────────────────
+function activateClinic() {
+  const btn = document.getElementById('btn-activate');
+  btn.textContent = '⏳ Activando...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    // Hide all steps
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+
+    // Show success
+    const success = document.getElementById('success');
+    success.classList.add('active');
+
+    // Update progress to 100%
+    document.getElementById('progressFill').style.width = '100%';
+
+    // Update indicators — all done
+    for (let i = 1; i <= 5; i++) {
+      const ind = document.getElementById('ind-' + i);
+      ind.classList.remove('active');
+      ind.classList.add('done');
+      ind.querySelector('.step-ind-dot').textContent = '✓';
+    }
+
+    // Fill success content
+    const url = `smile.app/${state.subdomain || 'tu-clinica'}`;
+    document.getElementById('successUrlText').textContent = url;
+
+    const BASE = 1200;
+    const EXTRA_USER_PRICE = 300;
+    const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
+    const extraUsers = Math.max(0, totalUsers - 1);
+    const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
+    const total = BASE + modulesTotal + (extraUsers * EXTRA_USER_PRICE);
+
+    document.getElementById('successDetails').innerHTML = `
+      <div class="success-detail-card">
+        <div class="sd-label">Clínica</div>
+        <div class="sd-val">${state.clinicName}</div>
+      </div>
+      <div class="success-detail-card">
+        <div class="sd-label">Plan mensual</div>
+        <div class="sd-val" style="color:var(--terracota)">RD$${total.toLocaleString()}</div>
+      </div>
+      <div class="success-detail-card">
+        <div class="sd-label">Administrador</div>
+        <div class="sd-val">${state.adminName}</div>
+      </div>
+      <div class="success-detail-card">
+        <div class="sd-label">Prueba gratis hasta</div>
+        <div class="sd-val">${getFreeTrialDate()}</div>
+      </div>
+    `;
+
+    // Animate mockup to celebrate
+    const mockup = document.getElementById('appMockup');
+    mockup.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg) scale(1.02)';
+  }, 1400);
+}
+
+function getFreeTrialDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
+  return d.toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function copyUrl() {
+  const url = document.getElementById('successUrlText').textContent;
+  navigator.clipboard?.writeText('https://' + url);
+  const copy = document.querySelector('.success-url-copy');
+  copy.textContent = '✓ Copiado';
+  setTimeout(() => copy.textContent = 'Copiar', 2000);
+}
+</script>
+</body>
+</html>
