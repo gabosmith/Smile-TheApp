@@ -23,11 +23,13 @@ function detectClinica() {
 // Cargar branding dinámico desde Firebase config
 // Clinic config stored globally so buildNavigation() can read it
 let clinicConfig = {
-    modulos: [],       // módulos activos: ['laboratorio','nomina',...]
-    plan: 'clinica',   // 'solo' | 'clinica'
+    modulos: [],
+    plan: 'clinica',
     nombre: '',
     color: '',
-    activa: true
+    activa: true,
+    procMode: 'libre',   // 'libre' | 'lista'
+    procItems: [],       // [{nombre, precio}] when procMode=lista
 };
 
 async function loadClinicBranding() {
@@ -43,7 +45,9 @@ async function loadClinicBranding() {
         clinicConfig.plan    = cfg.plan || 'clinica';
         clinicConfig.nombre  = cfg.nombre || '';
         clinicConfig.color   = cfg.color || '';
-        clinicConfig.activa  = cfg.activa !== false;
+        clinicConfig.activa    = cfg.activa !== false;
+        clinicConfig.procMode  = cfg.procMode || 'libre';
+        clinicConfig.procItems = cfg.procItems || [];
 
         // ── Apply branding ──
         if (cfg.nombre) {
@@ -54,24 +58,42 @@ async function loadClinicBranding() {
 
         if (cfg.color) {
             const darker = darkenColor(cfg.color, 20);
-            // Apply via CSS variables (index.html uses them)
-            document.documentElement.style.setProperty('--clinic-color', cfg.color);
+            const color = cfg.color;
+
+            // Apply CSS variables on documentElement — works everywhere
+            document.documentElement.style.setProperty('--clinic-color', color);
             document.documentElement.style.setProperty('--clinic-color-light', darker);
-            // Also inject fallback styles for older references
-            const style = document.createElement('style');
-            style.textContent = `
-                .login-screen { background: linear-gradient(135deg, ${cfg.color} 0%, ${darker} 100%) !important; }
-                .app-header { background: ${cfg.color} !important; }
-                .modal-title { color: ${cfg.color} !important; }
-                .card h2 { color: ${cfg.color} !important; }
-                .btn-primary, .btn-submit, .btn-save { background: ${cfg.color} !important; }
-                .role-btn { border-color: ${cfg.color} !important; color: ${cfg.color} !important; }
-                .role-btn.active { background: ${cfg.color} !important; color: white !important; }
-                .nav-item.active { color: ${cfg.color} !important; }
-                .stat-value { color: ${cfg.color} !important; }
-                .input-group input:focus, .form-group input:focus, .form-group select:focus { border-color: ${cfg.color} !important; }
+
+            // Inject a persistent <style> tag so ALL elements get the color
+            // even those rendered after this function runs
+            let styleTag = document.getElementById('clinic-color-style');
+            if (!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = 'clinic-color-style';
+                document.head.appendChild(styleTag);
+            }
+            styleTag.textContent = `
+                :root {
+                    --clinic-color: ${color} !important;
+                    --clinic-color-light: ${darker} !important;
+                }
+                .login-screen { background: linear-gradient(135deg, ${color} 0%, ${darker} 100%) !important; }
+                .app-header, .header-bar { background: ${color} !important; }
+                .modal-title { color: ${color} !important; }
+                .card h2 { color: ${color} !important; }
+                .btn-primary, .btn-submit, .btn-save, .btn-action { background: ${color} !important; border-color: ${color} !important; }
+                .role-btn { border-color: ${color} !important; color: ${color} !important; }
+                .role-btn.active { background: ${color} !important; color: white !important; }
+                .nav-item.active { color: ${color} !important; }
+                .stat-value { color: ${color} !important; }
+                .badge-primary { background: ${color} !important; }
+                .input-group input:focus,
+                .form-group input:focus,
+                .form-group select:focus,
+                textarea:focus { border-color: ${color} !important; box-shadow: 0 0 0 3px ${color}22 !important; }
+                a { color: ${color}; }
+                ::selection { background: ${color}33; }
             `;
-            document.head.appendChild(style);
         }
 
         if (cfg.logoUrl) {
@@ -596,6 +618,16 @@ function buildNavigation() {
         `;
     }
 
+    // Catálogo de procedimientos — solo si modo lista y admin
+    if (clinicConfig.procMode === 'lista' && role === 'admin') {
+        nav += `
+            <button class="nav-item" onclick="showTab('catalogo')">
+                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"></path></svg>
+                <span>Catálogo</span>
+            </button>
+        `;
+    }
+
     // Perfil — siempre visible
     nav += `
         <button class="nav-item" onclick="showTab('perfil')">
@@ -609,6 +641,7 @@ function buildNavigation() {
 
 // Show tab
 function showTab(tabName) {
+    if (tabName === 'catalogo') { renderCatalogoTab(); return; }
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
@@ -6538,3 +6571,163 @@ function abrirPagoFactura(facturaId, pacienteId) {
     window.tempPacienteIdRetorno = pacienteId;
 }
 
+
+// ════════════════════════════════════════════════════
+// CATÁLOGO DE PROCEDIMIENTOS
+// ════════════════════════════════════════════════════
+
+function renderCatalogoTab() {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => {
+        if (b.textContent.trim().includes('Catálogo')) b.classList.add('active');
+    });
+
+    const items = clinicConfig.procItems || [];
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+    let catTab = document.getElementById('tab-catalogo');
+    if (!catTab) {
+        catTab = document.createElement('div');
+        catTab.id = 'tab-catalogo';
+        catTab.className = 'tab-content';
+        const parent = document.querySelector('.tab-content')?.parentElement;
+        if (parent) parent.appendChild(catTab);
+    }
+    catTab.classList.add('active');
+
+    catTab.innerHTML = `
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 style="margin:0 0 4px 0">Catálogo de procedimientos</h2>
+                    <div style="font-size:13px;color:#666">Precios base que aparecen al crear una factura</div>
+                </div>
+                <button class="btn-primary" onclick="abrirModalProcedimiento(null)">+ Agregar</button>
+            </div>
+            <div id="catalogo-list">
+                ${items.length === 0 ? `
+                    <div style="text-align:center;padding:48px 24px;color:#999">
+                        <div style="font-size:32px;margin-bottom:12px">📋</div>
+                        <div style="font-size:15px;margin-bottom:8px">Sin procedimientos aún</div>
+                        <div style="font-size:13px">Agrega los procedimientos que ofrece tu clínica</div>
+                    </div>
+                ` : items.map((item, i) => `
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
+                        <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
+                        <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">RD$${(item.precio||0).toLocaleString()}</div>
+                        <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#666;cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
+                        <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#999;cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        <div class="card" style="margin-top:16px;background:rgba(0,0,0,0.02)">
+            <div style="font-size:12px;color:#999;line-height:1.7">
+                💡 Estos precios son la referencia al crear facturas. El médico puede ajustar el precio en cada factura si lo necesita.
+            </div>
+        </div>
+    `;
+}
+
+function abrirModalProcedimiento(idx) {
+    const item = idx !== null && idx !== 'null' ? (clinicConfig.procItems || [])[idx] : null;
+    let overlay = document.getElementById('modalOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'modalOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
+        overlay.onclick = e => { if (e.target === overlay) cerrarModalProcedimiento(); };
+        document.body.appendChild(overlay);
+    }
+    let modal = document.getElementById('modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal';
+        modal.style.cssText = 'background:white;border-radius:20px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden';
+        overlay.appendChild(modal);
+    }
+    overlay.style.display = 'flex';
+
+    modal.innerHTML = `
+        <div class="modal-header">
+            <h3 class="modal-title">${item ? 'Editar procedimiento' : 'Nuevo procedimiento'}</h3>
+            <button onclick="cerrarModalProcedimiento()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1">✕</button>
+        </div>
+        <div style="padding:24px">
+            <div style="margin-bottom:16px">
+                <label style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:8px">Nombre</label>
+                <input type="text" id="proc-modal-nombre" value="${item ? item.nombre : ''}" placeholder="Ej: Limpieza dental"
+                    style="width:100%;padding:12px 16px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                    onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'">
+            </div>
+            <div style="margin-bottom:28px">
+                <label style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:8px">Precio base (RD$)</label>
+                <input type="number" id="proc-modal-precio" value="${item ? item.precio : ''}" placeholder="0"
+                    style="width:100%;padding:12px 16px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                    onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'"
+                    onkeydown="if(event.key==='Enter') guardarProcedimiento(${idx})">
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end">
+                <button onclick="cerrarModalProcedimiento()" style="padding:12px 24px;background:none;border:1.5px solid #e0e0e0;border-radius:100px;font-size:14px;font-family:inherit;cursor:pointer">Cancelar</button>
+                <button onclick="guardarProcedimiento(${idx})" class="btn-primary" style="padding:12px 28px;border-radius:100px;font-size:14px;border:none;cursor:pointer">Guardar</button>
+            </div>
+        </div>
+    `;
+    setTimeout(() => document.getElementById('proc-modal-nombre')?.focus(), 50);
+}
+
+function cerrarModalProcedimiento() {
+    const overlay = document.getElementById('modalOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+async function guardarProcedimiento(idx) {
+    const nombre = document.getElementById('proc-modal-nombre').value.trim();
+    const precio = parseInt(document.getElementById('proc-modal-precio').value) || 0;
+    if (!nombre) { alert('El nombre es obligatorio'); return; }
+
+    if (!clinicConfig.procItems) clinicConfig.procItems = [];
+
+    if (idx === null || idx === 'null') {
+        clinicConfig.procItems.push({ nombre, precio });
+    } else {
+        clinicConfig.procItems[parseInt(idx)] = { nombre, precio };
+    }
+
+    try {
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings')
+            .update({ procItems: clinicConfig.procItems });
+        cerrarModalProcedimiento();
+        renderCatalogoTab();
+        mostrarToastCatalogo('✓ Guardado');
+    } catch(e) {
+        console.error(e);
+        alert('Error al guardar. Intenta de nuevo.');
+    }
+}
+
+async function eliminarProcedimiento(idx) {
+    if (!confirm('¿Eliminar este procedimiento?')) return;
+    clinicConfig.procItems.splice(idx, 1);
+    try {
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings')
+            .update({ procItems: clinicConfig.procItems });
+        renderCatalogoTab();
+        mostrarToastCatalogo('✓ Eliminado');
+    } catch(e) { console.error(e); }
+}
+
+function mostrarToastCatalogo(msg) {
+    let n = document.getElementById('app-notif');
+    if (!n) {
+        n = document.createElement('div');
+        n.id = 'app-notif';
+        n.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:white;padding:12px 24px;border-radius:100px;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap';
+        document.body.appendChild(n);
+    }
+    n.textContent = msg;
+    n.style.opacity = '1';
+    setTimeout(() => n.style.opacity = '0', 2500);
+}

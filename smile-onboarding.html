@@ -792,8 +792,9 @@
         <div class="step-ind-dot">4</div>
         <div class="step-ind-label">Módulos</div>
       </div>
-      <div class="step-ind" id="ind-5">
-        <div class="step-ind-dot">5</div>
+      <div class="step-ind" id="ind-5"><div class="step-ind-dot">5</div><div class="step-ind-label">Procedimientos</div></div>
+      <div class="step-ind" id="ind-6">
+        <div class="step-ind-dot">6</div>
         <div class="step-ind-label">Resumen</div>
       </div>
     </div>
@@ -890,14 +891,32 @@
       </div>
 
       <div class="field" style="margin-top: 28px;">
-        <label>Logo de la clínica</label>
+        <label>Logo positivo <span style="font-size:11px;color:var(--mid);font-weight:300">— sobre fondo claro</span></label>
+        <div style="font-size:11px;color:var(--light);margin-bottom:10px;line-height:1.6">
+          El logo en color, sobre fondo blanco o claro. PNG con fondo transparente. Aparece en la app y en las facturas.
+        </div>
         <div class="logo-upload-area" id="logoUploadArea" onclick="document.getElementById('logoInput').click()">
-          <input type="file" id="logoInput" accept="image/*" onchange="onLogoUpload(this)">
+          <input type="file" id="logoInput" accept="image/png,image/svg+xml" onchange="onLogoUpload(this,'positivo')">
           <div id="uploadContent">
-            <div class="upload-icon">🖼</div>
-            <div class="upload-label">Toca para subir tu logo<br><span style="font-size:11px;color:var(--light)">PNG o SVG recomendado · Fondo transparente ideal</span></div>
+            <div class="upload-icon">☀️</div>
+            <div class="upload-label">Logo positivo<br><span style="font-size:11px;color:var(--light)">PNG transparente recomendado</span></div>
           </div>
           <img class="upload-preview" id="logoPreview" src="" alt="">
+        </div>
+      </div>
+
+      <div class="field" style="margin-top: 20px;">
+        <label>Logo negativo <span style="font-size:11px;color:var(--mid);font-weight:300">— sobre fondo oscuro</span></label>
+        <div style="font-size:11px;color:var(--light);margin-bottom:10px;line-height:1.6">
+          La versión en blanco de tu logo, para usar sobre el color de tu clínica. PNG transparente. Sale en el encabezado de la app y en documentos con fondo de color.
+        </div>
+        <div class="logo-upload-area" id="logoNegUploadArea" onclick="document.getElementById('logoNegInput').click()" style="background:var(--dark)">
+          <input type="file" id="logoNegInput" accept="image/png,image/svg+xml" onchange="onLogoUpload(this,'negativo')">
+          <div id="uploadNegContent">
+            <div class="upload-icon">🌙</div>
+            <div class="upload-label" style="color:rgba(255,255,255,0.5)">Logo negativo<br><span style="font-size:11px;color:rgba(255,255,255,0.3)">Versión blanca · PNG transparente</span></div>
+          </div>
+          <img class="upload-preview" id="logoNegPreview" src="" alt="">
         </div>
       </div>
 
@@ -957,7 +976,7 @@
 
     <!-- ── STEP 4: MÓDULOS ── -->
     <div class="step" id="step-4">
-      <div class="step-eyebrow">Paso 4 de 5</div>
+      <div class="step-eyebrow">Paso 4 de 6</div>
       <div class="step-title">¿Qué necesita<br>tu clínica?</div>
       <div class="step-sub">Agrega los módulos que uses. Puedes cambiarlos en cualquier momento.</div>
 
@@ -1024,44 +1043,36 @@
 
       <div class="step-nav">
         <button class="btn-back" onclick="goBack(4)">← Atrás</button>
-        <button class="btn-next" onclick="goNext(4)">Ver resumen →</button>
+        <button class="btn-next" onclick="goNext(4)">Continuar →</button>
       </div>
     </div>
 
-    <!-- ── STEP 5: RESUMEN ── -->
+    <!-- ── STEP 5: PROCEDIMIENTOS ── -->
     <div class="step" id="step-5">
-      <div class="step-eyebrow">Paso 5 de 5</div>
-      <div class="step-title">Todo listo.<br>Confirma tu plan.</div>
-      <div class="step-sub">Revisa los detalles de tu clínica antes de activar tu cuenta.</div>
+      <div class="step-eyebrow">Paso 5 de 6</div>
+      <div class="step-title">Precios de<br>procedimientos.</div>
+      <div class="step-sub">¿Cómo quieres manejar los precios en las facturas?</div>
 
-      <div class="summary-box" id="final-summary">
-        <!-- filled by JS -->
+      <div class="proc-option" id="proc-opt-libre" onclick="selectProcMode('libre')" style="border:2px solid var(--terracota);border-radius:16px;padding:20px 24px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;background:rgba(196,133,106,0.06)">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--terracota);background:var(--terracota);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center" id="proc-radio-libre"><div style="width:8px;height:8px;border-radius:50%;background:white"></div></div>
+          <div>
+            <div style="font-size:15px;font-weight:400;color:var(--dark);margin-bottom:4px">A criterio del médico</div>
+            <div style="font-size:13px;color:var(--mid);line-height:1.6">El médico escribe el procedimiento y el precio al momento de crear cada factura. Máxima flexibilidad. Así funciona actualmente la app.</div>
+          </div>
+        </div>
       </div>
 
-      <div class="step-nav">
-        <button class="btn-back" onclick="goBack(5)">← Atrás</button>
-        <button class="btn-next" onclick="activateClinic()" id="btn-activate">🎉 Activar mi clínica</button>
+      <div class="proc-option" id="proc-opt-lista" onclick="selectProcMode('lista')" style="border:2px solid var(--light);border-radius:16px;padding:20px 24px;margin-bottom:12px;cursor:pointer;transition:all 0.2s">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--light);flex-shrink:0;margin-top:2px" id="proc-radio-lista"></div>
+          <div>
+            <div style="font-size:15px;font-weight:400;color:var(--dark);margin-bottom:4px">Lista predeterminada</div>
+            <div style="font-size:13px;color:var(--mid);line-height:1.6">La clínica define un catálogo de procedimientos con precios base. El médico selecciona de la lista al facturar. <strong>Podrás editar el catálogo desde el panel de administración de la app.</strong></div>
+          </div>
+        </div>
+        </div>
       </div>
-    </div>
-
-    <!-- ── SUCCESS ── -->
-    <div class="success-screen" id="success">
-      <div class="success-icon">🦷</div>
-      <div class="success-title">¡Tu clínica está lista!</div>
-      <div class="success-sub">Hemos creado tu espacio en SMILE.<br>14 días gratis, sin tarjeta de crédito.</div>
-
-      <div class="success-url" onclick="copyUrl()" id="successUrl">
-        <div class="success-url-text" id="successUrlText">smile.app/tu-clinica</div>
-        <div class="success-url-copy">Copiar</div>
-      </div>
-
-      <div class="success-details" id="successDetails">
-        <!-- filled by JS -->
-      </div>
-    </div>
-
-  </div>
-</div>
 
 <script>
 // ─── STATE ────────────────────────────────────────────
@@ -1073,11 +1084,23 @@ const state = {
   adminName: '',
   adminEmail: '',
   color: '#C4856A',
-  logoDataUrl: null,
+  logoPositivo: null,    // base64 PNG — light backgrounds
+  logoNegativo: null,    // base64 PNG — dark backgrounds
   dentistas: 1,
   recep: 0,
   asist: 0,
   modules: [],
+  procMode: 'libre',      // 'libre' | 'lista'
+  procItems: [            // default list if mode=lista
+    { nombre: 'Consulta / Revisión', precio: 500 },
+    { nombre: 'Limpieza dental', precio: 1500 },
+    { nombre: 'Extracción simple', precio: 2000 },
+    { nombre: 'Resina anterior', precio: 2500 },
+    { nombre: 'Resina posterior', precio: 3000 },
+    { nombre: 'Endodoncia anterior', precio: 6000 },
+    { nombre: 'Corona porcelana', precio: 12000 },
+    { nombre: 'Blanqueamiento', precio: 5000 },
+  ],
 };
 
 // ─── STEP NAVIGATION ──────────────────────────────────
@@ -1103,10 +1126,10 @@ function setStep(n) {
   }
 
   // update progress
-  document.getElementById('progressFill').style.width = (n * 20) + '%';
+  document.getElementById('progressFill').style.width = (n * (100/6)) + '%';
 
   // update indicators
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 6; i++) {
     const ind = document.getElementById('ind-' + i);
     ind.classList.remove('active', 'done');
     if (i < n) ind.classList.add('done');
@@ -1119,7 +1142,8 @@ function setStep(n) {
 
   // special logic per step
   if (n === 4) updateStep4Totals();
-  if (n === 5) buildFinalSummary();
+  if (n === 5) renderProcItems();
+  if (n === 6) buildFinalSummary();
 }
 
 // ─── VALIDATION ───────────────────────────────────────
@@ -1218,27 +1242,70 @@ function applyColor(color) {
   document.getElementById('mockupTab').style.color = color;
 }
 
-function onLogoUpload(input) {
+function onLogoUpload(input, tipo) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    state.logoDataUrl = e.target.result;
-    // Show in upload area
-    const preview = document.getElementById('logoPreview');
-    preview.src = e.target.result;
-    preview.style.display = 'block';
-    document.getElementById('uploadContent').style.display = 'none';
-    document.getElementById('logoUploadArea').classList.add('has-logo');
-    // Show in mockup
-    const mockupImg = document.getElementById('mockupLogoImg');
-    const mockupText = document.getElementById('mockupLogoText');
-    mockupImg.src = e.target.result;
-    mockupImg.style.display = 'block';
-    mockupText.style.display = 'none';
+    const data = e.target.result;
+    if (tipo === 'negativo') {
+      state.logoNegativo = data;
+      const preview = document.getElementById('logoNegPreview');
+      preview.src = data;
+      preview.style.display = 'block';
+      document.getElementById('uploadNegContent').style.display = 'none';
+      document.getElementById('logoNegUploadArea').classList.add('has-logo');
+    } else {
+      state.logoPositivo = data;
+      const preview = document.getElementById('logoPreview');
+      preview.src = data;
+      preview.style.display = 'block';
+      document.getElementById('uploadContent').style.display = 'none';
+      document.getElementById('logoUploadArea').classList.add('has-logo');
+      // Show in mockup
+      const mockupImg = document.getElementById('mockupLogoImg');
+      const mockupText = document.getElementById('mockupLogoText');
+      if (mockupImg) { mockupImg.src = data; mockupImg.style.display = 'block'; }
+      if (mockupText) mockupText.style.display = 'none';
+    }
   };
   reader.readAsDataURL(file);
 }
+
+// ─── STEP 5: PROCEDIMIENTOS ───────────────────────
+function selectProcMode(mode) {
+  state.procMode = mode;
+  const libre = document.getElementById('proc-opt-libre');
+  const lista = document.getElementById('proc-opt-lista');
+  const radioLibre = document.getElementById('proc-radio-libre');
+  const radioLista = document.getElementById('proc-radio-lista');
+
+  if (mode === 'libre') {
+    libre.style.border = '2px solid var(--terracota)';
+    libre.style.background = 'rgba(196,133,106,0.06)';
+    lista.style.border = '2px solid var(--light)';
+    lista.style.background = 'none';
+    radioLibre.style.background = 'var(--terracota)';
+    radioLibre.style.borderColor = 'var(--terracota)';
+    radioLibre.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:white"></div>';
+    radioLista.innerHTML = '';
+    radioLista.style.background = 'none';
+    radioLista.style.borderColor = 'var(--light)';
+  } else {
+    lista.style.border = '2px solid var(--terracota)';
+    lista.style.background = 'rgba(196,133,106,0.06)';
+    libre.style.border = '2px solid var(--light)';
+    libre.style.background = 'none';
+    radioLista.style.background = 'var(--terracota)';
+    radioLista.style.borderColor = 'var(--terracota)';
+    radioLista.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:white"></div>';
+    radioLibre.innerHTML = '';
+    radioLibre.style.background = 'none';
+    radioLibre.style.borderColor = 'var(--light)';
+  }
+}
+
+
 
 // ─── STEP 3: COUNTERS ─────────────────────────────────
 const counts = { dentistas: 1, recep: 0, asist: 0 };
@@ -1331,10 +1398,14 @@ function buildFinalSummary() {
       <span>Total mensual</span>
       <span style="color:var(--terracota)">RD$${total.toLocaleString()}</span>
     </div>
+    <div class="summary-row">
+      <span>💊 Precios</span>
+      <span>${state.procMode === 'lista' ? 'Lista predeterminada (' + state.procItems.length + ' proc.)' : 'A criterio del médico'}</span>
+    </div>
     <div style="font-size:12px;color:var(--light);margin-top:12px;text-align:center">
       14 días gratis · Sin tarjeta · Cancela cuando quieras
     </div>
-  `;
+  \`;
 }
 
 // ─── FIREBASE ─────────────────────────────────────────
@@ -1433,6 +1504,10 @@ async function activateClinic() {
         nombre: state.clinicName,
         ciudad: state.ciudad || '',
         color: state.color || '#C4856A',
+        logoPositivo: state.logoPositivo || null,
+        logoNegativo: state.logoNegativo || null,
+        procMode: state.procMode || 'libre',
+        procItems: state.procMode === 'lista' ? state.procItems : [],
         plan: 'clinica',
         modulos: modulosActivos,
         adminEmail: state.adminEmail,
@@ -1453,7 +1528,7 @@ async function activateClinic() {
     document.getElementById('success').classList.add('active');
     document.getElementById('progressFill').style.width = '100%';
 
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
       const ind = document.getElementById('ind-' + i);
       ind.classList.remove('active');
       ind.classList.add('done');
