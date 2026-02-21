@@ -21,6 +21,15 @@ function detectClinica() {
 }
 
 // Cargar branding dinámico desde Firebase config
+// Clinic config stored globally so buildNavigation() can read it
+let clinicConfig = {
+    modulos: [],       // módulos activos: ['laboratorio','nomina',...]
+    plan: 'clinica',   // 'solo' | 'clinica'
+    nombre: '',
+    color: '',
+    activa: true
+};
+
 async function loadClinicBranding() {
     if (!CLINIC_PATH) return;
     try {
@@ -28,31 +37,56 @@ async function loadClinicBranding() {
             .collection('config').doc('settings').get();
         if (!cfgDoc.exists) return;
         const cfg = cfgDoc.data();
-        if (cfg.nombre) document.title = cfg.nombre;
+
+        // ── Store config globally for module gating ──
+        clinicConfig.modulos = cfg.modulos || [];
+        clinicConfig.plan    = cfg.plan || 'clinica';
+        clinicConfig.nombre  = cfg.nombre || '';
+        clinicConfig.color   = cfg.color || '';
+        clinicConfig.activa  = cfg.activa !== false;
+
+        // ── Apply branding ──
+        if (cfg.nombre) {
+            document.title = cfg.nombre;
+            const loginName = document.getElementById('clinicNameLogin');
+            if (loginName) loginName.textContent = cfg.nombre;
+        }
+
         if (cfg.color) {
             const darker = darkenColor(cfg.color, 20);
+            // Apply via CSS variables (index.html uses them)
+            document.documentElement.style.setProperty('--clinic-color', cfg.color);
+            document.documentElement.style.setProperty('--clinic-color-light', darker);
+            // Also inject fallback styles for older references
             const style = document.createElement('style');
             style.textContent = `
                 .login-screen { background: linear-gradient(135deg, ${cfg.color} 0%, ${darker} 100%) !important; }
                 .app-header { background: ${cfg.color} !important; }
                 .modal-title { color: ${cfg.color} !important; }
                 .card h2 { color: ${cfg.color} !important; }
-                .btn-primary, .btn-submit { background: ${cfg.color} !important; }
+                .btn-primary, .btn-submit, .btn-save { background: ${cfg.color} !important; }
                 .role-btn { border-color: ${cfg.color} !important; color: ${cfg.color} !important; }
                 .role-btn.active { background: ${cfg.color} !important; color: white !important; }
                 .nav-item.active { color: ${cfg.color} !important; }
                 .stat-value { color: ${cfg.color} !important; }
-                .input-group input:focus { border-color: ${cfg.color} !important; }
+                .input-group input:focus, .form-group input:focus, .form-group select:focus { border-color: ${cfg.color} !important; }
             `;
             document.head.appendChild(style);
         }
+
         if (cfg.logoUrl) {
             const logoEl = document.getElementById('logoImg');
             if (logoEl) { logoEl.src = cfg.logoUrl; logoEl.style.display = 'block'; }
         }
-        // Clinic name in login screen title
-        const titleEl = document.querySelector('.login-card h2');
-        if (titleEl && cfg.nombre) titleEl.textContent = cfg.nombre;
+
+        // ── Block access if clinic is paused ──
+        if (cfg.activa === false) {
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('appContainer').style.display = 'none';
+            const card = document.querySelector('.login-card');
+            if (card) card.innerHTML = '<div style="text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:16px">🔒</div><div style="font-weight:600;font-size:18px;margin-bottom:8px">Cuenta pausada</div><div style="color:#666;font-size:14px">Contacta a SMILE para reactivar tu clínica.</div></div>';
+        }
+
     } catch(e) {
         console.log('Branding no disponible:', e.message);
     }
@@ -112,8 +146,8 @@ async function loadData() {
             appData.reversiones = data.reversiones || [];
             appData.auditLogs = data.auditLogs || [];
 
-            // Cargar pacientes desde subcollection si aplica
-            if (data.usaSubcollectionPacientes) {
+            // Cargar pacientes desde subcollection (siempre en SMILE multi-tenant)
+            {
                 console.log('📂 Cargando pacientes desde subcollection...');
                 const pacientesSnapshot = await db.collection('clinicas').doc(CLINIC_PATH)
                     .collection('pacientes').get();
@@ -183,67 +217,39 @@ async function saveData() {
         console.log(`💾 Guardando datos en Firebase...`);
         console.log(`📊 Pacientes a guardar: ${appData.pacientes.length}`);
 
-        // Calcular tamaño ANTES de guardar
-        const dataSize = new Blob([JSON.stringify(appData)]).size;
-        const sizeMB = (dataSize / (1024 * 1024)).toFixed(2);
-        console.log(`📏 Tamaño total de datos: ${sizeMB} MB`);
+        // SMILE multi-tenant: pacientes SIEMPRE en subcollection
+        // Esto permite que el admin cuente pacientes correctamente para cualquier clínica
+        console.log(`💾 Guardando datos de ${CLINIC_PATH}...`);
 
-        // Si hay muchos pacientes, guardarlos en subcollection
-        if (appData.pacientes.length > 100) {
-            console.log(`⚠️ Muchos pacientes (${appData.pacientes.length}). Usando subcollection...`);
+        // 1. Guardar documento principal SIN pacientes
+        await db.collection('clinicas').doc(CLINIC_PATH).set({
+            facturas: appData.facturas,
+            personal: appData.personal,
+            gastos: appData.gastos,
+            avances: appData.avances,
+            cuadresDiarios: appData.cuadresDiarios || {},
+            pacientes: [],  // siempre vacío — viven en subcollection
+            citas: appData.citas || [],
+            laboratorios: appData.laboratorios || [],
+            reversiones: appData.reversiones || [],
+            auditLogs: appData.auditLogs || [],
+            lastUpdated: new Date().toISOString(),
+            usaSubcollectionPacientes: true
+        });
 
-            // Guardar datos principales SIN pacientes
-            await db.collection('clinicas').doc(CLINIC_PATH).set({
-                facturas: appData.facturas,
-                personal: appData.personal,
-                gastos: appData.gastos,
-                avances: appData.avances,
-                cuadresDiarios: appData.cuadresDiarios || {},
-                pacientes: [], // Vacío - se guarda en subcollection
-                citas: appData.citas || [],
-                laboratorios: appData.laboratorios || [],
-                reversiones: appData.reversiones || [],
-                auditLogs: appData.auditLogs || [],
-                lastUpdated: new Date().toISOString(),
-                usaSubcollectionPacientes: true // Flag para saber que usa subcollection
-            });
-
-            console.log(`✅ Datos principales guardados`);
-            console.log(`💾 Guardando ${appData.pacientes.length} pacientes en subcollection...`);
-
-            // Guardar pacientes en lotes de 500 (límite de batch de Firebase)
-            const BATCH_SIZE = 500;
-
+        // 2. Guardar pacientes en subcollection en lotes
+        if (appData.pacientes.length > 0) {
+            const BATCH_SIZE = 400;
             for (let i = 0; i < appData.pacientes.length; i += BATCH_SIZE) {
-                const batch = db.batch(); // Crear nuevo batch para cada lote
+                const batch = db.batch();
                 const lote = appData.pacientes.slice(i, Math.min(i + BATCH_SIZE, appData.pacientes.length));
-
                 lote.forEach(paciente => {
                     const docRef = db.collection('clinicas').doc(CLINIC_PATH)
-                        .collection('pacientes').doc(paciente.id);
+                        .collection('pacientes').doc(paciente.id || String(i));
                     batch.set(docRef, paciente);
                 });
-
                 await batch.commit();
-                console.log(`✅ Guardados ${Math.min(i + BATCH_SIZE, appData.pacientes.length)}/${appData.pacientes.length} pacientes`);
             }
-
-            console.log(`✅ Todos los pacientes guardados en subcollection`);
-        } else {
-            // Pocos pacientes, guardar normalmente
-            await db.collection('clinicas').doc(CLINIC_PATH).set({
-                facturas: appData.facturas,
-                personal: appData.personal,
-                gastos: appData.gastos,
-                avances: appData.avances,
-                cuadresDiarios: appData.cuadresDiarios || {},
-                pacientes: appData.pacientes || [],
-                citas: appData.citas || [],
-                laboratorios: appData.laboratorios || [],
-                reversiones: appData.reversiones || [],
-                auditLogs: appData.auditLogs || [],
-                lastUpdated: new Date().toISOString()
-            });
         }
 
         console.log(`✅ Datos guardados exitosamente en Firebase`);
@@ -267,6 +273,7 @@ async function saveData() {
 
 // Default personnel data — generic for any new SMILE clinic
 function getDefaultPersonal() {
+    // Returns a generic admin user — password should be set during clinic creation
     return [
         {id: '1', nombre: 'Administrador', tipo: 'regular', password: 'admin123', isAdmin: true, canAccessReception: true}
     ];
@@ -491,11 +498,21 @@ function showApp() {
 }
 
 // Build navigation
+function hasModule(key) {
+    // Plan solo only has base features, no modules unless explicitly added
+    const modulos = clinicConfig.modulos || [];
+    // These are always available regardless of modules
+    const always = ['dashboard','pacientes','agenda','factura','cobrar','cuadre','gastos','perfil'];
+    if (always.includes(key)) return true;
+    return modulos.includes(key);
+}
+
 function buildNavigation() {
     let nav = '';
     const role = appData.currentRole;
+    const modulos = clinicConfig.modulos || [];
 
-    // Dashboard para Admin y Profesionales
+    // Dashboard — siempre visible para profesionales y admin
     if (role === 'professional' || role === 'admin') {
         nav += `
             <button class="nav-item active" onclick="showTab('dashboard')">
@@ -505,7 +522,7 @@ function buildNavigation() {
         `;
     }
 
-    // TODOS LOS ROLES ven Pacientes y Agenda
+    // Pacientes y Agenda — siempre visibles
     nav += `
         <button class="nav-item ${role === 'reception' ? 'active' : ''}" onclick="showTab('pacientes')">
             <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>
@@ -517,6 +534,7 @@ function buildNavigation() {
         </button>
     `;
 
+    // Factura e Ingresos — profesionales y admin
     if (role === 'professional' || role === 'admin') {
         nav += `
             <button class="nav-item" onclick="showTab('factura')">
@@ -530,6 +548,7 @@ function buildNavigation() {
         `;
     }
 
+    // Cobrar, Cuadre, Gastos — recepción y admin
     if (role === 'reception' || role === 'admin') {
         nav += `
             <button class="nav-item" onclick="showTab('cobrar')">
@@ -547,7 +566,8 @@ function buildNavigation() {
         `;
     }
 
-    if (role === 'admin') {
+    // Personal — solo admin, y solo si tiene módulo nómina O es plan clínica
+    if (role === 'admin' && (modulos.includes('nomina') || clinicConfig.plan !== 'solo')) {
         nav += `
             <button class="nav-item" onclick="showTab('personal')">
                 <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>
@@ -556,16 +576,27 @@ function buildNavigation() {
         `;
     }
 
-    // Lab accesible para todos (icono dental)
-    nav += `
-        <button class="nav-item" onclick="showTab('laboratorio')">
-            <svg fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M10 2c-1.5 0-2.7.5-3.6 1.5C5.5 4.5 5 6 5 8c0 1.2.3 2.3.7 3.3.4 1 1 2 1.6 2.9.6.9 1.2 1.7 1.7 2.4.5.7.9 1.2 1.1 1.6.1.2.2.3.2.3s.1-.1.2-.3c.2-.4.6-.9 1.1-1.6.5-.7 1.1-1.5 1.7-2.4.6-.9 1.2-1.9 1.6-2.9.4-1 .7-2.1.7-3.3 0-2-.5-3.5-1.4-4.5C12.7 2.5 11.5 2 10 2zm0 3c.6 0 1 .4 1 1v1h1c.6 0 1 .4 1 1s-.4 1-1 1h-1v1c0 .6-.4 1-1 1s-1-.4-1-1V9H8c-.6 0-1-.4-1-1s.4-1 1-1h1V6c0-.6.4-1 1-1z"/>
-            </svg>
-            <span>Lab</span>
-        </button>
-    `;
+    // Laboratorio — solo si módulo activo
+    if (modulos.includes('laboratorio')) {
+        nav += `
+            <button class="nav-item" onclick="showTab('laboratorio')">
+                <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7 2a1 1 0 00-.707 1.707L7 4.414v3.758a1 1 0 01-.293.707l-4 4C.817 14.769 2.156 18 4.828 18h10.344c2.672 0 4.011-3.231 2.122-5.121l-4-4A1 1 0 0113 8.172V4.414l.707-.707A1 1 0 0013 2H7zm2 6.172V4h2v4.172a3 3 0 00.879 2.12l1.027 1.028a4 4 0 00-2.171.102l-.47.156a4 4 0 01-2.53 0l-.563-.187a1.993 1.993 0 00-.114-.035l1.063-1.063A3 3 0 009 8.172z" clip-rule="evenodd"></path></svg>
+                <span>Lab</span>
+            </button>
+        `;
+    }
 
+    // Reportes — solo si módulo activo
+    if (modulos.includes('reportes') && (role === 'admin')) {
+        nav += `
+            <button class="nav-item" onclick="showTab('reportes')">
+                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>
+                <span>Reportes</span>
+            </button>
+        `;
+    }
+
+    // Perfil — siempre visible
     nav += `
         <button class="nav-item" onclick="showTab('perfil')">
             <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
