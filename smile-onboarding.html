@@ -864,7 +864,7 @@
 
       <div class="step-nav">
         <button class="btn-back invisible">← Atrás</button>
-        <button class="btn-next" id="next-1" onclick="goNext(1)" disabled>Continuar →</button>
+        <button class="btn-next" id="next-1" onclick="goNext(1)">Continuar →</button>
       </div>
     </div>
 
@@ -1178,14 +1178,19 @@ function setStep(n) {
 // ─── VALIDATION ───────────────────────────────────────
 function validateStep(n) {
   if (n === 1) {
+    // Read fresh values from DOM into state
+    state.clinicName  = document.getElementById('clinicName').value.trim();
+    state.adminName   = document.getElementById('adminName').value.trim();
+    state.adminEmail  = document.getElementById('adminEmail').value.trim();
+
     let valid = true;
 
-    if (!state.clinicName.trim()) {
+    if (!state.clinicName) {
       showError('clinicName', true);
       valid = false;
     } else showError('clinicName', false);
 
-    if (!state.adminName.trim()) {
+    if (!state.adminName) {
       showError('adminName', true);
       valid = false;
     } else showError('adminName', false);
@@ -1201,13 +1206,8 @@ function validateStep(n) {
 }
 
 function validateStep1() {
-  const name = document.getElementById('clinicName').value.trim();
-  const admin = document.getElementById('adminName').value.trim();
-  const email = document.getElementById('adminEmail').value.trim();
-  state.adminName = admin;
-  state.adminEmail = email;
-  const ok = name && admin && validateEmail(email);
-  document.getElementById('next-1').disabled = !ok;
+  // State is updated inline by each input's oninput handler
+  // Actual validation runs in validateStep() when user hits Continuar
 }
 
 function validateEmail(e) {
