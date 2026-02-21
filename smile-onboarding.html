@@ -1073,6 +1073,35 @@
         </div>
         </div>
       </div>
+    </div>
+
+    <!-- ── STEP 6: RESUMEN ── -->
+    <div class="step" id="step-6">
+      <div class="step-eyebrow">Paso 6 de 6</div>
+      <div class="step-title">Todo listo.<br>Revisa tu plan.</div>
+      <div class="step-sub">Confirma los detalles de tu clínica antes de activar.</div>
+
+      <div class="summary-box" id="final-summary"></div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goBack(6)">← Atrás</button>
+        <button class="btn-activate" id="btn-activate" onclick="activateClinic()">Activar mi clínica →</button>
+      </div>
+    </div>
+
+    <div class="success-screen" id="success">
+      <div class="success-icon">🦷</div>
+      <div class="success-title">¡Tu clínica está lista!</div>
+      <div class="success-sub">Hemos creado tu espacio en SMILE.<br>14 días gratis, sin tarjeta de crédito.</div>
+      <div class="success-url" onclick="copyUrl()" id="successUrl">
+        <div class="success-url-text" id="successUrlText">smile.app/tu-clinica</div>
+        <div class="success-url-copy">Copiar</div>
+      </div>
+      <div class="success-details" id="successDetails"></div>
+    </div>
+
+  </div>
+</div>
 
 <script>
 // ─── STATE ────────────────────────────────────────────

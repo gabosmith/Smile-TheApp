@@ -584,9 +584,7 @@
       <div class="nav-item" onclick="showSection('nueva')">
         <span class="nav-icon">✦</span> Nueva clínica
       </div>
-      <div class="nav-item" onclick="showSection('modulos')">
-        <span class="nav-icon">🧩</span> Precios módulos
-      </div>
+
 
     </nav>
     <div class="sidebar-bottom">
@@ -737,14 +735,13 @@ function calcMRR(plan, modulos = [], personalCount = 0) {
 function showSection(section) {
   currentSection = section;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const idx = ['overview','clinicas','nueva','modulos'].indexOf(section);
+  const idx = ['overview','clinicas','nueva'].indexOf(section);
   document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
 
   const main = document.getElementById('main');
   if (section === 'overview') renderOverview(main);
   else if (section === 'clinicas') renderClinicas(main);
   else if (section === 'nueva') renderNuevaClinica(main);
-  else if (section === 'modulos') renderModulos(main);
 
 }
 
@@ -1234,163 +1231,6 @@ function openApp(id) {
   window.open(url, '_blank');
 }
 
-// ── MÓDULOS ───────────────────────────────────────────
-const DEFAULT_MODULOS = [
-  { key: 'base_clinica',    label: 'Plan Clínica (base)',      precio: 1200, editable: true },
-  { key: 'base_solo',       label: 'Plan Solo (base)',          precio: 990,  editable: true },
-  { key: 'usuario_extra',   label: 'Usuario adicional',         precio: 300,  editable: true },
-  { key: 'laboratorio',     label: 'Gestión de laboratorio',    precio: 500,  editable: true },
-  { key: 'nomina',          label: 'Nómina y comisiones',       precio: 500,  editable: true },
-  { key: 'inventario',      label: 'Inventario de materiales',  precio: 500,  editable: true },
-  { key: 'ncf',             label: 'Facturación NCF (DGII)',    precio: 400,  editable: true },
-  { key: 'reportes',        label: 'Reportes avanzados',        precio: 300,  editable: true },
-  { key: 'multisucursal',   label: 'Sucursal adicional',        precio: 700,  editable: true },
-  { key: 'expediente',      label: 'Expediente clínico avanzado', precio: 300, editable: true },
-];
-
-let modulosData = [];
-
-async function loadModulos() {
-  try {
-    const doc = await db.collection('smile_config').doc('modulos').get();
-    if (doc.exists) {
-      modulosData = doc.data().lista || DEFAULT_MODULOS;
-    } else {
-      modulosData = [...DEFAULT_MODULOS];
-    }
-  } catch(e) {
-    modulosData = [...DEFAULT_MODULOS];
-  }
-}
-
-async function saveModulos() {
-  await db.collection('smile_config').doc('modulos').set({ lista: modulosData });
-}
-
-async function renderModulos(main) {
-  await loadModulos();
-
-  main.innerHTML = `
-    <div class="section">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Precios de módulos</div>
-          <div class="page-sub">Define cuánto cobra SMILE por cada módulo o plan</div>
-        </div>
-        <button class="header-btn" onclick="abrirModalNuevoModulo()">+ Nuevo módulo</button>
-      </div>
-
-      <div style="background:var(--white);border-radius:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);margin-bottom:32px">
-        <div style="display:grid;grid-template-columns:2fr 1fr 120px;padding:16px 24px;border-bottom:1px solid var(--bg);font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--light)">
-          <div>Módulo</div><div>Precio/mes</div><div></div>
-        </div>
-        <div id="modulosRows"></div>
-      </div>
-
-      <div style="background:rgba(196,133,106,0.08);border:1px solid rgba(196,133,106,0.2);border-radius:16px;padding:20px 24px;font-size:13px;color:#8B5E47;line-height:1.7">
-        💡 Los cambios de precio aplican a <strong>nuevas clínicas</strong>. Las clínicas existentes mantienen su precio hasta que las edites manualmente.
-      </div>
-    </div>
-  `;
-
-  renderModulosRows();
-}
-
-function renderModulosRows() {
-  const container = document.getElementById('modulosRows');
-  if (!container) return;
-
-  container.innerHTML = modulosData.map((m, i) => `
-    <div style="display:grid;grid-template-columns:2fr 1fr 120px;padding:18px 24px;border-bottom:1px solid var(--surface);align-items:center;" id="mrow-${i}">
-      <div>
-        <div style="font-size:14px;font-weight:400;color:var(--dark)">${m.label}</div>
-        <div style="font-size:11px;color:var(--light);margin-top:2px;letter-spacing:1px">${m.key}</div>
-      </div>
-      <div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:12px;color:var(--mid)">RD$</span>
-          <input
-            type="number"
-            value="${m.precio}"
-            onchange="actualizarPrecioModulo(${i}, this.value)"
-            style="width:100px;padding:8px 12px;background:var(--bg);border:1.5px solid transparent;border-radius:10px;font-size:15px;font-family:inherit;font-weight:400;color:var(--dark);outline:none;transition:border-color 0.2s"
-            onfocus="this.style.borderColor='var(--terracota)'"
-            onblur="this.style.borderColor='transparent'"
-          >
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button onclick="guardarModuloIndividual(${i})" style="padding:6px 14px;background:var(--dark);color:var(--white);border:none;border-radius:8px;font-size:12px;font-family:inherit;cursor:pointer;transition:background 0.2s" onmouseover="this.style.background='var(--terracota)'" onmouseout="this.style.background='var(--dark)'">Guardar</button>
-        ${!['base_clinica','base_solo','usuario_extra'].includes(m.key) ? `<button onclick="eliminarModulo(${i})" style="padding:6px 10px;background:none;border:1px solid var(--light);border-radius:8px;font-size:12px;color:var(--mid);cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--light)';this.style.color='var(--mid)'">✕</button>` : ''}
-      </div>
-    </div>
-  `).join('');
-}
-
-function actualizarPrecioModulo(idx, val) {
-  modulosData[idx].precio = parseInt(val) || 0;
-}
-
-async function guardarModuloIndividual(idx) {
-  try {
-    await saveModulos();
-    showToast(`✓ "${modulosData[idx].label}" actualizado`);
-  } catch(e) {
-    showToast('❌ Error al guardar');
-  }
-}
-
-async function eliminarModulo(idx) {
-  if (!confirm(`¿Eliminar el módulo "${modulosData[idx].label}"?`)) return;
-  modulosData.splice(idx, 1);
-  await saveModulos();
-  showToast('✓ Módulo eliminado');
-  renderModulosRows();
-}
-
-function abrirModalNuevoModulo() {
-  document.getElementById('modalTitle').textContent = 'Nuevo módulo';
-  document.getElementById('modalBody').innerHTML = `
-    <div style="margin-bottom:20px">
-      <label style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">Nombre del módulo</label>
-      <input type="text" id="nuevoModuloLabel" placeholder="Ej: WhatsApp automatizado"
-        style="width:100%;padding:14px 18px;background:var(--bg);border:1.5px solid transparent;border-radius:12px;font-size:14px;font-family:inherit;color:var(--dark);outline:none"
-        onfocus="this.style.borderColor='var(--terracota)'" onblur="this.style.borderColor='transparent'">
-    </div>
-    <div style="margin-bottom:20px">
-      <label style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">ID interno (sin espacios)</label>
-      <input type="text" id="nuevoModuloKey" placeholder="ej: whatsapp"
-        style="width:100%;padding:14px 18px;background:var(--bg);border:1.5px solid transparent;border-radius:12px;font-size:14px;font-family:monospace;color:var(--dark);outline:none"
-        onfocus="this.style.borderColor='var(--terracota)'" onblur="this.style.borderColor='transparent'">
-    </div>
-    <div style="margin-bottom:28px">
-      <label style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">Precio mensual (RD$)</label>
-      <input type="number" id="nuevoModuloPrecio" placeholder="500"
-        style="width:100%;padding:14px 18px;background:var(--bg);border:1.5px solid transparent;border-radius:12px;font-size:14px;font-family:inherit;color:var(--dark);outline:none"
-        onfocus="this.style.borderColor='var(--terracota)'" onblur="this.style.borderColor='transparent'">
-    </div>
-    <div style="display:flex;gap:12px;justify-content:flex-end">
-      <button onclick="closeModal()" style="padding:12px 24px;background:none;border:1px solid var(--light);border-radius:100px;font-size:13px;font-family:inherit;color:var(--mid);cursor:pointer">Cancelar</button>
-      <button onclick="guardarNuevoModulo()" style="padding:12px 28px;background:var(--dark);color:var(--white);border:none;border-radius:100px;font-size:13px;font-family:inherit;cursor:pointer">Crear módulo</button>
-    </div>
-  `;
-  document.getElementById('modalOverlay').classList.add('open');
-}
-
-async function guardarNuevoModulo() {
-  const label  = document.getElementById('nuevoModuloLabel').value.trim();
-  const key    = document.getElementById('nuevoModuloKey').value.trim().toLowerCase().replace(/\s+/g,'_');
-  const precio = parseInt(document.getElementById('nuevoModuloPrecio').value) || 0;
-
-  if (!label || !key) { showToast('⚠️ Completa nombre e ID'); return; }
-  if (modulosData.find(m => m.key === key)) { showToast('⚠️ Ya existe un módulo con ese ID'); return; }
-
-  modulosData.push({ key, label, precio, editable: true });
-  await saveModulos();
-  closeModal();
-  showToast('✓ Módulo creado');
-  renderModulosRows();
-}
 
 
 

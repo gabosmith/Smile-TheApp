@@ -169,15 +169,14 @@ async function loadData() {
             appData.auditLogs = data.auditLogs || [];
 
             // Cargar pacientes desde subcollection (siempre en SMILE multi-tenant)
-            {
-                console.log('📂 Cargando pacientes desde subcollection...');
-                const pacientesSnapshot = await db.collection('clinicas').doc(CLINIC_PATH)
-                    .collection('pacientes').get();
+            const pacientesSnapshot = await db.collection('clinicas').doc(CLINIC_PATH)
+                .collection('pacientes').get();
+            if (pacientesSnapshot.size > 0) {
                 appData.pacientes = pacientesSnapshot.docs.map(doc => doc.data());
-                console.log(`✅ ${appData.pacientes.length} pacientes cargados desde subcollection`);
             } else {
                 appData.pacientes = data.pacientes || [];
             }
+            console.log(`✅ ${appData.pacientes.length} pacientes cargados`);
 
             // Guardar en caché local
             updateLocalCache();
