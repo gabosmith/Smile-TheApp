@@ -3,594 +3,893 @@
 <head>
     <meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500&display=swap" rel="stylesheet">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title id="pageTitle">SMILE — Gestión Dental</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+    /* ══════════════════════════════════════════════
+       SMILE — App CSS
+       Palette: #EEEAE4 base · #F5F2EE surface · #FDFCFB white
+                #1E1C1A dark · #C4856A terracota · #7B8FA1 slate
+       Font: Plus Jakarta Sans 200–500
+    ══════════════════════════════════════════════ */
 
-        /* CSS Variables — se sobreescriben dinámicamente desde Firebase config */
-        :root {
-            --clinic-color: #1E1C1A;
-            --clinic-color-light: #3A3836;
-        }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;1,200&display=swap');
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #f5f5f7;
-            color: #1d1d1f;
-            overflow-x: hidden;
-        }
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+    }
 
-        /* Login Screen */
-        .login-screen {
-            min-height: 100vh;
-            background: linear-gradient(135deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+    :root {
+        --clinic-color: #1E1C1A;
+        --clinic-color-light: #3A3836;
+        --bg: #EEEAE4;
+        --surface: #F5F2EE;
+        --white: #FDFCFB;
+        --dark: #1E1C1A;
+        --mid: #6B635C;
+        --light: #A89F96;
+        --terracota: #C4856A;
+        --slate: #7B8FA1;
+        --rosa: #E8C4B8;
+        --radius-sm: 10px;
+        --radius-md: 16px;
+        --radius-lg: 24px;
+        --shadow-sm: 0 1px 4px rgba(30,28,26,0.06), 0 4px 16px rgba(30,28,26,0.04);
+        --shadow-md: 0 2px 8px rgba(30,28,26,0.07), 0 8px 32px rgba(30,28,26,0.06);
+        --shadow-lg: 0 8px 32px rgba(30,28,26,0.1), 0 2px 8px rgba(30,28,26,0.06);
+    }
 
-        .logo-container {
-            margin-bottom: 40px;
-            text-align: center;
-        }
+    body {
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--dark);
+        overflow-x: hidden;
+        font-weight: 300;
+        -webkit-font-smoothing: antialiased;
+    }
 
-        .logo-container img {
-            max-width: 300px;
-            width: 90%;
-            height: auto;
-        }
+    /* ── LOADING SCREEN ─────────────────────────── */
+    .clinic-loading {
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        gap: 20px;
+    }
+    .clinic-loading-logo {
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 8px;
+        color: var(--dark);
+        opacity: 0.4;
+    }
+    .clinic-loading-spinner {
+        width: 28px;
+        height: 28px;
+        border: 1.5px solid rgba(30,28,26,0.1);
+        border-top-color: var(--terracota);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-        .clinic-name-login {
-            color: white;
-            font-size: 22px;
-            font-weight: 600;
-            text-align: center;
-            margin-top: 12px;
-            letter-spacing: -0.5px;
-        }
+    /* ── SYNC INDICATOR ─────────────────────────── */
+    .sync-indicator {
+        position: fixed;
+        top: 68px;
+        right: 16px;
+        background: var(--dark);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 100px;
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.5px;
+        z-index: 99;
+        opacity: 0;
+        transition: opacity 0.3s;
+        box-shadow: var(--shadow-md);
+    }
+    .sync-indicator.show { opacity: 1; }
 
-        .login-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 30px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
+    /* ── LOGIN SCREEN ───────────────────────────── */
+    .login-screen {
+        min-height: 100vh;
+        background: linear-gradient(160deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+    .login-screen::before {
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -20%;
+        width: 60vw;
+        height: 60vw;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.03);
+        pointer-events: none;
+    }
+    .login-screen::after {
+        content: '';
+        position: absolute;
+        bottom: -20%;
+        left: -15%;
+        width: 50vw;
+        height: 50vw;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.025);
+        pointer-events: none;
+    }
 
-        .role-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 25px;
-        }
+    .logo-container {
+        margin-bottom: 36px;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+    .logo-container img {
+        max-width: 160px;
+        width: 50%;
+        height: auto;
+        filter: brightness(0) invert(1);
+        opacity: 0.9;
+    }
+    .clinic-name-login {
+        color: rgba(255,255,255,0.9);
+        font-size: 20px;
+        font-weight: 200;
+        text-align: center;
+        margin-top: 16px;
+        letter-spacing: -0.3px;
+    }
 
-        .role-btn {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid var(--clinic-color);
-            background: white;
-            color: var(--clinic-color);
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
+    .login-card {
+        background: var(--white);
+        border-radius: var(--radius-lg);
+        padding: 32px 28px;
+        max-width: 380px;
+        width: 100%;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.12);
+        position: relative;
+        z-index: 1;
+    }
 
-        .role-btn.active {
-            background: var(--clinic-color);
-            color: white;
-        }
+    .role-selector {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 28px;
+        background: var(--bg);
+        padding: 4px;
+        border-radius: var(--radius-sm);
+    }
+    .role-btn {
+        flex: 1;
+        padding: 10px 8px;
+        border: none;
+        background: transparent;
+        color: var(--light);
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 400;
+        font-size: 12px;
+        font-family: inherit;
+        letter-spacing: 0.3px;
+        transition: all 0.2s;
+    }
+    .role-btn.active {
+        background: var(--white);
+        color: var(--dark);
+        font-weight: 500;
+        box-shadow: var(--shadow-sm);
+    }
 
-        .input-group {
-            margin-bottom: 20px;
-        }
+    .input-group {
+        margin-bottom: 18px;
+    }
+    .input-group label {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--mid);
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+    }
+    .input-group input,
+    .input-group select {
+        width: 100%;
+        padding: 13px 16px;
+        border: 1.5px solid rgba(30,28,26,0.1);
+        border-radius: var(--radius-sm);
+        font-size: 15px;
+        font-family: inherit;
+        font-weight: 300;
+        background: var(--surface);
+        color: var(--dark);
+        transition: border-color 0.2s, box-shadow 0.2s;
+        -webkit-appearance: none;
+    }
+    .input-group input:focus,
+    .input-group select:focus {
+        outline: none;
+        border-color: var(--clinic-color);
+        box-shadow: 0 0 0 3px rgba(30,28,26,0.06);
+        background: var(--white);
+    }
 
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #666;
-            font-size: 14px;
-            font-weight: 500;
-        }
+    .btn-primary {
+        width: 100%;
+        padding: 15px;
+        background: var(--clinic-color);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 400;
+        font-family: inherit;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
+        margin-top: 8px;
+    }
+    .btn-primary:hover {
+        background: var(--terracota);
+        box-shadow: 0 6px 20px rgba(196,133,106,0.35);
+    }
+    .btn-primary:active { transform: scale(0.98); }
 
-        .input-group input,
-        .input-group select {
-            width: 100%;
-            padding: 14px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: border 0.3s;
-        }
+    /* ── APP CONTAINER ──────────────────────────── */
+    .app-container {
+        display: none;
+        min-height: 100vh;
+        padding-bottom: 76px;
+    }
 
-        .input-group input:focus,
-        .input-group select:focus {
-            outline: none;
-            border-color: var(--clinic-color);
-        }
+    /* ── APP HEADER ─────────────────────────────── */
+    .app-header {
+        background: var(--clinic-color);
+        color: white;
+        padding: 14px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 4px 24px rgba(0,0,0,0.15);
+    }
+    .app-header h1 {
+        font-size: 15px;
+        font-weight: 300;
+        letter-spacing: 0.5px;
+        opacity: 0.9;
+    }
 
-        .btn-primary {
-            width: 100%;
-            padding: 16px;
-            background: var(--clinic-color);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
+    .logout-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.15);
+        color: rgba(255,255,255,0.8);
+        padding: 7px 16px;
+        border-radius: 100px;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: inherit;
+        font-weight: 400;
+        letter-spacing: 0.5px;
+        transition: background 0.2s;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,0.18); }
 
-        .btn-primary:active {
-            transform: scale(0.98);
-        }
+    /* ── CONTENT AREA ───────────────────────────── */
+    .content-area {
+        padding: 20px 16px;
+        max-width: 800px;
+        margin: 0 auto;
+    }
 
-        /* Main App */
-        .app-container {
-            display: none;
-            min-height: 100vh;
-            padding-bottom: 70px;
-        }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
 
-        .app-header {
-            background: var(--clinic-color);
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
 
-        .app-header h1 {
-            font-size: 18px;
-            font-weight: 600;
-        }
+    /* ── CARDS ──────────────────────────────────── */
+    .card {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        margin-bottom: 14px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid rgba(30,28,26,0.04);
+    }
+    .card h2 {
+        font-size: 15px;
+        font-weight: 400;
+        margin-bottom: 18px;
+        color: var(--dark);
+        letter-spacing: -0.2px;
+    }
 
-        .logout-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-        }
+    /* ── STAT CARDS ─────────────────────────────── */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .stat-card {
+        background: var(--white);
+        padding: 18px 16px;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid rgba(30,28,26,0.04);
+    }
+    .stat-label {
+        font-size: 10px;
+        color: var(--light);
+        margin-bottom: 8px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-weight: 400;
+    }
+    .stat-value {
+        font-size: 22px;
+        font-weight: 300;
+        color: var(--clinic-color);
+        letter-spacing: -0.5px;
+    }
+    .stat-value.green { color: #3a9e5f; }
+    .stat-value.orange { color: #C4856A; }
+    .stat-value.red { color: #c0392b; }
 
-        .content-area {
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+    /* ── FORMS ──────────────────────────────────── */
+    .form-group { margin-bottom: 18px; }
+    .form-group label {
+        display: block;
+        margin-bottom: 7px;
+        font-weight: 400;
+        color: var(--mid);
+        font-size: 11px;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1.5px solid rgba(30,28,26,0.1);
+        border-radius: var(--radius-sm);
+        font-size: 15px;
+        font-family: inherit;
+        font-weight: 300;
+        background: var(--surface);
+        color: var(--dark);
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        -webkit-appearance: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: var(--clinic-color);
+        box-shadow: 0 0 0 3px rgba(30,28,26,0.05);
+        background: var(--white);
+    }
+    .form-group textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
 
-        .tab-content {
-            display: none;
-        }
+    /* ── BUTTONS ────────────────────────────────── */
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 400;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.3px;
+    }
+    .btn-add {
+        background: var(--dark);
+        color: white;
+        width: 100%;
+        margin-bottom: 14px;
+        padding: 13px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+    .btn-add:hover { background: var(--terracota); }
 
-        .tab-content.active {
-            display: block;
-        }
+    .btn-submit {
+        background: var(--clinic-color);
+        color: white;
+        width: 100%;
+        padding: 14px;
+        font-size: 12px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-radius: var(--radius-sm);
+    }
+    .btn-submit:hover { background: var(--terracota); }
 
-        /* Cards */
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
+    .btn-secondary {
+        background: var(--surface);
+        color: var(--mid);
+        border: 1px solid rgba(30,28,26,0.1);
+    }
+    .btn-secondary:hover { background: var(--bg); color: var(--dark); }
 
-        .card h2 {
-            font-size: 18px;
-            margin-bottom: 15px;
-            color: var(--clinic-color);
-        }
+    .btn-danger {
+        background: #c0392b;
+        color: white;
+    }
+    .btn-cancel {
+        background: var(--surface);
+        color: var(--mid);
+        border: 1px solid rgba(30,28,26,0.08);
+    }
+    .btn-save {
+        background: var(--clinic-color);
+        color: white;
+    }
+    .btn-save:hover { background: var(--terracota); }
 
-        .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
+    /* ── BOTTOM NAVIGATION ──────────────────────── */
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(253,252,251,0.92);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(30,28,26,0.07);
+        display: flex;
+        justify-content: space-around;
+        padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+        z-index: 100;
+        box-shadow: 0 -1px 0 rgba(30,28,26,0.04), 0 -8px 32px rgba(30,28,26,0.06);
+    }
+    .nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 4px;
+        color: var(--light);
+        cursor: pointer;
+        transition: color 0.2s;
+        border: none;
+        background: none;
+        font-family: inherit;
+        gap: 3px;
+    }
+    .nav-item.active { color: var(--clinic-color); }
+    .nav-item svg {
+        width: 22px;
+        height: 22px;
+    }
+    .nav-item span {
+        font-size: 10px;
+        font-weight: 400;
+        letter-spacing: 0.3px;
+    }
 
-        .stat-card {
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
+    /* ── ITEM LIST ──────────────────────────────── */
+    .item-list { list-style: none; }
+    .item-list li {
+        background: var(--white);
+        padding: 16px;
+        margin-bottom: 8px;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.15s;
+        border: 1px solid rgba(30,28,26,0.04);
+    }
+    .item-list li:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+    .item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 6px;
+    }
+    .item-title {
+        font-weight: 400;
+        color: var(--dark);
+        font-size: 14px;
+    }
+    .item-amount {
+        font-size: 16px;
+        font-weight: 400;
+        color: var(--clinic-color);
+        letter-spacing: -0.3px;
+    }
+    .item-meta {
+        font-size: 12px;
+        color: var(--light);
+        font-weight: 300;
+    }
 
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
+    /* ── MODAL ──────────────────────────────────── */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(30,28,26,0.45);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: flex-end;
+        justify-content: center;
+        padding: 0;
+    }
+    @media (min-width: 600px) {
+        .modal { align-items: center; padding: 20px; }
+    }
+    .modal.active { display: flex; }
 
-        .stat-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--clinic-color);
-        }
-
-        .stat-value.green { color: #34c759; }
-        .stat-value.orange { color: #ff9500; }
-        .stat-value.red { color: #ff3b30; }
-
-        /* Forms */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #333;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        .form-group textarea {
-            min-height: 80px;
-            resize: vertical;
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-add {
-            background: #34c759;
-            color: white;
-            width: 100%;
-            margin-bottom: 15px;
-        }
-
-        .btn-submit {
-            background: var(--clinic-color);
-            color: white;
-            width: 100%;
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-danger {
-            background: #ff3b30;
-            color: white;
-        }
-
-        .btn-cancel {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-save {
-            background: var(--clinic-color);
-            color: white;
-        }
-
-        /* Bottom Navigation */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            border-top: 1px solid #e5e5e5;
-            display: flex;
-            justify-content: space-around;
-            padding: 8px 0;
-            z-index: 100;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .nav-item {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 8px;
-            color: #8e8e93;
-            cursor: pointer;
-            transition: color 0.2s;
-            border: none;
-            background: none;
-        }
-
-        .nav-item.active {
-            color: var(--clinic-color);
-        }
-
-        .nav-item svg {
-            width: 24px;
-            height: 24px;
-            margin-bottom: 4px;
-        }
-
-        .nav-item span {
-            font-size: 11px;
-            font-weight: 500;
-        }
-
-        /* Lista de items */
-        .item-list {
-            list-style: none;
-        }
-
-        .item-list li {
-            background: white;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            cursor: pointer;
-        }
-
-        .item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .item-title {
-            font-weight: 600;
-            color: #1d1d1f;
-        }
-
-        .item-amount {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--clinic-color);
-        }
-
-        .item-meta {
-            font-size: 13px;
-            color: #8e8e93;
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
+    .modal-content {
+        background: var(--white);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        max-width: 500px;
+        width: 100%;
+        max-height: 92vh;
+        overflow-y: auto;
+        padding: 28px 24px 40px;
+        animation: slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1);
+    }
+    @media (min-width: 600px) {
         .modal-content {
-            background: white;
-            border-radius: 16px;
-            max-width: 500px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            padding: 24px;
+            border-radius: var(--radius-lg);
+            padding: 28px 28px 32px;
+            animation: fadeIn 0.2s ease;
         }
+    }
+    @keyframes slideUp {
+        from { transform: translateY(100%); opacity: 0; }
+        to   { transform: translateY(0); opacity: 1; }
+    }
 
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+    /* drag handle */
+    .modal-content::before {
+        content: '';
+        display: block;
+        width: 36px;
+        height: 4px;
+        background: rgba(30,28,26,0.12);
+        border-radius: 2px;
+        margin: 0 auto 24px;
+    }
+    @media (min-width: 600px) {
+        .modal-content::before { display: none; }
+    }
 
-        .modal-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--clinic-color);
-        }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    .modal-title {
+        font-size: 18px;
+        font-weight: 300;
+        color: var(--dark);
+        letter-spacing: -0.3px;
+    }
+    .modal-footer {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 24px;
+    }
+    .close-modal {
+        background: var(--surface);
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 16px;
+        color: var(--mid);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+    .close-modal:hover { background: var(--bg); }
 
-        .modal-footer {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
+    /* ── BADGES ─────────────────────────────────── */
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 100px;
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.3px;
+    }
+    .badge-pending  { background: rgba(196,133,106,0.15); color: #9B5E42; }
+    .badge-paid     { background: rgba(58,158,95,0.12); color: #2D7A4A; }
+    .badge-partial  { background: rgba(123,143,161,0.15); color: var(--slate); }
+    .badge-cancelled { background: rgba(192,57,43,0.1); color: #922B21; text-decoration: line-through; }
 
-        .close-modal {
-            background: #f0f0f0;
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 20px;
-            color: #666;
-        }
+    /* ── DISCOUNT BUTTONS ───────────────────────── */
+    .discount-buttons {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .discount-btn {
+        padding: 9px;
+        background: var(--surface);
+        color: var(--mid);
+        border: 1px solid rgba(30,28,26,0.1);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: inherit;
+        font-weight: 400;
+        transition: all 0.2s;
+    }
+    .discount-btn:hover {
+        background: var(--clinic-color);
+        color: white;
+        border-color: var(--clinic-color);
+    }
 
-        /* Badge */
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
+    /* ── PROCEDIMIENTO ITEM ─────────────────────── */
+    .procedimiento-item {
+        background: var(--surface);
+        padding: 13px 16px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid rgba(30,28,26,0.06);
+    }
+    .procedimiento-delete {
+        background: none;
+        color: var(--light);
+        border: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s, background 0.2s;
+    }
+    .procedimiento-delete:hover { color: #c0392b; background: rgba(192,57,43,0.08); }
 
-        .badge-pending  { background: #ff9500; color: white; }
-        .badge-paid     { background: #34c759; color: white; }
-        .badge-partial  { background: var(--clinic-color); color: white; }
-        .badge-cancelled { background: #ff3b30; color: white; text-decoration: line-through; }
+    /* ── MISC ───────────────────────────────────── */
+    .hidden { display: none !important; }
 
-        /* Discount buttons */
-        .discount-buttons {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-top: 10px;
-        }
+    .loading {
+        text-align: center;
+        padding: 48px 24px;
+        color: var(--light);
+        font-size: 13px;
+        font-weight: 300;
+    }
 
-        .discount-btn {
-            padding: 10px;
-            background: rgba(0, 35, 102, 0.1);
-            color: var(--clinic-color);
-            border: 1px solid var(--clinic-color);
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-        }
+    .image-preview {
+        max-width: 100%;
+        border-radius: var(--radius-sm);
+        margin-top: 10px;
+    }
 
-        .procedimiento-item {
-            background: #f8f8f8;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    .file-input-label {
+        display: block;
+        padding: 14px;
+        background: var(--surface);
+        border: 1.5px dashed rgba(30,28,26,0.15);
+        border-radius: var(--radius-sm);
+        text-align: center;
+        cursor: pointer;
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--mid);
+        transition: border-color 0.2s, background 0.2s;
+    }
+    .file-input-label:hover {
+        border-color: var(--clinic-color);
+        background: var(--bg);
+    }
+    input[type="file"] { display: none; }
 
-        .procedimiento-delete {
-            background: #ff3b30;
-            color: white;
-            border: none;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 16px;
-        }
+    /* Paciente tabs */
+    .paciente-tab.active {
+        color: var(--clinic-color) !important;
+        border-bottom-color: var(--clinic-color) !important;
+    }
+    .paciente-tab:hover { background: var(--surface); }
+    .paciente-tab-content { animation: fadeIn 0.25s ease; }
 
-        @media (max-width: 768px) {
-            .stat-grid { grid-template-columns: repeat(2, 1fr); }
-        }
+    /* Search inputs */
+    input[type="text"][id="searchPacientes"],
+    input[type="text"][id="busquedaGlobal"] {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.15);
+        color: white;
+        border-radius: var(--radius-sm);
+        padding: 9px 16px;
+        font-size: 13px;
+        font-family: inherit;
+        font-weight: 300;
+    }
+    input[type="text"][id="searchPacientes"] {
+        background: var(--surface);
+        border: 1.5px solid rgba(30,28,26,0.1);
+        color: var(--dark);
+        width: 100%;
+        padding: 13px 18px;
+        border-radius: var(--radius-md);
+        font-size: 14px;
+    }
+    input[type="text"][id="searchPacientes"]:focus {
+        outline: none;
+        border-color: var(--clinic-color);
+        background: var(--white);
+        box-shadow: 0 0 0 3px rgba(30,28,26,0.05);
+    }
 
-        .hidden { display: none !important; }
+    /* Global search in header */
+    #busquedaGlobal:focus {
+        outline: none;
+        background: rgba(255,255,255,0.18) !important;
+        border-color: rgba(255,255,255,0.3) !important;
+        box-shadow: none !important;
+        color: white !important;
+    }
+    #busquedaGlobal::placeholder { color: rgba(255,255,255,0.4); }
+    #resultadosBusqueda {
+        background: var(--white) !important;
+        border: none !important;
+        border-radius: var(--radius-md) !important;
+        box-shadow: var(--shadow-lg) !important;
+    }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #8e8e93;
-        }
+    /* Dashboard inline stat cards */
+    .dash-stat {
+        padding: 22px 20px;
+        border-radius: var(--radius-md);
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .dash-stat::after {
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -20%;
+        width: 80%;
+        height: 80%;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.06);
+        pointer-events: none;
+    }
 
-        .image-preview {
-            max-width: 100%;
-            border-radius: 8px;
-            margin-top: 10px;
-        }
+    /* Range slider */
+    input[type="range"] {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--bg);
+        outline: none;
+        margin: 8px 0;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--clinic-color);
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
 
-        .file-input-label {
-            display: block;
-            padding: 12px;
-            background: #f0f0f0;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            margin-top: 10px;
-        }
+    /* Section titles */
+    .section-title {
+        font-size: 22px;
+        font-weight: 200;
+        color: var(--dark);
+        letter-spacing: -0.5px;
+        margin-bottom: 4px;
+    }
+    .section-sub {
+        font-size: 12px;
+        color: var(--light);
+        font-weight: 300;
+        margin-bottom: 20px;
+        letter-spacing: 0.3px;
+    }
 
-        input[type="file"] { display: none; }
+    /* Inline filter rows */
+    .filter-card {
+        background: var(--surface);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        margin-bottom: 14px;
+        border: 1px solid rgba(30,28,26,0.05);
+    }
+    .filter-label {
+        font-size: 10px;
+        color: var(--light);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        font-weight: 400;
+        margin-bottom: 12px;
+    }
 
-        .sync-indicator {
-            position: fixed;
-            top: 70px;
-            right: 20px;
-            background: #34c759;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            z-index: 99;
-            opacity: 0;
-            transition: opacity 0.3s;
-            box-shadow: 0 2px 10px rgba(52, 199, 89, 0.3);
-        }
+    /* Week nav */
+    .week-nav {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 16px;
+        background: var(--white);
+        padding: 14px 20px;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 16px;
+        border: 1px solid rgba(30,28,26,0.04);
+    }
+    .week-nav-btn {
+        width: 36px;
+        height: 36px;
+        border: 1px solid rgba(30,28,26,0.1);
+        background: var(--surface);
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        color: var(--dark);
+    }
+    .week-nav-btn:hover { background: var(--dark); color: white; border-color: var(--dark); }
 
-        .sync-indicator.show { opacity: 1; }
-
-        /* Clinic loading screen */
-        .clinic-loading {
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-            position: fixed;
-            inset: 0;
-            background: #f5f5f7;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            gap: 16px;
-        }
-
-        .clinic-loading-logo {
-            font-size: 13px;
-            font-weight: 500;
-            letter-spacing: 7px;
-            color: #1E1C1A;
-        }
-
-        .clinic-loading-spinner {
-            width: 32px;
-            height: 32px;
-            border: 2px solid #e0e0e0;
-            border-top-color: #C4856A;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .paciente-tab.active {
-            color: var(--clinic-color) !important;
-            border-bottom-color: var(--clinic-color) !important;
-        }
-
-        .paciente-tab:hover { background: #f5f5f5; }
-
-        .paciente-tab-content {
-            animation: fadeIn 0.3s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+    @media (max-width: 768px) {
+        .stat-grid { grid-template-columns: repeat(2, 1fr); }
+        .content-area { padding: 16px 12px; }
+    }
+</style>
 </head>
 <body>
 
@@ -654,12 +953,12 @@
                 <input
                     type="text"
                     id="busquedaGlobal"
-                    placeholder="🔍 Buscar paciente, factura, cita..."
+                    
                     oninput="buscarGlobal()"
                     autocomplete="off"
-                    style="width: 100%; padding: 10px 16px; border: 2px solid #e5e5e7; border-radius: 8px; font-size: 14px; transition: all 0.2s;"
-                    onfocus="this.style.borderColor='var(--clinic-color)'; this.style.boxShadow='0 0 0 3px rgba(0,0,0,0.06)';"
-                    onblur="this.style.borderColor='#e5e5e7'; this.style.boxShadow='none';"
+                    style="width: 100%; padding: 9px 16px; border: 1px solid rgba(255,255,255,0.18); border-radius: 100px; font-size: 13px; font-family: inherit; background: rgba(255,255,255,0.1); color: white; transition: all 0.2s; font-weight: 300;" placeholder="Buscar..."
+                    onfocus="this.style.background='rgba(255,255,255,0.18)'; this.style.borderColor='rgba(255,255,255,0.35)';"
+                    onblur="this.style.background='rgba(255,255,255,0.1)'; this.style.borderColor='rgba(255,255,255,0.18)';"
                 >
                 <div id="resultadosBusqueda" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e5e7; border-radius: 8px; margin-top: 8px; max-height: 500px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.15);"></div>
             </div>
@@ -672,41 +971,41 @@
             <!-- Dashboard Tab -->
             <div id="tab-dashboard" class="tab-content">
                 <div style="margin-bottom: 20px;">
-                    <h1 style="font-size: 28px; font-weight: 700; color: var(--clinic-color); margin-bottom: 5px;">📊 Dashboard</h1>
-                    <div id="dashboardFecha" style="color: #666; font-size: 14px;"></div>
+                    <div class="section-title">Dashboard</div>
+                    <div id="dashboardFecha" class="section-sub"></div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                    <div style="background: linear-gradient(135deg, #34c759 0%, #30d158 100%); padding: 24px; border-radius: 12px; color: white; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);">
-                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">💰 Ingresos Hoy</div>
-                        <div id="dashIngresosHoy" style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">RD$ 0</div>
+                    <div class="dash-stat" style="background: linear-gradient(135deg, #3a9e5f 0%, #2d7a4a 100%);">
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 10px; letter-spacing: 1px; text-transform: uppercase;">Ingresos Hoy</div>
+                        <div id="dashIngresosHoy" style="font-size: 28px; font-weight: 200; margin-bottom: 6px; letter-spacing: -1px;">RD$ 0</div>
                         <div id="dashIngresosComparacion" style="font-size: 12px; opacity: 0.8;"></div>
                     </div>
-                    <div style="background: var(--clinic-color); padding: 24px; border-radius: 12px; color: white; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
-                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">📅 Citas Hoy</div>
-                        <div id="dashCitasHoy" style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">0</div>
+                    <div class="dash-stat" style="background: var(--clinic-color);">
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 10px; letter-spacing: 1px; text-transform: uppercase;">Citas Hoy</div>
+                        <div id="dashCitasHoy" style="font-size: 28px; font-weight: 200; margin-bottom: 6px; letter-spacing: -1px;">0</div>
                         <div id="dashCitasPendientes" style="font-size: 12px; opacity: 0.8;"></div>
                     </div>
-                    <div style="background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%); padding: 24px; border-radius: 12px; color: white; box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);">
-                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">💳 Por Cobrar</div>
-                        <div id="dashPorCobrar" style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">RD$ 0</div>
+                    <div class="dash-stat" style="background: linear-gradient(135deg, #C4856A 0%, #A06448 100%);">
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 10px; letter-spacing: 1px; text-transform: uppercase;">Por Cobrar</div>
+                        <div id="dashPorCobrar" style="font-size: 28px; font-weight: 200; margin-bottom: 6px; letter-spacing: -1px;">RD$ 0</div>
                         <div id="dashFacturasPendientes" style="font-size: 12px; opacity: 0.8;"></div>
                     </div>
-                    <div style="background: linear-gradient(135deg, #af52de 0%, #8e24aa 100%); padding: 24px; border-radius: 12px; color: white; box-shadow: 0 4px 12px rgba(175, 82, 222, 0.3);">
-                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">🔬 Lab Activo</div>
-                        <div id="dashLabActivo" style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">0</div>
+                    <div class="dash-stat" style="background: linear-gradient(135deg, #7B8FA1 0%, #5A7080 100%);">
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 10px; letter-spacing: 1px; text-transform: uppercase;">Lab Activo</div>
+                        <div id="dashLabActivo" style="font-size: 28px; font-weight: 200; margin-bottom: 6px; letter-spacing: -1px;">0</div>
                         <div id="dashLabPendiente" style="font-size: 12px; opacity: 0.8;"></div>
                     </div>
                 </div>
 
-                <div id="dashboardAlertas" class="card" style="background: #fff3cd; border-left: 4px solid #ffc107; display: none; margin-bottom: 24px;">
-                    <h3 style="color: #856404; font-size: 16px; margin-bottom: 12px;">⚠️ Alertas</h3>
-                    <ul id="dashAlertasList" style="margin: 0; padding-left: 20px; color: #856404;"></ul>
+                <div id="dashboardAlertas" class="card" style="background: rgba(196,133,106,0.08); border-left: 3px solid var(--terracota); display: none; margin-bottom: 16px;">
+                    <h3 style="color: var(--terracota); font-size: 13px; font-weight: 400; margin-bottom: 10px; letter-spacing: 0.5px;">Alertas</h3>
+                    <ul id="dashAlertasList" style="margin: 0; padding-left: 18px; color: var(--mid); font-size: 13px; font-weight: 300;"></ul>
                 </div>
 
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h3 style="margin: 0; font-size: 18px; color: var(--clinic-color);">📅 Agenda de Hoy</h3>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 400; color: var(--dark);">Agenda de hoy</h3>
                         <button class="btn btn-secondary" onclick="showTab('agenda')" style="padding: 8px 16px; font-size: 13px;">Ver Todas</button>
                     </div>
                     <div id="dashAgendaHoy"></div>
@@ -715,9 +1014,12 @@
 
             <!-- Pacientes Tab -->
             <div id="tab-pacientes" class="tab-content">
-                <button class="btn btn-add" onclick="abrirModalNuevoPaciente()">+ Nuevo Paciente</button>
-                <div style="margin: 20px 0;">
-                    <input type="text" id="searchPacientes" placeholder="🔍 Buscar paciente..." onkeyup="filterPacientes()" style="width: 100%; padding: 14px 20px; border: 2px solid #e5e5e7; border-radius: 12px; font-size: 15px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                    <div class="section-title">Pacientes</div>
+                    <button class="btn btn-add" style="width:auto;margin:0;padding:10px 20px" onclick="abrirModalNuevoPaciente()">+ Nuevo</button>
+                </div>
+                <div style="margin-bottom: 14px;">
+                    <input type="text" id="searchPacientes" placeholder="Buscar paciente..." onkeyup="filterPacientes()" style="width: 100%; padding: 13px 18px; border: 1.5px solid rgba(30,28,26,0.1); border-radius: var(--radius-md); font-size: 14px; font-family: inherit; background: var(--surface); color: var(--dark);" onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.1)'">
                 </div>
                 <div id="listaPacientes"></div>
             </div>
@@ -725,15 +1027,17 @@
             <!-- Agenda Tab -->
             <div id="tab-agenda" class="tab-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                    <button class="btn btn-add" onclick="abrirModalNuevaCita()">+ Nueva Cita</button>
+                    <div class="section-title" style="margin-bottom:4px">Agenda</div>
+                    <div class="section-sub">Citas y calendario semanal</div>
+                    <button class="btn btn-add" style="width:auto;padding:10px 20px;margin-bottom:0" onclick="abrirModalNuevaCita()">+ Nueva Cita</button>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <button class="btn btn-secondary" onclick="exportarCitasExcel()" style="font-size: 13px; padding: 8px 16px;">📥 Exportar Excel</button>
                         <div id="agendaToggle"></div>
                     </div>
                 </div>
 
-                <div class="card" style="background: #f8f9fa; margin-bottom: 20px;">
-                    <h3 style="font-size: 16px; color: var(--clinic-color); margin-bottom: 12px;">🔍 Filtros</h3>
+                <div class="filter-card" style="margin-bottom: 16px;">
+                    <div class="filter-label">Filtros</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
                         <div class="form-group" style="margin: 0;">
                             <label style="font-size: 13px;">Estado:</label>
@@ -760,19 +1064,20 @@
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: center; align-items: center; gap: 20px; background: white; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 30px;">
-                    <button class="btn" onclick="cambiarSemana(-1)" style="padding: 10px 20px; font-size: 18px;">←</button>
-                    <h2 id="agendaSemanaTexto" style="margin: 0; min-width: 300px; text-align: center; font-size: 18px; font-weight: 600; color: var(--clinic-color);">Semana</h2>
-                    <button class="btn" onclick="cambiarSemana(1)" style="padding: 10px 20px; font-size: 18px;">→</button>
+                <div class="week-nav">
+                    <button class="week-nav-btn" onclick="cambiarSemana(-1)">←</button>
+                    <h2 id="agendaSemanaTexto" style="margin: 0; min-width: 200px; text-align: center; font-size: 15px; font-weight: 300; color: var(--dark);">Semana</h2>
+                    <button class="week-nav-btn" onclick="cambiarSemana(1)">→</button>
                 </div>
 
-                <div id="calendarioAgenda" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);"></div>
+                <div id="calendarioAgenda" class="card"></div>
             </div>
 
             <!-- Factura Tab -->
             <div id="tab-factura" class="tab-content">
+                <div class="section-title" style="margin-bottom:4px">Nueva Factura</div>
+                <div class="section-sub">Crea y registra servicios prestados</div>
                 <div class="card">
-                    <h2>Nueva Factura</h2>
                     <div class="form-group" id="selectorProfesionalFactura" style="display: none;">
                         <label>Profesional que atendió *</label>
                         <select id="profesionalQueAtendio" style="width: 100%; padding: 10px; border: 2px solid #e5e5e7; border-radius: 8px; font-size: 14px;">
@@ -792,12 +1097,12 @@
                     <div class="form-group">
                         <label>Órdenes de Laboratorio (Opcional)</label>
                         <div id="listaOrdenesLabTemp" style="margin-bottom: 10px;"></div>
-                        <button class="btn" onclick="abrirModalOrdenLab()" style="background: #AF52DE; color: white;">🔬 + Agregar Orden de Lab</button>
+                        <button class="btn" onclick="abrirModalOrdenLab()" style="background: var(--slate); color: white; font-size: 12px; letter-spacing: 0.5px;">+ Orden de Lab</button>
                     </div>
                     <div class="form-group">
                         <label>Descuento (%)</label>
                         <input type="range" id="descuentoSlider" min="0" max="100" value="0" oninput="updateDescuento()">
-                        <div style="text-align: center; margin: 10px 0; font-weight: 600; color: var(--clinic-color);">
+                        <div style="text-align: center; margin: 10px 0; font-weight: 400; color: var(--clinic-color);">
                             <span id="descuentoValue">0</span>%
                         </div>
                         <div class="discount-buttons">
@@ -807,10 +1112,10 @@
                             <button class="discount-btn" onclick="setDescuento(20)">20%</button>
                         </div>
                     </div>
-                    <div class="card" style="background: #f8f8f8;">
+                    <div class="card" style="background: var(--surface); border: 1.5px solid rgba(30,28,26,0.07);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 600;">TOTAL</span>
-                            <span style="font-size: 28px; font-weight: 700; color: #34c759;" id="totalFactura">RD$ 0.00</span>
+                            <span style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--light);">Total</span>
+                            <span style="font-size: 28px; font-weight: 200; color: var(--dark); letter-spacing: -1px;" id="totalFactura">RD$ 0.00</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -841,8 +1146,9 @@
                         <div class="stat-value red" id="porCobrar">RD$ 0</div>
                     </div>
                 </div>
+                <div class="section-title" style="margin-bottom:16px">Ingresos</div>
                 <div class="card">
-                    <h2>Mis Facturas</h2>
+                    <div style="font-size:13px;font-weight:400;color:var(--mid);margin-bottom:14px">Mis Facturas</div>
                     <ul class="item-list" id="facturasPersonal"></ul>
                 </div>
             </div>
@@ -860,8 +1166,8 @@
                     </div>
                 </div>
 
-                <div class="card" style="background: #f8f9fa;">
-                    <h3 style="font-size: 16px; color: var(--clinic-color); margin-bottom: 12px;">🔍 Filtros</h3>
+                <div class="filter-card">
+                    <div class="filter-label">Filtros</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                         <div class="form-group" style="margin: 0;">
                             <label style="font-size: 13px;">Desde:</label>
@@ -900,10 +1206,10 @@
             <div id="tab-cuadre" class="tab-content">
                 <div class="card">
                     <h2>Resumen del Día</h2>
-                    <div style="color: #666; margin-bottom: 20px;" id="fechaCuadre"></div>
+                    <div style="color: var(--mid); margin-bottom: 20px;" id="fechaCuadre"></div>
                     <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--clinic-color);">💰 Efectivo Inicial en Caja</label>
-                        <input type="number" id="efectivoInicial" step="0.01" value="0" onchange="updateCuadreTab()" style="width: 100%; padding: 10px; border: 2px solid var(--clinic-color); border-radius: 6px; font-size: 16px; font-weight: 600;">
+                        <label style="display: block; font-weight: 400; margin-bottom: 8px; color: var(--clinic-color);">💰 Efectivo Inicial en Caja</label>
+                        <input type="number" id="efectivoInicial" step="0.01" value="0" onchange="updateCuadreTab()" style="width: 100%; padding: 10px; border: 2px solid var(--clinic-color); border-radius: 6px; font-size: 16px; font-weight: 400;">
                     </div>
                     <h3 style="margin: 20px 0 10px; color: var(--clinic-color);">Ingresos por Método</h3>
                     <div style="margin-bottom: 10px; display: flex; justify-content: space-between;"><span>💵 Efectivo</span><strong id="efectivoHoy">RD$ 0</strong></div>
@@ -916,21 +1222,21 @@
                     <h3 style="margin: 20px 0 10px; color: #ff3b30;">Egresos</h3>
                     <div style="margin-bottom: 10px; display: flex; justify-content: space-between;"><span>🛒 Gastos del Día</span><strong style="color: #ff3b30;" id="gastosHoy">RD$ 0</strong></div>
                     <div style="margin-bottom: 10px; display: flex; justify-content: space-between;"><span>💵 Gastos en Efectivo</span><strong style="color: #ff9500;" id="gastosEfectivoHoy">RD$ 0</strong></div>
-                    <div style="margin: 20px 0; padding: 20px; background: #f8f8f8; border-radius: 12px;">
-                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px;">Balance del Día</div>
-                        <div style="font-size: 32px; font-weight: 700; color: #34c759;" id="balanceDia">RD$ 0</div>
+                    <div style="margin: 20px 0; padding: 20px; background: var(--surface); border-radius: var(--radius-md);">
+                        <div style="font-size: 16px; font-weight: 400; margin-bottom: 10px;">Balance del Día</div>
+                        <div style="font-size: 32px; font-weight: 400; color: #34c759;" id="balanceDia">RD$ 0</div>
                     </div>
-                    <div style="padding: 15px; background: rgba(0, 35, 102, 0.1); border-radius: 12px;">
-                        <div style="font-weight: 600; margin-bottom: 5px; color: var(--clinic-color);">Efectivo Esperado en Caja</div>
-                        <div style="font-size: 24px; font-weight: 700; color: var(--clinic-color);" id="efectivoCaja">RD$ 0</div>
+                    <div style="padding: 15px; background: rgba(0, 35, 102, 0.1); border-radius: var(--radius-md);">
+                        <div style="font-weight: 400; margin-bottom: 5px; color: var(--clinic-color);">Efectivo Esperado en Caja</div>
+                        <div style="font-size: 24px; font-weight: 400; color: var(--clinic-color);" id="efectivoCaja">RD$ 0</div>
                     </div>
                     <div id="detalleTransacciones" style="margin-top: 30px; display: none;">
                         <h3 style="color: var(--clinic-color); margin-bottom: 15px;">📝 Detalle de Transacciones</h3>
-                        <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <div style="background: rgba(123,143,161,0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                             <h4 style="color: #34c759; margin-bottom: 10px; font-size: 15px;">✅ Ingresos</h4>
                             <div id="listaIngresos" style="font-size: 13px;"></div>
                         </div>
-                        <div style="background: #fff5f5; padding: 15px; border-radius: 8px;">
+                        <div style="background: rgba(192,57,43,0.06); padding: 15px; border-radius: var(--radius-sm);">
                             <h4 style="color: #ff3b30; margin-bottom: 10px; font-size: 15px;">❌ Gastos</h4>
                             <div id="listaGastos" style="font-size: 13px;"></div>
                         </div>
@@ -999,10 +1305,10 @@
                 <div class="card">
                     <h3 style="color: var(--clinic-color); margin-bottom: 15px;">💰 Resumen Financiero</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div style="background: linear-gradient(135deg, #34c759 0%, #30d158 100%); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Total Cobrado</div><div id="reporteTotalCobrado" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
-                        <div style="background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Total Gastos</div><div id="reporteTotalGastos" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
-                        <div style="background: var(--clinic-color); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Balance Neto</div><div id="reporteBalanceNeto" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
-                        <div style="background: linear-gradient(135deg, #ff9500 0%, #ff9f0a 100%); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Pendiente Cobro</div><div id="reportePendiente" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
+                        <div style="background: linear-gradient(135deg, #34c759 0%, #30d158 100%); color: white; padding: 15px; border-radius: var(--radius-md);"><div style="font-size: 12px; opacity: 0.9;">Total Cobrado</div><div id="reporteTotalCobrado" style="font-size: 24px; font-weight: 400; margin-top: 5px;">RD$ 0</div></div>
+                        <div style="background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%); color: white; padding: 15px; border-radius: var(--radius-md);"><div style="font-size: 12px; opacity: 0.9;">Total Gastos</div><div id="reporteTotalGastos" style="font-size: 24px; font-weight: 400; margin-top: 5px;">RD$ 0</div></div>
+                        <div style="background: var(--clinic-color); color: white; padding: 15px; border-radius: var(--radius-md);"><div style="font-size: 12px; opacity: 0.9;">Balance Neto</div><div id="reporteBalanceNeto" style="font-size: 24px; font-weight: 400; margin-top: 5px;">RD$ 0</div></div>
+                        <div style="background: linear-gradient(135deg, #ff9500 0%, #ff9f0a 100%); color: white; padding: 15px; border-radius: var(--radius-md);"><div style="font-size: 12px; opacity: 0.9;">Pendiente Cobro</div><div id="reportePendiente" style="font-size: 24px; font-weight: 400; margin-top: 5px;">RD$ 0</div></div>
                     </div>
                 </div>
                 <div class="card"><h3 style="color: var(--clinic-color); margin-bottom: 15px;">👨‍⚕️ Por Profesional</h3><div id="reportePorProfesional"></div></div>
@@ -1026,8 +1332,8 @@
             <div id="tab-perfil" class="tab-content">
                 <div class="card">
                     <h2>Mi Perfil</h2>
-                    <div style="margin-bottom: 15px;"><div style="color: #666; font-size: 14px;">Nombre</div><div style="font-weight: 600; font-size: 18px;" id="perfilNombre"></div></div>
-                    <div style="margin-bottom: 25px;"><div style="color: #666; font-size: 14px;">Rol</div><div style="font-weight: 600; font-size: 18px;" id="perfilRol"></div></div>
+                    <div style="margin-bottom: 15px;"><div style="color: var(--mid); font-size: 14px;">Nombre</div><div style="font-weight: 400; font-size: 18px;" id="perfilNombre"></div></div>
+                    <div style="margin-bottom: 25px;"><div style="color: var(--mid); font-size: 14px;">Rol</div><div style="font-weight: 400; font-size: 18px;" id="perfilRol"></div></div>
                     <button class="btn btn-danger" style="width: 100%;" onclick="logout()">Cerrar Sesión</button>
                     <button class="btn btn-secondary" id="btnAuditoria" style="width: 100%; margin-top: 15px; display: none;" onclick="verAuditoria()">📋 Ver Historial de Auditoría</button>
                 </div>
@@ -1055,11 +1361,11 @@
 
                 <div class="card" id="importarCard" style="display: none;">
                     <h2>📥 Importar Pacientes desde CSV</h2>
-                    <p style="color: #666; margin-bottom: 20px; font-size: 14px;">Sube un archivo CSV con los datos de tus pacientes.</p>
+                    <p style="color: var(--mid); margin-bottom: 20px; font-size: 14px;">Sube un archivo CSV con los datos de tus pacientes.</p>
                     <div id="paso1-upload" style="margin-bottom: 20px;">
-                        <div style="border: 2px dashed var(--clinic-color); border-radius: 12px; padding: 30px; text-align: center; background: #f8f9fa; cursor: pointer;" onclick="document.getElementById('csvFileInput').click()">
+                        <div style="border: 2px dashed var(--clinic-color); border-radius: 12px; padding: 30px; text-align: center; background: var(--surface); cursor: pointer;" onclick="document.getElementById('csvFileInput').click()">
                             <div style="font-size: 48px; margin-bottom: 10px;">📂</div>
-                            <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color); margin-bottom: 8px;">Click aquí para seleccionar archivo CSV</div>
+                            <div style="font-size: 16px; font-weight: 400; color: var(--clinic-color); margin-bottom: 8px;">Click aquí para seleccionar archivo CSV</div>
                         </div>
                         <input type="file" id="csvFileInput" accept=".csv" onchange="procesarCSV()" style="display: none;">
                     </div>
@@ -1095,18 +1401,18 @@
     <div id="modalPagarFactura" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Procesar Pago</div><button class="close-modal" onclick="closeModal('modalPagarFactura')">×</button></div>
-            <div style="background: #f8f8f8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="margin-bottom: 10px;"><strong>Factura:</strong> <span id="pagoFacturaNum"></span></div>
                 <div style="margin-bottom: 10px;"><strong>Paciente:</strong> <span id="pagoPaciente"></span></div>
                 <div style="margin-bottom: 10px;"><strong>Atendido por:</strong> <span id="pagoProfesional"></span></div>
-                <div style="margin-bottom: 10px;"><strong>Total:</strong> <span style="font-weight: 700;" id="pagoTotal"></span></div>
-                <div><strong>Balance Pendiente:</strong> <span style="color: #ff3b30; font-weight: 700;" id="pagoBalance"></span></div>
+                <div style="margin-bottom: 10px;"><strong>Total:</strong> <span style="font-weight: 400;" id="pagoTotal"></span></div>
+                <div><strong>Balance Pendiente:</strong> <span style="color: #ff3b30; font-weight: 400;" id="pagoBalance"></span></div>
             </div>
             <div class="form-group">
                 <label>Tipo de Pago</label>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <button class="btn" id="btnPagoTotal" onclick="selectTipoPago('total')" style="flex: 1; background: var(--clinic-color); color: white;">Pago Total</button>
-                    <button class="btn" id="btnPagoAbono" onclick="selectTipoPago('abono')" style="flex: 1; background: #f0f0f0; color: #333;">Abono a Cuenta</button>
+                    <button class="btn" id="btnPagoAbono" onclick="selectTipoPago('abono')" style="flex: 1; background: var(--surface); color: var(--mid); border: 1px solid rgba(30,28,26,0.1);">Abono a Cuenta</button>
                 </div>
             </div>
             <div class="form-group"><label>Monto a Pagar</label><input type="number" id="pagoMonto" placeholder="0.00" step="0.01"></div>
@@ -1182,14 +1488,14 @@
     <div id="modalReversarCobro" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">⚠️ Reversar Cobro</div><button class="close-modal" onclick="closeModal('modalReversarCobro')">×</button></div>
-            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff9500;">
+            <div style="background: rgba(196,133,106,0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff9500;">
                 <strong style="color: #856404;">¡Atención!</strong>
                 <p style="margin-top: 8px; color: #856404; font-size: 14px;">Esta acción eliminará el último pago registrado.</p>
             </div>
-            <div style="background: #f8f8f8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="margin-bottom: 10px;"><strong>Factura:</strong> <span id="reversarFacturaNum"></span></div>
                 <div style="margin-bottom: 10px;"><strong>Paciente:</strong> <span id="reversarPaciente"></span></div>
-                <div><strong>Último Pago:</strong> <span style="color: #ff3b30; font-weight: 700;" id="reversarMonto"></span></div>
+                <div><strong>Último Pago:</strong> <span style="color: #ff3b30; font-weight: 400;" id="reversarMonto"></span></div>
             </div>
             <div class="form-group"><label>Motivo de la Reversión *</label><textarea id="reversarMotivo" rows="3" placeholder="Ej: Error en el monto, pago duplicado..."></textarea></div>
             <button class="btn btn-danger" onclick="confirmarReversion()" style="width: 100%;">🔄 Confirmar Reversión</button>
@@ -1211,7 +1517,7 @@
     <div id="modalRecibo" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Recibo Generado</div><button class="close-modal" onclick="closeModal('modalRecibo')">×</button></div>
-            <div id="reciboContent" style="white-space: pre-wrap; font-family: monospace; padding: 20px; background: #f8f8f8; border-radius: 8px; margin-bottom: 20px;"></div>
+            <div id="reciboContent" style="white-space: pre-wrap; font-family: monospace; padding: 20px; background: var(--surface); border-radius: 8px; margin-bottom: 20px;"></div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-submit" onclick="compartirWhatsApp()" style="background: #25D366;">📱 Enviar por WhatsApp</button>
                 <button class="btn btn-submit" onclick="copiarRecibo()">📋 Copiar</button>
@@ -1228,7 +1534,7 @@
             <div class="form-group"><label>Laboratorio Externo</label><input type="text" id="labLaboratorio" placeholder="Nombre del laboratorio"></div>
             <div class="form-group"><label>Precio (cobrado al paciente)</label><input type="number" id="labPrecio" value="0" min="0" step="100" oninput="calcularMargenLab()"></div>
             <div class="form-group"><label>Costo (a la clínica)</label><input type="number" id="labCosto" value="0" min="0" step="100" oninput="calcularMargenLab()"></div>
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;"><div style="font-size: 12px; color: #666; margin-bottom: 4px;">MARGEN DE GANANCIA</div><div style="font-size: 24px; font-weight: 700;" id="labMargen">RD$ 0.00</div></div>
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; text-align: center;"><div style="font-size: 12px; color: var(--mid); margin-bottom: 4px;">MARGEN DE GANANCIA</div><div style="font-size: 24px; font-weight: 400;" id="labMargen">RD$ 0.00</div></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalOrdenLab')">Cancelar</button><button class="btn btn-submit" onclick="agregarOrdenLabAFactura()">Agregar</button></div>
         </div>
     </div>
@@ -1261,10 +1567,10 @@
             <div class="form-group"><label>Seguro Médico</label><input type="text" id="nuevoPacienteSeguro"></div>
             <div class="form-group"><label>Contacto de Emergencia</label><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;"><input type="text" id="nuevoPacienteEmergenciaNombre" placeholder="Nombre"><input type="tel" id="nuevoPacienteEmergenciaTelefono" placeholder="Teléfono"></div></div>
             <div class="form-group"><label>Condiciones médicas</label><textarea id="nuevoPacienteCondiciones"></textarea></div>
-            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid var(--clinic-color);">
+            <div style="margin-top: 30px; padding: 20px; background: var(--surface); border-radius: 8px; border: 2px solid var(--clinic-color);">
                 <h3 style="margin: 0 0 15px 0; color: var(--clinic-color); font-size: 18px;">📋 Consentimiento Informado</h3>
-                <p style="font-size: 14px; line-height: 1.6; color: #333; text-align: justify; margin-bottom: 20px;">Por la presente, declaro que he sido informado de forma clara sobre el diagnóstico, los riesgos, beneficios y alternativas del tratamiento dental propuesto. Autorizo voluntariamente al personal de esta clínica a realizar los procedimientos necesarios, incluyendo la administración de anestesia local si se requiere.</p>
-                <div style="margin-bottom: 10px;"><label style="font-weight: 600; color: #333;">Firma del Paciente (o Tutor) *</label><div style="margin-top: 8px;"><canvas id="canvasFirma" width="600" height="150" style="border: 2px solid #ddd; border-radius: 8px; background: white; cursor: crosshair; display: block; width: 100%;"></canvas></div><button type="button" class="btn" onclick="limpiarFirma()" style="margin-top: 10px; background: #ff3b30; color: white; padding: 8px 16px;">🗑️ Limpiar Firma</button></div>
+                <p style="font-size: 14px; line-height: 1.6; color: var(--dark); text-align: justify; margin-bottom: 20px;">Por la presente, declaro que he sido informado de forma clara sobre el diagnóstico, los riesgos, beneficios y alternativas del tratamiento dental propuesto. Autorizo voluntariamente al personal de esta clínica a realizar los procedimientos necesarios, incluyendo la administración de anestesia local si se requiere.</p>
+                <div style="margin-bottom: 10px;"><label style="font-weight: 400; color: var(--dark);">Firma del Paciente (o Tutor) *</label><div style="margin-top: 8px;"><canvas id="canvasFirma" width="600" height="150" style="border: 2px solid #ddd; border-radius: 8px; background: white; cursor: crosshair; display: block; width: 100%;"></canvas></div><button type="button" class="btn" onclick="limpiarFirma()" style="margin-top: 10px; background: #ff3b30; color: white; padding: 8px 16px;">🗑️ Limpiar Firma</button></div>
             </div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevoPaciente')">Cancelar</button><button class="btn btn-save" onclick="guardarPaciente()">Guardar Paciente</button></div>
         </div>
@@ -1277,18 +1583,18 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <div style="flex: 1;"><div class="modal-title" id="verPacienteNombre" style="color: white; font-size: 24px; margin-bottom: 4px;"></div><div id="verPacienteSubtitulo" style="font-size: 14px; opacity: 0.9;"></div></div>
                     <div style="display: flex; gap: 12px; align-items: center;">
-                        <button onclick="editarPacienteActual()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">✏️ Editar</button>
-                        <button id="btnEliminarPaciente" onclick="eliminarPacienteActual()" style="background: rgba(220,53,69,0.7); border: 1px solid rgba(220,53,69,0.9); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; display: none;">🗑️ Eliminar</button>
+                        <button onclick="editarPacienteActual()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 400;">✏️ Editar</button>
+                        <button id="btnEliminarPaciente" onclick="eliminarPacienteActual()" style="background: rgba(220,53,69,0.7); border: 1px solid rgba(220,53,69,0.9); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 400; display: none;">🗑️ Eliminar</button>
                         <button onclick="closeModal('modalVerPaciente')" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center;">✕</button>
                     </div>
                 </div>
             </div>
             <div style="background: white; border-bottom: 2px solid #e5e5e7; padding: 0 24px; display: flex; gap: 8px;">
-                <button class="paciente-tab active" data-tab="resumen" onclick="cambiarTabPaciente('resumen')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 600; color: #666; border-bottom: 3px solid transparent;">📊 Resumen</button>
-                <button class="paciente-tab" data-tab="balance" onclick="cambiarTabPaciente('balance')" id="tabBalanceBtn" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 600; color: #666; border-bottom: 3px solid transparent;">💰 Balance</button>
-                <button class="paciente-tab" data-tab="historial" onclick="cambiarTabPaciente('historial')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 600; color: #666; border-bottom: 3px solid transparent;">📋 Historial</button>
-                <button class="paciente-tab" data-tab="recetas" onclick="cambiarTabPaciente('recetas')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 600; color: #666; border-bottom: 3px solid transparent;">💊 Recetas</button>
-                <button class="paciente-tab" data-tab="documentos" onclick="cambiarTabPaciente('documentos')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 600; color: #666; border-bottom: 3px solid transparent;">📄 Documentos</button>
+                <button class="paciente-tab active" data-tab="resumen" onclick="cambiarTabPaciente('resumen')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">📊 Resumen</button>
+                <button class="paciente-tab" data-tab="balance" onclick="cambiarTabPaciente('balance')" id="tabBalanceBtn" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">💰 Balance</button>
+                <button class="paciente-tab" data-tab="historial" onclick="cambiarTabPaciente('historial')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">📋 Historial</button>
+                <button class="paciente-tab" data-tab="recetas" onclick="cambiarTabPaciente('recetas')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">💊 Recetas</button>
+                <button class="paciente-tab" data-tab="documentos" onclick="cambiarTabPaciente('documentos')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">📄 Documentos</button>
             </div>
             <div style="flex: 1; overflow-y: auto; padding: 24px;">
                 <div id="tabResumen" class="paciente-tab-content active"></div>
@@ -1312,7 +1618,7 @@
             <div class="form-group"><label>Alergias</label><textarea id="editPacienteAlergias" rows="2"></textarea></div>
             <div class="form-group"><label>Condiciones Médicas</label><textarea id="editPacienteCondiciones" rows="2"></textarea></div>
             <div class="form-group"><label>Seguro Médico</label><input type="text" id="editPacienteSeguro"></div>
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px;"><h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--clinic-color);">Contacto de Emergencia</h4><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group" style="margin: 0;"><label>Nombre</label><input type="text" id="editPacienteContactoNombre"></div><div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="tel" id="editPacienteContactoTel"></div></div></div>
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-top: 15px;"><h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--clinic-color);">Contacto de Emergencia</h4><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group" style="margin: 0;"><label>Nombre</label><input type="text" id="editPacienteContactoNombre"></div><div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="tel" id="editPacienteContactoTel"></div></div></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarPaciente')">Cancelar</button><button class="btn btn-submit" onclick="guardarEdicionPaciente()">💾 Guardar Cambios</button></div>
         </div>
     </div>
@@ -1321,9 +1627,9 @@
     <div id="modalConsentimiento" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header"><div class="modal-title">📋 Consentimiento Informado</div></div>
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: #666; margin-bottom: 4px;">Paciente:</div><div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;" id="consentimientoNombre"></div><div style="font-size: 14px; color: #666;">Cédula: <span id="consentimientoCedula"></span></div></div>
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: var(--mid); margin-bottom: 4px;">Paciente:</div><div style="font-size: 18px; font-weight: 400; margin-bottom: 8px;" id="consentimientoNombre"></div><div style="font-size: 14px; color: var(--mid);">Cédula: <span id="consentimientoCedula"></span></div></div>
             <div style="background: white; padding: 20px; border: 2px solid var(--clinic-color); border-radius: 8px; margin-bottom: 20px;"><h3 style="color: var(--clinic-color); margin-bottom: 15px;">Consentimiento Informado</h3><p style="font-size: 13px; line-height: 1.6; color: #1d1d1f; text-align: justify;">He sido informado sobre mi diagnóstico, tratamiento propuesto, riesgos, beneficios y alternativas. <strong>Autorizo voluntariamente</strong> los procedimientos odontológicos necesarios, incluyendo anestesia local. Entiendo que la odontología no garantiza resultados específicos. <strong>Me comprometo</strong> a seguir indicaciones médicas y asistir a controles.</p></div>
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><div style="font-size: 14px; color: #666; font-weight: 600;">Firma del Paciente (o Tutor):</div><button class="btn btn-secondary" onclick="limpiarFirma()" style="padding: 8px 16px;">🗑️ Limpiar</button></div><canvas id="signatureCanvas" width="600" height="200" style="border: 2px solid #ddd; border-radius: 8px; background: white; width: 100%; cursor: crosshair;"></canvas></div>
+            <div style="background: var(--surface); padding: 15px; border-radius: var(--radius-sm);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><div style="font-size: 14px; color: var(--mid); font-weight: 400;">Firma del Paciente (o Tutor):</div><button class="btn btn-secondary" onclick="limpiarFirma()" style="padding: 8px 16px;">🗑️ Limpiar</button></div><canvas id="signatureCanvas" width="600" height="200" style="border: 2px solid #ddd; border-radius: 8px; background: white; width: 100%; cursor: crosshair;"></canvas></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalConsentimiento')">Cancelar</button><button class="btn btn-submit" onclick="guardarConsentimiento()">💾 Guardar Consentimiento</button></div>
         </div>
     </div>
@@ -1363,7 +1669,7 @@
     <div id="modalNuevaOrden" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Orden de Laboratorio</div></div>
-            <div id="ordenDesdeFactura" style="display: none;"><div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: #666;">Paciente:</div><div style="font-size: 16px; font-weight: 600;" id="ordenPacienteNombre"></div><div style="font-size: 12px; color: #666; margin-top: 4px;">Doctor:</div><div style="font-size: 14px; font-weight: 600;" id="ordenProfesionalNombre"></div></div></div>
+            <div id="ordenDesdeFactura" style="display: none;"><div style="background: var(--surface); padding: 12px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: var(--mid);">Paciente:</div><div style="font-size: 16px; font-weight: 400;" id="ordenPacienteNombre"></div><div style="font-size: 12px; color: var(--mid); margin-top: 4px;">Doctor:</div><div style="font-size: 14px; font-weight: 400;" id="ordenProfesionalNombre"></div></div></div>
             <div id="ordenDirecta" style="display: none;"><div class="form-group"><label>Paciente *</label><input type="text" id="ordenPacienteInput" placeholder="Escribe para buscar..." oninput="buscarPacienteOrden()" autocomplete="off"><div id="ordenPacienteSuggestions" style="display: none; position: absolute; background: white; border: 1px solid #e5e5e7; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; width: calc(100% - 40px); margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div></div><div class="form-group"><label>Doctor *</label><select id="ordenProfesionalSelect"><option value="">Seleccione doctor</option></select></div></div>
             <div class="form-group"><label>Tipo de Trabajo *</label><select id="ordenTipo"><option value="">Seleccione tipo</option><option value="Corona">Corona</option><option value="Puente">Puente</option><option value="Prótesis Parcial">Prótesis Parcial</option><option value="Prótesis Total">Prótesis Total</option><option value="Placa de Relajación">Placa de Relajación</option><option value="Ortodoncia">Ortodoncia</option><option value="Otro">Otro</option></select></div>
             <div class="form-group"><label>Descripción/Indicaciones *</label><textarea id="ordenDescripcion" rows="4"></textarea></div>
@@ -1386,7 +1692,7 @@
     <div id="modalCancelarFactura" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Cancelar Factura</div></div>
-            <div style="background: #fff3cd; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff9500;"><strong>⚠️ Advertencia:</strong> Esta acción cancelará la factura permanentemente.</div>
+            <div style="background: rgba(196,133,106,0.1); padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff9500;"><strong>⚠️ Advertencia:</strong> Esta acción cancelará la factura permanentemente.</div>
             <div class="form-group"><label>Razón de Cancelación *</label><textarea id="razonCancelacion" rows="4"></textarea></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalCancelarFactura')">Volver</button><button class="btn" style="background: #ff3b30; color: white;" onclick="confirmarCancelacionFactura()">Cancelar Factura</button></div>
         </div>
@@ -1395,7 +1701,7 @@
     <div id="modalAbonoLab" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Registrar Abono al Laboratorio</div></div>
-            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 14px; font-weight: 600;" id="abonoOrdenInfo"></div><div style="font-size: 13px; color: #666; margin-top: 4px;" id="abonoSaldoActual"></div></div>
+            <div style="background: var(--surface); padding: 12px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 14px; font-weight: 400;" id="abonoOrdenInfo"></div><div style="font-size: 13px; color: var(--mid); margin-top: 4px;" id="abonoSaldoActual"></div></div>
             <div class="form-group"><label>Monto del Abono *</label><input type="number" id="abonoMonto" placeholder="0" min="0" step="100"></div>
             <div class="form-group"><label>Fecha del Abono</label><input type="date" id="abonoFecha"></div>
             <div class="form-group"><label>Notas</label><textarea id="abonoNotas" rows="2"></textarea></div>
@@ -1406,7 +1712,7 @@
     <!-- Galería de Placas -->
     <div id="modalGaleriaPlacas" class="modal">
         <div class="modal-content" style="max-width: 1200px;">
-            <div class="modal-header"><div class="modal-title">🦷 Galería de Placas Radiográficas</div><div style="font-size: 14px; color: #666; margin-top: 4px;" id="galeriaPacienteNombre"></div></div>
+            <div class="modal-header"><div class="modal-title">🦷 Galería de Placas Radiográficas</div><div style="font-size: 14px; color: var(--mid); margin-top: 4px;" id="galeriaPacienteNombre"></div></div>
             <div style="margin-bottom: 20px;"><button class="btn btn-submit" onclick="abrirSubirPlaca()" style="width: 100%;">📤 Subir Nueva Placa</button></div>
             <div id="galeriaPlacasContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalGaleriaPlacas')">Cerrar</button></div>
@@ -1418,7 +1724,7 @@
             <div class="modal-header"><div class="modal-title">📤 Subir Nueva Placa</div></div>
             <div class="form-group"><label>Tipo de Placa *</label><select id="placaTipo"><option value="Periapical">Periapical</option><option value="Bite-wing">Bite-wing</option><option value="Panorámica">Panorámica</option><option value="Cefalométrica">Cefalométrica</option><option value="Oclusal">Oclusal</option><option value="Cone Beam">Cone Beam (CBCT)</option><option value="Otra">Otra</option></select></div>
             <div class="form-group"><label>Notas / Observaciones</label><textarea id="placaNotas" rows="3"></textarea></div>
-            <div class="form-group"><label>Imagen *</label><input type="file" id="placaInput" accept="image/*" onchange="previsualizarPlaca()" style="display: none;"><button type="button" class="btn btn-secondary" onclick="document.getElementById('placaInput').click()" style="width: 100%; padding: 15px;">📁 Seleccionar Imagen</button><div id="placaNombreArchivo" style="font-size: 13px; color: #666; text-align: center; margin-top: 8px;"></div></div>
+            <div class="form-group"><label>Imagen *</label><input type="file" id="placaInput" accept="image/*" onchange="previsualizarPlaca()" style="display: none;"><button type="button" class="btn btn-secondary" onclick="document.getElementById('placaInput').click()" style="width: 100%; padding: 15px;">📁 Seleccionar Imagen</button><div id="placaNombreArchivo" style="font-size: 13px; color: var(--mid); text-align: center; margin-top: 8px;"></div></div>
             <img id="placaPreview" class="hidden" style="max-width: 100%; border-radius: 8px; border: 2px solid #e5e5e7;">
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalSubirPlaca')">Cancelar</button><button class="btn btn-submit" onclick="guardarPlaca()">💾 Guardar Placa</button></div>
         </div>
@@ -1428,11 +1734,11 @@
         <div class="modal-content" style="max-width: 95vw; max-height: 95vh; padding: 0; overflow: hidden;">
             <div style="display: flex; flex-direction: column; height: 95vh;">
                 <div style="background: var(--clinic-color); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
-                    <div><div style="font-size: 20px; font-weight: 700; margin-bottom: 4px;" id="fullscreenPlacaTipo"></div><div style="font-size: 14px; opacity: 0.9;" id="fullscreenPlacaFecha"></div></div>
+                    <div><div style="font-size: 20px; font-weight: 400; margin-bottom: 4px;" id="fullscreenPlacaTipo"></div><div style="font-size: 14px; opacity: 0.9;" id="fullscreenPlacaFecha"></div></div>
                     <div style="display: flex; gap: 10px;"><button class="btn btn-secondary" onclick="descargarPlaca()" style="background: white; color: var(--clinic-color);">💾 Descargar</button><button class="btn btn-cancel" onclick="closeModal('modalPlacaFullscreen')" style="background: rgba(255,255,255,0.2); color: white;">✕ Cerrar</button></div>
                 </div>
                 <div style="flex: 1; overflow: auto; background: #1a1a1a; display: flex; align-items: center; justify-content: center; padding: 20px;"><img id="fullscreenPlacaImagen" style="max-width: 100%; max-height: 100%; object-fit: contain;"></div>
-                <div style="background: #f8f9fa; padding: 20px; border-top: 2px solid #e0e0e0;"><div style="font-size: 12px; color: #666; font-weight: 600; margin-bottom: 8px;">NOTAS:</div><div style="font-size: 14px; color: #333; line-height: 1.6;" id="fullscreenPlacaNotas"></div></div>
+                <div style="background: var(--surface); padding: 20px; border-top: 2px solid #e0e0e0;"><div style="font-size: 12px; color: var(--mid); font-weight: 400; margin-bottom: 8px;">NOTAS:</div><div style="font-size: 14px; color: var(--dark); line-height: 1.6;" id="fullscreenPlacaNotas"></div></div>
             </div>
         </div>
     </div>
@@ -1450,7 +1756,7 @@
     <!-- Recetas -->
     <div id="modalRecetasMedicas" class="modal">
         <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header"><div class="modal-title">💊 Recetas Médicas</div><div style="font-size: 14px; color: #666; margin-top: 4px;" id="recetasPacienteNombre"></div></div>
+            <div class="modal-header"><div class="modal-title">💊 Recetas Médicas</div><div style="font-size: 14px; color: var(--mid); margin-top: 4px;" id="recetasPacienteNombre"></div></div>
             <button class="btn btn-submit" onclick="abrirNuevaReceta()" style="width: 100%; margin-bottom: 20px;">➕ Nueva Receta</button>
             <div id="listaRecetas"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalRecetasMedicas')">Cerrar</button></div>
@@ -1461,7 +1767,7 @@
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header"><div class="modal-title">➕ Nueva Receta Médica</div></div>
             <div class="form-group"><label>Diagnóstico (Opcional)</label><textarea id="recetaDiagnostico" rows="2"></textarea></div>
-            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <div style="background: var(--surface); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                 <h4 style="font-size: 14px; color: var(--clinic-color); margin-bottom: 12px;">💊 Medicamentos</h4>
                 <div class="form-group"><label>Nombre del Medicamento *</label><input type="text" id="medNombre" placeholder="Ej: Ibuprofeno 400mg"></div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;"><div class="form-group"><label>Dosis *</label><input type="text" id="medDosis" placeholder="Ej: 1 tableta"></div><div class="form-group"><label>Frecuencia *</label><input type="text" id="medFrecuencia" placeholder="Ej: Cada 8 horas"></div></div>
@@ -1478,7 +1784,7 @@
     <div id="modalAuditoria" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header"><div class="modal-title">📋 Historial de Auditoría</div></div>
-            <div style="background: #fff3cd; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid #ffc107;"><div style="font-size: 13px; color: #856404;">🔒 Este historial registra todas las acciones importantes del sistema.</div></div>
+            <div style="background: rgba(196,133,106,0.1); padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid #ffc107;"><div style="font-size: 13px; color: #856404;">🔒 Este historial registra todas las acciones importantes del sistema.</div></div>
             <div id="listaAuditoria"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalAuditoria')">Cerrar</button></div>
         </div>
@@ -1488,7 +1794,7 @@
     <div id="modalConfirmacion" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header" id="confirmacionHeader"><div class="modal-title" id="confirmacionTitulo"></div></div>
-            <div id="confirmacionMensaje" style="line-height: 1.6; color: #333;"></div>
+            <div id="confirmacionMensaje" style="line-height: 1.6; color: var(--dark);"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="cerrarConfirmacion()">Cancelar</button><button class="btn" id="confirmacionBtnConfirmar" onclick="ejecutarConfirmacion()">Confirmar</button></div>
         </div>
     </div>
