@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,8 +17,8 @@
 
         /* CSS Variables — se sobreescriben dinámicamente desde Firebase config */
         :root {
-            --clinic-color: #002366;
-            --clinic-color-light: #004080;
+            --clinic-color: #1E1C1A;
+            --clinic-color-light: #3A3836;
         }
 
         body {
@@ -452,7 +453,7 @@
 
         .badge-pending  { background: #ff9500; color: white; }
         .badge-paid     { background: #34c759; color: white; }
-        .badge-partial  { background: #007aff; color: white; }
+        .badge-partial  { background: var(--clinic-color); color: white; }
         .badge-cancelled { background: #ff3b30; color: white; text-decoration: line-through; }
 
         /* Discount buttons */
@@ -544,6 +545,7 @@
 
         /* Clinic loading screen */
         .clinic-loading {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
             position: fixed;
             inset: 0;
             background: #f5f5f7;
@@ -656,7 +658,7 @@
                     oninput="buscarGlobal()"
                     autocomplete="off"
                     style="width: 100%; padding: 10px 16px; border: 2px solid #e5e5e7; border-radius: 8px; font-size: 14px; transition: all 0.2s;"
-                    onfocus="this.style.borderColor='#007AFF'; this.style.boxShadow='0 0 0 3px rgba(0,122,255,0.1)';"
+                    onfocus="this.style.borderColor='var(--clinic-color)'; this.style.boxShadow='0 0 0 3px rgba(0,0,0,0.06)';"
                     onblur="this.style.borderColor='#e5e5e7'; this.style.boxShadow='none';"
                 >
                 <div id="resultadosBusqueda" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e5e7; border-radius: 8px; margin-top: 8px; max-height: 500px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.15);"></div>
@@ -680,7 +682,7 @@
                         <div id="dashIngresosHoy" style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">RD$ 0</div>
                         <div id="dashIngresosComparacion" style="font-size: 12px; opacity: 0.8;"></div>
                     </div>
-                    <div style="background: linear-gradient(135deg, #007aff 0%, #0051d5 100%); padding: 24px; border-radius: 12px; color: white; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);">
+                    <div style="background: var(--clinic-color); padding: 24px; border-radius: 12px; color: white; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
                         <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">📅 Citas Hoy</div>
                         <div id="dashCitasHoy" style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">0</div>
                         <div id="dashCitasPendientes" style="font-size: 12px; opacity: 0.8;"></div>
@@ -988,9 +990,9 @@
                         <div class="form-group"><label>Hasta</label><input type="date" id="reporteFechaFin"></div>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <button class="btn" style="background: #007AFF; color: white;" onclick="setReportePeriodo('hoy')">Hoy</button>
-                        <button class="btn" style="background: #007AFF; color: white;" onclick="setReportePeriodo('semana')">Esta Semana</button>
-                        <button class="btn" style="background: #007AFF; color: white;" onclick="setReportePeriodo('mes')">Este Mes</button>
+                        <button class="btn" style="background: var(--clinic-color); color: white;" onclick="setReportePeriodo('hoy')">Hoy</button>
+                        <button class="btn" style="background: var(--clinic-color); color: white;" onclick="setReportePeriodo('semana')">Esta Semana</button>
+                        <button class="btn" style="background: var(--clinic-color); color: white;" onclick="setReportePeriodo('mes')">Este Mes</button>
                         <button class="btn btn-submit" onclick="generarReporte()">🔍 Generar</button>
                     </div>
                 </div>
@@ -999,7 +1001,7 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div style="background: linear-gradient(135deg, #34c759 0%, #30d158 100%); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Total Cobrado</div><div id="reporteTotalCobrado" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
                         <div style="background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Total Gastos</div><div id="reporteTotalGastos" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
-                        <div style="background: linear-gradient(135deg, #007AFF 0%, #0A84FF 100%); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Balance Neto</div><div id="reporteBalanceNeto" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
+                        <div style="background: var(--clinic-color); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Balance Neto</div><div id="reporteBalanceNeto" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
                         <div style="background: linear-gradient(135deg, #ff9500 0%, #ff9f0a 100%); color: white; padding: 15px; border-radius: 12px;"><div style="font-size: 12px; opacity: 0.9;">Pendiente Cobro</div><div id="reportePendiente" style="font-size: 24px; font-weight: 700; margin-top: 5px;">RD$ 0</div></div>
                     </div>
                 </div>
@@ -1055,7 +1057,7 @@
                     <h2>📥 Importar Pacientes desde CSV</h2>
                     <p style="color: #666; margin-bottom: 20px; font-size: 14px;">Sube un archivo CSV con los datos de tus pacientes.</p>
                     <div id="paso1-upload" style="margin-bottom: 20px;">
-                        <div style="border: 2px dashed #007AFF; border-radius: 12px; padding: 30px; text-align: center; background: #f8f9fa; cursor: pointer;" onclick="document.getElementById('csvFileInput').click()">
+                        <div style="border: 2px dashed var(--clinic-color); border-radius: 12px; padding: 30px; text-align: center; background: #f8f9fa; cursor: pointer;" onclick="document.getElementById('csvFileInput').click()">
                             <div style="font-size: 48px; margin-bottom: 10px;">📂</div>
                             <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color); margin-bottom: 8px;">Click aquí para seleccionar archivo CSV</div>
                         </div>
@@ -1259,8 +1261,8 @@
             <div class="form-group"><label>Seguro Médico</label><input type="text" id="nuevoPacienteSeguro"></div>
             <div class="form-group"><label>Contacto de Emergencia</label><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;"><input type="text" id="nuevoPacienteEmergenciaNombre" placeholder="Nombre"><input type="tel" id="nuevoPacienteEmergenciaTelefono" placeholder="Teléfono"></div></div>
             <div class="form-group"><label>Condiciones médicas</label><textarea id="nuevoPacienteCondiciones"></textarea></div>
-            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #007AFF;">
-                <h3 style="margin: 0 0 15px 0; color: #007AFF; font-size: 18px;">📋 Consentimiento Informado</h3>
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid var(--clinic-color);">
+                <h3 style="margin: 0 0 15px 0; color: var(--clinic-color); font-size: 18px;">📋 Consentimiento Informado</h3>
                 <p style="font-size: 14px; line-height: 1.6; color: #333; text-align: justify; margin-bottom: 20px;">Por la presente, declaro que he sido informado de forma clara sobre el diagnóstico, los riesgos, beneficios y alternativas del tratamiento dental propuesto. Autorizo voluntariamente al personal de esta clínica a realizar los procedimientos necesarios, incluyendo la administración de anestesia local si se requiere.</p>
                 <div style="margin-bottom: 10px;"><label style="font-weight: 600; color: #333;">Firma del Paciente (o Tutor) *</label><div style="margin-top: 8px;"><canvas id="canvasFirma" width="600" height="150" style="border: 2px solid #ddd; border-radius: 8px; background: white; cursor: crosshair; display: block; width: 100%;"></canvas></div><button type="button" class="btn" onclick="limpiarFirma()" style="margin-top: 10px; background: #ff3b30; color: white; padding: 8px 16px;">🗑️ Limpiar Firma</button></div>
             </div>
@@ -1320,7 +1322,7 @@
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header"><div class="modal-title">📋 Consentimiento Informado</div></div>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: #666; margin-bottom: 4px;">Paciente:</div><div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;" id="consentimientoNombre"></div><div style="font-size: 14px; color: #666;">Cédula: <span id="consentimientoCedula"></span></div></div>
-            <div style="background: white; padding: 20px; border: 2px solid #007AFF; border-radius: 8px; margin-bottom: 20px;"><h3 style="color: var(--clinic-color); margin-bottom: 15px;">Consentimiento Informado</h3><p style="font-size: 13px; line-height: 1.6; color: #1d1d1f; text-align: justify;">He sido informado sobre mi diagnóstico, tratamiento propuesto, riesgos, beneficios y alternativas. <strong>Autorizo voluntariamente</strong> los procedimientos odontológicos necesarios, incluyendo anestesia local. Entiendo que la odontología no garantiza resultados específicos. <strong>Me comprometo</strong> a seguir indicaciones médicas y asistir a controles.</p></div>
+            <div style="background: white; padding: 20px; border: 2px solid var(--clinic-color); border-radius: 8px; margin-bottom: 20px;"><h3 style="color: var(--clinic-color); margin-bottom: 15px;">Consentimiento Informado</h3><p style="font-size: 13px; line-height: 1.6; color: #1d1d1f; text-align: justify;">He sido informado sobre mi diagnóstico, tratamiento propuesto, riesgos, beneficios y alternativas. <strong>Autorizo voluntariamente</strong> los procedimientos odontológicos necesarios, incluyendo anestesia local. Entiendo que la odontología no garantiza resultados específicos. <strong>Me comprometo</strong> a seguir indicaciones médicas y asistir a controles.</p></div>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><div style="font-size: 14px; color: #666; font-weight: 600;">Firma del Paciente (o Tutor):</div><button class="btn btn-secondary" onclick="limpiarFirma()" style="padding: 8px 16px;">🗑️ Limpiar</button></div><canvas id="signatureCanvas" width="600" height="200" style="border: 2px solid #ddd; border-radius: 8px; background: white; width: 100%; cursor: crosshair;"></canvas></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalConsentimiento')">Cancelar</button><button class="btn btn-submit" onclick="guardarConsentimiento()">💾 Guardar Consentimiento</button></div>
         </div>
@@ -1510,6 +1512,15 @@
 
     <!-- Aplicar branding desde Firebase config -->
     <script>
+    // Genera una versión más oscura del color para gradientes
+    function darkenColor(hex, pct) {
+        const n = parseInt(hex.replace('#',''), 16);
+        const r = Math.max(0, (n >> 16) - Math.round(2.55 * pct));
+        const g = Math.max(0, ((n >> 8) & 0xff) - Math.round(2.55 * pct));
+        const b = Math.max(0, (n & 0xff) - Math.round(2.55 * pct));
+        return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
+    }
+
     async function aplicarBranding() {
         try {
             const clinicaId = (() => {
@@ -1523,16 +1534,23 @@
 
             if (cfgDoc.exists) {
                 const cfg = cfgDoc.data();
-                const color = cfg.color || '#002366';
+                const color = cfg.color || '#C4856A';
+                const colorDark = darkenColor(color, 15);
 
-                // Aplicar color
+                // Aplicar variables CSS
                 document.documentElement.style.setProperty('--clinic-color', color);
-                document.documentElement.style.setProperty('--clinic-color-light', color + 'CC');
+                document.documentElement.style.setProperty('--clinic-color-light', colorDark);
 
-                // Nombre
+                // Nombre y título
                 const nombre = cfg.nombre || 'Clínica Dental';
                 document.getElementById('clinicNameLogin').textContent = nombre;
                 document.title = nombre + ' — SMILE';
+
+                // Logo si existe
+                if (cfg.logo) {
+                    const img = document.getElementById('logoImg');
+                    if (img) { img.src = cfg.logo; img.style.display = 'block'; }
+                }
             }
         } catch(e) {
             console.log('Config de clínica no encontrada, usando defaults');
