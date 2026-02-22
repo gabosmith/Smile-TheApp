@@ -41,13 +41,20 @@ async function loadClinicBranding() {
         const cfg = cfgDoc.data();
 
         // ── Store config globally for module gating ──
-        clinicConfig.modulos = cfg.modulos || [];
-        clinicConfig.plan    = cfg.plan || 'clinica';
-        clinicConfig.nombre  = cfg.nombre || '';
-        clinicConfig.color   = cfg.color || '';
-        clinicConfig.activa    = cfg.activa !== false;
-        clinicConfig.procMode  = cfg.procMode || 'libre';
-        clinicConfig.procItems = cfg.procItems || [];
+        clinicConfig.modulos    = cfg.modulos || [];
+        clinicConfig.plan       = cfg.plan || 'clinica';
+        clinicConfig.nombre     = cfg.nombre || '';
+        clinicConfig.color      = cfg.color || '';
+        clinicConfig.activa     = cfg.activa !== false;
+        clinicConfig.trial      = cfg.trial !== false;
+        clinicConfig.trialHasta = cfg.trialHasta || null;
+        clinicConfig.procMode   = cfg.procMode || 'libre';
+        clinicConfig.procItems  = cfg.procItems || [];
+
+        // enTrial: trialHasta es la fuente de verdad
+        clinicConfig.enTrial = clinicConfig.trialHasta
+            ? (new Date() < new Date(clinicConfig.trialHasta))
+            : false;
 
         // ── Apply branding ──
         if (cfg.nombre) {

@@ -1193,7 +1193,7 @@ async function crearClinica() {
       .collection('config').doc('settings').set({
         nombre, clinicaId: id, ciudad, plan,
         adminEmail: email, color, modulos,
-        activa: true, creadaEn: new Date().toISOString(),
+        activa: true, trial: true, creadaEn: new Date().toISOString(),
         trialHasta: getTrial14Days()
       });
 
