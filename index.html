@@ -863,7 +863,7 @@
   </div>
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 // ─── CURSOR ───────────────────────────────────────────
 const cursor = document.getElementById('cursor');
 const ring = document.getElementById('cursorRing');
@@ -1004,4 +1004,11 @@ function toggleMobileMenu() {
 document.addEventListener('click', e => {
   const menu = document.getElementById('mobileMenu');
   const btn  = document.getElementById('navHamburger');
-  if (menu.classList.contains('open') && !menu.contains(e.target) && !btn.contains(e.target
+  if (menu.classList.contains('open') && !menu.contains(e.target) && !btn.contains(e.target)) {
+    menu.classList.remove('open');
+    btn.classList.remove('open');
+  }
+});
+</script>
+</body>
+</html>

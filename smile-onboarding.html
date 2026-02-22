@@ -819,10 +819,15 @@
         <div class="step-ind-dot">4</div>
         <div class="step-ind-label">Módulos</div>
       </div>
-      <div class="step-ind" id="ind-5"><div class="step-ind-dot">5</div><div class="step-ind-label">Procedimientos</div></div>
+            <div class="step-ind" id="ind-5">
+        <div class="step-ind-dot">5</div>
+        <div class="step-ind-label">WhatsApp</div>
+      </div>
       <div class="step-ind" id="ind-6">
         <div class="step-ind-dot">6</div>
-        id="ind-7">
+        <div class="step-ind-label">Precios</div>
+      </div>
+      <div class="step-ind" id="ind-7">
         <div class="step-ind-dot">7</div>
         <div class="step-ind-label">Resumen</div>
       </div>
@@ -1507,6 +1512,20 @@ function updateStep4Totals() {
 
 // ─── STEP 5: FINAL SUMMARY ────────────────────────────
 function buildFinalSummary() {
+  // Re-read all DOM values into state to ensure freshness
+  const cnEl = document.getElementById('clinicName');
+  const anEl = document.getElementById('adminName');
+  const aeEl = document.getElementById('adminEmail');
+  const waEl = document.getElementById('waName');
+  const wcEl = document.getElementById('waCargo');
+  const wpEl = document.getElementById('waPhone');
+  if (cnEl) state.clinicName = cnEl.value.trim() || state.clinicName;
+  if (anEl) state.adminName  = anEl.value.trim()  || state.adminName;
+  if (aeEl) state.adminEmail = aeEl.value.trim()  || state.adminEmail;
+  if (waEl) state.waName     = waEl.value.trim()  || state.waName;
+  if (wcEl) state.waCargo    = wcEl.value         || state.waCargo;
+  if (wpEl) state.waPhone    = wpEl.value.trim()  || state.waPhone;
+
   const BASE = 1200;
   const EXTRA_USER_PRICE = 150;
   const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
@@ -1690,33 +1709,44 @@ async function activateClinic() {
 
     for (let i = 1; i <= 7; i++) {
       const ind = document.getElementById('ind-' + i);
+      if (!ind) continue;
       ind.classList.remove('active');
       ind.classList.add('done');
-      ind.querySelector('.step-ind-dot').textContent = '✓';
+      const dot = ind.querySelector('.step-ind-dot');
+      if (dot) dot.textContent = '✓';
     }
 
     // Build the real URL
     const appUrl = `https://gabosmith.github.io/smile-app/app.html?clinica=${clinicId}`;
-    document.getElementById('successUrlText').textContent = appUrl;
+    const urlEl = document.getElementById('successUrlText');
+    urlEl.textContent = `smile.app/${clinicId}`;
+    urlEl.dataset.fullUrl = appUrl;
     const btnIr = document.getElementById('btnIrClinica');
     btnIr.style.display = 'block';
-    btnIr._url = appUrl;
+    btnIr.onclick = () => window.open(appUrl, '_blank');
 
     document.getElementById('successDetails').innerHTML = `
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--light);margin-bottom:16px;text-align:center">
+        Guarda estos datos — los necesitas para entrar
+      </div>
+      <div class="success-detail-card" style="border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
+        <div class="sd-label">👤 Usuario</div>
+        <div class="sd-val" style="font-size:16px">${state.adminName}</div>
+      </div>
+      <div class="success-detail-card" style="border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
+        <div class="sd-label">🔑 Contraseña inicial</div>
+        <div class="sd-val" style="font-family:monospace;letter-spacing:4px;font-size:24px;color:var(--terracota)">${adminPassword}</div>
+      </div>
       <div class="success-detail-card">
-        <div class="sd-label">Clínica</div>
+        <div class="sd-label">🏥 Clínica</div>
         <div class="sd-val">${state.clinicName}</div>
       </div>
       <div class="success-detail-card">
-        <div class="sd-label">Plan mensual</div>
-        <div class="sd-val" style="color:var(--terracota)">RD$${total.toLocaleString()}</div>
+        <div class="sd-label">💳 Plan mensual</div>
+        <div class="sd-val" style="color:var(--terracota)">RD\$${total.toLocaleString()}</div>
       </div>
       <div class="success-detail-card">
-        <div class="sd-label">Contraseña inicial</div>
-        <div class="sd-val" style="font-family:monospace;letter-spacing:2px;font-size:20px">${adminPassword}</div>
-      </div>
-      <div class="success-detail-card">
-        <div class="sd-label">Trial gratis hasta</div>
+        <div class="sd-label">🎁 Trial gratis hasta</div>
         <div class="sd-val">${getFreeTrialDate()}</div>
       </div>
     `;
@@ -1743,8 +1773,9 @@ function irAClinica() {
 }
 
 function copyUrl() {
-  const url = document.getElementById('successUrlText').textContent;
-  navigator.clipboard?.writeText('https://' + url);
+  const urlEl = document.getElementById('successUrlText');
+  const fullUrl = urlEl.dataset.fullUrl || urlEl.textContent;
+  navigator.clipboard?.writeText(fullUrl);
   const copy = document.querySelector('.success-url-copy');
   copy.textContent = '✓ Copiado';
   setTimeout(() => copy.textContent = 'Copiar', 2000);
