@@ -1717,7 +1717,7 @@ async function activateClinic() {
     }
 
     // Build the real URL
-    const appUrl = `https://gabosmith.github.io/smile-app/app.html?clinica=${clinicId}`;
+    const appUrl = window.location.origin + window.location.pathname.replace('smile-onboarding.html','') + 'app.html?clinica=' + clinicId;
     const urlEl = document.getElementById('successUrlText');
     urlEl.textContent = `smile.app/${clinicId}`;
     urlEl.dataset.fullUrl = appUrl;
