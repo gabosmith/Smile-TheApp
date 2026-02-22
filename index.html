@@ -138,76 +138,73 @@
   .nav-cta:hover { background: var(--terracota); box-shadow: 0 4px 16px rgba(196,133,106,0.35); }
 
   /* HERO */
+  /* ── HERO ── */
   .hero {
     min-height: 100vh;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 140px 60px 80px;
+    padding: 140px 60px 100px;
     text-align: center;
   }
 
   .hero-inner {
-    max-width: 820px;
+    max-width: 760px;
     width: 100%;
-    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 0;
   }
 
+  /* Decorative dots — purely visual, no impact on layout */
   .color-dots {
-    position: absolute;
-    right: -40px;
-    top: 20px;
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 48px;
     opacity: 0;
-    animation: up 1.2s 0.5s ease forwards;
+    animation: up 1s 0.6s ease forwards;
   }
 
   .hero-title {
-    font-size: clamp(56px, 9vw, 108px);
+    font-size: clamp(52px, 8.5vw, 100px);
     font-weight: 200;
     letter-spacing: -3px;
-    line-height: 0.92;
+    line-height: 0.95;
     color: var(--dark);
+    margin-bottom: 32px;
     opacity: 0;
     animation: up 0.9s 0.05s ease forwards;
-    margin-bottom: 32px;
   }
-
   .hero-title em { font-style: italic; color: var(--terracota); }
 
   .hero-sub {
     font-size: 17px;
     color: var(--mid);
     line-height: 1.75;
-    max-width: 480px;
+    max-width: 460px;
+    margin-bottom: 48px;
     opacity: 0;
-    animation: up 0.9s 0.18s ease forwards;
-    margin-bottom: 40px;
+    animation: up 0.9s 0.2s ease forwards;
   }
 
   .hero-bottom {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0;
-    opacity: 0;
-    animation: up 0.9s 0.3s ease forwards;
+    gap: 16px;
     width: 100%;
+    opacity: 0;
+    animation: up 0.9s 0.35s ease forwards;
   }
 
   .hero-actions {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 20px;
     justify-content: center;
-    margin-bottom: 20px;
+    gap: 16px;
   }
 
   .hero-migration {
@@ -215,17 +212,16 @@
     color: var(--light);
     display: flex;
     align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
     justify-content: center;
+    gap: 6px;
   }
   .migration-link {
-    color: var(--terracota); text-decoration: none; font-weight: 400;
+    color: var(--terracota);
+    text-decoration: none;
+    font-weight: 400;
     transition: opacity 0.2s;
   }
   .migration-link:hover { opacity: 0.7; }
-
-  /* color dots — decorative, top right */
 
 
   /* MAGNETIC BTN */
@@ -573,10 +569,12 @@
 
     /* Hero */
     .hero { padding: 120px 24px 60px; min-height: auto; }
-    .hero-title { font-size: clamp(44px, 12vw, 72px); letter-spacing: -2px; }
-    .hero-bottom { flex-direction: column; align-items: center; gap: 24px; }
-    .hero-actions { flex-direction: column; align-items: center; width: 100%; gap: 12px; }
-    .hero-sub { font-size: 15px; text-align: center; }
+    .hero { padding: 110px 24px 70px; }
+    .hero-title { font-size: clamp(42px, 11vw, 68px); letter-spacing: -2px; }
+    .hero-sub { font-size: 15px; max-width: 100%; }
+    .hero-actions { flex-direction: column; align-items: stretch; width: 100%; gap: 12px; }
+    .hero-migration { flex-direction: column; gap: 4px; }
+    .color-dots { margin-bottom: 36px; }
     .btn-primary { width: 100%; text-align: center; padding: 18px 32px; cursor: pointer; }
     .btn-ghost { cursor: pointer; }
   
