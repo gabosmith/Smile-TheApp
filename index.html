@@ -142,20 +142,30 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    align-items: center;
     justify-content: center;
     padding: 140px 60px 80px;
+    text-align: center;
   }
 
-  .hero-inner { max-width: 1100px; position: relative; }
+  .hero-inner {
+    max-width: 820px;
+    width: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
 
-  .hero-eyebrow {
-    font-size: 11px;
-    letter-spacing: 5px;
-    text-transform: uppercase;
-    color: var(--terracota);
-    margin-bottom: 36px;
+  .color-dots {
+    position: absolute;
+    right: -40px;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     opacity: 0;
-    animation: up 0.9s ease forwards;
+    animation: up 1.2s 0.5s ease forwards;
   }
 
   .hero-title {
@@ -165,33 +175,58 @@
     line-height: 0.92;
     color: var(--dark);
     opacity: 0;
-    animation: up 0.9s 0.1s ease forwards;
+    animation: up 0.9s 0.05s ease forwards;
+    margin-bottom: 32px;
   }
 
   .hero-title em { font-style: italic; color: var(--terracota); }
 
-  .hero-bottom {
-    margin-top: 64px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
+  .hero-sub {
+    font-size: 17px;
+    color: var(--mid);
+    line-height: 1.75;
+    max-width: 480px;
     opacity: 0;
-    animation: up 0.9s 0.25s ease forwards;
+    animation: up 0.9s 0.18s ease forwards;
+    margin-bottom: 40px;
   }
 
-  .hero-sub { font-size: 16px; color: var(--mid); line-height: 1.8; max-width: 360px; }
+  .hero-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    opacity: 0;
+    animation: up 0.9s 0.3s ease forwards;
+    width: 100%;
+  }
 
-  .hero-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 16px; }
+  .hero-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
   .hero-migration {
-    font-size: 12px; color: var(--light); margin-top: 8px;
-    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-    justify-content: flex-end;
+    font-size: 12px;
+    color: var(--light);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
   .migration-link {
     color: var(--terracota); text-decoration: none; font-weight: 400;
     transition: opacity 0.2s;
   }
   .migration-link:hover { opacity: 0.7; }
+
+  /* color dots — decorative, top right */
+
 
   /* MAGNETIC BTN */
   .btn-primary {
@@ -222,15 +257,7 @@
   }
   .btn-ghost:hover { color: var(--dark); }
 
-  .color-dots {
-    position: absolute;
-    right: 0; top: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    opacity: 0;
-    animation: fadeIn 1.2s 0.6s ease forwards;
-  }
+
   .cdot { width: 10px; height: 10px; border-radius: 50%; transition: transform 0.3s; }
   .cdot:hover { transform: scale(1.8); }
 
@@ -547,12 +574,12 @@
     /* Hero */
     .hero { padding: 120px 24px 60px; min-height: auto; }
     .hero-title { font-size: clamp(44px, 12vw, 72px); letter-spacing: -2px; }
-    .hero-bottom { flex-direction: column; align-items: flex-start; gap: 32px; margin-top: 40px; }
-    .hero-actions { align-items: flex-start; width: 100%; }
+    .hero-bottom { flex-direction: column; align-items: center; gap: 24px; }
+    .hero-actions { flex-direction: column; align-items: center; width: 100%; gap: 12px; }
+    .hero-sub { font-size: 15px; text-align: center; }
     .btn-primary { width: 100%; text-align: center; padding: 18px 32px; cursor: pointer; }
     .btn-ghost { cursor: pointer; }
-    .color-dots { display: none; }
-    .hero-sub { font-size: 15px; }
+  
 
     /* Tags */
     .tags-row { padding: 0 24px 60px; }
@@ -650,8 +677,8 @@
       <div class="cdot" style="background:var(--light)"></div>
     </div>
     <h1 class="hero-title">Tu clínica,<br>en tus <em>manos.</em></h1>
+    <p class="hero-sub">Todo lo que tu clínica necesita, en un solo lugar.<br>Simple de usar, flexible de configurar, tuyo para siempre.</p>
     <div class="hero-bottom">
-      <p class="hero-sub">Todo lo que tu clínica necesita, en un solo lugar. Simple de usar, flexible de configurar, tuyo para siempre.</p>
       <div class="hero-actions">
         <button class="btn-primary magnetic" data-strength="30" onclick="window.location.href='smile-onboarding.html'">Crear mi clínica →</button>
         <button class="btn-ghost" onclick="document.getElementById('producto').scrollIntoView({behavior:'smooth'})">Ver cómo funciona</button>
@@ -838,7 +865,7 @@
   </div>
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ─── CURSOR ───────────────────────────────────────────
 const cursor = document.getElementById('cursor');
 const ring = document.getElementById('cursorRing');
@@ -979,12 +1006,4 @@ function toggleMobileMenu() {
 document.addEventListener('click', e => {
   const menu = document.getElementById('mobileMenu');
   const btn  = document.getElementById('navHamburger');
-  if (menu.classList.contains('open') && !menu.contains(e.target) && !btn.contains(e.target)) {
-    menu.classList.remove('open');
-    btn.classList.remove('open');
-  }
-});
-</script>
-<script src="smile-nav.js"></script>
-</body>
-</html>
+  if (menu.classList.contains('open') && !menu.contains(e.target) && !btn.contains(e.target
