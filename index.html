@@ -137,21 +137,55 @@
   }
   .nav-cta:hover { background: var(--terracota); box-shadow: 0 4px 16px rgba(196,133,106,0.35); }
 
-  .nav-acceder {
-    background: transparent;
-    border: none;
-    color: var(--mid);
+  .nav-pills-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .nav-pill-acceder {
+    background: var(--surface);
+    border: 1px solid rgba(30,28,26,0.1);
+    color: var(--dark);
     font-family: inherit;
     font-size: 12px;
-    font-weight: 300;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
+    font-weight: 400;
+    letter-spacing: 0.3px;
     cursor: pointer;
-    padding: 8px 14px;
+    padding: 8px 16px;
     border-radius: 100px;
-    transition: color 0.2s, background 0.2s;
+    transition: all 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    white-space: nowrap;
   }
-  .nav-acceder:hover { color: var(--dark); background: rgba(30,28,26,0.05); }
+  .nav-pill-acceder:hover {
+    background: var(--white);
+    border-color: var(--terracota);
+    color: var(--terracota);
+    box-shadow: 0 2px 10px rgba(196,133,106,0.15);
+  }
+
+  .nav-pill-admin {
+    background: var(--surface);
+    border: 1px solid rgba(30,28,26,0.1);
+    color: var(--mid);
+    font-size: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 100px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    flex-shrink: 0;
+  }
+  .nav-pill-admin:hover {
+    background: var(--dark);
+    color: var(--white);
+    border-color: var(--dark);
+  }
 
   /* HERO */
   /* ── HERO ── */
@@ -579,6 +613,7 @@
     nav.scrolled { padding: 12px 16px; }
     .nav-pill { padding: 10px 16px; gap: 0; justify-content: space-between; width: 100%; max-width: 100%; }
     .nav-links { display: none; }
+    .nav-pills-group { display: none; }
     .nav-cta { display: none; }
     .nav-hamburger { display: flex; }
     .mobile-menu { display: flex; }
@@ -667,7 +702,10 @@
       <li><a href="#precios">Precios</a></li>
       <li><a href="#modulos">Módulos</a></li>
     </ul>
-    <button class="nav-acceder" onclick="abrirAcceso()">Acceder</button>
+    <div class="nav-pills-group">
+      <button class="nav-pill-acceder" onclick="abrirAcceso()">Acceder a tu clínica</button>
+      <button class="nav-pill-admin" onclick="window.location.href='admin.html'" title="Admin SMILE">⚙</button>
+    </div>
     <button class="nav-cta" onclick="window.location.href='smile-onboarding.html'">Comenzar</button>
     <button class="nav-hamburger" id="navHamburger" onclick="toggleMobileMenu()" aria-label="Menú">
       <span></span><span></span><span></span>
@@ -679,7 +717,8 @@
   <a href="#producto" onclick="toggleMobileMenu()">Producto</a>
   <a href="#precios" onclick="toggleMobileMenu()">Precios</a>
   <a href="#modulos" onclick="toggleMobileMenu()">Módulos</a>
-  <a href="#" onclick="toggleMobileMenu();abrirAcceso()" style="color:var(--terracota)">Acceder a mi clínica →</a>
+  <a href="#" onclick="toggleMobileMenu();abrirAcceso()" style="color:var(--terracota)">Acceder a tu clínica →</a>
+  <a href="admin.html" onclick="toggleMobileMenu()" style="color:var(--mid);font-size:12px">⚙ Admin SMILE</a>
   <button class="btn-primary" style="width:100%;margin-top:8px;cursor:pointer" onclick="window.location.href='smile-onboarding.html'">Comenzar gratis →</button>
 </div>
 
@@ -1122,7 +1161,7 @@ document.addEventListener('keydown', e => {
     </button>
     <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--light)">
       ¿No recuerdas tu ID?
-      <a href="mailto:hola@smile.app" style="color:var(--terracota);text-decoration:none">
+      <a href="/cdn-cgi/l/email-protection#50383f3c3110233d393c357e312020" style="color:var(--terracota);text-decoration:none">
         Escríbenos →
       </a>
     </div>
