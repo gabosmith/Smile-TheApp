@@ -321,7 +321,13 @@ function initRealtimeListener() {
             appData.gastos = data.gastos || [];
             appData.avances = data.avances || [];
             appData.cuadresDiarios = data.cuadresDiarios || {};
-            appData.pacientes = data.pacientes || [];
+            // ⚠️ NO sobreescribir pacientes desde el doc raíz —
+            // viven en subcollección, solo loadData() los carga correctamente.
+            // Si el doc raíz tiene pacientes (clínicas antiguas), usar como fallback
+            // SOLO si la subcollección aún no cargó nada.
+            if (!appData.pacientes || appData.pacientes.length === 0) {
+                appData.pacientes = data.pacientes || [];
+            }
             appData.citas = data.citas || [];
             appData.laboratorios = data.laboratorios || [];
             appData.reversiones = data.reversiones || [];
@@ -3255,7 +3261,7 @@ function buscarPaciente() {
     }
 
     const matches = appData.pacientes.filter(p =>
-        p.nombre.toLowerCase().includes(query)
+        p.nombre && p.nombre.toLowerCase().includes(query)
     ).slice(0, 5);
 
     if (matches.length === 0) {
@@ -3264,9 +3270,13 @@ function buscarPaciente() {
     }
 
     suggestions.innerHTML = matches.map(p => `
-        <div onclick="seleccionarPaciente('${p.nombre}')" style="padding: 10px; cursor: pointer; border-bottom: 1px solid #e5e5e7; transition: background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-            <div style="font-weight: 600; font-size: 14px;">${p.nombre}</div>
-            <div style="font-size: 12px; color: #666;">${p.telefono || 'Sin teléfono'} ${p.cedula ? '• ' + p.cedula : ''}</div>
+        <div onclick="seleccionarPaciente('${p.nombre}')"
+             style="padding:14px 16px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,0.06);
+                    transition:background 0.15s;display:flex;flex-direction:column;gap:3px"
+             onmouseover="this.style.background='var(--surface)'"
+             onmouseout="this.style.background='transparent'">
+            <div style="font-size:14px;font-weight:400;color:var(--dark)">${p.nombre}</div>
+            <div style="font-size:12px;color:var(--mid)">${p.telefono || ''} ${p.cedula ? '· ' + p.cedula : ''}</div>
         </div>
     `).join('');
 
@@ -3950,9 +3960,11 @@ function buscarPacienteFactura() {
     }
 
     const matches = appData.pacientes.filter(p =>
-        p.nombre.toLowerCase().includes(query) ||
-        (p.cedula && p.cedula.includes(query)) ||
-        (p.telefono && p.telefono.includes(query))
+        p.nombre && (
+            p.nombre.toLowerCase().includes(query) ||
+            (p.cedula && p.cedula.includes(query)) ||
+            (p.telefono && p.telefono.includes(query))
+        )
     ).slice(0, 5);
 
     if (matches.length === 0) {
@@ -3961,10 +3973,14 @@ function buscarPacienteFactura() {
     }
 
     suggestions.innerHTML = matches.map(p => `
-        <div onclick="seleccionarPacienteFactura('${p.nombre.replace(/'/g, "\\'")}');" style="padding: 12px; cursor: pointer; border-bottom: 1px solid #e5e5e7; transition: background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-            <div style="font-weight: 600; font-size: 14px; color: var(--clinic-primary, #C4856A);">${p.nombre}</div>
-            <div style="font-size: 12px; color: #666; margin-top: 2px;">
-                ${p.cedula ? `📋 ${p.cedula}` : ''} ${p.telefono ? `📱 ${p.telefono}` : ''}
+        <div onclick="seleccionarPacienteFactura('${p.nombre.replace(/'/g, "\'")}')"
+             style="padding:14px 16px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,0.06);
+                    transition:background 0.15s;display:flex;flex-direction:column;gap:3px"
+             onmouseover="this.style.background='var(--surface)'"
+             onmouseout="this.style.background='transparent'">
+            <div style="font-size:14px;font-weight:400;color:var(--dark)">${p.nombre}</div>
+            <div style="font-size:12px;color:var(--mid)">
+                ${p.cedula ? `<span style="margin-right:10px">📋 ${p.cedula}</span>` : ''}${p.telefono ? `📱 ${p.telefono}` : ''}
             </div>
         </div>
     `).join('');
