@@ -709,7 +709,7 @@ async function loadClinicas() {
         personalCount: (data.personal || []).length,
         // Calculate MRR from plan + modules
         mrr: calcMRR(config.plan, config.modulos, (data.personal||[]).length),
-        raw: data,
+        raw: { config: config, ...data },
         config,
       };
     }));
@@ -928,6 +928,14 @@ function openClinicDetail(id) {
         <div class="detail-label">Estado</div>
         <div class="detail-val">${c.trial ? '🟡 Trial' : c.activa ? '🟢 Activa' : '🔴 Pausada'}</div>
       </div>
+      <div class="detail-card">
+        <div class="detail-label">Trial vence</div>
+        <div class="detail-val" style="font-size:13px">${c.trialHasta ? new Date(c.trialHasta).toLocaleDateString('es-DO', {day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
+      </div>
+      <div class="detail-card" id="plan-cambio-card-${c.id}" style="display:${c.raw?.config?.planModificadoEn ? 'block' : 'none'}">
+        <div class="detail-label">Plan modificado</div>
+        <div class="detail-val" style="font-size:12px;color:var(--terracota)">${c.raw?.config?.planModificadoEn ? '⚠ Cambio pendiente de procesar' : ''}</div>
+      </div>
     </div>
 
     <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Módulos activos</div>
@@ -962,12 +970,11 @@ function openEditModal(id) {
   if (!c) return;
 
   const allModulos = [
-    { key: 'laboratorio', label: 'Laboratorio', price: 500 },
-    { key: 'nomina', label: 'Nómina', price: 500 },
-    { key: 'inventario', label: 'Inventario', price: 500 },
-    { key: 'ncf', label: 'NCF · DGII', price: 400 },
-    { key: 'reportes', label: 'Reportes', price: 300 },
-    { key: 'multisucursal', label: 'Multi-sucursal', price: 700 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
+    { key: 'nomina',        label: 'Nómina',              price: 300 },
+    { key: 'inventario',    label: 'Inventario',          price: 300 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
     { key: 'expediente', label: 'Expediente clínico', price: 300 },
   ];
 
@@ -1046,12 +1053,11 @@ async function saveClinicEdit(id) {
 // ── NUEVA CLÍNICA ─────────────────────────────────────
 function renderNuevaClinica(main) {
   const allModulos = [
-    { key: 'laboratorio', label: 'Laboratorio', price: 500 },
-    { key: 'nomina', label: 'Nómina', price: 500 },
-    { key: 'inventario', label: 'Inventario', price: 500 },
-    { key: 'ncf', label: 'NCF · DGII', price: 400 },
-    { key: 'reportes', label: 'Reportes', price: 300 },
-    { key: 'multisucursal', label: 'Multi-sucursal', price: 700 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
+    { key: 'nomina',        label: 'Nómina',              price: 300 },
+    { key: 'inventario',    label: 'Inventario',          price: 300 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
     { key: 'expediente', label: 'Expediente clínico', price: 300 },
   ];
 

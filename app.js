@@ -520,12 +520,12 @@ function showApp() {
 
 // Build navigation
 function hasModule(key) {
-    // Plan solo only has base features, no modules unless explicitly added
-    const modulos = clinicConfig.modulos || [];
-    // These are always available regardless of modules
     const always = ['dashboard','pacientes','agenda','factura','cobrar','cuadre','gastos','perfil'];
     if (always.includes(key)) return true;
-    return modulos.includes(key);
+    // During trial: all modules are active
+    if (clinicConfig.enTrial) return true;
+    // Paid: only contracted modules
+    return (clinicConfig.modulos || []).includes(key);
 }
 
 function buildNavigation() {
@@ -641,6 +641,7 @@ function buildNavigation() {
 // Show tab
 function showTab(tabName) {
     if (tabName === 'catalogo') { renderCatalogoTab(); return; }
+    if (tabName === 'miplan') { renderMiPlanTab(); return; }
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
@@ -6574,6 +6575,217 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // ════════════════════════════════════════════════════
 // CATÁLOGO DE PROCEDIMIENTOS
 // ════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════
+// MI PLAN TAB
+// ═══════════════════════════════════════════════
+
+const MODULOS_DISPONIBLES = [
+    { key: 'laboratorio', nombre: 'Laboratorio',        precio: 300,  desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',      nombre: 'Nómina',             precio: 300,  desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',  nombre: 'Inventario',         precio: 300,  desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',    nombre: 'Reportes avanzados', precio: 300,  desc: 'Rentabilidad por médico, tendencias, exportación.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional', precio: 800, desc: 'Gestión independiente por sede.' },
+];
+const BASE_PRECIOS = { clinica: 1200, solo: 990 };
+
+function renderMiPlanTab() {
+    // Deactivate other tabs, activate miplan
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    // Get or create the tab container
+    let tab = document.getElementById('tab-miplan');
+    if (!tab) {
+        tab = document.createElement('div');
+        tab.id = 'tab-miplan';
+        tab.className = 'tab-content';
+        document.querySelector('.content-area').appendChild(tab);
+    }
+    tab.classList.add('active');
+
+    // Highlight nav button
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        if (btn.getAttribute('onclick') === "showTab('miplan')") btn.classList.add('active');
+    });
+
+    const plan = clinicConfig.plan || 'clinica';
+    const basePrice = BASE_PRECIOS[plan] || 1200;
+    const activosActuales = [...(clinicConfig.modulos || [])];
+    const hasta = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
+    const diasTrial = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / (1000*60*60*24))) : 0;
+
+    // Build toggles state — starts at current contracted modules
+    let pendientes = [...activosActuales];
+
+    function calcTotal() {
+        const extraModulos = pendientes.reduce((s, k) => {
+            const m = MODULOS_DISPONIBLES.find(x => x.key === k);
+            return s + (m ? m.precio : 0);
+        }, 0);
+        return basePrice + extraModulos;
+    }
+
+    function renderToggle(modulo) {
+        const activo = pendientes.includes(modulo.key);
+        return `
+        <div class="miplan-modulo" id="mpmod-${modulo.key}" style="
+            display:flex; align-items:center; justify-content:space-between;
+            padding:16px 20px; background:var(--white); border-radius:var(--radius-md);
+            margin-bottom:10px; border:1.5px solid ${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.07)'};
+            transition:border-color 0.2s; cursor:pointer;
+        " onclick="togglePlanModulo('${modulo.key}')">
+            <div>
+                <div style="font-size:14px;font-weight:400;color:var(--dark);margin-bottom:2px">${modulo.nombre}</div>
+                <div style="font-size:12px;color:var(--light)">${modulo.desc}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
+                <div style="font-size:13px;color:var(--mid)">RD$${modulo.precio.toLocaleString()}<span style="font-size:10px;color:var(--light)">/mes</span></div>
+                <div style="
+                    width:44px;height:24px;border-radius:100px;
+                    background:${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.15)'};
+                    transition:background 0.2s;position:relative;
+                ">
+                    <div style="
+                        width:18px;height:18px;border-radius:50%;background:white;
+                        position:absolute;top:3px;
+                        left:${activo ? '23px' : '3px'};
+                        transition:left 0.2s;
+                        box-shadow:0 1px 4px rgba(0,0,0,0.2);
+                    "></div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    tab.innerHTML = `
+        <div class="section-title" style="margin-bottom:4px">Mi plan</div>
+        <div class="section-sub">${clinicConfig.enTrial
+            ? `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial!==1?'s':''} restante${diasTrial!==1?'s':''}</strong> · Todos los módulos activos`
+            : 'Plan activo · Solo módulos contratados'
+        }</div>
+
+        <!-- Plan base -->
+        <div class="card" style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <div style="font-size:13px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Plan base</div>
+                    <div style="font-size:18px;font-weight:300;color:var(--dark)">${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
+                    <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · NCF · Expediente clínico</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">RD$${basePrice.toLocaleString()}</div>
+                    <div style="font-size:10px;color:var(--light)">/mes</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulos -->
+        <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding:0 2px">
+            Módulos adicionales
+        </div>
+        <div id="miplan-modulos">
+            ${MODULOS_DISPONIBLES.map(renderToggle).join('')}
+        </div>
+
+        <!-- Total y guardar -->
+        <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">RD$${calcTotal().toLocaleString()}</div>
+            </div>
+            <button onclick="guardarCambiosPlan()" style="
+                width:100%;padding:14px;background:var(--clinic-color);color:white;
+                border:none;border-radius:var(--radius-sm);font-size:12px;
+                letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;
+                cursor:pointer;transition:background 0.2s;
+            " onmouseover="this.style.background='var(--terracota)'"
+               onmouseout="this.style.background='var(--clinic-color)'">
+                Guardar cambios
+            </button>
+            <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
+                Los cambios entran en vigor inmediatamente.<br>Contacta a SMILE por WhatsApp para procesar el pago.
+            </div>
+        </div>
+    `;
+
+    // Store pendientes reference for toggles
+    tab._pendientes = pendientes;
+    tab._calcTotal = calcTotal;
+    tab._renderToggle = renderToggle;
+}
+
+function togglePlanModulo(key) {
+    const tab = document.getElementById('tab-miplan');
+    if (!tab) return;
+
+    const idx = tab._pendientes.indexOf(key);
+    if (idx >= 0) {
+        tab._pendientes.splice(idx, 1);
+    } else {
+        tab._pendientes.push(key);
+    }
+
+    // Re-render just the toggles and total
+    document.getElementById('miplan-modulos').innerHTML =
+        MODULOS_DISPONIBLES.map(m => tab._renderToggle(m)).join('');
+    document.getElementById('miplan-total').textContent =
+        'RD$' + tab._calcTotal().toLocaleString();
+}
+
+async function guardarCambiosPlan() {
+    const tab = document.getElementById('tab-miplan');
+    if (!tab) return;
+
+    const btn = tab.querySelector('button[onclick="guardarCambiosPlan()"]');
+    btn.textContent = 'Guardando...';
+    btn.disabled = true;
+
+    try {
+        const nuevosModulos = [...tab._pendientes];
+        const plan = clinicConfig.plan || 'clinica';
+        const basePrice = BASE_PRECIOS[plan] || 1200;
+        const nuevoMRR = nuevosModulos.reduce((s, k) => {
+            const m = MODULOS_DISPONIBLES.find(x => x.key === k);
+            return s + (m ? m.precio : 0);
+        }, basePrice);
+
+        // Update Firebase config
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings').update({
+                modulos: nuevosModulos,
+                mrr: nuevoMRR,
+                planModificadoEn: new Date().toISOString(),
+            });
+
+        // Update local state
+        clinicConfig.modulos = nuevosModulos;
+
+        btn.textContent = '✓ Cambios guardados';
+        btn.style.background = '#3a9e5f';
+        setTimeout(() => {
+            btn.textContent = 'Guardar cambios';
+            btn.style.background = '';
+            btn.disabled = false;
+        }, 2500);
+
+        // Rebuild navigation to reflect new modules
+        buildNavigation();
+        renderTrialBanner();
+
+    } catch(e) {
+        console.error(e);
+        btn.textContent = 'Error — intenta de nuevo';
+        btn.style.background = '#c0392b';
+        setTimeout(() => {
+            btn.textContent = 'Guardar cambios';
+            btn.style.background = '';
+            btn.disabled = false;
+        }, 2500);
+    }
+}
+
 
 function renderCatalogoTab() {
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
