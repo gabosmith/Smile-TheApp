@@ -529,7 +529,10 @@ function showApp() {
 function hasModule(key) {
     const always = ['dashboard','pacientes','agenda','factura','cobrar','cuadre','gastos','perfil'];
     if (always.includes(key)) return true;
-    // During trial: all modules are active
+    // Plan solo never gets nómina or multisucursal — not relevant for 1 person
+    const soloExcluded = ['nomina', 'multisucursal'];
+    if (clinicConfig.plan === 'solo' && soloExcluded.includes(key)) return false;
+    // During trial: all remaining modules are active
     if (clinicConfig.enTrial) return true;
     // Paid: only contracted modules
     return (clinicConfig.modulos || []).includes(key);
@@ -5535,6 +5538,76 @@ function formatDateTimeWithTimezone(dateString) {
 // DASHBOARD
 // ========================================
 
+
+// ═══════════════════════════════════════════════
+// FRASES MOTIVACIONALES
+// ═══════════════════════════════════════════════
+const FRASES = [
+    "Hoy tiene todo para ser un buen día.",
+    "Un paso a la vez. Siempre hacia adelante.",
+    "Lo que haces importa más de lo que crees.",
+    "Hoy es tuyo.",
+    "Las cosas buenas toman tiempo. Tú lo sabes.",
+    "Presencia total. Hoy aquí.",
+    "Cada día es una oportunidad disfrazada.",
+    "Confía en el proceso.",
+    "Despacio y con buena letra.",
+    "Lo difícil de hoy, mañana ya es historia.",
+    "Tú eliges cómo empieza este día.",
+    "Pequeños gestos, grandes impactos.",
+    "Hay belleza en lo ordinario. Búscala.",
+    "Haz bien lo de hoy. El resto se acomoda.",
+    "El esfuerzo de hoy es el orgullo de mañana.",
+    "No hay atajos para los lugares que valen la pena.",
+    "Respira. Lo estás haciendo bien.",
+    "Las mejores historias las escriben quienes no se rinden.",
+    "Cada mañana es una página en blanco. Escribe algo bueno.",
+    "Lo ordinario, hecho con amor, se vuelve extraordinario.",
+    "El secreto es empezar.",
+    "Sé la energía que quieres recibir.",
+    "Hoy puede pasar algo bueno. Déjalo.",
+    "Mente clara, día despejado.",
+    "No tienes que ser perfecto para ser suficiente.",
+    "Las personas que cambian el mundo empiezan por su entorno más cercano.",
+    "Hoy también cuenta.",
+    "La constancia es silenciosa pero poderosa.",
+    "Date el crédito que mereces.",
+    "Cada detalle que cuidas, suma.",
+    "Hoy es un buen día para ser amable contigo mismo.",
+    "Lo que siembras hoy, lo recoges después.",
+    "Tranquilidad no es ausencia de caos, es saber manejarlo.",
+    "El mejor momento para empezar fue ayer. El segundo mejor es ahora.",
+    "Un día bien vivido trae buen sueño.",
+    "La gratitud convierte lo que tenemos en suficiente.",
+    "Hoy puedes hacer que alguien se sienta bien.",
+    "No todo tiene que ser urgente. Algunas cosas solo necesitan tiempo.",
+    "Eres más resiliente de lo que piensas.",
+    "Las raíces fuertes aguantan los vientos más duros.",
+    "Confía en tu instinto. Ha llegado hasta aquí.",
+    "Pequeñas victorias también son victorias.",
+    "Lo mejor está por venir, y llega cuando menos lo esperas.",
+    "Estar presente es el regalo más raro que puedes dar.",
+    "Hoy, un poco mejor que ayer. Eso es suficiente.",
+    "La paciencia no es esperar, es mantener una buena actitud mientras esperas.",
+    "Cada persona que sonríe por ti hoy, es porque te lo ganaste.",
+    "Tienes más energía de la que crees. Solo empieza.",
+    "El caos de hoy es la historia divertida de mañana.",
+    "Haz lo que puedas, con lo que tienes, donde estás.",
+];
+
+function getFrase() {
+    const today = new Date();
+    const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
+    return FRASES[seed % FRASES.length];
+}
+
+function getSaludo() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Buenos días';
+    if (h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+}
+
 function updateDashboardTab() {
     const today = new Date();
     const todayTimestamp = today.setHours(0,0,0,0);
@@ -6565,11 +6638,11 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // ═══════════════════════════════════════════════
 
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio', nombre: 'Laboratorio',        precio: 300,  desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',      nombre: 'Nómina',             precio: 300,  desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',  nombre: 'Inventario',         precio: 300,  desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',    nombre: 'Reportes avanzados', precio: 300,  desc: 'Rentabilidad por médico, tendencias, exportación.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional', precio: 800, desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',              precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',          precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
 const BASE_PRECIOS = { clinica: 1200, solo: 990 };
 
@@ -6669,7 +6742,7 @@ function renderMiPlanTab() {
             Módulos adicionales
         </div>
         <div id="miplan-modulos">
-            ${MODULOS_DISPONIBLES.map(renderToggle).join('')}
+            ${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
         </div>
 
         <!-- Total y guardar -->
@@ -6712,7 +6785,7 @@ function togglePlanModulo(key) {
 
     // Re-render just the toggles and total
     document.getElementById('miplan-modulos').innerHTML =
-        MODULOS_DISPONIBLES.map(m => tab._renderToggle(m)).join('');
+        MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(clinicConfig.plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
     document.getElementById('miplan-total').textContent =
         'RD$' + tab._calcTotal().toLocaleString();
 }
@@ -6902,7 +6975,7 @@ function abrirMas() {
     if (role === 'admin' || role === 'professional') {
         items.push({ icon: '💰', label: 'Cobros',      action: `cerrarMas();showTab('cobros')` });
     }
-    if (role === 'admin') {
+    if (role === 'admin' && clinicConfig.plan !== 'solo') {
         items.push({ icon: '👥', label: 'Personal',    action: `cerrarMas();irTab('personal')` });
     }
     if (hasModule('reportes') && role === 'admin') {
