@@ -722,13 +722,13 @@ async function loadClinicas() {
 function calcMRR(plan, modulos = [], personalCount = 0) {
   const BASE = plan === 'solo' ? 990 : 1200;
   const MODULE_PRICES = {
-    laboratorio: 500, nomina: 500, inventario: 500,
-    ncf: 400, reportes: 300, multisucursal: 700,
-    expediente: 300
+    laboratorio: 300, nomina: 300, inventario: 300,
+    reportes: 300, multisucursal: 800,
+    // ncf y expediente: incluidos en el plan base
   };
   const extraUsers = Math.max(0, personalCount - 1);
   const modulesTotal = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
-  return BASE + modulesTotal + (extraUsers * 300);
+  return BASE + modulesTotal + (extraUsers * 150);
 }
 
 // ── SECTIONS ──────────────────────────────────────────

@@ -980,51 +980,41 @@
     <div class="step" id="step-4">
       <div class="step-eyebrow">Paso 4 de 6</div>
       <div class="step-title">¿Qué necesita<br>tu clínica?</div>
-      <div class="step-sub">Agrega los módulos que uses. Puedes cambiarlos en cualquier momento.</div>
+      <div class="step-sub">Agrega los módulos que necesites. NCF · DGII y expediente clínico van incluidos en el plan base. Puedes cambiarlos en cualquier momento.</div>
 
       <div class="modules-mini" id="modulesMini">
-        <div class="module-mini" data-price="500" data-name="Laboratorio" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="300" data-name="Laboratorio" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--terracota)"></div>
           <div class="module-mini-name">Laboratorio</div>
-          <div class="module-mini-price">+RD$500</div>
+          <div class="module-mini-price">+RD$300</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="500" data-name="Nómina" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="300" data-name="Nómina" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--azul)"></div>
           <div class="module-mini-name">Nómina</div>
-          <div class="module-mini-price">+RD$500</div>
+          <div class="module-mini-price">+RD$300</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="500" data-name="Inventario" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="300" data-name="Inventario" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--rosa)"></div>
           <div class="module-mini-name">Inventario</div>
-          <div class="module-mini-price">+RD$500</div>
+          <div class="module-mini-price">+RD$300</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="400" data-name="NCF · DGII" onclick="toggleModuleMini(this)">
-          <div class="module-mini-dot" style="background:var(--light)"></div>
-          <div class="module-mini-name">NCF · DGII</div>
-          <div class="module-mini-price">+RD$400</div>
-          <div class="module-mini-check">✓</div>
-        </div>
-        <div class="module-mini" data-price="300" data-name="Reportes" onclick="toggleModuleMini(this)">
+
+        <div class="module-mini" data-price="300" data-name="Reportes avanzados" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--terracota)"></div>
-          <div class="module-mini-name">Reportes</div>
+          <div class="module-mini-name">Reportes avanzados</div>
           <div class="module-mini-price">+RD$300</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="700" data-name="Multi-sucursal" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="800" data-name="Sucursal adicional" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--azul)"></div>
-          <div class="module-mini-name">Multi-sucursal</div>
-          <div class="module-mini-price">+RD$700</div>
+          <div class="module-mini-name">Sucursal adicional</div>
+          <div class="module-mini-price">+RD$800</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="300" data-name="Expediente clínico" onclick="toggleModuleMini(this)">
-          <div class="module-mini-dot" style="background:var(--rosa)"></div>
-          <div class="module-mini-name">Expediente clínico</div>
-          <div class="module-mini-price">+RD$300</div>
-          <div class="module-mini-check">✓</div>
-        </div>
+
       </div>
 
       <div class="summary-box">
@@ -1375,7 +1365,7 @@ function toggleModuleMini(el) {
 
 function updateStep4Totals() {
   const BASE = 1200;
-  const EXTRA_USER_PRICE = 300;
+  const EXTRA_USER_PRICE = 150;
   const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
   const extraUsers = Math.max(0, totalUsers - 1);
   const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
@@ -1399,7 +1389,7 @@ function updateStep4Totals() {
 // ─── STEP 5: FINAL SUMMARY ────────────────────────────
 function buildFinalSummary() {
   const BASE = 1200;
-  const EXTRA_USER_PRICE = 300;
+  const EXTRA_USER_PRICE = 150;
   const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
   const extraUsers = Math.max(0, totalUsers - 1);
   const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
@@ -1483,7 +1473,7 @@ async function activateClinic() {
 
     // Calculate pricing
     const BASE = 1200;
-    const EXTRA_USER_PRICE = 300;
+    const EXTRA_USER_PRICE = 150;
     const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
     const extraUsers = Math.max(0, totalUsers - 1);
     const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
@@ -1498,8 +1488,7 @@ async function activateClinic() {
       'Laboratorio': 'laboratorio',
       'Nómina': 'nomina',
       'Inventario': 'inventario',
-      'NCF · DGII': 'ncf',
-      'Reportes': 'reportes',
+      'Reportes avanzados': 'reportes',
       'Sucursal adicional': 'multisucursal',
       'Expediente clínico': 'expediente',
     };
