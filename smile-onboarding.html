@@ -637,6 +637,33 @@
   .btn-next:hover { background: var(--terracota); box-shadow: 0 6px 24px rgba(196,133,106,0.3); }
   .btn-next:disabled { background: var(--light); box-shadow: none; cursor: not-allowed; }
 
+  .btn-activate {
+    background: var(--terracota);
+    color: var(--white);
+    border: none;
+    padding: 18px 40px;
+    border-radius: 100px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 6px 24px rgba(196,133,106,0.35);
+  }
+  .btn-activate:hover {
+    background: #B06B50;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 32px rgba(196,133,106,0.4);
+  }
+  .btn-activate:active { transform: scale(0.98); }
+  .btn-activate:disabled {
+    background: var(--light);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   /* SUCCESS SCREEN */
   .success-screen {
     display: none;
@@ -1097,6 +1124,16 @@
         <div class="success-url-text" id="successUrlText">smile.app/tu-clinica</div>
         <div class="success-url-copy">Copiar</div>
       </div>
+
+      <button id="btnIrClinica" onclick="irAClinica()"
+        style="display:none; margin: 0 auto 24px; background: var(--dark); color: var(--white);
+               border: none; padding: 16px 40px; border-radius: 100px; font-size: 13px;
+               letter-spacing: 2px; text-transform: uppercase; font-family: inherit;
+               cursor: pointer; transition: all 0.25s;
+               box-shadow: 0 4px 16px rgba(30,28,26,0.18);">
+        Ir a mi clínica →
+      </button>
+
       <div class="success-details" id="successDetails"></div>
     </div>
 
@@ -1564,8 +1601,11 @@ async function activateClinic() {
     }
 
     // Build the real URL
-    const appUrl = `gabosmith.github.io/smile-app/app.html?clinica=${clinicId}`;
+    const appUrl = `https://gabosmith.github.io/smile-app/app.html?clinica=${clinicId}`;
     document.getElementById('successUrlText').textContent = appUrl;
+    const btnIr = document.getElementById('btnIrClinica');
+    btnIr.style.display = 'block';
+    btnIr._url = appUrl;
 
     document.getElementById('successDetails').innerHTML = `
       <div class="success-detail-card">
@@ -1600,6 +1640,11 @@ function getFreeTrialDate() {
   const d = new Date();
   d.setDate(d.getDate() + 14);
   return d.toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function irAClinica() {
+  const btn = document.getElementById('btnIrClinica');
+  window.open(btn._url, '_blank');
 }
 
 function copyUrl() {
