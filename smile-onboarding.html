@@ -822,6 +822,8 @@
       <div class="step-ind" id="ind-5"><div class="step-ind-dot">5</div><div class="step-ind-label">Procedimientos</div></div>
       <div class="step-ind" id="ind-6">
         <div class="step-ind-dot">6</div>
+        id="ind-7">
+        <div class="step-ind-dot">7</div>
         <div class="step-ind-label">Resumen</div>
       </div>
     </div>
@@ -837,7 +839,7 @@
 
     <!-- ── STEP 1: CLÍNICA ── -->
     <div class="step active" id="step-1">
-      <div class="step-eyebrow">Paso 1 de 5</div>
+      <div class="step-eyebrow">Paso 1 de 7</div>
       <div class="step-title">Cuéntanos sobre<br>tu clínica.</div>
       <div class="step-sub">Esta información aparecerá en tu app y en los documentos de tus pacientes.</div>
 
@@ -897,7 +899,7 @@
 
     <!-- ── STEP 2: IDENTIDAD ── -->
     <div class="step" id="step-2">
-      <div class="step-eyebrow">Paso 2 de 5</div>
+      <div class="step-eyebrow">Paso 2 de 7</div>
       <div class="step-title">Identidad<br>visual.</div>
       <div class="step-sub">El logo y los colores de tu clínica aparecerán en toda la app y en los documentos.</div>
 
@@ -957,7 +959,7 @@
 
     <!-- ── STEP 3: EQUIPO ── -->
     <div class="step" id="step-3">
-      <div class="step-eyebrow">Paso 3 de 5</div>
+      <div class="step-eyebrow">Paso 3 de 7</div>
       <div class="step-title">Tu equipo.</div>
       <div class="step-sub">¿Cuántas personas van a usar SMILE? Puedes agregar más usuarios después.</div>
 
@@ -1005,7 +1007,7 @@
 
     <!-- ── STEP 4: MÓDULOS ── -->
     <div class="step" id="step-4">
-      <div class="step-eyebrow">Paso 4 de 6</div>
+      <div class="step-eyebrow">Paso 4 de 7</div>
       <div class="step-title">¿Qué necesita<br>tu clínica?</div>
       <div class="step-sub">Agrega los módulos que necesites. NCF · DGII y expediente clínico van incluidos en el plan base. Puedes cambiarlos en cualquier momento.</div>
 
@@ -1067,8 +1069,8 @@
     </div>
 
     <!-- ── STEP 5: PROCEDIMIENTOS ── -->
-    <div class="step" id="step-5">
-      <div class="step-eyebrow">Paso 5 de 6</div>
+    <div class="step" id="step-6">
+      <div class="step-eyebrow">Paso 6 de 7</div>
       <div class="step-title">Precios de<br>procedimientos.</div>
       <div class="step-sub">¿Cómo quieres manejar los precios en las facturas?</div>
 
@@ -1097,21 +1099,84 @@
       </div>
 
       <div class="step-nav">
+        <button class="btn-back" onclick="goBack(6)">← Atrás</button>
+        <button class="btn-next" onclick="goNext(6)">Ver resumen →</button>
+      </div>
+    </div>
+
+
+    <!-- ── STEP 5: WHATSAPP ── -->
+    <div class="step" id="step-5">
+      <div class="step-eyebrow">Paso 5 de 7</div>
+      <div class="step-title">Contacto<br>de WhatsApp.</div>
+      <div class="step-sub">Para soporte, novedades y comunicación directa. Solo lo usamos para ayudarte.</div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">Nombre de contacto</label>
+        <input type="text" id="waName" placeholder="Dr. García"
+          style="width:100%;padding:14px 18px;border:1.5px solid rgba(30,28,26,0.12);border-radius:12px;
+                 font-size:15px;font-family:inherit;font-weight:300;background:var(--white);
+                 color:var(--dark);outline:none;transition:border-color 0.2s;box-sizing:border-box"
+          onfocus="this.style.borderColor='var(--terracota)'"
+          onblur="this.style.borderColor='rgba(30,28,26,0.12)'"
+          oninput="state.waName=this.value.trim()">
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">Cargo</label>
+        <select id="waCargo"
+          style="width:100%;padding:14px 18px;border:1.5px solid rgba(30,28,26,0.12);border-radius:12px;
+                 font-size:15px;font-family:inherit;font-weight:300;background:var(--white);
+                 color:var(--dark);outline:none;transition:border-color 0.2s;appearance:none;box-sizing:border-box"
+          onfocus="this.style.borderColor='var(--terracota)'"
+          onblur="this.style.borderColor='rgba(30,28,26,0.12)'"
+          onchange="state.waCargo=this.value">
+          <option value="">Selecciona tu cargo</option>
+          <option value="Dueño / Director">Dueño / Director</option>
+          <option value="Dentista">Dentista</option>
+          <option value="Gerente de clínica">Gerente de clínica</option>
+          <option value="Recepcionista">Recepcionista</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:24px">
+        <label style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:8px">Número de WhatsApp</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="padding:14px 16px;border:1.5px solid rgba(30,28,26,0.12);border-radius:12px;
+                      background:var(--surface);font-size:15px;font-weight:300;color:var(--mid);
+                      white-space:nowrap;flex-shrink:0">🇩🇴 +1</div>
+          <input type="tel" id="waPhone" placeholder="809 000 0000"
+            style="flex:1;padding:14px 18px;border:1.5px solid rgba(30,28,26,0.12);border-radius:12px;
+                   font-size:15px;font-family:inherit;font-weight:300;background:var(--white);
+                   color:var(--dark);outline:none;transition:border-color 0.2s;box-sizing:border-box"
+            onfocus="this.style.borderColor='var(--terracota)'"
+            onblur="this.style.borderColor='rgba(30,28,26,0.12)'"
+            oninput="state.waPhone=this.value.trim()">
+        </div>
+        <div id="err-waPhone" style="display:none;color:#c0392b;font-size:12px;margin-top:6px">Ingresa un número válido.</div>
+      </div>
+
+      <div style="padding:14px 18px;background:var(--surface);border-radius:12px;font-size:12px;color:var(--mid);line-height:1.7">
+        💬 Solo te contactamos para soporte y actualizaciones importantes. Sin spam.
+      </div>
+
+      <div class="step-nav">
         <button class="btn-back" onclick="goBack(5)">← Atrás</button>
-        <button class="btn-next" onclick="goNext(5)">Ver resumen →</button>
+        <button class="btn-next" onclick="goNext(5)">Continuar →</button>
       </div>
     </div>
 
     <!-- ── STEP 6: RESUMEN ── -->
-    <div class="step" id="step-6">
-      <div class="step-eyebrow">Paso 6 de 6</div>
+    <div class="step" id="step-7">
+      <div class="step-eyebrow">Paso 7 de 7</div>
       <div class="step-title">Todo listo.<br>Revisa tu plan.</div>
       <div class="step-sub">Confirma los detalles de tu clínica antes de activar.</div>
 
       <div class="summary-box" id="final-summary"></div>
 
       <div class="step-nav">
-        <button class="btn-back" onclick="goBack(6)">← Atrás</button>
+        <button class="btn-back" onclick="goBack(7)">← Atrás</button>
         <button class="btn-activate" id="btn-activate" onclick="activateClinic()">Activar mi clínica →</button>
       </div>
     </div>
@@ -1156,6 +1221,9 @@ const state = {
   recep: 0,
   asist: 0,
   modules: [],
+  waName: '',
+  waCargo: '',
+  waPhone: '',
   procMode: 'libre',      // 'libre' | 'lista'
   procItems: [            // default list if mode=lista
     { nombre: 'Consulta / Revisión', precio: 500 },
@@ -1192,10 +1260,10 @@ function setStep(n) {
   }
 
   // update progress
-  document.getElementById('progressFill').style.width = (n * (100/6)) + '%';
+  document.getElementById('progressFill').style.width = (n * (100/7)) + '%';
 
   // update indicators
-  for (let i = 1; i <= 6; i++) {
+  for (let i = 1; i <= 7; i++) {
     const ind = document.getElementById('ind-' + i);
     ind.classList.remove('active', 'done');
     if (i < n) ind.classList.add('done');
@@ -1209,11 +1277,25 @@ function setStep(n) {
   // special logic per step
   if (n === 4) updateStep4Totals();
   // step 5 = proc mode selection, no JS init needed
-  if (n === 6) buildFinalSummary();
+  if (n === 6) { /* WhatsApp step — no JS init needed */ }
+  if (n === 7) buildFinalSummary();
 }
 
 // ─── VALIDATION ───────────────────────────────────────
 function validateStep(n) {
+  if (n === 5) {
+    // WhatsApp step validation
+    state.waName  = document.getElementById('waName').value.trim();
+    state.waCargo = document.getElementById('waCargo').value;
+    state.waPhone = document.getElementById('waPhone').value.trim();
+    const phoneClean = state.waPhone.replace(/[^0-9]/g,'');
+    if (phoneClean.length < 7) {
+      document.getElementById('err-waPhone').style.display = 'block';
+      return false;
+    }
+    document.getElementById('err-waPhone').style.display = 'none';
+    return true;
+  }
   if (n === 1) {
     // Read fresh values from DOM into state
     state.clinicName  = document.getElementById('clinicName').value.trim();
@@ -1451,6 +1533,10 @@ function buildFinalSummary() {
       <span>${state.adminName}</span>
     </div>
     <div class="summary-row">
+      <span>💬 WhatsApp</span>
+      <span>${state.waName ? state.waName + (state.waCargo ? ' · ' + state.waCargo : '') : '—'}</span>
+    </div>
+    <div class="summary-row">
       <span>👥 Equipo</span>
       <span>${counts.dentistas} dentista${counts.dentistas > 1 ? 's' : ''}${counts.recep ? `, ${counts.recep} recep.` : ''}${counts.asist ? `, ${counts.asist} asist.` : ''}</span>
     </div>
@@ -1585,7 +1671,16 @@ async function activateClinic() {
           dentistas: counts.dentistas,
           recepcionistas: counts.recep,
           asistentes: counts.asist,
-        }
+        },
+        contactoWA: {
+          nombre: state.waName || state.adminName || '',
+          cargo:  state.waCargo || '',
+          phone:  state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : '',
+        },
+        // Flat fields for quick access
+        waName:  state.waName || state.adminName || '',
+        waCargo: state.waCargo || '',
+        waPhone: state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : ''
       });
 
     // ── Show success screen ──────────────────────────
@@ -1593,7 +1688,7 @@ async function activateClinic() {
     document.getElementById('success').classList.add('active');
     document.getElementById('progressFill').style.width = '100%';
 
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= 7; i++) {
       const ind = document.getElementById('ind-' + i);
       ind.classList.remove('active');
       ind.classList.add('done');

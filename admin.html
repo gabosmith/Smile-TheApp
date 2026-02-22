@@ -584,8 +584,9 @@
       <div class="nav-item" onclick="showSection('nueva')">
         <span class="nav-icon">✦</span> Nueva clínica
       </div>
-
-
+      <div class="nav-item" onclick="showSection('contactos')">
+        <span class="nav-icon">💬</span> Contactos
+      </div>
     </nav>
     <div class="sidebar-bottom">
       <div class="sidebar-version">SMILE.app v1.0</div>
@@ -709,6 +710,10 @@ async function loadClinicas() {
         personalCount: (data.personal || []).length,
         // Calculate MRR from plan + modules
         mrr: calcMRR(config.plan, config.modulos, (data.personal||[]).length),
+        waName:  config.contactoWA?.nombre || config.waName  || data.waName  || '',
+        waCargo: config.contactoWA?.cargo  || config.waCargo || data.waCargo || '',
+        waPhone: config.contactoWA?.phone  || config.waPhone || data.waPhone || '',
+        lastLogin: data.lastLogin || config.lastLogin || data.lastUpdated || null,
         raw: { config: config, ...data },
         config,
       };
@@ -735,14 +740,116 @@ function calcMRR(plan, modulos = [], personalCount = 0) {
 function showSection(section) {
   currentSection = section;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const idx = ['overview','clinicas','nueva'].indexOf(section);
+  const idx = ['overview','clinicas','nueva','contactos'].indexOf(section);
   document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
 
   const main = document.getElementById('main');
   if (section === 'overview') renderOverview(main);
   else if (section === 'clinicas') renderClinicas(main);
   else if (section === 'nueva') renderNuevaClinica(main);
+  else if (section === 'contactos') renderContactos(main);
 
+}
+
+
+// ── CONTACTOS ─────────────────────────────────────────
+function renderContactos(main) {
+  const filtro = window._contactosFiltro || 'todos';
+
+  const lista = clinicas.filter(c => {
+    if (filtro === 'activas') return c.activa && !c.trial;
+    if (filtro === 'trial')   return c.trial;
+    if (filtro === 'pausadas') return !c.activa;
+    return true;
+  }).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+
+  const filterBtns = ['todos','activas','trial','pausadas'].map(f => `
+    <button onclick="window._contactosFiltro='${f}';showSection('contactos')" style="
+      padding:6px 16px;border:none;border-radius:100px;font-size:12px;font-family:inherit;
+      cursor:pointer;letter-spacing:0.5px;transition:all 0.2s;
+      background:${filtro===f ? 'var(--dark)' : 'transparent'};
+      color:${filtro===f ? 'var(--surface)' : 'var(--mid)'};">
+      ${f.charAt(0).toUpperCase()+f.slice(1)}
+    </button>`).join('');
+
+  const cards = lista.map(c => {
+    const statusColor = c.trial ? '#C4856A' : c.activa ? '#3a9e5f' : '#999';
+    const statusLabel = c.trial ? 'Trial' : c.activa ? 'Activa' : 'Pausada';
+    const waLink = c.waPhone
+      ? `https://wa.me/1${c.waPhone.replace(/[^0-9]/g,'')}`
+      : null;
+    const trialDias = c.trialHasta
+      ? Math.max(0, Math.ceil((new Date(c.trialHasta) - new Date()) / (1000*60*60*24)))
+      : null;
+    const lastLoginStr = c.lastLogin
+      ? new Date(c.lastLogin).toLocaleDateString('es-DO', {day:'numeric',month:'short',year:'numeric'})
+      : '—';
+    const modulosStr = c.modulos.length
+      ? c.modulos.map(m => m.charAt(0).toUpperCase()+m.slice(1)).join(' · ')
+      : 'Base';
+
+    return `
+    <div style="background:var(--card);border-radius:16px;padding:20px 24px;
+                border:1px solid rgba(255,255,255,0.04);margin-bottom:10px;
+                display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="font-size:15px;font-weight:400;color:var(--surface)">${c.nombre}</div>
+          <span style="padding:3px 10px;border-radius:100px;font-size:10px;letter-spacing:1px;
+                       background:${statusColor}22;color:${statusColor}">${statusLabel}</span>
+          ${c.trial && trialDias !== null ? `<span style="font-size:11px;color:var(--mid)">${trialDias}d restantes</span>` : ''}
+        </div>
+        <div style="font-size:12px;color:var(--mid);margin-bottom:4px">
+          ${c.waName ? `<strong style="color:var(--surface-mid)">${c.waName}</strong>${c.waCargo ? ' · ' + c.waCargo : ''}` : '<span style="opacity:0.4">Sin contacto WA</span>'}
+        </div>
+        <div style="font-size:12px;color:var(--mid);margin-bottom:8px">
+          ${c.waPhone ? c.waPhone : ''}
+          ${c.adminEmail !== '—' ? ` · ${c.adminEmail}` : ''}
+        </div>
+        <div style="display:flex;gap:16px;font-size:11px;color:var(--mid)">
+          <span>📦 ${c.plan === 'solo' ? 'Solo' : 'Clínica'}</span>
+          <span>💰 RD$${c.mrr.toLocaleString()}/mes</span>
+          <span>🧩 ${modulosStr}</span>
+          <span>🕐 ${lastLoginStr}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        ${waLink ? `<a href="${waLink}" target="_blank" style="
+          padding:8px 16px;background:#25D366;color:white;border-radius:100px;
+          text-decoration:none;font-size:12px;font-family:inherit;
+          display:flex;align-items:center;gap:6px;white-space:nowrap">
+          💬 WhatsApp
+        </a>` : '<span style="font-size:11px;color:var(--mid);opacity:0.5">Sin WA</span>'}
+        <button onclick="openClinicDetail('${c.id}')" style="
+          padding:8px 16px;background:transparent;color:var(--mid);
+          border:1px solid rgba(255,255,255,0.08);border-radius:100px;
+          font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap">
+          Ver clínica →
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Contactos</div>
+          <div class="page-sub">${lista.length} clínica${lista.length !== 1 ? 's' : ''} · Actualizado en tiempo real</div>
+        </div>
+        <div style="display:flex;gap:4px;background:rgba(255,255,255,0.04);
+                    border-radius:100px;padding:4px">
+          ${filterBtns}
+        </div>
+      </div>
+
+      ${lista.length === 0 ? `
+        <div style="text-align:center;padding:60px 20px;color:var(--mid)">
+          <div style="font-size:32px;margin-bottom:12px">📋</div>
+          <div>No hay clínicas en este filtro</div>
+        </div>` : cards}
+    </div>
+  `;
 }
 
 // ── OVERVIEW ──────────────────────────────────────────

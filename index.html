@@ -182,6 +182,16 @@
   .hero-sub { font-size: 16px; color: var(--mid); line-height: 1.8; max-width: 360px; }
 
   .hero-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 16px; }
+  .hero-migration {
+    font-size: 12px; color: var(--light); margin-top: 8px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .migration-link {
+    color: var(--terracota); text-decoration: none; font-weight: 400;
+    transition: opacity 0.2s;
+  }
+  .migration-link:hover { opacity: 0.7; }
 
   /* MAGNETIC BTN */
   .btn-primary {
@@ -639,13 +649,16 @@
       <div class="cdot" style="background:var(--azul)"></div>
       <div class="cdot" style="background:var(--light)"></div>
     </div>
-    <div class="hero-eyebrow">smile.app · Software dental · República Dominicana</div>
-    <h1 class="hero-title">Tu clínica,<br>tu <em>marca,</em><br>tu ritmo.</h1>
+    <h1 class="hero-title">Tu clínica,<br>en tus <em>manos.</em></h1>
     <div class="hero-bottom">
-      <p class="hero-sub">La plataforma más elegante para gestionar tu clínica dental. Sin contratos, sin complicaciones.</p>
+      <p class="hero-sub">Todo lo que tu clínica necesita, en un solo lugar. Simple de usar, flexible de configurar, tuyo para siempre.</p>
       <div class="hero-actions">
-        <button class="btn-primary magnetic" data-strength="30" onclick="window.location.href='smile-onboarding.html'">Arma tu plan →</button>
-        <button class="btn-ghost">Ver cómo funciona</button>
+        <button class="btn-primary magnetic" data-strength="30" onclick="window.location.href='smile-onboarding.html'">Crear mi clínica →</button>
+        <button class="btn-ghost" onclick="document.getElementById('producto').scrollIntoView({behavior:'smooth'})">Ver cómo funciona</button>
+      </div>
+      <div class="hero-migration">
+        ¿Ya tienes pacientes en otra app?
+        <a href="mailto:hola@smile.app" class="migration-link">Te ayudamos a migrarlos →</a>
       </div>
     </div>
   </div>
@@ -655,40 +668,51 @@
 <div class="tags-row">
   <div class="tag accent">🦷 Pacientes</div>
   <div class="tag">📅 Agenda</div>
-  <div class="tag accent-a">💬 WhatsApp</div>
   <div class="tag">💳 Cobros</div>
-  <div class="tag">🎨 Tu marca</div>
+  <div class="tag accent-a">🎨 Tu marca</div>
   <div class="tag">👥 Multi-usuario</div>
   <div class="tag">🧪 Laboratorio</div>
   <div class="tag">📊 Reportes</div>
+  <div class="tag">📱 100% móvil</div>
   <div class="tag">Sin contratos</div>
-  <div class="tag">Activo en 10 min</div>
+  <div class="tag">Activo en minutos</div>
+  <div class="tag" style="opacity:0.5">💬 WhatsApp · Próximamente</div>
 </div>
 
 <!-- FEATURES -->
 <section class="section" id="producto">
   <div class="section-eyebrow reveal">Producto</div>
-  <div class="section-title reveal reveal-delay-1">Todo lo que necesita<br>tu clínica.</div>
+  <div class="section-title reveal reveal-delay-1">Todo en uno.<br>Nada de sobra.</div>
   <div class="features-grid">
     <div class="feature-card float reveal reveal-delay-1 tilt-card">
       <div class="f-icon" style="background:rgba(196,133,106,0.1)">🦷</div>
       <div class="f-title">Pacientes</div>
-      <div class="f-desc">Expediente completo, historial, consentimientos firmados digitalmente y galería de placas.</div>
+      <div class="f-desc">Expediente completo, historial clínico, consentimientos digitales y galería de imágenes. Todo en un perfil.</div>
     </div>
     <div class="feature-card float reveal reveal-delay-2 tilt-card">
       <div class="f-icon" style="background:rgba(123,143,161,0.1)">📅</div>
-      <div class="f-title">Agenda</div>
-      <div class="f-desc">Citas por consultorio, validación de solapamientos y recordatorios por WhatsApp.</div>
+      <div class="f-title">Agenda inteligente</div>
+      <div class="f-desc">Citas por consultorio, validación de solapamientos y vista semanal en tiempo real. Sin conflictos.</div>
     </div>
     <div class="feature-card float reveal reveal-delay-3 tilt-card">
       <div class="f-icon" style="background:rgba(232,196,184,0.25)">💳</div>
       <div class="f-title">Cobros</div>
-      <div class="f-desc">Efectivo, tarjeta, transferencia. Pagos parciales, cuadre de caja y reportes.</div>
+      <div class="f-desc">Efectivo, tarjeta, transferencia. Pagos parciales, cuadre de caja y facturación incluida en el plan base.</div>
     </div>
     <div class="feature-card float reveal reveal-delay-4 tilt-card">
       <div class="f-icon" style="background:rgba(30,28,26,0.05)">🎨</div>
       <div class="f-title">Tu marca</div>
-      <div class="f-desc">Logo y colores de tu clínica en toda la app. Cada cliente se ve diferente.</div>
+      <div class="f-desc">Logo y colores propios en toda la app. Cada clínica se siente única, porque lo es.</div>
+    </div>
+    <div class="feature-card float reveal reveal-delay-1 tilt-card">
+      <div class="f-icon" style="background:rgba(196,133,106,0.08)">☁️</div>
+      <div class="f-title">En la nube</div>
+      <div class="f-desc">Tus datos siempre seguros, siempre disponibles. Accede desde tu celular, tablet o computadora — desde donde estés.</div>
+    </div>
+    <div class="feature-card float reveal reveal-delay-2 tilt-card">
+      <div class="f-icon" style="background:rgba(123,143,161,0.08)">📱</div>
+      <div class="f-title">100% móvil</div>
+      <div class="f-desc">Diseñada para el celular. Rápida, intuitiva, sin instalar nada. Tu clínica siempre en tu bolsillo.</div>
     </div>
   </div>
 </section>
@@ -698,9 +722,9 @@
   <div class="section-eyebrow reveal">Precios</div>
 
   <div class="float pricing-hero reveal reveal-delay-1">
-    <div class="pricing-hero-title">Arma tu plan <em>a la carte.</em></div>
-    <p class="pricing-hero-sub">Responde 5 preguntas sobre tu clínica y te generamos un presupuesto mensual exacto. Solo lo que necesitas. Sin pagar de más.</p>
-    <button class="btn-large magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Calcular mi presupuesto →</button>
+    <div class="pricing-hero-title">Tu plan,<br><em>a tu medida.</em></div>
+    <p class="pricing-hero-sub">Empieza con lo esencial y agrega solo lo que necesitas. Sin contratos, sin sorpresas. Flexible desde el primer día.</p>
+    <button class="btn-large magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Crear mi clínica →</button>
     <div class="pricing-sub-label">14 días gratis · Sin tarjeta de crédito</div>
   </div>
 
@@ -714,7 +738,7 @@
         <div class="solo-tag-item">Pacientes ilimitados</div>
         <div class="solo-tag-item">Agenda</div>
         <div class="solo-tag-item">Cobros</div>
-        <div class="solo-tag-item">WhatsApp</div>
+        <div class="solo-tag-item">NCF incluido</div>
       </div>
     </div>
     <div class="solo-right">
@@ -730,7 +754,7 @@
   <div class="modules-header">
     <div>
       <div class="section-eyebrow reveal">Módulos</div>
-      <div class="section-title reveal reveal-delay-1" style="margin-bottom:0">Arma tu clínica.<br>Toca para agregar.</div>
+      <div class="section-title reveal reveal-delay-1" style="margin-bottom:0">Flexible.<br>Solo lo que necesitas.</div>
     </div>
     <div class="total-display reveal reveal-delay-2">
       <div class="total-label">Tu plan desde · NCF y expediente incluidos</div>
@@ -791,7 +815,7 @@
       <div class="label">Tu plan personalizado</div>
       <div class="summary" id="builderSummary">Base + módulos seleccionados</div>
     </div>
-    <button class="btn-primary magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Empezar con este plan →</button>
+    <button class="btn-primary magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Crear mi clínica →</button>
   </div>
 </section>
 
@@ -809,7 +833,7 @@
     </div>
   </div>
   <div class="bf-bottom">
-    <div class="bf-copy">© 2025 SMILE · Todos los derechos reservados</div>
+    <div class="bf-copy">© 2026 SMILE · Todos los derechos reservados</div>
     <div class="bf-domain">smile.app</div>
   </div>
 </footer>
