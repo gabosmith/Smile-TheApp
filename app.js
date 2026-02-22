@@ -43,8 +43,10 @@ async function loadClinicBranding() {
         // ── Store config globally for module gating ──
         clinicConfig.modulos    = cfg.modulos || [];
         clinicConfig.plan       = cfg.plan || 'clinica';
-        clinicConfig.nombre     = cfg.nombre || '';
-        clinicConfig.color      = cfg.color || '';
+        clinicConfig.nombre        = cfg.nombre || '';
+        clinicConfig.color         = cfg.color || '#C4856A';
+        clinicConfig.logoPositivo  = cfg.logoPositivo  || null;
+        clinicConfig.logoNegativo  = cfg.logoNegativo  || null;
         clinicConfig.activa     = cfg.activa !== false;
         clinicConfig.trial      = cfg.trial !== false;
         clinicConfig.trialHasta = cfg.trialHasta || null;
@@ -4018,78 +4020,63 @@ function abrirConsentimiento(pacienteId) {
     // Abrir modal primero
     openModal('modalConsentimiento');
 
-    // Inicializar canvas DESPUÉS de que el modal esté visible (importante para dimensiones correctas)
-    setTimeout(() => {
+    // Inicializar canvas — retry hasta que el modal esté visible y el canvas tenga dimensiones reales
+    function initSignatureCanvas() {
         const canvas = document.getElementById('signatureCanvas');
-        const ctx = canvas.getContext('2d');
+        if (!canvas) return;
+        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+            setTimeout(initSignatureCanvas, 60);  // modal still rendering, retry
+            return;
+        }
 
-        // Establecer dimensiones explícitas
-        canvas.width = canvas.offsetWidth;
+        // Fijar dimensiones exactas al tamaño CSS del elemento
+        canvas.width  = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
 
-        // Limpiar canvas
+        const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#1E1C1A';
+        ctx.lineWidth   = 2;
+        ctx.lineCap     = 'round';
+        ctx.lineJoin    = 'round';
 
-        let isDrawing = false;
-        let lastX = 0;
-        let lastY = 0;
+        let drawing = false, lx = 0, ly = 0;
 
-        // Event listeners para dibujar
-        canvas.onmousedown = (e) => {
-            isDrawing = true;
-            const rect = canvas.getBoundingClientRect();
-            lastX = e.clientX - rect.left;
-            lastY = e.clientY - rect.top;
+        // Convierte coordenadas del evento al espacio interno del canvas
+        // (importante si el canvas está escalado con CSS)
+        const pos = (e, touch) => {
+            const r = canvas.getBoundingClientRect();
+            const s = touch || e;
+            return {
+                x: (s.clientX - r.left) * (canvas.width  / r.width),
+                y: (s.clientY - r.top)  * (canvas.height / r.height)
+            };
         };
 
-        canvas.onmousemove = (e) => {
-            if (!isDrawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-
-            lastX = x;
-            lastY = y;
+        canvas.onmousedown  = e => { drawing = true; const p = pos(e); lx = p.x; ly = p.y; };
+        canvas.onmousemove  = e => {
+            if (!drawing) return;
+            const p = pos(e);
+            ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(p.x, p.y); ctx.stroke();
+            lx = p.x; ly = p.y;
         };
+        canvas.onmouseup    = () => drawing = false;
+        canvas.onmouseleave = () => drawing = false;
 
-        canvas.onmouseup = () => { isDrawing = false; };
-        canvas.onmouseleave = () => { isDrawing = false; };
-
-        // Touch events para móvil
-        canvas.ontouchstart = (e) => {
+        canvas.ontouchstart = e => {
+            e.preventDefault(); drawing = true;
+            const p = pos(null, e.touches[0]); lx = p.x; ly = p.y;
+        };
+        canvas.ontouchmove  = e => {
             e.preventDefault();
-            isDrawing = true;
-            const rect = canvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            lastX = touch.clientX - rect.left;
-            lastY = touch.clientY - rect.top;
+            if (!drawing) return;
+            const p = pos(null, e.touches[0]);
+            ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(p.x, p.y); ctx.stroke();
+            lx = p.x; ly = p.y;
         };
-
-        canvas.ontouchmove = (e) => {
-            e.preventDefault();
-            if (!isDrawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            lastX = x;
-            lastY = y;
-        };
-
-        canvas.ontouchend = () => { isDrawing = false; };
-    }, 100); // 100ms para que el modal se renderice completamente
+        canvas.ontouchend = () => drawing = false;
+    }
+    setTimeout(initSignatureCanvas, 80);
 }
 
 function limpiarFirma() {
@@ -4124,9 +4111,13 @@ async function guardarConsentimiento() {
 
     await saveData();
     closeModal('modalConsentimiento');
-    updatePacientesTab();
 
-    alert('✅ Consentimiento informado guardado exitosamente');
+    // Refresh the documentos tab live — no need to close and reopen the patient card
+    const pac = currentPacienteConsentimiento;
+    renderTabDocumentos(pac);
+
+    // Also refresh the patient list badge in the background
+    updatePacientesTab();
 }
 
 function verFirma(pacienteId) {
@@ -4139,43 +4130,75 @@ function verFirma(pacienteId) {
     generarPDFConsentimiento(paciente);
 }
 
+// ── PDF helpers — uses clinicConfig for branding ──────────────────
+function _hexToRgb(hex) {
+    const h = (hex || '#C4856A').replace('#', '');
+    const n = parseInt(h.length === 3
+        ? h.split('').map(c => c+c).join('') : h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function _pdfHeader(doc, pageWidth, pageHeight) {
+    const [r, g, b] = _hexToRgb(clinicConfig.color);
+    const logo = clinicConfig.logoNegativo || clinicConfig.logoPositivo;
+    const nombre = getNombreClinica();
+    const admin  = getNombreAdmin();
+
+    // Header bar
+    doc.setFillColor(r, g, b);
+    doc.rect(0, 0, pageWidth, 38, 'F');
+
+    // Logo — left side if available
+    let textX = pageWidth / 2;
+    if (logo) {
+        try {
+            doc.addImage(logo, 'PNG', 6, 4, 30, 30);
+            textX = pageWidth / 2 + 15;
+        } catch(e) {}
+    }
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(logo ? 15 : 18);
+    doc.text(nombre, textX, 16, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(admin, textX, 27, { align: 'center' });
+
+    return 46; // y position after header
+}
+
+function _pdfFooter(doc, pageWidth, pageHeight) {
+    const [r, g, b] = _hexToRgb(clinicConfig.color);
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(0.3);
+    doc.line(20, pageHeight - 18, pageWidth - 20, pageHeight - 18);
+    doc.setTextColor(153, 153, 153);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.text(
+        `Generado por SMILE · ${getNombreClinica()} · ${new Date().toLocaleDateString('es-DO')}`,
+        pageWidth / 2, pageHeight - 10, { align: 'center' }
+    );
+}
+// ──────────────────────────────────────────────────────────────────
+
 function generarPDFConsentimiento(paciente) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    const pageWidth = doc.internal.pageSize.width;
+    const pageWidth  = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const margin = 20;
-    let y = margin;
+    const [cr, cg, cb] = _hexToRgb(clinicConfig.color);
 
-    // ============================================
-    // HEADER - DATOS DE LA CLÍNICA
-    // ============================================
+    // ── HEADER (clinic color + logo) ──
+    let y = _pdfHeader(doc, pageWidth, pageHeight);
 
-    // Logo/Nombre de la clínica
-    doc.setFillColor(0, 35, 102); // #002366
-    doc.rect(0, 0, pageWidth, 35, 'F');
-
-    // LOGO (si tienes logo.jpg, agrégalo aquí)
-    // Ejemplo: doc.addImage(logoBase64, 'JPEG', 15, 5, 25, 25);
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-    doc.text(getNombreClinica(), pageWidth / 2, 15, { align: 'center' });
-
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(getNombreAdmin(), pageWidth / 2, 25, { align: 'center' });
-
-    y = 45;
-
-    // ============================================
-    // TÍTULO DEL DOCUMENTO
-    // ============================================
-
-    doc.setTextColor(0, 35, 102);
-    doc.setFontSize(18);
+    // ── TÍTULO ──
+    doc.setTextColor(cr, cg, cb);
+    doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.text('CONSENTIMIENTO INFORMADO', pageWidth / 2, y, { align: 'center' });
 
@@ -4207,11 +4230,11 @@ function generarPDFConsentimiento(paciente) {
     // TEXTO DEL CONSENTIMIENTO
     // ============================================
 
-    doc.setDrawColor(0, 122, 255);
+    doc.setDrawColor(cr, cg, cb);
     doc.setLineWidth(0.5);
     doc.rect(margin, y, pageWidth - 2 * margin, 80, 'S');
 
-    doc.setTextColor(0, 35, 102);
+    doc.setTextColor(cr, cg, cb);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.text('DECLARACIÓN DE CONSENTIMIENTO', margin + 5, y + 8);
@@ -4294,39 +4317,15 @@ satisfactoriamente. Firmo este documento de forma libre y voluntaria.`;
     doc.text(`Fecha: ${fechaFormateada}`, margin + 5, y + 14);
     doc.text(`Hora: ${horaFormateada}`, margin + 5, y + 18);
 
-    // ============================================
-    // FOOTER
-    // ============================================
+    // ── FOOTER ──
+    _pdfFooter(doc, pageWidth, pageHeight);
 
-    doc.setFontSize(8);
-    doc.setTextColor(153, 153, 153);
-    doc.setFont('helvetica', 'italic');
-    doc.text(
-        'Este documento es válido y tiene el mismo valor legal que un documento firmado en papel.',
-        pageWidth / 2,
-        pageHeight - 15,
-        { align: 'center' }
-    );
-
-    doc.setFontSize(7);
-    doc.text(
-        `Generado el ${new Date().toLocaleDateString('es-DO')} a las ${new Date().toLocaleTimeString('es-DO')}`,
-        pageWidth / 2,
-        pageHeight - 10,
-        { align: 'center' }
-    );
-
-    // ============================================
-    // DESCARGAR PDF
-    // ============================================
-
+    // Abrir en nueva pestaña para imprimir o descargar
     const nombreArchivo = `Consentimiento_${paciente.nombre.replace(/\s+/g, '_')}_${fechaFirma.toISOString().split('T')[0]}.pdf`;
-    doc.save(nombreArchivo);
-
-    // Mostrar mensaje de éxito
-    setTimeout(() => {
-        alert(`✅ PDF descargado exitosamente:\n\n"${nombreArchivo}"`);
-    }, 100);
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    const win = window.open(url, '_blank');
+    if (!win) doc.save(nombreArchivo);  // fallback si popup bloqueado
 }
 
 // ========================================
@@ -4901,149 +4900,142 @@ async function guardarReceta() {
 
     await saveData();
 
-    closeModal('modalNuevaReceta');
-    renderizarRecetas();
+    // Re-sync from appData so renderizarRecetas reads the saved state
+    const saved = appData.pacientes.find(p => p.id === currentPacienteRecetas.id);
+    if (saved) currentPacienteRecetas = saved;
 
-    alert('✅ Receta médica guardada exitosamente');
+    closeModal('modalNuevaReceta');
+    renderizarRecetas();   // list refreshes immediately — no need to close/reopen
 }
 
 function descargarRecetaPDF(recetaId) {
     if (!currentPacienteRecetas) return;
-
     const receta = currentPacienteRecetas.recetas.find(r => r.id === recetaId);
     if (!receta) return;
 
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    // A5 landscape-friendly: A5 = 148 x 210 mm
+    const doc = new jsPDF({ format: 'a5', unit: 'mm' });
 
-    const pageWidth = doc.internal.pageSize.width;
-    let y = 20;
+    const pageWidth  = doc.internal.pageSize.width;   // 148mm
+    const pageHeight = doc.internal.pageSize.height;  // 210mm
+    const margin = 14;
+    const [cr, cg, cb] = _hexToRgb(clinicConfig.color);
 
-    // HEADER
-    doc.setFillColor(0, 35, 102);
-    doc.rect(0, 0, pageWidth, 40, 'F');
+    // ── HEADER (clinic color + logo) ──
+    let y = _pdfHeader(doc, pageWidth, pageHeight);
 
-    // LOGO (si tienes logo.jpg, agrégalo aquí)
-    // Ejemplo: doc.addImage(logoBase64, 'JPEG', 15, 5, 30, 30);
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
+    // ── TÍTULO RECETA ──
+    doc.setTextColor(cr, cg, cb);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text('RECETA MÉDICA', pageWidth / 2, 20, { align: 'center' });
+    doc.text('RECETA MÉDICA', pageWidth / 2, y, { align: 'center' });
+    y += 10;
 
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(getNombreClinica() + ' - ' + getNombreAdmin(), pageWidth / 2, 30, { align: 'center' });
-
-    y = 50;
-
-    // DATOS DEL PACIENTE
+    // ── DATOS DEL PACIENTE ──
     doc.setFillColor(248, 249, 250);
-    doc.roundedRect(20, y, pageWidth - 40, 30, 3, 3, 'F');
-
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(11);
+    doc.roundedRect(margin, y, pageWidth - margin * 2, 22, 2, 2, 'F');
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text('PACIENTE', 25, y + 10);
-
+    doc.text('PACIENTE', margin + 4, y + 7);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${currentPacienteRecetas.nombre}`, 25, y + 18);
-    doc.text(`Fecha: ${formatDate(receta.fecha)}`, pageWidth - 25, y + 18, { align: 'right' });
-
-    y += 40;
-
-    // DIAGNÓSTICO
-    if (receta.diagnostico) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.text('DIAGNÓSTICO:', 20, y);
-
-        y += 8;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        const diagnosticoLines = doc.splitTextToSize(receta.diagnostico, pageWidth - 40);
-        doc.text(diagnosticoLines, 20, y);
-
-        y += (diagnosticoLines.length * 6) + 10;
-    }
-
-    // MEDICAMENTOS
-    doc.setDrawColor(0, 122, 255);
-    doc.setLineWidth(0.5);
-    doc.rect(20, y, pageWidth - 40, receta.medicamentos.length * 25 + 15, 'S');
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Rp/', 25, y + 10);
-
-    y += 15;
-
-    receta.medicamentos.forEach((med, index) => {
-        doc.setFont('helvetica', 'bold');
-        doc.text(`${index + 1}. ${med.nombre}`, 25, y);
-
-        y += 6;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text(`   ${med.dosis}`, 25, y);
-
-        y += 5;
-        doc.text(`   ${med.frecuencia}`, 25, y);
-
-        if (med.duracion) {
-            y += 5;
-            doc.text(`   Duración: ${med.duracion}`, 25, y);
-        }
-
-        y += 10;
-    });
-
-    y += 5;
-
-    // INDICACIONES
-    if (receta.indicaciones) {
-        y += 10;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.text('INDICACIONES:', 20, y);
-
-        y += 8;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        const indicacionesLines = doc.splitTextToSize(receta.indicaciones, pageWidth - 40);
-        doc.text(indicacionesLines, 20, y);
-
-        y += (indicacionesLines.length * 6);
-    }
-
-    // FIRMA
-    y = doc.internal.pageSize.height - 45;
-    doc.setLineWidth(0.5);
-    doc.line(pageWidth / 2 - 30, y, pageWidth / 2 + 30, y);
-
-    y += 5;
-    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 28, 26);
     doc.setFontSize(10);
-    doc.text(`${receta.profesional}`, pageWidth / 2, y, { align: 'center' });
-
-    // Buscar exequatur del profesional
-    const profesional = appData.personal.find(p => p.nombre === receta.profesional);
-    const exequatur = profesional && profesional.exequatur ? profesional.exequatur : '';
-
-    y += 5;
-    doc.setFont('helvetica', 'normal');
+    doc.text(currentPacienteRecetas.nombre, margin + 4, y + 14);
     doc.setFontSize(9);
-    if (exequatur) {
-        doc.text(`Exequatur: ${exequatur}`, pageWidth / 2, y, { align: 'center' });
-    } else {
-        doc.text('Registro Médico', pageWidth / 2, y, { align: 'center' });
+    doc.setTextColor(120, 120, 120);
+    doc.text(formatDate(receta.fecha), pageWidth - margin - 4, y + 14, { align: 'right' });
+    y += 28;
+
+    // ── DIAGNÓSTICO ──
+    if (receta.diagnostico) {
+        doc.setTextColor(cr, cg, cb);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('DIAGNÓSTICO', margin, y);
+        y += 6;
+        doc.setTextColor(51, 51, 51);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const dLines = doc.splitTextToSize(receta.diagnostico, pageWidth - margin * 2);
+        doc.text(dLines, margin, y);
+        y += dLines.length * 5 + 6;
     }
 
-    // Descargar
-    const nombreArchivo = `Receta_${currentPacienteRecetas.nombre.replace(/\s+/g, '_')}_${formatDate(receta.fecha).replace(/\//g, '-')}.pdf`;
-    doc.save(nombreArchivo);
+    // ── MEDICAMENTOS ──
+    doc.setDrawColor(cr, cg, cb);
+    doc.setLineWidth(0.4);
+    const medBoxH = receta.medicamentos.reduce((h, m) => h + (m.duracion ? 22 : 18), 0) + 14;
+    doc.rect(margin, y, pageWidth - margin * 2, medBoxH, 'S');
 
-    alert('✅ Receta descargada exitosamente');
+    doc.setTextColor(cr, cg, cb);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Rp/', margin + 4, y + 9);
+    y += 14;
+
+    receta.medicamentos.forEach((med, i) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(30, 28, 26);
+        doc.text(`${i + 1}. ${med.nombre}`, margin + 4, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(80, 80, 80);
+        doc.text(`   ${med.dosis}  ·  ${med.frecuencia}${med.duracion ? '  ·  ' + med.duracion : ''}`, margin + 4, y);
+        y += 8;
+    });
+    y += 4;
+
+    // ── INDICACIONES ──
+    if (receta.indicaciones) {
+        y += 4;
+        doc.setTextColor(cr, cg, cb);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('INDICACIONES', margin, y);
+        y += 6;
+        doc.setTextColor(51, 51, 51);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const iLines = doc.splitTextToSize(receta.indicaciones, pageWidth - margin * 2);
+        doc.text(iLines, margin, y);
+        y += iLines.length * 5;
+    }
+
+    // ── FIRMA DEL PROFESIONAL ──
+    const firmaY = pageHeight - 35;
+    const prof = appData.personal.find(p => p.nombre === receta.profesional);
+    const exequatur = prof?.exequatur || '';
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.3);
+    doc.line(pageWidth / 2 - 25, firmaY, pageWidth / 2 + 25, firmaY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(30, 28, 26);
+    doc.text(receta.profesional, pageWidth / 2, firmaY + 5, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(exequatur ? `Exequatur: ${exequatur}` : 'Médico tratante', pageWidth / 2, firmaY + 10, { align: 'center' });
+
+    // ── FOOTER ──
+    _pdfFooter(doc, pageWidth, pageHeight);
+
+    // Guardar + abrir preview para imprimir
+    const nombre = `Receta_${currentPacienteRecetas.nombre.replace(/\s+/g,'_')}_${formatDate(receta.fecha).replace(/\//g,'-')}.pdf`;
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+
+    // Open in new tab for print/download
+    const win = window.open(url, '_blank');
+    if (win) {
+        win.onload = () => win.print();   // trigger print dialog automatically
+    } else {
+        doc.save(nombre);  // fallback if popup blocked
+    }
 }
 
 // ========================================
