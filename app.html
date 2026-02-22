@@ -1842,24 +1842,35 @@
                 const color = cfg.color || '#C4856A';
                 const colorDark = darkenColor(color, 15);
 
-                // Aplicar variables CSS
                 document.documentElement.style.setProperty('--clinic-color', color);
                 document.documentElement.style.setProperty('--clinic-color-light', colorDark);
 
-                // Nombre y título
                 const nombre = cfg.nombre || 'Clínica Dental';
                 document.getElementById('clinicNameLogin').textContent = nombre;
                 document.title = nombre + ' — SMILE';
 
-                // Logo si existe
                 if (cfg.logo) {
                     const img = document.getElementById('logoImg');
                     if (img) { img.src = cfg.logo; img.style.display = 'block'; }
                 }
+
+                // Mark clinic as valid
+                document.getElementById('clinicLoading').style.display = 'none';
+                document.getElementById('loginScreen').style.display = 'flex';
+
+            } else {
+                // Clinic ID not found in Firebase — show clear error
+                document.getElementById('clinicLoading').style.display = 'none';
+                document.getElementById('loginScreen').style.display = 'flex';
+                const nameEl = document.getElementById('clinicNameLogin');
+                if (nameEl) nameEl.innerHTML = `
+                    <div style="font-size:13px;color:#c0392b;line-height:1.6;font-weight:300">
+                        ⚠️ Clínica no encontrada.<br>
+                        <span style="font-size:11px;opacity:0.7">ID: <code>${clinicaId}</code></span>
+                    </div>`;
             }
         } catch(e) {
-            console.log('Config de clínica no encontrada, usando defaults');
-        } finally {
+            console.error('Error cargando clínica:', e);
             document.getElementById('clinicLoading').style.display = 'none';
             document.getElementById('loginScreen').style.display = 'flex';
         }
