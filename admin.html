@@ -444,6 +444,33 @@
 
   .module-check-item input[type="checkbox"] { accent-color: var(--terracota); }
 
+  .modal-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .modal-action-btn {
+    padding: 12px 16px;
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    color: var(--surface-mid);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .modal-action-btn:hover { background: rgba(255,255,255,0.06); color: var(--surface); }
+  .modal-action-btn span { font-size: 15px; }
+  .modal-action-btn.btn-danger { color: #e07070; }
+  .modal-action-btn.btn-danger:hover { background: rgba(220,80,80,0.1); }
+  .modal-action-btn.btn-success { color: #6dbf8a; }
+  .modal-action-btn.btn-success:hover { background: rgba(60,160,90,0.1); }
+
   .modal-footer {
     display: flex;
     justify-content: flex-end;
@@ -1056,9 +1083,27 @@ function openClinicDetail(id) {
       <div class="link-copy">Copiar link</div>
     </div>
 
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="toggleStatus('${c.id}')">${c.activa ? '⏸ Pausar clínica' : '▶ Reactivar'}</button>
-      <button class="btn-save" onclick="openApp('${c.id}')">Abrir app →</button>
+    <div class="modal-actions-grid">
+      <button class="modal-action-btn" onclick="openApp('${c.id}')">
+        <span>↗</span> Abrir app
+      </button>
+      <button class="modal-action-btn" onclick="copyClinicLink('${c.id}')">
+        <span>🔗</span> Copiar link
+      </button>
+      <button class="modal-action-btn" onclick="openResetPassword('${c.id}')">
+        <span>🔑</span> Reset contraseña
+      </button>
+      <button class="modal-action-btn" onclick="extendTrial('${c.id}')">
+        <span>📅</span> Extender trial
+      </button>
+      <button class="modal-action-btn" onclick="openEditModal('${c.id}')">
+        <span>✎</span> Editar plan
+      </button>
+      <button class="modal-action-btn ${c.activa ? 'btn-danger' : 'btn-success'}"
+              onclick="toggleStatus('${c.id}')">
+        <span>${c.activa ? '⏸' : '▶'}</span>
+        ${c.activa ? 'Pausar' : 'Reactivar'}
+      </button>
     </div>
   `;
 
@@ -1326,6 +1371,18 @@ function getTrial14Days() {
 }
 
 // ── ACTIONS ───────────────────────────────────────────
+
+function openApp(id) {
+  const base = window.location.origin + window.location.pathname.replace('admin.html','');
+  window.open(base + 'app.html?clinica=' + id, '_blank');
+}
+
+function copyClinicLink(id) {
+  const base = window.location.origin + window.location.pathname.replace('admin.html','');
+  navigator.clipboard?.writeText(base + 'app.html?clinica=' + id)
+    .then(() => showToast('🔗 Link copiado'));
+}
+
 async function toggleStatus(id) {
   const c = clinicas.find(x => x.id === id);
   if (!c) return;
@@ -1339,14 +1396,102 @@ async function toggleStatus(id) {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-function openApp(id) {
-  const url = `${window.location.origin}${window.location.pathname.replace('admin.html','')}app.html?clinica=${id}`;
-  window.open(url, '_blank');
+// ── RESET CONTRASEÑA ─────────────────────────────────
+function openResetPassword(id) {
+  const c = clinicas.find(x => x.id === id);
+  if (!c) return;
+  const newPass      = Math.random().toString(36).slice(2,8).toUpperCase();
+  const adminNombre  = c.raw?.personal?.find(p => p.isAdmin)?.nombre
+                    || c.raw?.personal?.[0]?.nombre
+                    || 'Administrador';
+
+  document.getElementById('modalTitle').textContent = '🔑 Reset contraseña — ' + c.nombre;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="text-align:center;padding:16px 0 24px">
+      <div style="font-size:13px;color:var(--mid);margin-bottom:28px;line-height:1.7">
+        Se generará una nueva contraseña para el admin.<br>Compártela con el cliente por WhatsApp.
+      </div>
+      <div style="background:var(--bg);border-radius:16px;padding:28px;margin-bottom:20px">
+        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:12px">Nueva contraseña</div>
+        <div style="font-family:monospace;font-size:36px;letter-spacing:8px;color:var(--terracota)">${newPass}</div>
+        <div style="font-size:12px;color:var(--mid);margin-top:12px">Usuario: <strong>${adminNombre}</strong></div>
+      </div>
+      <div style="font-size:12px;color:var(--light)">Se guarda en Firebase al confirmar.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="confirmResetPassword('${id}','${newPass}')">Confirmar y guardar</button>
+    </div>
+  `;
 }
 
+async function confirmResetPassword(id, newPass) {
+  try {
+    const doc     = await db.collection('clinicas').doc(id).get();
+    const pers    = doc.data()?.personal || [];
+    const updated = pers.length
+      ? pers.map((p,i) => (p.isAdmin || i===0) ? {...p, password: newPass} : p)
+      : [{ id:'1', nombre:'Administrador', isAdmin:true, password:newPass, canAccessReception:true }];
+    await db.collection('clinicas').doc(id).update({ personal: updated });
+    closeModal();
+    showToast('✅ Contraseña cambiada: ' + newPass);
+    await loadClinicas();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
 
+// ── EXTENDER TRIAL ────────────────────────────────────
+function extendTrial(id) {
+  const c   = clinicas.find(x => x.id === id);
+  if (!c) return;
+  const base = c.trialHasta
+    ? new Date(Math.max(new Date(c.trialHasta), new Date()))
+    : new Date();
+  const d7   = new Date(base); d7.setDate(d7.getDate()+7);
+  const d14  = new Date(base); d14.setDate(d14.getDate()+14);
+  const d30  = new Date(base); d30.setDate(d30.getDate()+30);
+  const fmt  = d => d.toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'});
+  const btn  = (days, date) => `
+    <button onclick="confirmExtendTrial('${id}','${date.toISOString()}')"
+      style="padding:16px 20px;background:var(--bg);border:1px solid rgba(255,255,255,0.06);
+             border-radius:12px;color:var(--surface);font-family:inherit;font-size:14px;
+             cursor:pointer;text-align:left;width:100%;transition:background 0.2s"
+      onmouseover="this.style.background='rgba(196,133,106,0.12)'"
+      onmouseout="this.style.background='var(--bg)'">
+      <span style="color:var(--terracota);font-weight:500">+${days} días</span>
+      <span style="color:var(--mid);font-size:12px;float:right">hasta ${fmt(date)}</span>
+    </button>`;
 
+  document.getElementById('modalTitle').textContent = '📅 Extender trial — ' + c.nombre;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:8px 0 4px">
+      <div style="font-size:13px;color:var(--mid);margin-bottom:20px">
+        Trial actual: <strong style="color:${c.trial?'var(--terracota)':'#999'}">${c.trialHasta ? fmt(new Date(c.trialHasta)) : 'Vencido'}</strong>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${btn(7,d7)}${btn(14,d14)}${btn(30,d30)}
+      </div>
+    </div>
+    <div class="modal-footer" style="margin-top:20px">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+    </div>
+  `;
+}
 
+async function confirmExtendTrial(id, newDate) {
+  try {
+    await db.collection('clinicas').doc(id)
+      .collection('config').doc('settings').update({
+        trial: true,
+        trialHasta: newDate,
+        trialExtendidoEn: new Date().toISOString()
+      });
+    closeModal();
+    showToast('✅ Trial extendido hasta '
+      + new Date(newDate).toLocaleDateString('es-DO',{day:'numeric',month:'long'}));
+    await loadClinicas();
+    showSection(currentSection);
+  } catch(e) { showToast('❌ ' + e.message); }
+}
 
 function copyToClipboard(text) {
   navigator.clipboard?.writeText(text).then(() => showToast('✓ Link copiado'));
