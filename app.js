@@ -529,119 +529,54 @@ function hasModule(key) {
 }
 
 function buildNavigation() {
-    let nav = '';
     const role = appData.currentRole;
-    const modulos = clinicConfig.modulos || [];
 
-    // Dashboard — siempre visible para profesionales y admin
-    if (role === 'professional' || role === 'admin') {
-        nav += `
-            <button class="nav-item active" onclick="showTab('dashboard')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>
-                <span>Dashboard</span>
-            </button>
-        `;
+    const svgDash     = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>`;
+    const svgPax      = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>`;
+    const svgAgenda   = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>`;
+    const svgLab      = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7 2a1 1 0 00-.707 1.707L7 4.414v3.758a1 1 0 01-.293.707l-4 4C.817 14.769 2.156 18 4.828 18h10.344c2.672 0 4.011-3.231 2.122-5.121l-4-4A1 1 0 0113 8.172V4.414l.707-.707A1 1 0 0013 2H7zm2 6.172V4h2v4.172a3 3 0 00.879 2.12l1.027 1.028a4 4 0 00-2.171.102l-.47.156a4 4 0 01-2.53 0l-.563-.187a1.993 1.993 0 00-.114-.035l1.063-1.063A3 3 0 009 8.172z" clip-rule="evenodd"></path></svg>`;
+    const svgCobros   = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path></svg>`;
+    const svgMas      = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path></svg>`;
+
+    let nav = '';
+
+    // Dashboard — admin + profesional
+    if (role === 'admin' || role === 'professional') {
+        nav += `<button class="nav-item" onclick="showTab('dashboard')">${svgDash}<span>Dashboard</span></button>`;
     }
 
-    // Pacientes y Agenda — siempre visibles
-    nav += `
-        <button class="nav-item ${role === 'reception' ? 'active' : ''}" onclick="showTab('pacientes')">
-            <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>
-            <span>Pacientes</span>
-        </button>
-        <button class="nav-item" onclick="showTab('agenda')">
-            <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>
-            <span>Agenda</span>
-        </button>
-    `;
+    // Pacientes — todos
+    nav += `<button class="nav-item ${role === 'reception' ? 'active' : ''}" onclick="showTab('pacientes')">${svgPax}<span>Pacientes</span></button>`;
 
-    // Factura e Ingresos — profesionales y admin
-    if (role === 'professional' || role === 'admin') {
-        nav += `
-            <button class="nav-item" onclick="showTab('factura')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path></svg>
-                <span>Factura</span>
-            </button>
-            <button class="nav-item" onclick="showTab('ingresos')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"></path><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"></path></svg>
-                <span>Ingresos</span>
-            </button>
-        `;
+    // Agenda — todos
+    nav += `<button class="nav-item" onclick="showTab('agenda')">${svgAgenda}<span>Agenda</span></button>`;
+
+    // Lab — solo si módulo activo
+    if (hasModule('laboratorio')) {
+        nav += `<button class="nav-item" onclick="showTab('laboratorio')">${svgLab}<span>Lab</span></button>`;
     }
 
-    // Cobrar, Cuadre, Gastos — recepción y admin
-    if (role === 'reception' || role === 'admin') {
-        nav += `
-            <button class="nav-item" onclick="showTab('cobrar')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path></svg>
-                <span>Cobrar</span>
-            </button>
-            <button class="nav-item" onclick="showTab('cuadre')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>
-                <span>Cuadre</span>
-            </button>
-            <button class="nav-item" onclick="showTab('gastos')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"></path></svg>
-                <span>Gastos</span>
-            </button>
-        `;
+    // Cobros — admin + profesional (contiene factura, pendientes, ingresos, cuadre, gastos)
+    if (role === 'admin' || role === 'professional') {
+        nav += `<button class="nav-item" onclick="showTab('cobros')">${svgCobros}<span>Cobros</span></button>`;
     }
 
-    // Personal — solo admin, y solo si tiene módulo nómina O es plan clínica
-    if (role === 'admin' && (modulos.includes('nomina') || clinicConfig.plan !== 'solo')) {
-        nav += `
-            <button class="nav-item" onclick="showTab('personal')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>
-                <span>Personal</span>
-            </button>
-        `;
-    }
-
-    // Laboratorio — solo si módulo activo
-    if (modulos.includes('laboratorio')) {
-        nav += `
-            <button class="nav-item" onclick="showTab('laboratorio')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7 2a1 1 0 00-.707 1.707L7 4.414v3.758a1 1 0 01-.293.707l-4 4C.817 14.769 2.156 18 4.828 18h10.344c2.672 0 4.011-3.231 2.122-5.121l-4-4A1 1 0 0113 8.172V4.414l.707-.707A1 1 0 0013 2H7zm2 6.172V4h2v4.172a3 3 0 00.879 2.12l1.027 1.028a4 4 0 00-2.171.102l-.47.156a4 4 0 01-2.53 0l-.563-.187a1.993 1.993 0 00-.114-.035l1.063-1.063A3 3 0 009 8.172z" clip-rule="evenodd"></path></svg>
-                <span>Lab</span>
-            </button>
-        `;
-    }
-
-    // Reportes — solo si módulo activo
-    if (modulos.includes('reportes') && (role === 'admin')) {
-        nav += `
-            <button class="nav-item" onclick="showTab('reportes')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>
-                <span>Reportes</span>
-            </button>
-        `;
-    }
-
-    // Catálogo de procedimientos — solo si modo lista y admin
-    if (clinicConfig.procMode === 'lista' && role === 'admin') {
-        nav += `
-            <button class="nav-item" onclick="showTab('catalogo')">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"></path></svg>
-                <span>Catálogo</span>
-            </button>
-        `;
-    }
-
-    // Perfil — siempre visible
-    nav += `
-        <button class="nav-item" onclick="showTab('perfil')">
-            <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
-            <span>Perfil</span>
-        </button>
-    `;
+    // Más — siempre
+    nav += `<button class="nav-item" onclick="abrirMas()">${svgMas}<span>Más</span></button>`;
 
     document.getElementById('bottomNav').innerHTML = nav;
 }
 
-// Show tab
+
 function showTab(tabName) {
     if (tabName === 'catalogo') { renderCatalogoTab(); return; }
     if (tabName === 'miplan') { renderMiPlanTab(); return; }
+    if (tabName === 'cobros') { renderCobrosTab(); return; }
+    // Old tab names redirect to cobros subtab for consistency
+    const cobrosMap = { 'factura': 'nueva', 'cobrar': 'pendientes', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
+    if (cobrosMap[tabName]) { renderCobrosTab(cobrosMap[tabName]); return; }
+    // Personal, reportes go through irTab
+    if (tabName === 'personal' || tabName === 'reportes') { irTab(tabName); return; }
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
@@ -5597,13 +5532,54 @@ function updateDashboardTab() {
     const today = new Date();
     const todayTimestamp = today.setHours(0,0,0,0);
 
-    // Fecha
-    document.getElementById('dashboardFecha').textContent = new Date().toLocaleDateString('es-DO', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
+    // Fecha + saludo + frase motivacional
+    const fechaStr = new Date().toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long' });
+    const nombre = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
+    const nombreCorto = nombre ? nombre.split(' ')[0] : '';
+    const fraseDia = getFrase();
+    const saludoDia = getSaludo();
+    const fechaEl = document.getElementById('dashboardFecha');
+    if (fechaEl) {
+        fechaEl.innerHTML = `
+            <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px;margin-bottom:2px">
+                ${saludoDia}${nombreCorto ? `, ${nombreCorto}` : ''}.
+            </div>
+            <div style="font-size:12px;color:var(--light);margin-bottom:8px;text-transform:capitalize">${fechaStr}</div>
+            <div style="font-size:14px;color:var(--mid);font-style:italic;font-weight:300;line-height:1.5">"${fraseDia}"</div>
+        `;
+    }
+
+    // Quick action shortcuts (admin + profesional)
+    const dashRole = appData.currentRole;
+    if (dashRole === 'admin' || dashRole === 'professional') {
+        let shortEl = document.getElementById('dashShortcuts');
+        if (!shortEl) {
+            shortEl = document.createElement('div');
+            shortEl.id = 'dashShortcuts';
+            shortEl.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;margin-top:16px';
+            const statsGrid = document.querySelector('#tab-dashboard > div:nth-child(2)');
+            if (statsGrid) statsGrid.insertAdjacentElement('beforebegin', shortEl);
+        }
+        shortEl.innerHTML = `
+            <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)" style="
+                padding:14px 16px;background:var(--clinic-color);color:white;border:none;
+                border-radius:var(--radius-md);font-size:12px;letter-spacing:1px;text-transform:uppercase;
+                font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
+                box-shadow:0 4px 12px rgba(0,0,0,0.12);transition:opacity 0.2s"
+                onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                <span style="font-size:18px;line-height:1">+</span> Nueva factura
+            </button>
+            <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('pendientes'),50)" style="
+                padding:14px 16px;background:var(--white);color:var(--dark);
+                border:1.5px solid rgba(30,28,26,0.1);border-radius:var(--radius-md);
+                font-size:12px;letter-spacing:1px;text-transform:uppercase;
+                font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
+                transition:opacity 0.2s"
+                onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
+                💰 Pendientes
+            </button>
+        `;
+    }
 
     // INGRESOS HOY
     const pagosHoy = appData.facturas
@@ -6784,6 +6760,197 @@ async function guardarCambiosPlan() {
             btn.disabled = false;
         }, 2500);
     }
+}
+
+
+// ═══════════════════════════════════════════════
+// COBROS TAB — unifies factura, pendientes, ingresos, cuadre, gastos
+// ═══════════════════════════════════════════════
+function renderCobrosTab(subtab) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    // Get or create container
+    let tab = document.getElementById('tab-cobros');
+    if (!tab) {
+        tab = document.createElement('div');
+        tab.id = 'tab-cobros';
+        tab.className = 'tab-content';
+        document.querySelector('.content-area').appendChild(tab);
+    }
+    tab.classList.add('active');
+    tab._activeSubtab = subtab || tab._activeSubtab || 'nueva';
+
+    // Highlight nav
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        if (btn.getAttribute('onclick') === "showTab('cobros')") btn.classList.add('active');
+    });
+
+    const active = tab._activeSubtab;
+    const subtabs = [
+        { key: 'nueva',       label: '+ Nueva'      },
+        { key: 'pendientes',  label: 'Pendientes'   },
+        { key: 'ingresos',    label: 'Ingresos'     },
+        { key: 'cuadre',      label: 'Cuadre'       },
+        { key: 'gastos',      label: 'Gastos'       },
+    ];
+
+    const subtabsHtml = subtabs.map(s => `
+        <button onclick="setCobrosSubtab('${s.key}')" style="
+            padding:8px 16px;border:none;background:${active===s.key ? 'var(--dark)' : 'transparent'};
+            color:${active===s.key ? 'white' : 'var(--mid)'};
+            border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;
+            white-space:nowrap;letter-spacing:0.3px;transition:all 0.2s;
+            ${active===s.key ? 'box-shadow:0 2px 8px rgba(30,28,26,0.15)' : ''}
+        ">${s.label}</button>
+    `).join('');
+
+    tab.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div class="section-title" style="margin-bottom:0">Cobros</div>
+        </div>
+        <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:20px;
+                    scrollbar-width:none;-webkit-overflow-scrolling:touch">
+            ${subtabsHtml}
+        </div>
+        <div id="cobros-content"></div>
+    `;
+
+    renderCobrosContent(active);
+}
+
+function setCobrosSubtab(key) {
+    const tab = document.getElementById('tab-cobros');
+    if (tab) {
+        tab._activeSubtab = key;
+        renderCobrosTab(key);
+    } else {
+        renderCobrosTab(key);
+    }
+}
+
+function renderCobrosContent(key) {
+    const el = document.getElementById('cobros-content');
+    if (!el) return;
+
+    if (key === 'nueva') {
+        // Copy factura tab content into cobros
+        const src = document.getElementById('tab-factura');
+        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        // Re-init factura state
+        if (typeof initFacturaForm === 'function') initFacturaForm();
+        if (typeof updateTempProcedimientos === 'function') updateTempProcedimientos();
+    } else if (key === 'pendientes') {
+        const src = document.getElementById('tab-cobrar');
+        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (typeof updateCobrarTab === 'function') updateCobrarTab();
+    } else if (key === 'ingresos') {
+        const src = document.getElementById('tab-ingresos');
+        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (typeof updateIngresosTab === 'function') updateIngresosTab();
+    } else if (key === 'cuadre') {
+        const src = document.getElementById('tab-cuadre');
+        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (typeof updateCuadreTab === 'function') updateCuadreTab();
+    } else if (key === 'gastos') {
+        const src = document.getElementById('tab-gastos');
+        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (typeof updateGastosTab === 'function') updateGastosTab();
+    }
+}
+
+// ═══════════════════════════════════════════════
+// MÁS — bottom sheet menu
+// ═══════════════════════════════════════════════
+function abrirMas() {
+    // Remove existing
+    const existing = document.getElementById('masSheet');
+    if (existing) { cerrarMas(); return; }
+
+    // Mark nav
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        if (btn.getAttribute('onclick') === 'abrirMas()') btn.classList.add('active');
+    });
+
+    const role = appData.currentRole;
+    const overlay = document.createElement('div');
+    overlay.id = 'masOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:999;backdrop-filter:blur(4px);animation:fadeIn 0.2s ease';
+    overlay.onclick = cerrarMas;
+    document.body.appendChild(overlay);
+
+    const sheet = document.createElement('div');
+    sheet.id = 'masSheet';
+    sheet.style.cssText = `
+        position:fixed;bottom:0;left:0;right:0;z-index:1000;
+        background:var(--white);border-radius:24px 24px 0 0;
+        padding:12px 0 calc(env(safe-area-inset-bottom)+20px);
+        animation:slideUp 0.35s cubic-bezier(0.34,1.1,0.64,1);
+        max-height:85vh;overflow-y:auto;
+    `;
+
+    const items = [];
+
+    if (role === 'admin' || role === 'professional') {
+        items.push({ icon: '💰', label: 'Cobros',      action: `cerrarMas();showTab('cobros')` });
+    }
+    if (role === 'admin') {
+        items.push({ icon: '👥', label: 'Personal',    action: `cerrarMas();irTab('personal')` });
+    }
+    if (hasModule('reportes') && role === 'admin') {
+        items.push({ icon: '📊', label: 'Reportes',    action: `cerrarMas();irTab('reportes')` });
+    }
+    if (clinicConfig.procMode === 'lista' && role === 'admin') {
+        items.push({ icon: '📋', label: 'Catálogo',    action: `cerrarMas();showTab('catalogo')` });
+    }
+    if (role === 'admin') {
+        items.push({ icon: '💳', label: 'Mi Plan',     action: `cerrarMas();showTab('miplan')` });
+    }
+    items.push({ icon: '👤', label: 'Perfil',          action: `cerrarMas();irTab('perfil')` });
+    items.push({ icon: '🚪', label: 'Cerrar sesión',   action: `cerrarMas();logout()`, danger: true });
+
+    const itemsHtml = items.map(item => `
+        <button onclick="${item.action}" style="
+            width:100%;padding:16px 24px;background:none;border:none;
+            display:flex;align-items:center;gap:16px;
+            font-size:16px;font-family:inherit;font-weight:300;
+            color:${item.danger ? '#c0392b' : 'var(--dark)'};
+            cursor:pointer;text-align:left;transition:background 0.15s;
+        " onmouseover="this.style.background='var(--surface)'"
+           onmouseout="this.style.background='none'">
+            <span style="font-size:20px;width:28px;text-align:center">${item.icon}</span>
+            ${item.label}
+        </button>
+    `).join('');
+
+    sheet.innerHTML = `
+        <div style="width:36px;height:4px;background:rgba(30,28,26,0.15);border-radius:100px;margin:0 auto 16px"></div>
+        <div style="padding:0 24px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--light);letter-spacing:2px;text-transform:uppercase">Menú</div>
+        </div>
+        ${itemsHtml}
+    `;
+
+    document.body.appendChild(sheet);
+}
+
+function cerrarMas() {
+    const overlay = document.getElementById('masOverlay');
+    const sheet = document.getElementById('masSheet');
+    if (overlay) overlay.remove();
+    if (sheet) sheet.remove();
+}
+
+function irTab(tabName) {
+    // For tabs that still live as direct tab-content elements
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const tab = document.getElementById('tab-' + tabName);
+    if (tab) tab.classList.add('active');
+    if (tabName === 'perfil') updatePerfilTab();
+    if (tabName === 'reportes' && typeof updateReportesTab === 'function') updateReportesTab();
+    if (tabName === 'personal' && typeof updatePersonalTab === 'function') updatePersonalTab();
 }
 
 
