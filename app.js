@@ -173,6 +173,7 @@ async function loadData() {
             appData.avances = data.avances || [];
             appData.cuadresDiarios = data.cuadresDiarios || {};
             appData.citas = data.citas || [];
+            appData.settings = data.settings || {};
             appData.laboratorios = data.laboratorios || [];
             appData.reversiones = data.reversiones || [];
             appData.auditLogs = data.auditLogs || [];
@@ -263,6 +264,7 @@ async function saveData() {
             laboratorios: appData.laboratorios || [],
             reversiones: appData.reversiones || [],
             auditLogs: appData.auditLogs || [],
+            settings: appData.settings || {},
             lastUpdated: new Date().toISOString(),
             usaSubcollectionPacientes: true
         });
@@ -459,6 +461,10 @@ function login() {
             return;
         }
         const prof = appData.personal.find(p => p.nombre === username);
+        if (!prof) {
+            alert('Profesional no encontrado. Por favor recarga la página.');
+            return;
+        }
         if (!prof.password) {
             alert('Este profesional no tiene contraseña configurada');
             return;
@@ -828,7 +834,7 @@ async function generarFactura() {
     if (citaHoy) {
         citaHoy.estado = 'Completada';
         citaHoy.fechaCompletada = new Date().toISOString();
-        citaHoy.procedimientosRealizados = tempProcedimientos.map(p => p.nombre).join(', ');
+        citaHoy.procedimientosRealizados = tempProcedimientos.map(p => p.descripcion).join(', ');
     }
 
     // Crear órdenes de laboratorio vinculadas a esta factura
@@ -1074,14 +1080,8 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
 
     let facturaHTML = `
         <div style="text-align: center; margin-bottom: 25px;">
-            <img src="logo-factura.png" alt="Logo Clínica Dental" style="max-width: 280px; margin-bottom: 15px;">
-            <div style="color: #666; font-size: 13px; margin-top: 10px;">
-                <div>Calle Altagracia #14, Nagua</div>
-                <div>Tel: 809-584-3647 | WhatsApp: 829-649-3647</div>
-            </div>
-            <div style="color: #888; font-size: 11px; font-style: italic; margin-top: 8px; max-width: 400px; margin-left: auto; margin-right: auto;">
-                3 generaciones ofreciendo un servicio personalizado y de calidad a nuestros pacientes desde 1966
-            </div>
+            ${clinicConfig.logoPositivo ? `<img src="${clinicConfig.logoPositivo}" alt="Logo" style="max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">` : ''}
+            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-primary, #C4856A); margin-bottom: 6px;">${clinicConfig.nombre || 'Clínica Dental'}</div>
         </div>
 
         <div style="border-top: 3px solid var(--clinic-primary, #C4856A); border-bottom: 3px solid var(--clinic-primary, #C4856A); padding: 15px 0; margin: 20px 0;">
@@ -1310,12 +1310,6 @@ function descargarFacturaImagen() {
     }, 300);
 }
 
-function compartirFacturaWhatsApp() {
-    // Esta función ya no se usa, pero la dejamos por si acaso
-    const texto = document.getElementById('facturaClienteContent').innerText;
-    const textoLimpio = texto.replace(/\s+/g, ' ').trim();
-    window.open(`https://wa.me/?text=${encodeURIComponent(textoLimpio)}`, '_blank');
-}
 
 function imprimirFactura() {
     const ventana = window.open('', '', 'height=600,width=800');
@@ -2776,7 +2770,7 @@ function renderTabHistorial(paciente) {
                         <div style="font-weight: 600; font-size: 15px;">${formatDate(f.fecha)}</div>
                         ${tieneCita ? `<div style="background: #007AFF; color: white; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;">📅 ${f.citaHora}</div>` : ''}
                     </div>
-                    <div style="font-size: 13px; color: #666; margin-bottom: 4px;"><strong>Procedimiento:</strong> ${f.procedimientos.map(p => p.nombre).join(', ')}</div>
+                    <div style="font-size: 13px; color: #666; margin-bottom: 4px;"><strong>Procedimiento:</strong> ${f.procedimientos.map(p => p.descripcion).join(', ')}</div>
                     <div style="font-size: 13px; color: #666; margin-bottom: 4px;"><strong>Profesional:</strong> ${f.profesional}</div>
                     <div style="font-size: 14px; font-weight: 600; margin-top: 8px; color: ${f.estado === 'pagada' ? '#28a745' : '#ffc107'};">
                         ${formatCurrency(f.total)} - ${f.estado === 'pagada' ? '✅ Pagada' : '⏳ Pendiente'}
@@ -5044,9 +5038,10 @@ function descargarRecetaPDF(recetaId) {
 
 // Helper: buscar facturas de un paciente por ID o nombre (compatibilidad hacia atrás)
 function getFacturasDePaciente(paciente) {
+    const nombreLower = (paciente.nombre || '').toLowerCase();
     return appData.facturas.filter(f =>
         (f.pacienteId && f.pacienteId === paciente.id) ||
-        f.paciente === paciente.nombre
+        (f.paciente || '').toLowerCase() === nombreLower
     );
 }
 
@@ -5359,7 +5354,7 @@ function exportarFacturasExcel() {
             'Profesional': f.profesional,
             'Procedimientos': f.procedimientos.map(p => p.descripcion).join(', '),
             'Subtotal': f.subtotal,
-            'Descuento %': (f.descuento * 100).toFixed(0),
+            'Descuento %': (f.descuento || 0).toFixed(0),
             'Total': f.total,
             'Pagado': totalPagado,
             'Balance': balance,
@@ -6008,8 +6003,8 @@ function irAFactura(id) {
     document.getElementById('resultadosBusqueda').style.display = 'none';
     const factura = appData.facturas.find(f => f.id === id);
     if (factura && factura.estado !== 'pagada') {
-        showTab('cobrar');
-        setTimeout(() => abrirPago(id), 100);
+        showTab('cobros');
+        setTimeout(() => openPagarFactura(id), 100);
     } else {
         showTab('ingresos');
         alert(`Factura ${factura.numero} ya está pagada.\nPuedes verla en el tab Ingresos.`);
@@ -6022,7 +6017,7 @@ function irACita(id) {
     showTab('agenda');
     setTimeout(() => {
         const cita = appData.citas.find(c => c.id === id);
-        if (cita) verDetalleCita(cita);
+        if (cita) verDetalleCita(cita.id);
     }, 100);
 }
 
@@ -6836,7 +6831,6 @@ async function guardarCambiosPlan() {
 
         // Rebuild navigation to reflect new modules
         buildNavigation();
-        renderTrialBanner();
 
     } catch(e) {
         console.error(e);
