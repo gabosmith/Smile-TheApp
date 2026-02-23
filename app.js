@@ -66,12 +66,14 @@ async function loadClinicBranding() {
         }
 
         if (cfg.color) {
-            const darker = darkenColor(cfg.color, 20);
-            const color = cfg.color;
+            const darker  = darkenColor(cfg.color, 15);
+            const lighter = lightenColor(cfg.color, 25);
+            const color   = cfg.color;
 
             // Apply CSS variables on documentElement — works everywhere
-            document.documentElement.style.setProperty('--clinic-color', color);
-            document.documentElement.style.setProperty('--clinic-color-light', darker);
+            document.documentElement.style.setProperty('--clinic-color',       color);
+            document.documentElement.style.setProperty('--clinic-color-dark',  darker);
+            document.documentElement.style.setProperty('--clinic-color-light', lighter);
 
             // Inject a persistent <style> tag so ALL elements get the color
             // even those rendered after this function runs
@@ -84,13 +86,15 @@ async function loadClinicBranding() {
             styleTag.textContent = `
                 :root {
                     --clinic-color: ${color} !important;
-                    --clinic-color-light: ${darker} !important;
+                    --clinic-color-dark: ${darker} !important;
+                    --clinic-color-light: ${lighter} !important;
                 }
                 .login-screen { background: linear-gradient(135deg, ${color} 0%, ${darker} 100%) !important; }
                 .app-header, .header-bar { background: ${color} !important; }
                 .modal-title { color: ${color} !important; }
                 .card h2 { color: ${color} !important; }
                 .btn-primary, .btn-submit, .btn-save, .btn-action { background: ${color} !important; border-color: ${color} !important; }
+                .btn-primary:hover, .btn-submit:hover { background: ${darker} !important; }
                 .role-btn { border-color: ${color} !important; color: ${color} !important; }
                 .role-btn.active { background: ${color} !important; color: white !important; }
                 .nav-item.active { color: ${color} !important; }
@@ -128,6 +132,14 @@ function darkenColor(hex, percent) {
     const r = Math.max(0, (num >> 16) - Math.round(2.55 * percent));
     const g = Math.max(0, ((num >> 8) & 0xff) - Math.round(2.55 * percent));
     const b = Math.max(0, (num & 0xff) - Math.round(2.55 * percent));
+    return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
+function lightenColor(hex, percent) {
+    const num = parseInt(hex.replace('#',''), 16);
+    const r = Math.min(255, (num >> 16) + Math.round(2.55 * percent));
+    const g = Math.min(255, ((num >> 8) & 0xff) + Math.round(2.55 * percent));
+    const b = Math.min(255, (num & 0xff) + Math.round(2.55 * percent));
     return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
 }
 
@@ -483,6 +495,10 @@ function login() {
         const recep = appData.personal.find(p => p.nombre === username);
         if (!recep || !recep.canAccessReception) {
             alert('Usuario sin acceso a recepción');
+            return;
+        }
+        if (!recep.password) {
+            alert('Este usuario no tiene contraseña configurada. Contacta al administrador.');
             return;
         }
         if (recep.password !== password) {
@@ -1068,7 +1084,6 @@ function confirmarPago() {
     updateCobrarTab();
     closeModal('modalPagarFactura');
 }
-
 function generarFacturaCliente(factura, montoPagado, metodoPago) {
     const fecha = new Date().toLocaleDateString('es-DO', {year: 'numeric', month: 'long', day: 'numeric'});
     const hora = new Date().toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'});
@@ -1240,6 +1255,21 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
 
     closeModal('modalPagarFactura');
     openModal('modalFacturaCliente');
+
+    // Si el pago vino desde la ficha del paciente, volver a ella al cerrar el recibo
+    if (window.tempPacienteIdRetorno) {
+        const pacienteIdRetorno = window.tempPacienteIdRetorno;
+        window.tempPacienteIdRetorno = null;
+        const modalEl = document.getElementById('modalFacturaCliente');
+        const handler = function(e) {
+            if (e.target === modalEl) {
+                modalEl.removeEventListener('click', handler);
+                showTab('pacientes');
+                setTimeout(() => verPaciente(pacienteIdRetorno), 100);
+            }
+        };
+        modalEl.addEventListener('click', handler);
+    }
 }
 
 function descargarFacturaImagen() {
@@ -4795,11 +4825,18 @@ function renderizarRecetas() {
 }
 
 function abrirNuevaReceta() {
-    // VALIDACIÓN: Solo profesionales pueden crear recetas
-    const usuarioActual = appData.personal.find(p => p.nombre === appData.currentUser);
-    if (!usuarioActual || usuarioActual.tipo === 'empleado') {
-        alert('❌ PERMISO DENEGADO\n\nSolo los profesionales médicos pueden crear recetas.\n\nContacta a un doctor para crear una receta.');
+    // Admin siempre puede crear recetas
+    // Recepción y empleados no pueden
+    if (appData.currentRole === 'reception') {
+        alert('❌ PERMISO DENEGADO\n\nSolo los profesionales o el administrador pueden crear recetas.');
         return;
+    }
+    if (appData.currentRole !== 'admin') {
+        const usuarioActual = appData.personal.find(p => p.nombre === appData.currentUser);
+        if (!usuarioActual || usuarioActual.tipo === 'empleado') {
+            alert('❌ PERMISO DENEGADO\n\nSolo los profesionales médicos pueden crear recetas.\n\nContacta a un doctor para crear una receta.');
+            return;
+        }
     }
 
     // Limpiar formulario
@@ -5054,10 +5091,16 @@ function getCitasDePaciente(paciente) {
 }
 
 function calcularBalancePaciente(nombrePaciente) {
-    const paciente = appData.pacientes.find(p => p.nombre === nombrePaciente);
+    const paciente = appData.pacientes.find(p =>
+        (p.nombre || '').toLowerCase() === (nombrePaciente || '').toLowerCase()
+    );
+    // Always use getFacturasDePaciente when we have the patient object (searches by ID + name)
+    // Fallback (patient not in appData yet) uses case-insensitive name match
     const facturasPaciente = paciente
         ? getFacturasDePaciente(paciente)
-        : appData.facturas.filter(f => f.paciente === nombrePaciente);
+        : appData.facturas.filter(f =>
+            (f.paciente || '').toLowerCase() === (nombrePaciente || '').toLowerCase()
+          );
 
     return facturasPaciente.reduce((sum, f) => {
         const totalPagado = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
@@ -5327,6 +5370,7 @@ function exportarFacturasExcel() {
     const fechaDesde = document.getElementById('filtroFechaDesde').value;
     const fechaHasta = document.getElementById('filtroFechaHasta').value;
     const estado = document.getElementById('filtroEstadoFactura').value;
+    const pacienteBusqueda = document.getElementById('filtroPacienteFactura')?.value.toLowerCase() || '';
 
     let facturas = appData.facturas;
 
@@ -5340,6 +5384,12 @@ function exportarFacturasExcel() {
     }
     if (estado !== 'todos') {
         facturas = facturas.filter(f => f.estado === estado);
+    }
+    if (pacienteBusqueda) {
+        facturas = facturas.filter(f =>
+            (f.paciente || '').toLowerCase().includes(pacienteBusqueda) ||
+            (f.numero || '').toLowerCase().includes(pacienteBusqueda)
+        );
     }
 
     // Preparar datos para Excel
