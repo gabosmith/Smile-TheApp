@@ -2932,6 +2932,7 @@ function verPaciente(pacienteId) {
     // Renderizar tabs
     renderTabResumen(paciente);
     renderTabBalance(paciente);
+    renderTabOdontograma(paciente);
     renderTabHistorial(paciente);
     renderTabRecetas(paciente);
     renderTabDocumentos(paciente);
@@ -2965,14 +2966,344 @@ function cambiarTabPaciente(tabName) {
     });
 
     const tabMap = {
-        'resumen': 'tabResumen',
-        'balance': 'tabBalance',
-        'historial': 'tabHistorial',
-        'recetas': 'tabRecetas',
-        'documentos': 'tabDocumentos'
+        'resumen':      'tabResumen',
+        'balance':      'tabBalance',
+        'odontograma':  'tabOdontograma',
+        'historial':    'tabHistorial',
+        'recetas':      'tabRecetas',
+        'documentos':   'tabDocumentos'
     };
 
     document.getElementById(tabMap[tabName]).style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════
+// ODONTOGRAMA INTERACTIVO
+// ═══════════════════════════════════════════════
+
+// FDI numbering: upper right → upper left → lower left → lower right
+const DIENTES_SUPERIORES = [18,17,16,15,14,13,12,11, 21,22,23,24,25,26,27,28];
+const DIENTES_INFERIORES = [48,47,46,45,44,43,42,41, 31,32,33,34,35,36,37,38];
+
+// Estado visual config
+const ODONTO_ESTADOS = {
+    sano:       { label: 'Sano',       color: '#e8f5e9', border: '#66bb6a', text: '#2e7d32', symbol: '' },
+    caries:     { label: 'Caries',     color: '#fff3e0', border: '#ffa726', text: '#e65100', symbol: '●' },
+    extraccion: { label: 'Extracción', color: '#fce4ec', border: '#ef5350', text: '#b71c1c', symbol: '✕' },
+    corona:     { label: 'Corona',     color: '#e3f2fd', border: '#42a5f5', text: '#0d47a1', symbol: '◆' },
+    implante:   { label: 'Implante',   color: '#f3e5f5', border: '#ab47bc', text: '#4a148c', symbol: '⬡' },
+    ausente:    { label: 'Ausente',    color: '#f5f5f5', border: '#bdbdbd', text: '#757575', symbol: '—' },
+};
+const ESTADOS_ORDEN = ['sano','caries','extraccion','corona','implante','ausente'];
+
+let _dienteActual = null;  // { numero, paciente }
+let _longPressTimer = null;
+
+function renderTabOdontograma(paciente) {
+    const canEdit = appData.currentRole === 'admin' || appData.currentRole === 'professional';
+    const odonto  = paciente.odontograma || {};
+    const tab = document.getElementById('tabOdontograma');
+    if (!tab) return;
+
+    const clinicColor = clinicConfig.color || '#C4856A';
+
+    // Legend
+    const legendHTML = Object.entries(ODONTO_ESTADOS).map(([key, cfg]) => `
+        <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:14px;height:14px;border-radius:3px;background:${cfg.color};border:1.5px solid ${cfg.border};flex-shrink:0;"></div>
+            <span style="font-size:11px;color:#666;">${cfg.label}</span>
+        </div>
+    `).join('');
+
+    tab.innerHTML = `
+        <div style="padding:16px 16px 0;">
+            <div style="font-size:13px;font-weight:500;color:#333;margin-bottom:4px;">Odontograma</div>
+            <div style="font-size:11px;color:#999;margin-bottom:12px;">
+                ${canEdit ? 'Toca un diente para cambiar su estado. Mantén presionado para agregar nota.' : 'Modo lectura.'}
+            </div>
+
+            <!-- Leyenda -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+                ${legendHTML}
+            </div>
+
+            <!-- ARCO SUPERIOR -->
+            <div style="margin-bottom:4px;">
+                <div style="font-size:9px;color:#bbb;text-align:center;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Superior</div>
+                <div style="display:flex;justify-content:center;gap:3px;">
+                    ${_renderArco(DIENTES_SUPERIORES, odonto, canEdit, true)}
+                </div>
+            </div>
+
+            <!-- Línea media -->
+            <div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
+                <div style="flex:1;height:1px;background:linear-gradient(to right,transparent,#e0e0e0);"></div>
+                <div style="font-size:9px;color:#ccc;letter-spacing:2px;">LÍNEA MEDIA</div>
+                <div style="flex:1;height:1px;background:linear-gradient(to left,transparent,#e0e0e0);"></div>
+            </div>
+
+            <!-- ARCO INFERIOR -->
+            <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:center;gap:3px;">
+                    ${_renderArco(DIENTES_INFERIORES, odonto, canEdit, false)}
+                </div>
+                <div style="font-size:9px;color:#bbb;text-align:center;letter-spacing:1px;text-transform:uppercase;margin-top:4px;">Inferior</div>
+            </div>
+
+            <!-- Resumen de hallazgos -->
+            ${_renderResumenOdonto(odonto)}
+        </div>
+    `;
+}
+
+function _renderArco(dientes, odonto, canEdit, esSuperior) {
+    return dientes.map((num, i) => {
+        const dato   = odonto[num] || { estado: 'sano' };
+        const estado = dato.estado || 'sano';
+        const cfg    = ODONTO_ESTADOS[estado] || ODONTO_ESTADOS.sano;
+
+        // Cuadrante visual — dientes más grandes en centro (caninos/incisivos)
+        const esCentral   = [11,12,21,22,31,32,41,42].includes(num);
+        const esCanino    = [13,23,33,43].includes(num);
+        const esMolar     = [16,17,18,26,27,28,36,37,38,46,47,48].includes(num);
+        const size = esMolar ? 26 : esCanino ? 24 : esCentral ? 26 : 22;
+
+        // Forma de raíz — triangulo pequeño arriba/abajo
+        const rootDir = esSuperior ? 'top' : 'bottom';
+        const rootTriangle = `
+            <div style="width:6px;height:8px;margin:0 auto;
+                background:linear-gradient(${esSuperior ? '180deg' : '0deg'},#d0d0d0,transparent);
+                clip-path:${esSuperior ? 'polygon(50% 0%,0% 100%,100% 100%)' : 'polygon(0% 0%,100% 0%,50% 100%)'};
+                opacity:0.5;">
+            </div>`;
+
+        const interactions = canEdit
+            ? `ontouchstart="_odontoDienteDown(event,${num})" ontouchend="_odontoDienteUp(event)" ontouchcancel="_odontoDienteUp(event)"
+               onmousedown="_odontoDienteDown(event,${num})" onmouseup="_odontoDienteUp(event)" onmouseleave="_odontoDienteUp(event)"
+               onclick="_odontoDienteClick(${num})"`
+            : `onclick="_odontoVerDiente(${num})"`;
+
+        return `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:1px;cursor:${canEdit ? 'pointer' : 'default'};">
+                ${esSuperior ? rootTriangle : ''}
+                <div id="diente-${num}" ${interactions}
+                    style="width:${size}px;height:${size}px;border-radius:${esMolar ? '5px' : '50%'};
+                        background:${cfg.color};border:2px solid ${cfg.border};
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:${cfg.symbol ? '10px' : '8px'};color:${cfg.text};font-weight:700;
+                        transition:transform 0.12s,box-shadow 0.12s;
+                        -webkit-tap-highlight-color:transparent;user-select:none;
+                        box-shadow: ${dato.nota ? '0 0 0 2px #ffd700' : 'none'};"
+                    title="Diente ${num}">
+                    ${cfg.symbol || ''}
+                </div>
+                <div style="font-size:8px;color:#bbb;line-height:1;">${num}</div>
+                ${!esSuperior ? rootTriangle : ''}
+            </div>`;
+    }).join('');
+}
+
+function _renderResumenOdonto(odonto) {
+    const hallazgos = Object.entries(odonto)
+        .filter(([, d]) => d.estado && d.estado !== 'sano')
+        .sort(([a],[b]) => parseInt(a)-parseInt(b));
+
+    if (hallazgos.length === 0) {
+        return `<div style="text-align:center;padding:16px;color:#999;font-size:13px;">Sin hallazgos registrados</div>`;
+    }
+
+    const rows = hallazgos.map(([num, dato]) => {
+        const cfg = ODONTO_ESTADOS[dato.estado] || ODONTO_ESTADOS.sano;
+        return `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;">
+                <div style="width:28px;height:28px;border-radius:6px;background:${cfg.color};border:1.5px solid ${cfg.border};
+                    display:flex;align-items:center;justify-content:center;font-size:10px;color:${cfg.text};font-weight:700;flex-shrink:0;">
+                    ${num}
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:500;color:${cfg.text};">${cfg.label}</div>
+                    ${dato.nota ? `<div style="font-size:11px;color:#999;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${dato.nota}</div>` : ''}
+                </div>
+                <div style="font-size:10px;color:#bbb;text-align:right;flex-shrink:0;">
+                    ${dato.fecha ? new Date(dato.fecha).toLocaleDateString('es-DO',{day:'2-digit',month:'short'}) : ''}
+                    ${dato.profesional ? `<br>${dato.profesional.split(' ')[0]}` : ''}
+                </div>
+            </div>`;
+    }).join('');
+
+    return `
+        <div style="border-top:1px solid #f0f0f0;padding-top:12px;">
+            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">
+                Hallazgos (${hallazgos.length})
+            </div>
+            ${rows}
+        </div>`;
+}
+
+// ── Interacciones táctiles ──────────────────────
+
+function _odontoDienteDown(e, num) {
+    e.preventDefault();
+    _longPressTimer = setTimeout(() => {
+        _longPressTimer = null;
+        _odontoAbrirModal(num);
+    }, 500);
+}
+
+function _odontoDienteUp(e) {
+    if (_longPressTimer) {
+        clearTimeout(_longPressTimer);
+        _longPressTimer = null;
+    }
+}
+
+function _odontoDienteClick(num) {
+    // Only fires on short tap (long press cleared the timer and opened modal)
+    if (!_longPressTimer && _dienteActual === null) return; // was a long press
+    clearTimeout(_longPressTimer);
+    _longPressTimer = null;
+    _odontoRotarEstado(num);
+}
+
+function _odontoVerDiente(num) {
+    _odontoAbrirModal(num, true); // readOnly
+}
+
+function _odontoRotarEstado(num) {
+    const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+    if (!paciente) return;
+    if (!paciente.odontograma) paciente.odontograma = {};
+
+    const actual  = (paciente.odontograma[num] || {}).estado || 'sano';
+    const idx     = ESTADOS_ORDEN.indexOf(actual);
+    const nuevo   = ESTADOS_ORDEN[(idx + 1) % ESTADOS_ORDEN.length];
+    const cfg     = ODONTO_ESTADOS[nuevo];
+
+    if (!paciente.odontograma[num]) paciente.odontograma[num] = {};
+    paciente.odontograma[num].estado      = nuevo;
+    paciente.odontograma[num].fecha       = new Date().toISOString();
+    paciente.odontograma[num].profesional = appData.currentUser;
+
+    // Animate the tooth visually right away
+    const el = document.getElementById(`diente-${num}`);
+    if (el) {
+        el.style.background = cfg.color;
+        el.style.borderColor = cfg.border;
+        el.style.color = cfg.text;
+        el.textContent = cfg.symbol || '';
+        el.style.transform = 'scale(1.3)';
+        setTimeout(() => { el.style.transform = 'scale(1)'; }, 150);
+    }
+
+    savePaciente(paciente);
+
+    // Refresh the summary section without full re-render
+    const tab = document.getElementById('tabOdontograma');
+    if (tab) {
+        const resumenEl = tab.querySelector('[data-odonto-resumen]');
+        if (resumenEl) resumenEl.innerHTML = _renderResumenOdonto(paciente.odontograma);
+    }
+}
+
+function _odontoAbrirModal(num, readOnly = false) {
+    const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+    if (!paciente) return;
+    if (!paciente.odontograma) paciente.odontograma = {};
+    const dato  = paciente.odontograma[num] || { estado: 'sano' };
+
+    _dienteActual = num;
+
+    // Title
+    const cuadrante = Math.floor(num / 10);
+    const labels = {1:'Superior Derecho',2:'Superior Izquierdo',3:'Inferior Izquierdo',4:'Inferior Derecho'};
+    document.getElementById('modalDienteTitulo').textContent = `Diente ${num} — ${labels[cuadrante] || ''}`;
+
+    // Estado buttons
+    const estadosHTML = ESTADOS_ORDEN.map(key => {
+        const cfg = ODONTO_ESTADOS[key];
+        const active = (dato.estado || 'sano') === key;
+        return `
+            <button onclick="${readOnly ? '' : `_odontoSeleccionarEstado('${key}')`}"
+                data-estado="${key}" data-active="${active ? '1' : '0'}"
+                style="padding:10px 8px;border-radius:12px;border:2px solid ${active ? cfg.border : '#e0e0e0'};
+                    background:${active ? cfg.color : 'white'};cursor:${readOnly ? 'default' : 'pointer'};
+                    display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.15s;
+                    font-family:inherit;">
+                <span style="font-size:16px;">${cfg.symbol || '·'}</span>
+                <span style="font-size:11px;color:${active ? cfg.text : '#999'};font-weight:${active ? '600' : '400'};">${cfg.label}</span>
+            </button>`;
+    }).join('');
+    document.getElementById('modalDienteEstados').innerHTML = estadosHTML;
+
+    // Nota
+    const notaEl = document.getElementById('modalDienteNota');
+    if (notaEl) notaEl.value = dato.nota || '';
+
+    // Nota section visibility
+    const notaSection = document.getElementById('modalDienteNotaSection');
+    if (notaSection) notaSection.style.display = readOnly && !dato.nota ? 'none' : 'block';
+    if (notaEl) notaEl.readOnly = readOnly;
+
+    // Historial
+    const histEl = document.getElementById('modalDienteHistorial');
+    if (histEl && dato.fecha) {
+        histEl.innerHTML = `
+            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Último registro</div>
+            <div style="font-size:12px;color:#666;">
+                ${new Date(dato.fecha).toLocaleDateString('es-DO',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}
+                ${dato.profesional ? ` · ${dato.profesional}` : ''}
+            </div>`;
+    } else if (histEl) {
+        histEl.innerHTML = '';
+    }
+
+    // Buttons
+    const botonesEl = document.getElementById('modalDienteBotones');
+    if (botonesEl) botonesEl.style.display = readOnly ? 'none' : 'flex';
+
+    openModal('modalDiente');
+}
+
+function _odontoSeleccionarEstado(key) {
+    document.querySelectorAll('#modalDienteEstados button').forEach(btn => {
+        const k   = btn.dataset.estado;
+        const cfg = ODONTO_ESTADOS[k];
+        const active = k === key;
+        btn.dataset.active        = active ? '1' : '0';
+        btn.style.borderColor     = active ? cfg.border : '#e0e0e0';
+        btn.style.background      = active ? cfg.color  : 'white';
+        const labelEl = btn.querySelector('span:last-child');
+        if (labelEl) {
+            labelEl.style.color      = active ? cfg.text : '#999';
+            labelEl.style.fontWeight = active ? '600' : '400';
+        }
+    });
+}
+
+async function guardarEstadoDiente() {
+    const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+    if (!paciente || !_dienteActual) return;
+    if (!paciente.odontograma) paciente.odontograma = {};
+
+    // Read active state from data attribute set by _odontoSeleccionarEstado
+    const activeBtn = document.querySelector('#modalDienteEstados button[data-active="1"]');
+    const estadoKey = activeBtn ? activeBtn.dataset.estado : 'sano';
+
+    const nota = (document.getElementById('modalDienteNota').value || '').trim();
+
+    paciente.odontograma[_dienteActual] = {
+        estado:      estadoKey,
+        nota:        nota || null,
+        fecha:       new Date().toISOString(),
+        profesional: appData.currentUser
+    };
+
+    await savePaciente(paciente);
+    closeModal('modalDiente');
+    _dienteActual = null;
+
+    // Full re-render of odontogram
+    renderTabOdontograma(paciente);
 }
 
 function renderTabResumen(paciente) {
