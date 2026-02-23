@@ -258,12 +258,8 @@ function updateLocalCache() {
 async function saveData() {
     try {
         console.log(`💾 Guardando datos en Firebase...`);
-        console.log(`📊 Pacientes a guardar: ${appData.pacientes.length}`);
 
         // SMILE multi-tenant: pacientes SIEMPRE en subcollection
-        // Esto permite que el admin cuente pacientes correctamente para cualquier clínica
-        console.log(`💾 Guardando datos de ${CLINIC_PATH}...`);
-
         // 1. Guardar documento principal SIN pacientes
         await db.collection('clinicas').doc(CLINIC_PATH).set({
             facturas: appData.facturas,
@@ -281,15 +277,15 @@ async function saveData() {
             usaSubcollectionPacientes: true
         });
 
-        // 2. Guardar pacientes en subcollection en lotes
+        // 2. Guardar pacientes en subcollection en lotes de 100 (seguro dentro del límite de Firestore)
         if (appData.pacientes.length > 0) {
-            const BATCH_SIZE = 400;
+            const BATCH_SIZE = 100;
             for (let i = 0; i < appData.pacientes.length; i += BATCH_SIZE) {
                 const batch = db.batch();
                 const lote = appData.pacientes.slice(i, Math.min(i + BATCH_SIZE, appData.pacientes.length));
                 lote.forEach(paciente => {
                     const docRef = db.collection('clinicas').doc(CLINIC_PATH)
-                        .collection('pacientes').doc(paciente.id || String(i));
+                        .collection('pacientes').doc(paciente.id || generateId('PAC-'));
                     batch.set(docRef, paciente);
                 });
                 await batch.commit();
@@ -297,21 +293,30 @@ async function saveData() {
         }
 
         console.log(`✅ Datos guardados exitosamente en Firebase`);
-
-        // Actualizar caché local
         updateLocalCache();
-
         showSyncIndicator();
     } catch (error) {
         console.error('❌ ERROR CRÍTICO guardando en Firebase:', error);
-        console.error('Código de error:', error.code);
-        console.error('Mensaje:', error.message);
+        alert(`❌ ERROR AL GUARDAR EN FIREBASE\n\nError: ${error.code}\nMensaje: ${error.message}\n\nLos datos NO se guardaron. Revisa la configuración de Firebase.`);
+    }
+}
 
-        // MOSTRAR ALERTA AL USUARIO
-        alert(`❌ ERROR AL GUARDAR EN FIREBASE\n\n` +
-              `Error: ${error.code}\n` +
-              `Mensaje: ${error.message}\n\n` +
-              `Los datos NO se guardaron. Revisa la configuración de Firebase.`);
+// Guarda UN solo paciente sin re-escribir todos los demás.
+// Usar cuando solo cambió la ficha de un paciente (recetas, consentimiento, placas, etc.)
+async function savePaciente(paciente) {
+    if (!paciente || !paciente.id) {
+        console.warn('savePaciente: paciente sin ID, fallback a saveData()');
+        return saveData();
+    }
+    try {
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('pacientes').doc(paciente.id)
+            .set(paciente);
+        updateLocalCache();
+        showSyncIndicator();
+    } catch (error) {
+        console.error('❌ Error guardando paciente:', error);
+        alert(`❌ Error al guardar. Intenta de nuevo.\n${error.message}`);
     }
 }
 
@@ -355,7 +360,8 @@ function initRealtimeListener() {
                     const tabId = activeTab.id.replace('tab-', '');
                     if (tabId === 'ingresos') updateIngresosTab();
                     if (tabId === 'cobrar') updateCobrarTab();
-                    if (tabId === 'cuadre') updateCuadreTab();
+                    // Skip cuadre refresh on snapshots — cuadre saves its own data which would
+                    // trigger another snapshot, creating a loop. Cuadre refreshes on tab switch.
                     if (tabId === 'gastos') updateGastosTab();
                     if (tabId === 'personal') updatePersonalTab();
                     if (tabId === 'laboratorio') updateLaboratorioTab();
@@ -1377,13 +1383,23 @@ function verComprobantesFactura(facturaId) {
 
 // Cuadre Tab
 function updateCuadreTab() {
-    const today = new Date().setHours(0,0,0,0);
+    const todayKey = getTodayKey(); // 'YYYY-MM-DD' — timezone-safe
     const todayDate = new Date().toLocaleDateString('es-DO', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
     document.getElementById('fechaCuadre').textContent = todayDate;
 
+    const isSameDay = (fechaISO) => {
+        if (!fechaISO) return false;
+        const d = new Date(fechaISO);
+        const tz = getTimezone();
+        const key = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(d).replace(/\//g, '-');
+        return key === todayKey;
+    };
+
     const pagosHoy = appData.facturas
         .flatMap(f => f.pagos)
-        .filter(p => new Date(p.fecha).setHours(0,0,0,0) === today);
+        .filter(p => isSameDay(p.fecha));
 
     const efectivoHoy = pagosHoy.filter(p => p.metodo === 'efectivo').reduce((sum, p) => sum + p.monto, 0);
     const tarjetaHoy = pagosHoy.filter(p => p.metodo === 'tarjeta').reduce((sum, p) => sum + p.monto, 0);
@@ -1391,11 +1407,11 @@ function updateCuadreTab() {
     const totalIngresos = efectivoHoy + tarjetaHoy + transferenciaHoy;
 
     const gastosHoy = appData.gastos
-        .filter(g => new Date(g.fecha).setHours(0,0,0,0) === today)
+        .filter(g => isSameDay(g.fecha))
         .reduce((sum, g) => sum + g.monto, 0);
 
     const gastosEfectivoHoy = appData.gastos
-        .filter(g => new Date(g.fecha).setHours(0,0,0,0) === today && g.metodo === 'efectivo')
+        .filter(g => isSameDay(g.fecha) && g.metodo === 'efectivo')
         .reduce((sum, g) => sum + g.monto, 0);
 
     const balance = totalIngresos - gastosHoy;
@@ -1416,8 +1432,8 @@ function updateCuadreTab() {
 
     // Guardar cuadre del día actual (solo si hay actividad)
     if (totalIngresos > 0 || gastosHoy > 0) {
-        guardarCuadreDiario(today, {
-            fecha: new Date(today).toISOString(),
+        guardarCuadreDiario(todayKey, {
+            fecha: new Date().toISOString(),
             efectivoInicial: efectivoInicial,
             efectivo: efectivoHoy,
             tarjeta: tarjetaHoy,
@@ -1501,26 +1517,28 @@ function updateCuadreTab() {
 }
 
 // Guardar cuadre diario (solo llamar manualmente, no en onSnapshot)
-function guardarCuadreDiario(fechaTimestamp, cuadre) {
+function guardarCuadreDiario(fechaKey, cuadre) {
     if (!appData.cuadresDiarios) {
         appData.cuadresDiarios = {};
     }
     // Solo guardar si el valor cambió realmente
-    const existente = appData.cuadresDiarios[fechaTimestamp];
+    const existente = appData.cuadresDiarios[fechaKey];
     if (existente &&
         existente.totalIngresos === cuadre.totalIngresos &&
         existente.gastos === cuadre.gastos &&
         existente.efectivoInicial === cuadre.efectivoInicial) {
         return; // Sin cambios, no guardar
     }
-    appData.cuadresDiarios[fechaTimestamp] = cuadre;
+    appData.cuadresDiarios[fechaKey] = cuadre;
     saveData();
 }
 
 // Mostrar historial de última semana
 function mostrarHistorialCuadres() {
-    const hoy = new Date().setHours(0,0,0,0);
-    const hace7Dias = hoy - (7 * 24 * 60 * 60 * 1000);
+    const todayKey = getTodayKey();
+    const hace7Dias = new Date();
+    hace7Dias.setDate(hace7Dias.getDate() - 7);
+    const hace7DiasKey = hace7Dias.toISOString().slice(0, 10);
 
     if (!appData.cuadresDiarios) {
         document.getElementById('historialCuadresList').innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay historial disponible</li>';
@@ -1528,16 +1546,17 @@ function mostrarHistorialCuadres() {
     }
 
     const cuadres = Object.entries(appData.cuadresDiarios)
-        .filter(([timestamp]) => parseInt(timestamp) >= hace7Dias && parseInt(timestamp) < hoy)
-        .sort(([a], [b]) => parseInt(b) - parseInt(a)); // Más reciente primero
+        .filter(([key]) => key >= hace7DiasKey && key < todayKey)
+        .sort(([a], [b]) => b.localeCompare(a)); // Más reciente primero
 
     if (cuadres.length === 0) {
         document.getElementById('historialCuadresList').innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay cuadres de la última semana</li>';
         return;
     }
 
-    const list = cuadres.map(([timestamp, cuadre]) => {
-        const fecha = new Date(parseInt(timestamp));
+    const list = cuadres.map(([key, cuadre]) => {
+        // key is 'YYYY-MM-DD', parse as local date
+        const fecha = new Date(key + 'T12:00:00');
         const fechaStr = fecha.toLocaleDateString('es-DO', {weekday: 'short', day: 'numeric', month: 'short'});
 
         return `
@@ -2464,6 +2483,25 @@ function formatDate(dateString) {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('es-DO', {year: 'numeric', month: 'long', day: 'numeric'});
+}
+
+// Returns 'YYYY-MM-DD' in the clinic's configured timezone — stable key for cuadresDiarios
+function getTodayKey() {
+    const tz = getTimezone();
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(now);
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const d = parts.find(p => p.type === 'day').value;
+    return `${y}-${m}-${d}`;
+}
+
+// Returns the local-midnight timestamp for a YYYY-MM-DD key (for comparisons)
+function keyToTimestamp(key) {
+    return new Date(key + 'T00:00:00').getTime();
 }
 
 function generateId(prefix = '') {
@@ -4133,7 +4171,7 @@ async function guardarConsentimiento() {
         firmaBase64: firmaBase64
     };
 
-    await saveData();
+    await savePaciente(currentPacienteConsentimiento);
     closeModal('modalConsentimiento');
 
     // Refresh the documentos tab live — no need to close and reopen the patient card
@@ -4568,7 +4606,7 @@ async function guardarPlaca() {
 
         currentPacienteGaleria.placas.push(placa);
 
-        await saveData();
+        await savePaciente(currentPacienteGaleria);
 
         // Quitar loading
         document.body.removeChild(loadingMsg);
@@ -4681,7 +4719,7 @@ async function guardarEdicionPlaca() {
     placa.ultimaModificacion = new Date().toISOString();
     placa.modificadoPor = appData.currentUser;
 
-    await saveData();
+    await savePaciente(currentPacienteGaleria);
 
     closeModal('modalEditarPlaca');
     renderizarGaleriaPlacas();
@@ -4711,7 +4749,7 @@ async function eliminarPlaca(placaId) {
         // Eliminar de Firestore
         currentPacienteGaleria.placas = currentPacienteGaleria.placas.filter(p => p.id !== placaId);
 
-        await saveData();
+        await savePaciente(currentPacienteGaleria);
         renderizarGaleriaPlacas();
 
         alert('✅ Placa eliminada exitosamente');
@@ -4929,7 +4967,7 @@ async function guardarReceta() {
 
     currentPacienteRecetas.recetas.push(receta);
 
-    await saveData();
+    await savePaciente(currentPacienteRecetas);
 
     // Re-sync from appData so renderizarRecetas reads the saved state
     const saved = appData.pacientes.find(p => p.id === currentPacienteRecetas.id);
@@ -5117,13 +5155,15 @@ if (!appData.auditLogs) {
     appData.auditLogs = [];
 }
 
+// Audit logs are queued in memory and flushed on the next natural saveData() call.
+// This avoids one saveData() per user action (which is expensive and causes extra snapshots).
 function registrarAuditoria(accion, tipo, detalles) {
     const log = {
         id: generateId('LOG-'),
         fecha: new Date().toISOString(),
         usuario: appData.currentUser,
         accion: accion, // 'eliminar', 'modificar', 'acceso'
-        tipo: tipo, // 'paciente', 'factura', 'personal', 'dato_sensible'
+        tipo: tipo,     // 'paciente', 'factura', 'personal', 'dato_sensible'
         detalles: detalles
     };
 
@@ -5132,8 +5172,7 @@ function registrarAuditoria(accion, tipo, detalles) {
     }
 
     appData.auditLogs.push(log);
-    saveData();
-
+    // ✅ No saveData() here — logs are included in the next saveData() call automatically.
     console.log('📝 Auditoría:', log);
 }
 
@@ -6556,7 +6595,7 @@ function guardarEdicionPaciente() {
         return;
     }
 
-    saveData();
+    savePaciente(paciente);
     updatePacientesTab();
     closeModal('modalEditarPaciente');
 
