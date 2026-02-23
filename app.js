@@ -663,7 +663,7 @@ function showTab(tabName) {
     if (tabName === 'miplan') { renderMiPlanTab(); return; }
     if (tabName === 'cobros') { renderCobrosTab(); return; }
     // Old tab names redirect to cobros subtab for consistency
-    const cobrosMap = { 'factura': 'nueva', 'cobrar': 'pendientes', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
+    const cobrosMap = { 'factura': 'nueva', 'cobrar': 'cobrar', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
     if (cobrosMap[tabName]) { renderCobrosTab(cobrosMap[tabName]); return; }
     // Personal, reportes go through irTab
     if (tabName === 'personal' || tabName === 'reportes') { irTab(tabName); return; }
@@ -803,9 +803,11 @@ function updateTotal() {
 }
 
 async function generarFactura() {
-    const pacienteInput = document.getElementById('pacienteNombre');
+    const contenedor  = document.getElementById('cobros-content') || document;
+    const pacienteInput = contenedor.querySelector('#pacienteNombre') || document.getElementById('pacienteNombre');
     const paciente = pacienteInput.value;
-    const notas = document.getElementById('notasFactura').value;
+    const notasEl = contenedor.querySelector('#notasFactura') || document.getElementById('notasFactura');
+    const notas = notasEl ? notasEl.value : '';
 
     if (!paciente) {
         alert('Complete el nombre del paciente');
@@ -829,7 +831,7 @@ async function generarFactura() {
     const totalLab = tempOrdenesLab.reduce((sum, o) => sum + o.precio, 0);
     const subtotalConLab = subtotal + totalLab;
 
-    const descuento = parseFloat(document.getElementById('descuentoSlider').value);
+    const descuento = parseFloat((contenedor.querySelector('#descuentoSlider') || document.getElementById('descuentoSlider')).value);
     const total = subtotalConLab * (1 - descuento / 100);
 
     // ========================================
@@ -839,7 +841,7 @@ async function generarFactura() {
 
     // Si es admin, DEBE seleccionar el profesional
     if (appData.currentRole === 'admin') {
-        const profesionalSelect = document.getElementById('profesionalQueAtendio');
+        const profesionalSelect = contenedor.querySelector('#profesionalQueAtendio') || document.getElementById('profesionalQueAtendio');
         if (!profesionalSelect.value) {
             alert('❌ Debe seleccionar el profesional que atendió al paciente');
             return;
@@ -4654,9 +4656,14 @@ function inicializarEstadosCitas() {
 // ========================================
 
 function buscarPacienteFactura() {
-    const input = document.getElementById('pacienteNombre');
+    // When cobros tab clones tab-factura HTML, there are two #pacienteNombre elements.
+    // Always use the one inside #cobros-content if it exists (visible), else fallback to any.
+    const contenedor = document.getElementById('cobros-content') || document;
+    const input = contenedor.querySelector('#pacienteNombre') || document.getElementById('pacienteNombre');
+    const suggestions = contenedor.querySelector('#pacienteNombreSuggestions') || document.getElementById('pacienteNombreSuggestions');
+    if (!input || !suggestions) return;
+
     const query = input.value.toLowerCase();
-    const suggestions = document.getElementById('pacienteNombreSuggestions');
 
     // Resetear flag de selección cuando el usuario escribe
     input.dataset.pacienteSeleccionado = 'false';
@@ -4696,10 +4703,14 @@ function buscarPacienteFactura() {
 }
 
 function seleccionarPacienteFactura(nombre) {
-    const input = document.getElementById('pacienteNombre');
+    const contenedor = document.getElementById('cobros-content') || document;
+    const input       = contenedor.querySelector('#pacienteNombre')       || document.getElementById('pacienteNombre');
+    const suggestions = contenedor.querySelector('#pacienteNombreSuggestions') || document.getElementById('pacienteNombreSuggestions');
+    if (!input) return;
+
     input.value = nombre;
-    input.dataset.pacienteSeleccionado = 'true'; // Marcar que se seleccionó de la lista
-    document.getElementById('pacienteNombreSuggestions').style.display = 'none';
+    input.dataset.pacienteSeleccionado = 'true';
+    if (suggestions) suggestions.style.display = 'none';
 
     // Guardar ID del paciente para vinculación correcta
     const pac = appData.pacientes.find(p => p.nombre === nombre);
@@ -6395,14 +6406,14 @@ function updateDashboardTab() {
                 onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                 <span style="font-size:18px;line-height:1">+</span> Nueva factura
             </button>
-            <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('pendientes'),50)" style="
+            <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)" style="
                 padding:14px 16px;background:var(--white);color:var(--dark);
                 border:1.5px solid rgba(30,28,26,0.1);border-radius:var(--radius-md);
                 font-size:12px;letter-spacing:1px;text-transform:uppercase;
                 font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
                 transition:opacity 0.2s"
                 onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
-                💰 Pendientes
+                💳 Cobrar
             </button>
         `;
     }
@@ -7599,7 +7610,7 @@ function renderCobrosTab(subtab) {
         document.querySelector('.content-area').appendChild(tab);
     }
     tab.classList.add('active');
-    tab._activeSubtab = subtab || tab._activeSubtab || 'nueva';
+    tab._activeSubtab = subtab || tab._activeSubtab || 'cobrar';
 
     // Highlight nav
     document.querySelectorAll('.nav-item').forEach(btn => {
@@ -7608,11 +7619,11 @@ function renderCobrosTab(subtab) {
 
     const active = tab._activeSubtab;
     const subtabs = [
-        { key: 'nueva',       label: '+ Nueva'      },
-        { key: 'pendientes',  label: 'Pendientes'   },
-        { key: 'ingresos',    label: 'Ingresos'     },
-        { key: 'cuadre',      label: 'Cuadre'       },
-        { key: 'gastos',      label: 'Gastos'       },
+        { key: 'cobrar',      label: '💳 Cobrar'     },
+        { key: 'nueva',       label: '+ Nueva'       },
+        { key: 'ingresos',    label: 'Ingresos'      },
+        { key: 'cuadre',      label: 'Cuadre'        },
+        { key: 'gastos',      label: 'Gastos'        },
     ];
 
     const subtabsHtml = subtabs.map(s => `
@@ -7653,17 +7664,17 @@ function renderCobrosContent(key) {
     const el = document.getElementById('cobros-content');
     if (!el) return;
 
-    if (key === 'nueva') {
+    if (key === 'cobrar') {
+        const src = document.getElementById('tab-cobrar');
+        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (typeof updateCobrarTab === 'function') updateCobrarTab();
+    } else if (key === 'nueva') {
         // Copy factura tab content into cobros
         const src = document.getElementById('tab-factura');
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
         // Re-init factura state
         if (typeof initFacturaForm === 'function') initFacturaForm();
         if (typeof updateTempProcedimientos === 'function') updateTempProcedimientos();
-    } else if (key === 'pendientes') {
-        const src = document.getElementById('tab-cobrar');
-        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
-        if (typeof updateCobrarTab === 'function') updateCobrarTab();
     } else if (key === 'ingresos') {
         const src = document.getElementById('tab-ingresos');
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
