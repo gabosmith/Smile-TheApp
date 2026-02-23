@@ -882,12 +882,12 @@ async function generarFactura() {
 
 // Ingresos Tab
 function updateIngresosTab() {
-    const today = new Date().setHours(0,0,0,0);
+    const todayKey = getTodayKey();
     const misFacturas = appData.facturas.filter(f => f.profesional === appData.currentUser);
 
     const ingresosHoy = misFacturas
         .flatMap(f => f.pagos)
-        .filter(p => new Date(p.fecha).setHours(0,0,0,0) === today)
+        .filter(p => isSameDayTZ(p.fecha, todayKey))
         .reduce((sum, p) => sum + p.monto, 0);
 
     const prof = appData.personal.find(p => p.nombre === appData.currentUser);
@@ -935,10 +935,10 @@ function getComisionRate(tipo) {
 
 // Cobrar Tab
 function updateCobrarTab() {
-    const today = new Date().setHours(0,0,0,0);
+    const todayKey = getTodayKey();
     const cobradoHoy = appData.facturas
         .flatMap(f => f.pagos)
-        .filter(p => new Date(p.fecha).setHours(0,0,0,0) === today)
+        .filter(p => isSameDayTZ(p.fecha, todayKey))
         .reduce((sum, p) => sum + p.monto, 0);
 
     document.getElementById('cobradoHoy').textContent = formatCurrency(cobradoHoy);
@@ -1383,23 +1383,13 @@ function verComprobantesFactura(facturaId) {
 
 // Cuadre Tab
 function updateCuadreTab() {
-    const todayKey = getTodayKey(); // 'YYYY-MM-DD' — timezone-safe
+    const todayKey = getTodayKey();
     const todayDate = new Date().toLocaleDateString('es-DO', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
     document.getElementById('fechaCuadre').textContent = todayDate;
 
-    const isSameDay = (fechaISO) => {
-        if (!fechaISO) return false;
-        const d = new Date(fechaISO);
-        const tz = getTimezone();
-        const key = new Intl.DateTimeFormat('en-CA', {
-            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
-        }).format(d).replace(/\//g, '-');
-        return key === todayKey;
-    };
-
     const pagosHoy = appData.facturas
         .flatMap(f => f.pagos)
-        .filter(p => isSameDay(p.fecha));
+        .filter(p => isSameDayTZ(p.fecha, todayKey));
 
     const efectivoHoy = pagosHoy.filter(p => p.metodo === 'efectivo').reduce((sum, p) => sum + p.monto, 0);
     const tarjetaHoy = pagosHoy.filter(p => p.metodo === 'tarjeta').reduce((sum, p) => sum + p.monto, 0);
@@ -1407,11 +1397,11 @@ function updateCuadreTab() {
     const totalIngresos = efectivoHoy + tarjetaHoy + transferenciaHoy;
 
     const gastosHoy = appData.gastos
-        .filter(g => isSameDay(g.fecha))
+        .filter(g => isSameDayTZ(g.fecha, todayKey))
         .reduce((sum, g) => sum + g.monto, 0);
 
     const gastosEfectivoHoy = appData.gastos
-        .filter(g => isSameDay(g.fecha) && g.metodo === 'efectivo')
+        .filter(g => isSameDayTZ(g.fecha, todayKey) && g.metodo === 'efectivo')
         .reduce((sum, g) => sum + g.monto, 0);
 
     const balance = totalIngresos - gastosHoy;
@@ -1459,7 +1449,7 @@ function updateCuadreTab() {
         // Obtener facturas con pagos de hoy para vincular
         const facturasConPagosHoy = appData.facturas
             .map(f => {
-                const pagosDeHoy = f.pagos.filter(p => new Date(p.fecha).setHours(0,0,0,0) === today);
+                const pagosDeHoy = f.pagos.filter(p => isSameDayTZ(p.fecha, todayKey));
                 return pagosDeHoy.length > 0 ? { ...f, pagosDeHoy } : null;
             })
             .filter(f => f !== null);
@@ -1489,7 +1479,7 @@ function updateCuadreTab() {
         document.getElementById('listaIngresos').innerHTML = htmlIngresos;
 
         // Lista de gastos
-        const gastosDeHoy = appData.gastos.filter(g => new Date(g.fecha).setHours(0,0,0,0) === today);
+        const gastosDeHoy = appData.gastos.filter(g => isSameDayTZ(g.fecha, todayKey));
         let htmlGastos = '';
         gastosDeHoy.forEach(g => {
             const hora = new Date(g.fecha).toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'});
@@ -1895,6 +1885,8 @@ function confirmarPagoProfesional(id) {
     if (!person) return;
 
     const comisionesAcum = calcularComisionesAcumuladas(person);
+    const avancesPendientes = calcularTotalAvances(person.id);
+    const netoAPagar = Math.max(0, comisionesAcum - avancesPendientes);
 
     // Contar facturas que generaron la comisión
     const lastPayment = person.lastPaymentDate ? new Date(person.lastPaymentDate) : new Date(0);
@@ -1908,8 +1900,8 @@ function confirmarPagoProfesional(id) {
         titulo: '💰 Pagar Comisiones',
         mensaje: `
             <div style="background: linear-gradient(135deg, #34c759 0%, #30d158 100%); padding: 20px; border-radius: 8px; color: white; margin-bottom: 15px; text-align: center;">
-                <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Comisiones a Pagar</div>
-                <div style="font-size: 36px; font-weight: 700;">${formatCurrency(comisionesAcum)}</div>
+                <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Neto a Pagar</div>
+                <div style="font-size: 36px; font-weight: 700;">${formatCurrency(netoAPagar)}</div>
             </div>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 16px; font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 8px;">
@@ -1921,6 +1913,13 @@ function confirmarPagoProfesional(id) {
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
                     <strong>Tasa de Comisión:</strong> ${getComisionRate(person.tipo)}%
                 </div>
+                <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
+                    <strong>Comisiones brutas:</strong> ${formatCurrency(comisionesAcum)}
+                </div>
+                ${avancesPendientes > 0 ? `
+                <div style="font-size: 14px; color: #ff3b30; margin-bottom: 4px;">
+                    <strong>Avances a descontar:</strong> -${formatCurrency(avancesPendientes)}
+                </div>` : ''}
                 <div style="font-size: 14px; color: #666;">
                     <strong>Facturas cobradas:</strong> ${facturasPagadas.length}
                 </div>
@@ -1951,10 +1950,12 @@ Cargo: ${getTipoLabel(person.tipo)}
 Comisión: ${getComisionRate(person.tipo)}%
 
 ================================
-COMISIONES PAGADAS
+DETALLE
 ================================
 
-Monto: ${formatCurrency(comisionesAcum)}
+Comisiones brutas:   ${formatCurrency(comisionesAcum)}
+${avancesPendientes > 0 ? `Avances descontados: -${formatCurrency(avancesPendientes)}\n` : ''}
+NETO PAGADO:         ${formatCurrency(netoAPagar)}
 
 ================================
 
@@ -2415,7 +2416,11 @@ function abrirReversarCobro(facturaId) {
     }
 
     currentFacturaToReverse = factura;
+    // Always reverse the most recent payment — store its index so confirmarReversion
+    // removes the exact payment we showed, even if the array changes between open and confirm.
     const ultimoPago = factura.pagos[factura.pagos.length - 1];
+    currentFacturaToReverse._pagoAReversarId = ultimoPago.id || null;
+    currentFacturaToReverse._pagoAReversarIdx = factura.pagos.length - 1;
 
     document.getElementById('reversarFacturaNum').textContent = factura.numero;
     document.getElementById('reversarPaciente').textContent = factura.paciente;
@@ -2438,13 +2443,23 @@ function confirmarReversion() {
     const factura = appData.facturas.find(f => f.id === currentFacturaToReverse.id);
     if (!factura || factura.pagos.length === 0) return;
 
-    // Remover último pago
-    const pagoReversado = factura.pagos.pop();
+    // Find the specific payment we showed the user — by ID if available, else by saved index
+    let pagoIdx = -1;
+    if (currentFacturaToReverse._pagoAReversarId) {
+        pagoIdx = factura.pagos.findIndex(p => p.id === currentFacturaToReverse._pagoAReversarId);
+    }
+    if (pagoIdx === -1) {
+        pagoIdx = currentFacturaToReverse._pagoAReversarIdx ?? (factura.pagos.length - 1);
+    }
+    if (pagoIdx < 0 || pagoIdx >= factura.pagos.length) return;
+
+    const pagoReversado = factura.pagos[pagoIdx];
+    factura.pagos.splice(pagoIdx, 1);
 
     // Recalcular estado de la factura
     const totalPagado = factura.pagos.reduce((sum, p) => sum + p.monto, 0);
     if (totalPagado === 0) {
-        factura.estado = 'pendiente';
+        factura.estado = 'Pendiente';
     } else if (totalPagado < factura.total) {
         factura.estado = 'partial';
     } else {
@@ -2502,6 +2517,32 @@ function getTodayKey() {
 // Returns the local-midnight timestamp for a YYYY-MM-DD key (for comparisons)
 function keyToTimestamp(key) {
     return new Date(key + 'T00:00:00').getTime();
+}
+
+// Returns true if an ISO date string falls on a given YYYY-MM-DD key in clinic timezone.
+// Replaces all new Date(x).setHours(0,0,0,0) === today comparisons throughout the codebase.
+function isSameDayTZ(fechaISO, dayKey) {
+    if (!fechaISO || !dayKey) return false;
+    try {
+        const tz = getTimezone();
+        const key = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(new Date(fechaISO));
+        return key === dayKey;
+    } catch(e) {
+        return new Date(fechaISO).toISOString().slice(0, 10) === dayKey;
+    }
+}
+
+// Returns YYYY-MM-DD for yesterday in clinic timezone
+function getYesterdayKey() {
+    const tz = getTimezone();
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(d);
+    return `${parts.find(p=>p.type==='year').value}-${parts.find(p=>p.type==='month').value}-${parts.find(p=>p.type==='day').value}`;
 }
 
 function generateId(prefix = '') {
@@ -3397,19 +3438,23 @@ async function guardarCita() {
     }
 
     // VALIDAR SOLAPAMIENTO
+    const duracionMin = (appData.settings && appData.settings.duracionCita) || 30;
     const fechaHoraNueva = new Date(fecha + 'T' + hora);
+    const finNueva = new Date(fechaHoraNueva.getTime() + duracionMin * 60000);
 
     // Buscar citas que se solapen en el mismo consultorio
-    // Ignorar citas Canceladas, Inasistencias y Completadas
+    // Una cita se solapa si su inicio está antes del fin de la nueva, y su fin está después del inicio de la nueva
     const estadosIgnorar = ['Cancelada', 'Inasistencia', 'Completada'];
     const citasSolapadas = appData.citas.filter(c => {
         if (c.consultorio !== consultorio) return false;
-        if (estadosIgnorar.includes(c.estado)) return false; // ← Fix
+        if (estadosIgnorar.includes(c.estado)) return false;
 
-        const fechaHoraCita = new Date(c.fecha);
-        const diferenciaMinutos = Math.abs((fechaHoraNueva - fechaHoraCita) / (1000 * 60));
+        const inicioCita = new Date(c.fecha);
+        const durCita = (c.duracionMin) || duracionMin;
+        const finCita = new Date(inicioCita.getTime() + durCita * 60000);
 
-        return diferenciaMinutos < 30;
+        // Solapamiento real: las dos se superponen en el tiempo
+        return fechaHoraNueva < finCita && finNueva > inicioCita;
     });
 
     if (citasSolapadas.length > 0) {
@@ -3427,6 +3472,7 @@ async function guardarCita() {
         paciente,
         pacienteId: document.getElementById('citaPacienteInput').dataset.pacienteId || null,
         profesional,
+        duracionMin,
         fecha: fecha + 'T' + hora,
         hora,
         consultorio,
@@ -5578,7 +5624,8 @@ function getTimezone() {
 }
 
 function getNombreClinica() {
-    return (appData.settings && appData.settings.nombreClinica) || 'Clínica Dental';
+    // clinicConfig.nombre is set by onboarding and loadClinicBranding — the authoritative source
+    return clinicConfig.nombre || (appData.settings && appData.settings.nombreClinica) || 'Clínica Dental';
 }
 
 function getNombreAdmin() {
@@ -5701,8 +5748,8 @@ function getSaludo() {
 }
 
 function updateDashboardTab() {
-    const today = new Date();
-    const todayTimestamp = today.setHours(0,0,0,0);
+    const todayKey     = getTodayKey();
+    const yesterdayKey = getYesterdayKey();
 
     // Fecha + saludo + frase motivacional
     const fechaStr = new Date().toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -5756,15 +5803,13 @@ function updateDashboardTab() {
     // INGRESOS HOY
     const pagosHoy = appData.facturas
         .flatMap(f => f.pagos)
-        .filter(p => new Date(p.fecha).setHours(0,0,0,0) === todayTimestamp);
+        .filter(p => isSameDayTZ(p.fecha, todayKey));
     const ingresosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
 
     // Comparación con ayer
-    const ayer = new Date(todayTimestamp - 24*60*60*1000);
-    const ayerTimestamp = ayer.setHours(0,0,0,0);
     const pagosAyer = appData.facturas
         .flatMap(f => f.pagos)
-        .filter(p => new Date(p.fecha).setHours(0,0,0,0) === ayerTimestamp);
+        .filter(p => isSameDayTZ(p.fecha, yesterdayKey));
     const ingresosAyer = pagosAyer.reduce((sum, p) => sum + p.monto, 0);
 
     document.getElementById('dashIngresosHoy').textContent = formatCurrency(ingresosHoy);
@@ -5779,11 +5824,7 @@ function updateDashboardTab() {
     }
 
     // CITAS HOY
-    const citasHoy = appData.citas.filter(c => {
-        const fechaCita = new Date(c.fecha);
-        fechaCita.setHours(0,0,0,0);
-        return fechaCita.getTime() === todayTimestamp;
-    });
+    const citasHoy = appData.citas.filter(c => isSameDayTZ(c.fecha, todayKey));
     const citasPendientes = citasHoy.filter(c =>
         c.estado === 'Pendiente' || c.estado === 'Confirmada'
     ).length;
@@ -6040,10 +6081,11 @@ function buscarGlobal() {
             </div>
         `;
         citas.forEach(c => {
-            const fechaCita = new Date(c.fecha);
-            const hoy = new Date();
-            hoy.setHours(0,0,0,0);
-            const esPasada = fechaCita < hoy;
+            const todayKeySearch = getTodayKey();
+            const citaKey = new Intl.DateTimeFormat('en-CA', {
+                timeZone: getTimezone(), year: 'numeric', month: '2-digit', day: '2-digit'
+            }).format(new Date(c.fecha));
+            const esPasada = citaKey < todayKeySearch;
             const color = getColorEstadoCita(c.estado);
 
             html += `
