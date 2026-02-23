@@ -144,19 +144,33 @@
         z-index: 1;
     }
     .logo-container img {
-        max-width: 160px;
-        width: 50%;
+        max-width: 180px;
+        width: 55%;
         height: auto;
         filter: brightness(0) invert(1);
-        opacity: 0.9;
+        opacity: 0.95;
+        display: none; /* shown by JS when logo exists */
+    }
+    .logo-container img.loaded {
+        display: block;
+        margin: 0 auto 12px;
     }
     .clinic-name-login {
         color: rgba(255,255,255,0.9);
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 200;
         text-align: center;
-        margin-top: 16px;
+        margin-top: 10px;
         letter-spacing: -0.3px;
+        transition: font-size 0.2s;
+    }
+    .clinic-name-login.logo-visible {
+        font-size: 13px;
+        opacity: 0.7;
+        font-weight: 300;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-top: 8px;
     }
 
     .login-card {
@@ -947,7 +961,10 @@
     <!-- Main App -->
     <div id="appContainer" class="app-container">
         <div class="app-header">
-            <h1 id="appTitle">Clínica</h1>
+            <div id="appBrand" style="display:flex;align-items:center;gap:10px;min-width:0;">
+                <img id="appHeaderLogo" src="" alt="" style="height:28px;width:auto;object-fit:contain;display:none;filter:brightness(0) invert(1);opacity:0.92;flex-shrink:0;">
+                <h1 id="appTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Clínica</h1>
+            </div>
 
             <div style="flex: 1; max-width: 500px; margin: 0 30px; position: relative;">
                 <input
@@ -1330,6 +1347,12 @@
             <!-- Perfil Tab -->
             <div id="tab-perfil" class="tab-content">
                 <div class="card">
+                    <!-- Clinic identity banner — populated by JS -->
+                    <div id="perfilClinicaBanner" style="display:none; margin:-20px -20px 20px; padding:20px; background:var(--clinic-color); border-radius:16px 16px 0 0; text-align:center; position:relative; overflow:hidden;">
+                        <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.06) 0%,transparent 60%);pointer-events:none;"></div>
+                        <img id="perfilClinicaLogo" src="" alt="" style="height:36px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9;display:none;margin-bottom:6px;">
+                        <div id="perfilClinicaNombre" style="color:rgba(255,255,255,0.92);font-size:14px;font-weight:300;letter-spacing:0.3px;"></div>
+                    </div>
                     <h2>Mi Perfil</h2>
                     <div style="margin-bottom: 15px;"><div style="color: var(--mid); font-size: 14px;">Nombre</div><div style="font-weight: 400; font-size: 18px;" id="perfilNombre"></div></div>
                     <div style="margin-bottom: 25px;"><div style="color: var(--mid); font-size: 14px;">Rol</div><div style="font-weight: 400; font-size: 18px;" id="perfilRol"></div></div>

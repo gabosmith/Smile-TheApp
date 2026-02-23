@@ -109,10 +109,9 @@ async function loadClinicBranding() {
             `;
         }
 
-        if (cfg.logoUrl) {
-            const logoEl = document.getElementById('logoImg');
-            if (logoEl) { logoEl.src = cfg.logoUrl; logoEl.style.display = 'block'; }
-        }
+        // ── Apply logo across the app ──
+        const logoSrc = cfg.logoPositivo || cfg.logoNegativo || cfg.logoUrl || null;
+        applyLogoEverywhere(logoSrc, cfg.nombre || '');
 
         // ── Block access if clinic is paused ──
         if (cfg.activa === false) {
@@ -125,6 +124,48 @@ async function loadClinicBranding() {
     } catch(e) {
         console.log('Branding no disponible:', e.message);
     }
+}
+
+// Applies the clinic logo to every branded surface in one call.
+// Called on load and whenever the logo/nombre changes.
+function applyLogoEverywhere(logoSrc, nombre) {
+    // 1. LOGIN SCREEN — large logo above the card
+    const loginLogoEl = document.getElementById('logoImg');
+    const loginNameEl = document.getElementById('clinicNameLogin');
+    if (loginLogoEl) {
+        if (logoSrc) {
+            loginLogoEl.src = logoSrc;
+            loginLogoEl.style.display = 'block';
+            loginLogoEl.classList.add('loaded');
+            if (loginNameEl) loginNameEl.classList.add('logo-visible');
+            loginLogoEl.onerror = () => {
+                loginLogoEl.style.display = 'none';
+                loginLogoEl.classList.remove('loaded');
+                if (loginNameEl) loginNameEl.classList.remove('logo-visible');
+            };
+        } else {
+            loginLogoEl.style.display = 'none';
+            loginLogoEl.classList.remove('loaded');
+            if (loginNameEl) loginNameEl.classList.remove('logo-visible');
+        }
+    }
+    if (loginNameEl && nombre) loginNameEl.textContent = nombre;
+
+    // 2. APP HEADER — small logo beside the clinic name
+    const headerLogoEl = document.getElementById('appHeaderLogo');
+    if (headerLogoEl) {
+        if (logoSrc) {
+            headerLogoEl.src = logoSrc;
+            headerLogoEl.style.display = 'block';
+            headerLogoEl.onerror = () => { headerLogoEl.style.display = 'none'; };
+        } else {
+            headerLogoEl.style.display = 'none';
+        }
+    }
+
+    // 3. DASHBOARD — branded header card watermark (injected by updateDashboardTab)
+    // Store for use when dashboard renders
+    clinicConfig._logoSrc = logoSrc;
 }
 
 function darkenColor(hex, percent) {
@@ -547,9 +588,12 @@ function showApp() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appContainer').style.display = 'block';
 
-    // Update header with user name
-    const userName = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
-    document.getElementById('appTitle').textContent = userName;
+    // Header: show clinic name (not user name — user is in the nav)
+    const clinicTitle = clinicConfig.nombre || getNombreClinica();
+    document.getElementById('appTitle').textContent = clinicTitle;
+
+    // Apply logo in header
+    applyLogoEverywhere(clinicConfig._logoSrc || clinicConfig.logoPositivo || null, clinicTitle);
 
     buildNavigation();
 
@@ -2334,9 +2378,11 @@ async function guardarIdentidadClinica() {
         clinicConfig.color        = color;
         clinicConfig.logoPositivo = logo || null;
         clinicConfig.logoNegativo = logo || null;
+        clinicConfig._logoSrc     = logo || null;
 
-        // Re-apply branding live
-        loadClinicBranding();
+        // Re-apply branding live without waiting for Firebase round-trip
+        applyLogoEverywhere(logo || null, nombre);
+        loadClinicBranding(); // also syncs color and other branding
 
         mostrarToastConfig('✓ Identidad guardada');
     } catch(e) {
@@ -2444,6 +2490,24 @@ function updatePerfilTab() {
         'admin': 'Administrador'
     };
     document.getElementById('perfilRol').textContent = roles[appData.currentRole];
+
+    // Clinic identity banner — always visible to all roles
+    const banner       = document.getElementById('perfilClinicaBanner');
+    const bannerLogo   = document.getElementById('perfilClinicaLogo');
+    const bannerNombre = document.getElementById('perfilClinicaNombre');
+    if (banner && clinicConfig.nombre) {
+        banner.style.display = 'block';
+        if (bannerNombre) bannerNombre.textContent = clinicConfig.nombre;
+        if (bannerLogo && clinicConfig._logoSrc) {
+            bannerLogo.src = clinicConfig._logoSrc;
+            bannerLogo.style.display = 'block';
+            bannerLogo.onerror = () => { bannerLogo.style.display = 'none'; };
+        } else if (bannerLogo) {
+            bannerLogo.style.display = 'none';
+        }
+    } else if (banner) {
+        banner.style.display = 'none';
+    }
 
     // Mostrar botón de auditoría solo para admin
     const btnAuditoria = document.getElementById('btnAuditoria');
@@ -5961,7 +6025,17 @@ function updateDashboardTab() {
     const saludoDia = getSaludo();
     const fechaEl = document.getElementById('dashboardFecha');
     if (fechaEl) {
+        const logoWatermark = clinicConfig._logoSrc
+            ? `<img src="${clinicConfig._logoSrc}" alt="" style="
+                position:absolute;right:0;top:50%;transform:translateY(-50%);
+                height:56px;width:auto;object-fit:contain;
+                opacity:0.08;pointer-events:none;filter:grayscale(1);"
+                onerror="this.style.display='none'">`
+            : '';
+        fechaEl.style.position = 'relative';
+        fechaEl.style.overflow = 'hidden';
         fechaEl.innerHTML = `
+            ${logoWatermark}
             <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px;margin-bottom:2px">
                 ${saludoDia}${nombreCorto ? `, ${nombreCorto}` : ''}.
             </div>
