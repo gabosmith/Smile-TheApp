@@ -930,7 +930,10 @@ function updateIngresosTab() {
 }
 
 function getComisionRate(tipo) {
-    return tipo === 'regular' ? 60 : tipo === 'especialista' ? 50 : 0;
+    const settings = appData.settings || {};
+    if (tipo === 'regular')      return settings.comisionRegular      ?? 60;
+    if (tipo === 'especialista') return settings.comisionEspecialista ?? 50;
+    return 0;
 }
 
 // Cobrar Tab
@@ -2248,6 +2251,191 @@ function eliminarPersonal(id) {
 }
 
 // Perfil Tab
+// ═══════════════════════════════════════════════
+// CONFIGURACIÓN DE CLÍNICA (Panel de admin)
+// ═══════════════════════════════════════════════
+
+function poblarConfigClinica() {
+    // IDENTIDAD
+    const nombreInput = document.getElementById('configNombreClinica');
+    if (nombreInput) nombreInput.value = clinicConfig.nombre || '';
+
+    const colorInput = document.getElementById('configColorClinica');
+    const colorHex   = document.getElementById('configColorHex');
+    if (colorInput) {
+        colorInput.value = clinicConfig.color || '#C4856A';
+        if (colorHex) colorHex.textContent = clinicConfig.color || '#C4856A';
+        colorInput.addEventListener('input', () => {
+            if (colorHex) colorHex.textContent = colorInput.value;
+        });
+    }
+
+    const logoInput = document.getElementById('configLogoUrl');
+    if (logoInput) {
+        logoInput.value = clinicConfig.logoPositivo || '';
+        actualizarPreviewLogo(clinicConfig.logoPositivo || '');
+        logoInput.addEventListener('input', () => actualizarPreviewLogo(logoInput.value));
+    }
+
+    // SEGURIDAD — no pre-llenar contraseña
+    const pwdInput = document.getElementById('configNewPassword');
+    const pwdConfirm = document.getElementById('configConfirmPassword');
+    if (pwdInput)  pwdInput.value = '';
+    if (pwdConfirm) pwdConfirm.value = '';
+
+    // NÓMINA
+    const settings = appData.settings || {};
+    const comisionRegular      = document.getElementById('configComisionRegular');
+    const comisionEspecialista = document.getElementById('configComisionEspecialista');
+    if (comisionRegular)      comisionRegular.value      = settings.comisionRegular      ?? 60;
+    if (comisionEspecialista) comisionEspecialista.value = settings.comisionEspecialista ?? 50;
+
+    // AGENDA
+    const apertura   = document.getElementById('configHoraApertura');
+    const cierre     = document.getElementById('configHoraCierre');
+    const duracion   = document.getElementById('configDuracionCita');
+    if (apertura) apertura.value  = settings.horaApertura ?? 8;
+    if (cierre)   cierre.value    = settings.horaCierre   ?? 20;
+    if (duracion) duracion.value  = settings.duracionCita ?? 30;
+}
+
+function actualizarPreviewLogo(url) {
+    const preview = document.getElementById('configLogoPreview');
+    const img     = document.getElementById('configLogoImg');
+    if (!preview || !img) return;
+    if (url && url.startsWith('http')) {
+        img.src = url;
+        preview.style.display = 'block';
+        img.onerror = () => { preview.style.display = 'none'; };
+    } else {
+        preview.style.display = 'none';
+    }
+}
+
+async function guardarIdentidadClinica() {
+    const nombre = document.getElementById('configNombreClinica').value.trim();
+    const color  = document.getElementById('configColorClinica').value;
+    const logo   = document.getElementById('configLogoUrl').value.trim();
+
+    if (!nombre) { alert('El nombre de la clínica es obligatorio'); return; }
+
+    try {
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings')
+            .update({
+                nombre,
+                color,
+                logoPositivo: logo || null,
+                logoNegativo: logo || null,
+            });
+
+        // Update local state immediately
+        clinicConfig.nombre       = nombre;
+        clinicConfig.color        = color;
+        clinicConfig.logoPositivo = logo || null;
+        clinicConfig.logoNegativo = logo || null;
+
+        // Re-apply branding live
+        loadClinicBranding();
+
+        mostrarToastConfig('✓ Identidad guardada');
+    } catch(e) {
+        console.error(e);
+        alert('❌ Error al guardar. Verifica tu conexión e intenta de nuevo.');
+    }
+}
+
+async function guardarContrasenaAdmin() {
+    const nueva    = document.getElementById('configNewPassword').value;
+    const confirma = document.getElementById('configConfirmPassword').value;
+
+    if (!nueva || nueva.length < 6) {
+        alert('La contraseña debe tener al menos 6 caracteres');
+        return;
+    }
+    if (nueva !== confirma) {
+        alert('Las contraseñas no coinciden');
+        return;
+    }
+
+    // Find admin in personal array and update password
+    const admin = appData.personal.find(p => p.isAdmin);
+    if (!admin) {
+        alert('No se encontró el usuario administrador en el sistema.');
+        return;
+    }
+
+    admin.password = nueva;
+    try {
+        await saveData();
+        document.getElementById('configNewPassword').value = '';
+        document.getElementById('configConfirmPassword').value = '';
+        mostrarToastConfig('✓ Contraseña actualizada');
+    } catch(e) {
+        console.error(e);
+        alert('❌ Error al guardar. Verifica tu conexión e intenta de nuevo.');
+    }
+}
+
+async function guardarTasasComision() {
+    const regular      = parseInt(document.getElementById('configComisionRegular').value)      || 60;
+    const especialista = parseInt(document.getElementById('configComisionEspecialista').value) || 50;
+
+    if (regular < 0 || regular > 100 || especialista < 0 || especialista > 100) {
+        alert('Las tasas deben estar entre 0% y 100%');
+        return;
+    }
+
+    if (!appData.settings) appData.settings = {};
+    appData.settings.comisionRegular      = regular;
+    appData.settings.comisionEspecialista = especialista;
+
+    try {
+        await saveData();
+        mostrarToastConfig('✓ Tasas de comisión guardadas');
+    } catch(e) {
+        console.error(e);
+        alert('❌ Error al guardar.');
+    }
+}
+
+async function guardarConfigAgenda() {
+    const apertura = parseInt(document.getElementById('configHoraApertura').value);
+    const cierre   = parseInt(document.getElementById('configHoraCierre').value);
+    const duracion = parseInt(document.getElementById('configDuracionCita').value);
+
+    if (apertura >= cierre) {
+        alert('La hora de apertura debe ser antes de la hora de cierre');
+        return;
+    }
+
+    if (!appData.settings) appData.settings = {};
+    appData.settings.horaApertura = apertura;
+    appData.settings.horaCierre   = cierre;
+    appData.settings.duracionCita = duracion;
+
+    try {
+        await saveData();
+        mostrarToastConfig('✓ Configuración de agenda guardada');
+    } catch(e) {
+        console.error(e);
+        alert('❌ Error al guardar.');
+    }
+}
+
+function mostrarToastConfig(msg) {
+    let n = document.getElementById('app-notif');
+    if (!n) {
+        n = document.createElement('div');
+        n.id = 'app-notif';
+        n.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:white;padding:12px 24px;border-radius:100px;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap';
+        document.body.appendChild(n);
+    }
+    n.textContent = msg;
+    n.style.opacity = '1';
+    setTimeout(() => n.style.opacity = '0', 2500);
+}
+
 function updatePerfilTab() {
     document.getElementById('perfilNombre').textContent = appData.currentUser;
     const roles = {
@@ -2277,6 +2465,17 @@ function updatePerfilTab() {
             }
         } else {
             timezoneCard.style.display = 'none';
+        }
+    }
+
+    // Mostrar configuración de clínica solo para admin
+    const clinicaConfigCard = document.getElementById('clinicaConfigCard');
+    if (clinicaConfigCard) {
+        if (appData.currentRole === 'admin') {
+            clinicaConfigCard.style.display = 'block';
+            poblarConfigClinica();
+        } else {
+            clinicaConfigCard.style.display = 'none';
         }
     }
 
@@ -3430,10 +3629,13 @@ async function guardarCita() {
         return;
     }
 
-    // VALIDACIÓN: Horario de citas solo de 8am a 8pm
+    // VALIDACIÓN: Horario de citas según configuración de la clínica
+    const horaApertura = (appData.settings && appData.settings.horaApertura) ?? 8;
+    const horaCierre   = (appData.settings && appData.settings.horaCierre)   ?? 20;
     const [horaNum, minutos] = hora.split(':').map(Number);
-    if (horaNum < 8 || horaNum >= 20) {
-        alert('❌ Las citas solo se pueden agendar entre 8:00 AM y 8:00 PM.\n\nPor favor selecciona otro horario.');
+    if (horaNum < horaApertura || horaNum >= horaCierre) {
+        const fmt = h => h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h-12}:00 PM`;
+        alert(`❌ Las citas solo se pueden agendar entre ${fmt(horaApertura)} y ${fmt(horaCierre)}.\n\nPor favor selecciona otro horario.`);
         return;
     }
 
