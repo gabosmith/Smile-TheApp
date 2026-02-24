@@ -4679,6 +4679,26 @@ async function avanzarEstadoLab(nuevoEstado) {
 
     if (notas === null) return; // Usuario canceló
 
+    // ── Warning de balance pendiente al marcar como Entregado ──
+    if (nuevoEstado === 'Entregado' && orden.paciente) {
+        const facturasDelPaciente = appData.facturas.filter(f =>
+            f.paciente === orden.paciente && f.estado !== 'pagada'
+        );
+        const balancePendiente = facturasDelPaciente.reduce((sum, f) => {
+            const pagado = f.pagos.reduce((s, p) => s + p.monto, 0);
+            return sum + (f.total - pagado);
+        }, 0);
+
+        if (balancePendiente > 0) {
+            const continuar = confirm(
+                `⚠️ Balance pendiente\n\n` +
+                `${orden.paciente} tiene ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''} sin saldar por un total de ${formatCurrency(balancePendiente)}.\n\n` +
+                `¿Deseas marcar la orden como entregada de todas formas?`
+            );
+            if (!continuar) return;
+        }
+    }
+
     orden.timeline.push({
         estado: nuevoEstado,
         fecha: new Date().toISOString(),
