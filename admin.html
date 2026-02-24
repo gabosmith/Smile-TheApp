@@ -6,6 +6,7 @@
 <title>SMILE — Admin</title>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -644,12 +645,12 @@
 <script>
 // ── FIREBASE ──────────────────────────────────────────
 const firebaseConfig = {
-  apiKey: "AIzaSyCzb-ZWetwx9Uy4WhJxBiwzJsZGgmrL_nc",
-  authDomain: "clinica-dental-dra-smith.firebaseapp.com",
-  projectId: "clinica-dental-dra-smith",
-  storageBucket: "clinica-dental-dra-smith.firebasestorage.app",
-  messagingSenderId: "845983933030",
-  appId: "1:845983933030:web:cc0b5a3724be89c86c43a7"
+  apiKey: "AIzaSyB5l8pl4jzcJAvPahEu4w0Ay1PyFwvCgnk",
+  authDomain: "smile-theapp.firebaseapp.com",
+  projectId: "smile-theapp",
+  storageBucket: "smile-theapp.firebasestorage.app",
+  messagingSenderId: "723824118344",
+  appId: "1:723824118344:web:aea955f3258d212343e67d"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -683,6 +684,13 @@ let currentSection = 'overview';
 
 // ── INIT ──────────────────────────────────────────────
 async function initApp() {
+  // Establish Firebase anonymous auth session so Firestore Security Rules pass
+  try {
+    const auth = firebase.auth();
+    if (!auth.currentUser) await auth.signInAnonymously();
+  } catch(e) {
+    console.warn('[Admin] Firebase auth warning:', e.message);
+  }
   await loadClinicas();
   showSection('overview');
 }
