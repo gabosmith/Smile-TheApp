@@ -2696,6 +2696,17 @@ function updatePerfilTab() {
     if (importarCard) {
         importarCard.style.display = appData.currentRole === 'admin' ? 'block' : 'none';
     }
+    const exportarCard = document.getElementById('exportarCard');
+    if (exportarCard && appData.currentRole === 'admin') {
+        exportarCard.style.display = 'block';
+        const stats = document.getElementById('exportarPacientesStats');
+        if (stats) {
+            const total = (appData.pacientes || []).length;
+            const conTel = appData.pacientes.filter(p => p.telefono).length;
+            const conEmail = appData.pacientes.filter(p => p.email).length;
+            stats.textContent = `${total} pacientes · ${conTel} con teléfono · ${conEmail} con email`;
+        }
+    }
 
     // Mostrar reversiones solo para admin
     const reversionesCard = document.getElementById('reversionesCard');
@@ -6261,6 +6272,76 @@ function exportarFacturasExcel() {
     XLSX.writeFile(wb, nombreArchivo);
 
     alert('✅ Archivo Excel generado exitosamente');
+}
+
+function exportarPacientesCSV() {
+    const pacientes = appData.pacientes || [];
+    if (pacientes.length === 0) { alert('No hay pacientes para exportar.'); return; }
+
+    const campos = [
+        'nombre','cedula','telefono','email','fechaNacimiento','sexo',
+        'grupoSanguineo','direccion','alergias','condiciones','seguro',
+        'emergenciaNombre','emergenciaTelefono'
+    ];
+    const encabezado = campos.join(',');
+
+    const filas = pacientes.map(p => campos.map(c => {
+        const val = p[c] || '';
+        // Escape commas and quotes
+        const str = String(val).replace(/"/g, '""');
+        return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
+    }).join(','));
+
+    const csv = [encabezado, ...filas].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Pacientes_${getNombreClinica()}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    registrarAuditoria('exportar', 'pacientes', `Exportó ${pacientes.length} pacientes en CSV`);
+}
+
+function exportarPacientesExcel() {
+    const XLSX = window.XLSX;
+    if (!XLSX) { alert('Librería de Excel no disponible.'); return; }
+
+    const pacientes = appData.pacientes || [];
+    if (pacientes.length === 0) { alert('No hay pacientes para exportar.'); return; }
+
+    const datos = pacientes.map(p => ({
+        'Nombre':                p.nombre          || '',
+        'Cédula':                p.cedula          || '',
+        'Teléfono':              p.telefono        || '',
+        'Email':                 p.email           || '',
+        'Fecha Nacimiento':      p.fechaNacimiento || '',
+        'Sexo':                  p.sexo            || '',
+        'Grupo Sanguíneo':       p.grupoSanguineo  || '',
+        'Dirección':             p.direccion       || '',
+        'Alergias':              p.alergias        || '',
+        'Condiciones':           p.condiciones     || '',
+        'Seguro':                p.seguro          || '',
+        'Contacto Emergencia':   p.emergenciaNombre    || '',
+        'Tel. Emergencia':       p.emergenciaTelefono  || '',
+        'Fecha Registro':        p.fechaCreacion
+            ? new Date(p.fechaCreacion).toLocaleDateString('es-DO') : '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(datos);
+
+    // Column widths
+    ws['!cols'] = [
+        {wch:28},{wch:14},{wch:14},{wch:26},{wch:14},{wch:10},
+        {wch:12},{wch:30},{wch:20},{wch:20},{wch:16},{wch:22},{wch:14},{wch:14}
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pacientes');
+    XLSX.writeFile(wb, `Pacientes_${getNombreClinica()}_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    registrarAuditoria('exportar', 'pacientes', `Exportó ${pacientes.length} pacientes en Excel`);
 }
 
 function exportarCitasExcel() {
