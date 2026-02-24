@@ -6615,6 +6615,17 @@ function updateDashboardTab() {
 
     // Quick action shortcuts (admin + profesional)
     const dashRole = appData.currentRole;
+
+    // Adapt the 3rd stat card label/color for professional vs admin
+    const porCobrarCard = document.querySelector('#tab-dashboard .dash-stat:nth-child(3)');
+    if (porCobrarCard) {
+        const labelEl = porCobrarCard.querySelector('div:first-child');
+        if (labelEl) labelEl.textContent = dashRole === 'professional' ? 'Mis Comisiones' : 'Por Cobrar';
+        porCobrarCard.style.background = dashRole === 'professional'
+            ? 'linear-gradient(135deg, #7B8FA1 0%, #5A7080 100%)'
+            : 'linear-gradient(135deg, #C4856A 0%, #A06448 100%)';
+    }
+
     if (dashRole === 'admin' || dashRole === 'professional') {
         let shortEl = document.getElementById('dashShortcuts');
         if (!shortEl) {
@@ -6678,16 +6689,32 @@ function updateDashboardTab() {
     document.getElementById('dashCitasPendientes').textContent =
         citasPendientes > 0 ? `${citasPendientes} pendientes` : 'Todas completadas';
 
-    // POR COBRAR
-    const facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada');
-    const porCobrar = facturasPendientes.reduce((sum, f) => {
-        const pagado = f.pagos.reduce((s, p) => s + p.monto, 0);
-        return sum + (f.total - pagado);
-    }, 0);
+    // POR COBRAR (admin) / MIS COMISIONES (profesional)
+    if (dashRole === 'professional') {
+        const person = appData.personal.find(p => p.nombre === appData.currentUser);
+        if (person) {
+            const comisionRate   = getComisionRate(person.tipo, person);
+            const comisionesAcum = calcularComisionesAcumuladas(person);
+            const avances        = calcularTotalAvances(person.id);
+            const neto           = Math.max(0, comisionesAcum - avances);
 
-    document.getElementById('dashPorCobrar').textContent = formatCurrency(porCobrar);
-    document.getElementById('dashFacturasPendientes').textContent =
-        `${facturasPendientes.length} factura${facturasPendientes.length !== 1 ? 's' : ''}`;
+            document.getElementById('dashPorCobrar').textContent = formatCurrency(comisionesAcum);
+            document.getElementById('dashFacturasPendientes').textContent =
+                avances > 0
+                    ? `Neto ${formatCurrency(neto)} · ${comisionRate}%`
+                    : `${comisionRate}% comisión`;
+        }
+    } else {
+        const facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada');
+        const porCobrar = facturasPendientes.reduce((sum, f) => {
+            const pagado = f.pagos.reduce((s, p) => s + p.monto, 0);
+            return sum + (f.total - pagado);
+        }, 0);
+
+        document.getElementById('dashPorCobrar').textContent = formatCurrency(porCobrar);
+        document.getElementById('dashFacturasPendientes').textContent =
+            `${facturasPendientes.length} factura${facturasPendientes.length !== 1 ? 's' : ''}`;
+    }
 
     // LABORATORIO ACTIVO
     const labActivo = (appData.laboratorios || []).filter(o =>
