@@ -3509,6 +3509,39 @@ function renderTabResumen(paciente) {
             </div>
         </div>
 
+        ${(() => {
+            const pendientes = getFacturasDePaciente(paciente).filter(f => {
+                const e = (f.estado || '').toLowerCase();
+                return e === 'pendiente' || e === 'pending' || e === 'parcial' || e === 'partial';
+            });
+            if (balance <= 0 || pendientes.length === 0) return '';
+            const primeraFactura = pendientes.sort((a,b) => new Date(a.fecha)-new Date(b.fecha))[0];
+            const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+            return `
+            <div style="background: linear-gradient(135deg, #fff3cd, #ffe8a1); border: 1.5px solid #ffc107;
+                        border-radius: 14px; padding: 16px 18px; margin-bottom: 20px;
+                        display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <div>
+                    <div style="font-size: 13px; font-weight: 600; color: #856404; margin-bottom: 2px;">
+                        ⚠️ Balance pendiente
+                    </div>
+                    <div style="font-size: 22px; font-weight: 700; color: #6d4c00; letter-spacing: -0.5px;">
+                        ${formatCurrency(balance)}
+                    </div>
+                    <div style="font-size: 11px; color: #856404; margin-top: 2px;">
+                        ${pendientes.length} factura${pendientes.length !== 1 ? 's' : ''} sin saldar
+                    </div>
+                </div>
+                ${canCobrar ? `
+                <button onclick="openPagarFactura('${primeraFactura.id}')"
+                    style="flex-shrink:0; padding: 12px 18px; background: #856404; color: white; border: none;
+                           border-radius: 100px; font-size: 13px; font-weight: 500; font-family: inherit;
+                           cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                    💳 Cobrar ahora
+                </button>` : ''}
+            </div>`;
+        })()}
+
         <!-- Información del paciente -->
         <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 24px;">
             <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 16px; font-weight: 700;">Información Personal</h3>
@@ -3616,68 +3649,177 @@ function renderTabResumen(paciente) {
 }
 
 function renderTabHistorial(paciente) {
-    const facturasPaciente = getFacturasDePaciente(paciente);
-    const citasPaciente = getCitasDePaciente(paciente).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-    const ordenesPaciente = (appData.laboratorios || []).filter(o => o.paciente === paciente.nombre);
+    const facturasPaciente = getFacturasDePaciente(paciente)
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    const citasPaciente = getCitasDePaciente(paciente)
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    const ordenesPaciente = (appData.laboratorios || [])
+        .filter(o => o.paciente === paciente.nombre)
+        .sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
 
-    document.getElementById('tabHistorial').innerHTML = `
-        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
-            <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 16px; font-weight: 700;">📋 Procedimientos</h3>
-            ${facturasPaciente.length === 0 ? '<div style="text-align: center; padding: 40px; color: #999;">Sin procedimientos registrados</div>' :
-            facturasPaciente.map(f => {
-                const tieneCita = f.citaId ? appData.citas.find(c => c.id === f.citaId) : null;
-                return `
-                <div style="background: #f8f9fa; padding: 14px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${f.estado === 'pagada' ? '#28a745' : '#ffc107'};">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                        <div style="font-weight: 600; font-size: 15px;">${formatDate(f.fecha)}</div>
-                        ${tieneCita ? `<div style="background: #007AFF; color: white; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;">📅 ${f.citaHora}</div>` : ''}
+    const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+
+    // ── Balance header ──
+    const balance = calcularBalancePaciente(paciente.nombre);
+    const totalFacturado = facturasPaciente.reduce((s, f) => s + f.total, 0);
+    const totalPagado    = facturasPaciente.reduce((s, f) =>
+        s + (f.pagos || []).reduce((sp, p) => sp + p.monto, 0), 0);
+
+    const balanceHeaderHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Facturado</div>
+                <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalFacturado)}</div>
+            </div>
+            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>
+                <div style="font-size:17px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
+            </div>
+            <div style="background:${balance > 0 ? '#fff3cd' : '#d4edda'};border:1.5px solid ${balance > 0 ? '#ffc107' : '#28a745'};border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>
+                <div style="font-size:17px;font-weight:700;color:${balance > 0 ? '#856404' : '#155724'};">${formatCurrency(balance)}</div>
+            </div>
+        </div>`;
+
+    // ── Facturas con desglose ──
+    const facturasHTML = facturasPaciente.length === 0
+        ? `<div style="text-align:center;padding:30px;color:#999;font-size:13px;">Sin procedimientos registrados</div>`
+        : facturasPaciente.map(f => {
+            const pagadoF   = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
+            const pendienteF = f.total - pagadoF;
+            const pagada     = pendienteF <= 0;
+            const estadoColor = pagada ? '#28a745' : pagadoF > 0 ? '#ff9500' : '#ff3b30';
+            const estadoLabel = pagada ? '✅ Pagada' : pagadoF > 0 ? '⏳ Con abono' : '🔴 Pendiente';
+
+            // Procedimientos desglosados
+            const procsHTML = (f.procedimientos || []).map(p => `
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            padding:7px 0;border-bottom:1px solid #f5f5f5;">
+                    <span style="font-size:13px;color:#444;">${p.descripcion}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}</span>
+                    <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">
+                        ${formatCurrency(p.precioUnitario * (p.cantidad || 1))}
+                    </span>
+                </div>`).join('');
+
+            // Pagos / abonos desglosados
+            const pagosHTML = (f.pagos || []).length === 0 ? '' : `
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
+                    <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>
+                    ${(f.pagos || []).map(p => `
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">
+                                    ${p.metodo || 'Efectivo'}
+                                </span>
+                                <span style="font-size:11px;color:#999;">
+                                    ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-DO',{day:'2-digit',month:'short',year:'2-digit'}) : ''}
+                                </span>
+                            </div>
+                            <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(p.monto)}</span>
+                        </div>`).join('')}
+                </div>`;
+
+            // Descuento si aplica
+            const descuentoHTML = f.descuento > 0 ? `
+                <div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">
+                    <span style="font-size:12px;">Descuento ${f.descuento}%</span>
+                    <span style="font-size:12px;">-${formatCurrency(f.total / (1 - f.descuento/100) * (f.descuento/100))}</span>
+                </div>` : '';
+
+            return `
+            <div style="background:white;border-radius:14px;border:1.5px solid ${estadoColor}33;
+                        margin-bottom:14px;overflow:hidden;">
+                <!-- Header factura -->
+                <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;
+                            display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
+                        <div style="font-size:13px;color:#555;">${f.profesional}</div>
                     </div>
-                    <div style="font-size: 13px; color: #666; margin-bottom: 4px;"><strong>Procedimiento:</strong> ${f.procedimientos.map(p => p.descripcion).join(', ')}</div>
-                    <div style="font-size: 13px; color: #666; margin-bottom: 4px;"><strong>Profesional:</strong> ${f.profesional}</div>
-                    <div style="font-size: 14px; font-weight: 600; margin-top: 8px; color: ${f.estado === 'pagada' ? '#28a745' : '#ffc107'};">
-                        ${formatCurrency(f.total)} - ${f.estado === 'pagada' ? '✅ Pagada' : '⏳ Pendiente'}
+                    <div style="text-align:right;">
+                        <div style="font-size:11px;font-weight:600;color:${estadoColor};background:${estadoColor}18;
+                                    padding:3px 10px;border-radius:100px;margin-bottom:4px;">${estadoLabel}</div>
+                        <div style="font-size:16px;font-weight:700;color:${estadoColor};">
+                            ${pagada ? formatCurrency(f.total) : formatCurrency(pendienteF) + ' pendiente'}
+                        </div>
                     </div>
                 </div>
-            `}).join('')}
-        </div>
-
-        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
-            <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 16px; font-weight: 700;">🔬 Laboratorio</h3>
-            ${ordenesPaciente.length === 0 ? '<div style="text-align: center; padding: 40px; color: #999;">Sin órdenes de laboratorio</div>' :
-            ordenesPaciente.map(o => {
-                const colorEstado = getColorEstado(o.estadoActual);
-                return `
-                    <div style="background: #f8f9fa; padding: 14px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${colorEstado};">
-                        <div style="font-weight: 600; font-size: 15px; margin-bottom: 6px;">${o.tipo}${o.dientes ? ` - Dientes: ${o.dientes}` : ''}</div>
-                        <div style="font-size: 13px; color: #666; margin-bottom: 4px;"><strong>Estado:</strong> ${o.estadoActual}</div>
-                        <div style="font-size: 13px; color: #666; margin-bottom: 4px;"><strong>Laboratorio:</strong> ${o.laboratorio}</div>
-                        <div style="font-size: 14px; font-weight: 600; margin-top: 6px;">${formatCurrency(o.precio)} - ${formatDate(o.fechaCreacion)}</div>
+                <!-- Procedimientos + pagos -->
+                <div style="padding:12px 16px;">
+                    ${procsHTML}
+                    ${descuentoHTML}
+                    <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">
+                        <span style="font-size:13px;color:#333;">Total</span>
+                        <span style="font-size:14px;color:#333;">${formatCurrency(f.total)}</span>
                     </div>
-                `;
-            }).join('')}
-        </div>
+                    ${pagosHTML}
+                    ${!pagada && canCobrar ? `
+                    <button onclick="openPagarFactura('${f.id}')"
+                        style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
+                               color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
+                               font-family:inherit;cursor:pointer;">
+                        💳 Cobrar esta factura
+                    </button>` : ''}
+                </div>
+            </div>`;
+        }).join('');
 
-        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 16px; font-weight: 700;">📅 Citas</h3>
-            ${citasPaciente.length === 0 ? '<div style="text-align: center; padding: 40px; color: #999;">Sin citas registradas</div>' :
-            citasPaciente.map(c => {
-                const colorEstado = getColorEstadoCita(c.estado || 'Pendiente');
-                const iconoEstado = getIconoEstadoCita(c.estado || 'Pendiente');
-                return `
-                    <div style="background: #f8f9fa; padding: 14px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${colorEstado};">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px;">
-                            <div style="font-weight: 600; font-size: 15px;">${formatDate(c.fecha)} - ${c.hora}</div>
-                            <div style="background: ${colorEstado}; color: white; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;">
-                                ${iconoEstado} ${c.estado || 'Pendiente'}
-                            </div>
+    // ── Órdenes de lab (compactas) ──
+    const labHTML = ordenesPaciente.length === 0 ? '' : `
+        <div style="margin-bottom:20px;">
+            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
+                        text-transform:uppercase;margin-bottom:10px;">Laboratorio</div>
+            ${ordenesPaciente.map(o => `
+                <div style="background:white;border-radius:12px;padding:12px 16px;
+                            border:1.5px solid #f0f0f0;margin-bottom:8px;
+                            display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:13px;font-weight:500;color:#333;">${o.tipo}</div>
+                        <div style="font-size:11px;color:#999;margin-top:2px;">${o.laboratorio} · ${formatDate(o.fechaCreacion)}</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;margin-left:8px;">
+                        <div style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;
+                                    background:${getColorEstado(o.estadoActual)}22;
+                                    color:${getColorEstado(o.estadoActual)};margin-bottom:3px;">
+                            ${o.estadoActual}
                         </div>
-                        <div style="font-size: 13px; color: #666; margin-bottom: 4px;"><strong>Motivo:</strong> ${c.motivo}</div>
-                        <div style="font-size: 13px; color: #666;"><strong>Profesional:</strong> ${c.profesional}</div>
+                        <div style="font-size:13px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
                     </div>
-                `;
-            }).join('')}
-        </div>
-    `;
+                </div>`).join('')}
+        </div>`;
+
+    // ── Citas (compactas) ──
+    const citasHTML = citasPaciente.length === 0 ? '' : `
+        <div>
+            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
+                        text-transform:uppercase;margin-bottom:10px;">Citas</div>
+            ${citasPaciente.map(c => `
+                <div style="background:white;border-radius:12px;padding:12px 16px;
+                            border:1.5px solid #f0f0f0;margin-bottom:8px;
+                            display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:13px;font-weight:500;color:#333;">
+                            ${formatDate(c.fecha)} · ${c.hora}
+                        </div>
+                        <div style="font-size:11px;color:#999;margin-top:2px;">${c.motivo} · ${c.profesional}</div>
+                    </div>
+                    <div style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;flex-shrink:0;
+                                background:${getColorEstadoCita(c.estado||'Pendiente')}22;
+                                color:${getColorEstadoCita(c.estado||'Pendiente')};">
+                        ${c.estado || 'Pendiente'}
+                    </div>
+                </div>`).join('')}
+        </div>`;
+
+    document.getElementById('tabHistorial').innerHTML = `
+        <div style="padding-bottom:8px;">
+            ${balanceHeaderHTML}
+            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
+                        text-transform:uppercase;margin-bottom:10px;">Procedimientos y pagos</div>
+            ${facturasHTML}
+            ${labHTML}
+            ${citasHTML}
+        </div>`;
 }
 
 function renderTabRecetas(paciente) {
