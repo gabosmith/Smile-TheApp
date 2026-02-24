@@ -618,6 +618,17 @@ function hasModule(key) {
     return (clinicConfig.modulos || []).includes(key);
 }
 
+// Check if the logged-in user has a specific granular permission.
+// Admin always has everything. For others, checks person.permisos[key].
+// Undefined (never configured) defaults to true so existing accounts keep working.
+function tienePermiso(key) {
+    if (appData.currentRole === 'admin') return true;
+    const person = appData.personal.find(p => p.nombre === appData.currentUser);
+    if (!person) return false;
+    if (!person.permisos) return true;
+    return person.permisos[key] !== false;
+}
+
 function buildNavigation() {
     const role = appData.currentRole;
 
@@ -711,6 +722,17 @@ function formatCurrency(amount) {
 }
 
 // Procedimientos
+// Helper: always find factura form elements in the visible cobros-content clone,
+// falling back to the hidden source tab. Fixes the duplicate-ID problem throughout.
+function getFacturaEl(id) {
+    const contenedor = document.getElementById('cobros-content');
+    if (contenedor) {
+        const el = contenedor.querySelector('#' + id);
+        if (el) return el;
+    }
+    return document.getElementById(id);
+}
+
 let tempProcedimientos = [];
 
 function openAddProcedimiento() {
@@ -754,7 +776,7 @@ function agregarProcedimiento() {
 }
 
 function updateProcedimientosList() {
-    const list = document.getElementById('procedimientosList');
+    const list = getFacturaEl('procedimientosList');
     if (tempProcedimientos.length === 0) {
         list.innerHTML = '<div style="color: #8e8e93; padding: 10px;">No hay procedimientos agregados</div>';
     } else {
@@ -780,13 +802,15 @@ function removeProcedimiento(id) {
 }
 
 function updateDescuento() {
-    const val = document.getElementById('descuentoSlider').value;
-    document.getElementById('descuentoValue').textContent = val;
+    const val = getFacturaEl('descuentoSlider').value;
+    const valEl = getFacturaEl('descuentoValue');
+    if (valEl) valEl.textContent = val;
     updateTotal();
 }
 
 function setDescuento(val) {
-    document.getElementById('descuentoSlider').value = val;
+    const slider = getFacturaEl('descuentoSlider');
+    if (slider) slider.value = val;
     updateDescuento();
 }
 
@@ -797,9 +821,11 @@ function updateTotal() {
     const totalLab = tempOrdenesLab.reduce((sum, o) => sum + o.precio, 0);
     const subtotalConLab = subtotal + totalLab;
 
-    const descuento = parseFloat(document.getElementById('descuentoSlider').value) / 100;
+    const slider = getFacturaEl('descuentoSlider');
+    const descuento = parseFloat(slider ? slider.value : 0) / 100;
     const total = subtotalConLab * (1 - descuento);
-    document.getElementById('totalFactura').textContent = formatCurrency(total);
+    const totalEl = getFacturaEl('totalFactura');
+    if (totalEl) totalEl.textContent = formatCurrency(total);
 }
 
 async function generarFactura() {
@@ -916,9 +942,12 @@ async function generarFactura() {
 
     alert(mensaje + (tempOrdenesLab.length > 0 ? `\n\n🔬 ${tempOrdenesLab.length} orden(es) de laboratorio creadas` : ''));
 
-    document.getElementById('pacienteNombre').value = '';
-    document.getElementById('notasFactura').value = '';
-    document.getElementById('descuentoSlider').value = '0';
+    const pnEl = getFacturaEl('pacienteNombre');
+    if (pnEl) { pnEl.value = ''; pnEl.dataset.pacienteSeleccionado = 'false'; }
+    const notasEl2 = getFacturaEl('notasFactura');
+    if (notasEl2) notasEl2.value = '';
+    const sliderEl = getFacturaEl('descuentoSlider');
+    if (sliderEl) sliderEl.value = '0';
     updateDescuento();
     tempProcedimientos = [];
     tempOrdenesLab = [];
@@ -937,7 +966,7 @@ function updateIngresosTab() {
         .reduce((sum, p) => sum + p.monto, 0);
 
     const prof = appData.personal.find(p => p.nombre === appData.currentUser);
-    const comision = prof && prof.tipo !== 'empleado' && !prof.isAdmin ? getComisionRate(prof.tipo) : 0;
+    const comision = prof && prof.tipo !== 'empleado' && !prof.isAdmin ? getComisionRate(prof.tipo, prof) : 0;
     const comisionesHoy = ingresosHoy * comision / 100;
 
     const lastPayment = prof?.lastPaymentDate ? new Date(prof.lastPaymentDate) : new Date(0);
@@ -975,7 +1004,9 @@ function updateIngresosTab() {
     }
 }
 
-function getComisionRate(tipo) {
+function getComisionRate(tipo, person) {
+    // Individual override takes priority over global setting
+    if (person && typeof person.comisionPct === 'number') return person.comisionPct;
     const settings = appData.settings || {};
     if (tipo === 'regular')      return settings.comisionRegular      ?? 60;
     if (tipo === 'especialista') return settings.comisionEspecialista ?? 50;
@@ -1041,6 +1072,10 @@ function actualizarNuevoBalance() {
 }
 
 function openPagarFactura(facturaId) {
+    if (!tienePermiso('cobrar')) {
+        alert('⛔ No tienes autorización para procesar cobros.');
+        return;
+    }
     const factura = appData.facturas.find(f => f.id === facturaId);
     if (!factura) return;
 
@@ -1776,7 +1811,7 @@ function updatePersonalTab() {
         list.innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay personal registrado</li>';
     } else {
         list.innerHTML = personal.map(p => {
-            const comisionRate = getComisionRate(p.tipo);
+            const comisionRate = getComisionRate(p.tipo, p);
             const comisionesAcum = p.tipo !== 'empleado' ? calcularComisionesAcumuladas(p) : 0;
             const totalAvances = calcularTotalAvances(p.id);
 
@@ -1814,7 +1849,7 @@ function getTipoLabel(tipo) {
 
 function calcularComisionesAcumuladas(person) {
     const lastPayment = person.lastPaymentDate ? new Date(person.lastPaymentDate) : new Date(0);
-    const comisionRate = getComisionRate(person.tipo);
+    const comisionRate = getComisionRate(person.tipo, person);
 
     // Calcular comisiones sobre el TOTAL COBRADO de facturas pagadas
     // (el total ya incluye laboratorio, no hay que contarlo aparte)
@@ -1857,13 +1892,33 @@ function openPersonalDetail(id) {
     `;
 
     if (person.tipo !== 'empleado') {
-        const comisionRate = getComisionRate(person.tipo);
+        const comisionRate = getComisionRate(person.tipo, person);
         const comisionesAcum = calcularComisionesAcumuladas(person);
 
         content += `
             <div style="margin-bottom: 20px;">
-                <div style="color: #666; font-size: 14px;">Comisión</div>
-                <div style="font-weight: 700; font-size: 18px; color: var(--clinic-primary, #C4856A);">${comisionRate}%</div>
+                <div style="color: #666; font-size: 14px; margin-bottom: 6px;">Comisión personalizada</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="number" id="inputComisionPersonal" value="${typeof person.comisionPct === 'number' ? person.comisionPct : comisionRate}"
+                        min="0" max="100" step="1"
+                        style="width: 80px; padding: 8px 10px; border: 1.5px solid #e0e0e0; border-radius: 10px;
+                               font-size: 16px; font-family: inherit; text-align: center;"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'">
+                    <span style="color: #666; font-size: 16px;">%</span>
+                    <button onclick="guardarComisionPersonal('${person.id}')"
+                        style="padding: 8px 16px; background: var(--clinic-color); color: white; border: none;
+                               border-radius: 100px; font-size: 13px; font-family: inherit; cursor: pointer;">
+                        Guardar
+                    </button>
+                    ${typeof person.comisionPct === 'number' ? `
+                    <button onclick="resetearComisionPersonal('${person.id}')"
+                        style="padding: 8px 12px; background: none; border: 1.5px solid #e0e0e0; color: #999;
+                               border-radius: 100px; font-size: 12px; font-family: inherit; cursor: pointer;"
+                        title="Usar tasa global">↺</button>` : ''}
+                </div>
+                ${typeof person.comisionPct === 'number'
+                    ? `<div style="font-size: 11px; color: var(--clinic-color); margin-top: 4px;">Tasa individual activa (global: ${getComisionRate(person.tipo)}%)</div>`
+                    : `<div style="font-size: 11px; color: #999; margin-top: 4px;">Usando tasa global</div>`}
             </div>
             <div style="margin-bottom: 20px;">
                 <div style="color: #666; font-size: 14px;">Comisiones Acumuladas</div>
@@ -1871,7 +1926,6 @@ function openPersonalDetail(id) {
             </div>
         `;
 
-        // Siempre mostrar botón de pago para profesionales (aunque sea 0)
         content += `
             <button class="btn btn-submit" style="background: #34c759; margin-bottom: 15px; width: 100%;" onclick="event.stopPropagation(); confirmarPagoProfesional('${person.id}')">
                 💰 Pagar Comisiones
@@ -1916,7 +1970,46 @@ function openPersonalDetail(id) {
         `;
     }
 
-    content += `
+    // ── Permisos granulares (solo admin puede ver/editar) ──
+    if (appData.currentRole === 'admin' && !person.isAdmin) {
+        const permisos = person.permisos || {};
+        const PERMS = [
+            { key: 'cobrar',      label: 'Procesar cobros',   icon: '💳' },
+            { key: 'facturar',    label: 'Crear facturas',    icon: '🧾' },
+            { key: 'cuadre',      label: 'Ver cuadre diario', icon: '📊' },
+            { key: 'gastos',      label: 'Registrar gastos',  icon: '💸' },
+            { key: 'verIngresos', label: 'Ver ingresos',      icon: '📈' },
+        ];
+        content += `
+            <div style="margin-top: 8px; margin-bottom: 20px; border-top: 1px solid #f0f0f0; padding-top: 20px;">
+                <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">
+                    Permisos
+                </div>
+                ${PERMS.map(p => {
+                    const activo = permisos[p.key] !== false; // default true
+                    return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f8f8f8;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px;">${p.icon}</span>
+                            <span style="font-size: 14px; color: #333;">${p.label}</span>
+                        </div>
+                        <button onclick="togglePermiso('${person.id}', '${p.key}', ${activo})"
+                            id="permBtn_${person.id}_${p.key}"
+                            style="width: 48px; height: 28px; border-radius: 100px; border: none; cursor: pointer;
+                                   background: ${activo ? 'var(--clinic-color, #C4856A)' : '#e0e0e0'};
+                                   position: relative; transition: background 0.2s;">
+                            <div style="width: 22px; height: 22px; border-radius: 50%; background: white;
+                                        position: absolute; top: 3px; transition: left 0.2s;
+                                        left: ${activo ? '23px' : '3px'};
+                                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>
+                        </button>
+                    </div>`;
+                }).join('')}
+            </div>
+        `;
+    }
+
+        content += `
         <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;" onclick="event.stopPropagation(); openEditPersonal('${person.id}')">
             ✏️ Editar Perfil
         </button>
@@ -1960,7 +2053,7 @@ function confirmarPagoProfesional(id) {
                     <strong>Cargo:</strong> ${getTipoLabel(person.tipo)}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
-                    <strong>Tasa de Comisión:</strong> ${getComisionRate(person.tipo)}%
+                    <strong>Tasa de Comisión:</strong> ${getComisionRate(person.tipo, person)}%
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
                     <strong>Comisiones brutas:</strong> ${formatCurrency(comisionesAcum)}
@@ -1996,7 +2089,7 @@ Fecha: ${fecha}
 Hora: ${hora}
 Para: ${person.nombre}
 Cargo: ${getTipoLabel(person.tipo)}
-Comisión: ${getComisionRate(person.tipo)}%
+Comisión: ${getComisionRate(person.tipo, person)}%
 
 ================================
 DETALLE
@@ -2222,6 +2315,59 @@ function registrarAvance() {
     closeModal('modalAvance');
     updatePersonalTab();
     alert('Avance registrado exitosamente');
+}
+
+function togglePermiso(personId, key, valorActual) {
+    const person = appData.personal.find(p => p.id === personId);
+    if (!person) return;
+    if (!person.permisos) person.permisos = {};
+
+    const nuevoValor = !valorActual;
+    person.permisos[key] = nuevoValor;
+
+    // Animate toggle immediately
+    const btn = document.getElementById(`permBtn_${personId}_${key}`);
+    if (btn) {
+        btn.style.background = nuevoValor ? 'var(--clinic-color, #C4856A)' : '#e0e0e0';
+        const dot = btn.querySelector('div');
+        if (dot) dot.style.left = nuevoValor ? '23px' : '3px';
+        btn.setAttribute('onclick', `togglePermiso('${personId}', '${key}', ${nuevoValor})`);
+    }
+
+    savePaciente && savePaciente; // just use saveData for personal
+    saveData();
+    registrarAuditoria('editar', 'permiso', `${key}: ${nuevoValor ? 'activado' : 'desactivado'} para ${person.nombre}`);
+}
+
+function guardarComisionPersonal(personId) {
+    const person = appData.personal.find(p => p.id === personId);
+    if (!person) return;
+
+    const input = document.getElementById('inputComisionPersonal');
+    if (!input) return;
+
+    const val = parseFloat(input.value);
+    if (isNaN(val) || val < 0 || val > 100) {
+        alert('La comisión debe ser un número entre 0 y 100');
+        return;
+    }
+
+    person.comisionPct = val;
+    saveData();
+    mostrarToastConfig(`✓ Comisión de ${person.nombre} actualizada a ${val}%`);
+
+    // Refresh the modal to show the individual badge
+    openPersonalDetail(personId);
+}
+
+function resetearComisionPersonal(personId) {
+    const person = appData.personal.find(p => p.id === personId);
+    if (!person) return;
+
+    delete person.comisionPct;
+    saveData();
+    mostrarToastConfig('✓ Comisión reseteada a tasa global');
+    openPersonalDetail(personId);
 }
 
 function eliminarPersonal(id) {
@@ -4171,7 +4317,7 @@ function agregarOrdenLabAFactura() {
 }
 
 function updateListaOrdenesLabTemp() {
-    const lista = document.getElementById('listaOrdenesLabTemp');
+    const lista = getFacturaEl('listaOrdenesLabTemp');
 
     if (!lista) return;
 
@@ -6157,7 +6303,7 @@ function exportarComisionesExcel() {
     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
 
     const datos = profesionales.map(p => {
-        const comisionRate = getComisionRate(p.tipo);
+        const comisionRate = getComisionRate(p.tipo, p);
         const comisionesAcum = calcularComisionesAcumuladas(p);
 
         return {
@@ -7610,21 +7756,25 @@ function renderCobrosTab(subtab) {
         document.querySelector('.content-area').appendChild(tab);
     }
     tab.classList.add('active');
-    tab._activeSubtab = subtab || tab._activeSubtab || 'cobrar';
+    // Pick requested subtab, or remembered one, or first one the user can access
+    const _requested = subtab || tab._activeSubtab || 'cobrar';
+    const active = tienePermiso({ cobrar:'cobrar', nueva:'facturar', ingresos:'verIngresos', cuadre:'cuadre', gastos:'gastos' }[_requested] || _requested)
+        ? _requested
+        : (['cobrar','nueva','ingresos','cuadre','gastos'].find(k => tienePermiso({cobrar:'cobrar',nueva:'facturar',ingresos:'verIngresos',cuadre:'cuadre',gastos:'gastos'}[k])) || 'cobrar');
+    tab._activeSubtab = active;
 
     // Highlight nav
     document.querySelectorAll('.nav-item').forEach(btn => {
         if (btn.getAttribute('onclick') === "showTab('cobros')") btn.classList.add('active');
     });
 
-    const active = tab._activeSubtab;
     const subtabs = [
-        { key: 'cobrar',      label: '💳 Cobrar'     },
-        { key: 'nueva',       label: '+ Nueva'       },
-        { key: 'ingresos',    label: 'Ingresos'      },
-        { key: 'cuadre',      label: 'Cuadre'        },
-        { key: 'gastos',      label: 'Gastos'        },
-    ];
+        { key: 'cobrar',   label: '💳 Cobrar',   permiso: 'cobrar'     },
+        { key: 'nueva',    label: '+ Nueva',     permiso: 'facturar'   },
+        { key: 'ingresos', label: 'Ingresos',    permiso: 'verIngresos'},
+        { key: 'cuadre',   label: 'Cuadre',      permiso: 'cuadre'     },
+        { key: 'gastos',   label: 'Gastos',      permiso: 'gastos'     },
+    ].filter(s => tienePermiso(s.permiso));
 
     const subtabsHtml = subtabs.map(s => `
         <button onclick="setCobrosSubtab('${s.key}')" style="
@@ -7672,9 +7822,25 @@ function renderCobrosContent(key) {
         // Copy factura tab content into cobros
         const src = document.getElementById('tab-factura');
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+
+        // Populate professional selector for admin (can't use showTab logic since we cloned)
+        if (appData.currentRole === 'admin') {
+            const container = el.querySelector('#selectorProfesionalFactura');
+            const select    = el.querySelector('#profesionalQueAtendio');
+            if (container) container.style.display = 'block';
+            if (select) {
+                const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
+                select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
+                    profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+            }
+        }
+
         // Re-init factura state
         if (typeof initFacturaForm === 'function') initFacturaForm();
         if (typeof updateTempProcedimientos === 'function') updateTempProcedimientos();
+        updateProcedimientosList();
+        updateListaOrdenesLabTemp();
+        updateTotal();
     } else if (key === 'ingresos') {
         const src = document.getElementById('tab-ingresos');
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
