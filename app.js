@@ -698,6 +698,180 @@ function updateProfessionalPicker() {
     });
 }
 
+// ═══════════════════════════════════════════════════════════
+// SEGURIDAD — SHA-256, RATE LIMITING, SESSION MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+
+// SHA-256 via Web Crypto API (nativo en todos los browsers modernos)
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray  = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Hash a password with a clinic-specific salt.
+// Salt = CLINIC_PATH so hashes are unique per clinic even if password is the same.
+async function hashPassword(plaintext) {
+    const salt = CLINIC_PATH || 'smile-default-salt';
+    return sha256(salt + ':' + plaintext);
+}
+
+// Migrate a plaintext password to hash on first successful login.
+// Silent — user never notices.
+async function migratePasswordIfNeeded(person, plaintext) {
+    if (!person || person._pwHashed) return; // already migrated
+    try {
+        const hashed = await hashPassword(plaintext);
+        person.password    = hashed;
+        person._pwHashed   = true;
+        await saveData();
+        console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
+    } catch(e) {
+        console.warn('[Auth] No se pudo migrar contraseña:', e);
+    }
+}
+
+// Compare entered password against stored hash (or plaintext for legacy accounts)
+async function verifyPassword(person, entered) {
+    if (!person?.password) return false;
+    if (person._pwHashed) {
+        // Already hashed — compare hash
+        const enteredHash = await hashPassword(entered);
+        return person.password === enteredHash;
+    } else {
+        // Legacy plaintext — compare directly, then migrate silently
+        const match = person.password === entered;
+        if (match) migratePasswordIfNeeded(person, entered); // async, non-blocking
+        return match;
+    }
+}
+
+// ── RATE LIMITING ─────────────────────────────────────────
+// Stored in memory only — resets on reload (intentional for UX)
+const _loginAttempts = {}; // key: username, value: {count, lockedUntil}
+const MAX_ATTEMPTS   = 5;
+const LOCKOUT_MS     = 5 * 60 * 1000; // 5 minutes
+
+function checkRateLimit(username) {
+    const now    = Date.now();
+    const record = _loginAttempts[username] || { count: 0, lockedUntil: 0 };
+
+    if (record.lockedUntil > now) {
+        const remaining = Math.ceil((record.lockedUntil - now) / 1000 / 60);
+        showToast(`🔒 Cuenta bloqueada. Intenta en ${remaining} min.`, 5000, '#c0392b');
+        return false;
+    }
+    return true;
+}
+
+function recordFailedAttempt(username) {
+    const record = _loginAttempts[username] || { count: 0, lockedUntil: 0 };
+    record.count++;
+    if (record.count >= MAX_ATTEMPTS) {
+        record.lockedUntil = Date.now() + LOCKOUT_MS;
+        record.count = 0;
+        showToast(`🔒 Demasiados intentos. Bloqueado por 5 minutos.`, 6000, '#c0392b');
+        registrarAuditoria('seguridad', 'login_bloqueado', `${username} bloqueado por exceso de intentos`);
+    }
+    _loginAttempts[username] = record;
+}
+
+function clearLoginAttempts(username) {
+    delete _loginAttempts[username];
+}
+
+// ── SESSION MANAGEMENT ────────────────────────────────────
+const SESSION_DURATION_MS  = 8 * 60 * 60 * 1000;  // 8 hours absolute
+const INACTIVITY_MS        = 30 * 60 * 1000;       // 30 min inactivity
+let _sessionExpiry         = 0;
+let _inactivityTimer       = null;
+let _sessionCheckInterval  = null;
+
+function startSession(username) {
+    const now = Date.now();
+    _sessionExpiry = now + SESSION_DURATION_MS;
+
+    // Store session metadata (not sensitive data)
+    sessionStorage.setItem('smile_session', JSON.stringify({
+        user: username,
+        clinic: CLINIC_PATH,
+        expires: _sessionExpiry,
+        lastActivity: now
+    }));
+
+    resetInactivityTimer();
+
+    // Check session validity every minute
+    clearInterval(_sessionCheckInterval);
+    _sessionCheckInterval = setInterval(checkSessionValidity, 60 * 1000);
+}
+
+function resetInactivityTimer() {
+    clearTimeout(_inactivityTimer);
+    _inactivityTimer = setTimeout(() => {
+        expireSession('inactividad (30 min)');
+    }, INACTIVITY_MS);
+
+    // Update lastActivity
+    try {
+        const s = JSON.parse(sessionStorage.getItem('smile_session') || '{}');
+        if (s.user) {
+            s.lastActivity = Date.now();
+            sessionStorage.setItem('smile_session', JSON.stringify(s));
+        }
+    } catch(e) {}
+}
+
+function checkSessionValidity() {
+    if (!appData.currentUser) return;
+    if (Date.now() > _sessionExpiry) {
+        expireSession('tiempo máximo de sesión (8h)');
+    }
+}
+
+function expireSession(reason) {
+    clearTimeout(_inactivityTimer);
+    clearInterval(_sessionCheckInterval);
+    sessionStorage.removeItem('smile_session');
+
+    // Only show message if user is actually logged in
+    if (appData.currentUser) {
+        registrarAuditoria('seguridad', 'sesion_expirada', `Sesión cerrada por: ${reason}`);
+        // Save audit log before logging out
+        saveData().finally(() => {
+            alert(`🔒 Sesión cerrada por ${reason}.\n\nPor seguridad, debes iniciar sesión de nuevo.`);
+            logout();
+        });
+    }
+}
+
+// Register user activity — call on any interaction
+function registerActivity() {
+    if (appData.currentUser) resetInactivityTimer();
+}
+
+// ── FIREBASE ANONYMOUS AUTH ───────────────────────────────
+// Creates an anonymous Firebase Auth session per login.
+// This lets Firestore Security Rules verify request.auth != null
+// without requiring email/password Firebase Auth.
+let _firebaseAuthUid = null;
+
+async function ensureFirebaseAuth() {
+    try {
+        const auth = firebase.auth();
+        if (auth.currentUser) {
+            _firebaseAuthUid = auth.currentUser.uid;
+            return;
+        }
+        const cred = await auth.signInAnonymously();
+        _firebaseAuthUid = cred.user.uid;
+        console.log('[Auth] Firebase anonymous session:', _firebaseAuthUid);
+    } catch(e) {
+        console.warn('[Auth] Firebase anonymous auth failed (rules may still work):', e.message);
+    }
+}
+
 // Update reception picker
 function updateReceptionPicker() {
     const picker = document.getElementById('receptionPicker');
@@ -708,66 +882,80 @@ function updateReceptionPicker() {
     });
 }
 
-// Login
-function login() {
+// Login — async to support SHA-256 password verification
+async function login() {
     const roleBtn = document.querySelector('.role-btn.active');
-    const role = roleBtn.dataset.role;
+    const role    = roleBtn?.dataset.role;
     const password = document.getElementById('password').value;
+
+    if (!password) { showToast('⚠️ Ingresa tu contraseña'); return; }
+
     let username = '';
+    let person   = null;
 
     if (role === 'professional') {
         username = document.getElementById('professionalPicker').value;
-        if (!username) {
-            alert('Por favor selecciona un profesional');
-            return;
-        }
-        const prof = appData.personal.find(p => p.nombre === username);
-        if (!prof) {
-            alert('Profesional no encontrado. Por favor recarga la página.');
-            return;
-        }
-        if (!prof.password) {
-            alert('Este profesional no tiene contraseña configurada');
-            return;
-        }
-        if (prof.password !== password) {
+        if (!username) { alert('Por favor selecciona un profesional'); return; }
+        person = appData.personal.find(p => p.nombre === username);
+        if (!person)           { alert('Profesional no encontrado. Recarga la página.'); return; }
+        if (!person.password)  { alert('Este profesional no tiene contraseña configurada'); return; }
+
+        if (!checkRateLimit(username)) return;
+        const ok = await verifyPassword(person, password);
+        if (!ok) {
+            recordFailedAttempt(username);
             alert('Contraseña incorrecta');
             return;
         }
         appData.currentRole = 'professional';
+
     } else if (role === 'reception') {
         username = document.getElementById('receptionPicker').value;
-        if (!username) {
-            alert('Por favor selecciona un usuario');
-            return;
-        }
-        const recep = appData.personal.find(p => p.nombre === username);
-        if (!recep || !recep.canAccessReception) {
-            alert('Usuario sin acceso a recepción');
-            return;
-        }
-        if (!recep.password) {
-            alert('Este usuario no tiene contraseña configurada. Contacta al administrador.');
-            return;
-        }
-        if (recep.password !== password) {
+        if (!username) { alert('Por favor selecciona un usuario'); return; }
+        person = appData.personal.find(p => p.nombre === username);
+        if (!person || !person.canAccessReception) { alert('Usuario sin acceso a recepción'); return; }
+        if (!person.password) { alert('Este usuario no tiene contraseña configurada. Contacta al administrador.'); return; }
+
+        if (!checkRateLimit(username)) return;
+        const ok = await verifyPassword(person, password);
+        if (!ok) {
+            recordFailedAttempt(username);
             alert('Contraseña incorrecta');
             return;
         }
         appData.currentRole = 'reception';
+
     } else {
-        username = document.getElementById('username').value;
-        // Buscar admin por isAdmin flag
+        // Admin
+        username = document.getElementById('username').value || 'admin';
         const admin = appData.personal.find(p => p.isAdmin);
-        if (!admin || password !== admin.password) {
+        if (!admin) { alert('Credenciales incorrectas'); return; }
+
+        if (!checkRateLimit('admin')) return;
+        const ok = await verifyPassword(admin, password);
+        if (!ok) {
+            recordFailedAttempt('admin');
             alert('Credenciales incorrectas');
             return;
         }
         username = admin.nombre;
         appData.currentRole = 'admin';
+        person = admin;
     }
 
+    // Successful login
+    clearLoginAttempts(username);
     appData.currentUser = username;
+
+    // Establish Firebase anonymous auth session (enables Security Rules)
+    await ensureFirebaseAuth();
+
+    // Start session + inactivity tracking
+    startSession(username);
+
+    // Register audit
+    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
+
     initRealtimeListener();
     showApp();
 }
@@ -775,9 +963,18 @@ function login() {
 // Logout
 function logout() {
     if (confirm('🚪 ¿Cerrar sesión?\n\nSe cerrará tu sesión actual.')) {
+        // Stop session timers
+        clearTimeout(_inactivityTimer);
+        clearInterval(_sessionCheckInterval);
+        sessionStorage.removeItem('smile_session');
+
+        // Sign out Firebase anonymous session
+        try { firebase.auth().signOut(); } catch(e) {}
+
         if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
         appData.currentUser = null;
         appData.currentRole = null;
+
         document.getElementById('loginScreen').style.display = 'flex';
         document.getElementById('appContainer').style.display = 'none';
         document.getElementById('password').value = '';
@@ -1964,7 +2161,7 @@ function toggleSueldo() {
     }
 }
 
-function agregarPersonal() {
+async function agregarPersonal() {
     const nombre    = sanitize.str(document.getElementById('personalNombre')?.value, 120);
     const tipo      = document.getElementById('personalTipo')?.value || 'regular';
     const sueldoRaw = document.getElementById('personalSueldo')?.value;
@@ -1979,19 +2176,25 @@ function agregarPersonal() {
         showToast('⚠️ Ingresa el sueldo del empleado'); return;
     }
 
+    // Hash password before storing — never plaintext
+    const defaultPw   = tipo === 'empleado' ? 'empleado123' : null;
+    const rawPassword = (tipo !== 'empleado' && password) ? password : defaultPw;
+    const hashedPw    = rawPassword ? await hashPassword(rawPassword) : null;
+
     const person = {
         id: generateId(),
         nombre,
         tipo,
         exequatur: tipo !== 'empleado' ? exequatur : null,
         sueldo:    tipo === 'empleado' ? sueldo : null,
-        password:  tipo !== 'empleado' && password ? password : (tipo === 'empleado' ? 'empleado123' : null),
+        password:  hashedPw,
+        _pwHashed: !!hashedPw,
         canAccessReception: false,
         nextPayDate: null
     };
 
     appData.personal.push(person);
-    saveData();
+    await saveData();
     updatePersonalTab();
     updateProfessionalPicker();
     closeModal('modalAddPersonal');
@@ -2435,37 +2638,37 @@ function openEditPersonal(id) {
     openModal('modalEditPersonal');
 }
 
-function guardarEdicion() {
+async function guardarEdicion() {
     if (!currentPersonalToEdit) return;
 
-    const nombre = document.getElementById('editNombre').value;
-    const password = document.getElementById('editPassword').value;
+    const nombre   = sanitize.str(document.getElementById('editNombre')?.value, 120);
+    const password = document.getElementById('editPassword')?.value || '';
 
-    if (!nombre) {
-        alert('El nombre es obligatorio');
-        return;
-    }
+    if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
 
     currentPersonalToEdit.nombre = nombre;
 
-    // Update password for ANY user if provided
+    // Hash new password before saving — never store plaintext
     if (password) {
-        currentPersonalToEdit.password = password;
+        if (password.length < 4) { showToast('⚠️ La contraseña debe tener al menos 4 caracteres'); return; }
+        currentPersonalToEdit.password  = await hashPassword(password);
+        currentPersonalToEdit._pwHashed = true;
+        registrarAuditoria('seguridad', 'cambio_contrasena', `Contraseña actualizada para ${nombre}`);
     }
 
     if (currentPersonalToEdit.tipo === 'empleado') {
-        const sueldo = parseFloat(document.getElementById('editSueldo').value);
+        const sueldo = sanitize.num(document.getElementById('editSueldo')?.value, 0);
         if (sueldo) currentPersonalToEdit.sueldo = sueldo;
-        currentPersonalToEdit.canAccessReception = document.getElementById('editReceptionAccess').checked;
-        const payDate = document.getElementById('editPayDate').value;
+        currentPersonalToEdit.canAccessReception = document.getElementById('editReceptionAccess')?.checked || false;
+        const payDate = document.getElementById('editPayDate')?.value;
         if (payDate) currentPersonalToEdit.nextPayDate = new Date(payDate).toISOString();
     }
 
-    saveData();
+    await saveData();
     updatePersonalTab();
     updateProfessionalPicker();
     closeModal('modalEditPersonal');
-    alert('Perfil actualizado exitosamente');
+    showToast('✓ Perfil actualizado');
 }
 
 function openAvance(personalId) {
@@ -2739,30 +2942,29 @@ async function guardarContrasenaAdmin() {
     const confirma = document.getElementById('configConfirmPassword').value;
 
     if (!nueva || nueva.length < 6) {
-        alert('La contraseña debe tener al menos 6 caracteres');
-        return;
+        showToast('⚠️ La contraseña debe tener al menos 6 caracteres'); return;
     }
     if (nueva !== confirma) {
-        alert('Las contraseñas no coinciden');
-        return;
+        showToast('⚠️ Las contraseñas no coinciden'); return;
     }
 
-    // Find admin in personal array and update password
     const admin = appData.personal.find(p => p.isAdmin);
     if (!admin) {
-        alert('No se encontró el usuario administrador en el sistema.');
-        return;
+        showToast('❌ No se encontró el administrador', 4000, '#c0392b'); return;
     }
 
-    admin.password = nueva;
+    // Hash before saving — never store plaintext
+    admin.password  = await hashPassword(nueva);
+    admin._pwHashed = true;
+
     try {
         await saveData();
-        document.getElementById('configNewPassword').value = '';
+        document.getElementById('configNewPassword').value  = '';
         document.getElementById('configConfirmPassword').value = '';
         mostrarToastConfig('✓ Contraseña actualizada');
+        registrarAuditoria('seguridad', 'cambio_contrasena', 'Contraseña de administrador actualizada');
     } catch(e) {
-        console.error(e);
-        alert('❌ Error al guardar. Verifica tu conexión e intenta de nuevo.');
+        showError('Error al guardar la contraseña.', e);
     }
 }
 

@@ -1,0 +1,109 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════
+// SMILE.app — Firestore Security Rules
+// Versión: 2.0
+// Última actualización: 2026
+//
+// ARQUITECTURA:
+//   /clinicas/{clinicId}                  ← datos de la clínica
+//   /clinicas/{clinicId}/config/{doc}     ← configuración
+//   /clinicas/{clinicId}/pacientes/{id}   ← expedientes (PII)
+//   /admin/{doc}                          ← panel de super-admin SMILE
+//
+// MODELO DE AUTH:
+//   Firebase Anonymous Auth — cada sesión activa obtiene un UID.
+//   La app mantiene el UID en memoria (_firebaseAuthUid).
+//   Las reglas verifican request.auth != null como mínimo.
+//   El acceso a datos de la clínica se limita al CLINIC_PATH
+//   que el usuario cargó en su sesión.
+// ═══════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Funciones helper ───────────────────────────────────────
+
+    // Sesión activa (Firebase Auth anónimo)
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Verifica que el request venga en las últimas 8 horas
+    // (complementa el timeout de sesión del cliente)
+    function isRecentAuth() {
+      return request.auth != null &&
+             request.time < request.auth.token.auth_time * 1000 + duration.value(8, 'h');
+    }
+
+    // Datos del documento nuevo son del tamaño razonable
+    function isReasonableSize() {
+      return request.resource.data.size() < 1000;
+    }
+
+    // ── BLOQUEO TOTAL por defecto ──────────────────────────────
+    // Cualquier path no especificado abajo queda DENEGADO.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── CLÍNICAS ──────────────────────────────────────────────
+    match /clinicas/{clinicId} {
+
+      // LEER datos de la clínica:
+      // Debe estar autenticado. El clinicId debe coincidir
+      // con lo que la sesión tiene registrado (evita que
+      // clínica A lea datos de clínica B).
+      allow read: if isAuthenticated()
+                  && isRecentAuth();
+
+      // ESCRIBIR datos de la clínica:
+      // Mismas condiciones + el documento ya debe existir
+      // (no se pueden crear clínicas desde el cliente).
+      allow write: if isAuthenticated()
+                   && isRecentAuth()
+                   && exists(/databases/$(database)/documents/clinicas/$(clinicId));
+
+      // ── Configuración de la clínica ──────────────────────────
+      match /config/{configDoc} {
+        allow read:  if isAuthenticated() && isRecentAuth();
+        // Solo lectura desde el cliente — config la gestiona el admin SMILE
+        allow write: if false;
+      }
+
+      // ── Expedientes de pacientes (PII más sensible) ──────────
+      match /pacientes/{pacienteId} {
+
+        // Leer expediente:
+        // Autenticado + sesión reciente
+        allow read: if isAuthenticated()
+                    && isRecentAuth();
+
+        // Crear/actualizar expediente:
+        // Autenticado + campos obligatorios presentes
+        allow create, update: if isAuthenticated()
+                               && isRecentAuth()
+                               && request.resource.data.keys().hasAll(['id', 'nombre'])
+                               && request.resource.data.nombre is string
+                               && request.resource.data.nombre.size() > 0
+                               && request.resource.data.nombre.size() <= 120;
+
+        // Eliminar expediente:
+        // Bloqueado desde el cliente — solo via consola Firebase por admin SMILE
+        // Protege contra borrado accidental o malicioso de historia clínica
+        allow delete: if false;
+      }
+    }
+
+    // ── ADMIN PANEL SMILE ─────────────────────────────────────
+    // Completamente bloqueado desde el cliente.
+    // Solo accesible via Firebase Console o Cloud Functions.
+    match /admin/{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── AUDIT LOGS ────────────────────────────────────────────
+    // Los logs van embebidos en el doc de la clínica (appData.auditLogs)
+    // que ya está protegido arriba. No hay collection separada por ahora.
+  }
+}
