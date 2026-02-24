@@ -95,12 +95,18 @@
         font-size: 11px;
         font-weight: 400;
         letter-spacing: 0.5px;
-        z-index: 99;
+        z-index: 9999;
         opacity: 0;
-        transition: opacity 0.3s;
+        transition: opacity 0.3s, background 0.3s;
         box-shadow: var(--shadow-md);
+        pointer-events: none;
     }
     .sync-indicator.show { opacity: 1; }
+    @keyframes syncPulse {
+        0%,100% { opacity: 1; }
+        50%      { opacity: 0.5; }
+    }
+    .sync-indicator.sync-pulse { animation: syncPulse 1s ease-in-out infinite; }
 
     /* ── LOGIN SCREEN ───────────────────────────── */
     .login-screen {

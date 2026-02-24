@@ -189,15 +189,208 @@ function lightenColor(hex, percent) {
 // ========================================
 
 // Show sync indicator
-function showSyncIndicator() {
-    const indicator = document.getElementById('syncIndicator');
-    if (indicator) {
-        indicator.classList.add('show');
-        setTimeout(() => indicator.classList.remove('show'), 2000);
+// ═══════════════════════════════════════════════════════════
+// ESTADO DE RED Y SINCRONIZACIÓN
+// ═══════════════════════════════════════════════════════════
+
+let _connectionState = 'online'; // 'online' | 'saving' | 'offline' | 'error'
+
+function setConnectionState(state, detail) {
+    _connectionState = state;
+    const el = document.getElementById('syncIndicator');
+    if (!el) return;
+
+    const cfg = {
+        online:  { text: '✓ Sincronizado',           bg: '#1E1C1A', pulse: false },
+        saving:  { text: '⟳ Guardando…',             bg: '#7B8FA1', pulse: true  },
+        offline: { text: '⚠️ Sin conexión',           bg: '#e65100', pulse: false },
+        error:   { text: '✕ Error al guardar',        bg: '#c0392b', pulse: false },
+    };
+    const c = cfg[state] || cfg.online;
+
+    el.textContent = detail ? `${c.text.split(' ')[0]} ${detail}` : c.text;
+    el.style.background = c.bg;
+    el.classList.add('show');
+    el.classList.toggle('sync-pulse', c.pulse);
+
+    if (state === 'online') {
+        setTimeout(() => el.classList.remove('show'), 2200);
     }
 }
 
+function showSyncIndicator() { setConnectionState('online'); }
+
+// Firebase Realtime Database connection detection
+// Uses the special .info/connected path — more reliable than navigator.onLine
+function initConnectionMonitor() {
+    try {
+        const connectedRef = firebase.database().ref('.info/connected');
+        connectedRef.on('value', snap => {
+            if (snap.val() === true) {
+                if (_connectionState === 'offline') setConnectionState('online');
+            } else {
+                setConnectionState('offline');
+            }
+        });
+    } catch(e) {
+        // Firebase Realtime DB not configured — fall back to browser events
+        window.addEventListener('online',  () => setConnectionState('online'));
+        window.addEventListener('offline', () => setConnectionState('offline'));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SANITIZACIÓN CENTRALIZADA DE DATOS
+// ═══════════════════════════════════════════════════════════
+
+// Cleans a value before it goes to Firebase.
+// Returns the sanitized value, or throws if invalid and required.
+const sanitize = {
+    // Safe string — trim, strip control chars, cap length
+    str(val, max = 500) {
+        if (val === null || val === undefined) return '';
+        return String(val).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().slice(0, max);
+    },
+    // Numeric — returns float or 0; never NaN/Infinity
+    num(val, min = 0, max = 99999999) {
+        const n = parseFloat(String(val).replace(/[^0-9.\-]/g, ''));
+        if (!isFinite(n)) return 0;
+        return Math.min(Math.max(n, min), max);
+    },
+    // Integer
+    int(val, min = 0, max = 99999) {
+        return Math.round(sanitize.num(val, min, max));
+    },
+    // Percentage 0-100
+    pct(val) { return sanitize.num(val, 0, 100); },
+    // Phone — keep digits, spaces, +, -, ()
+    phone(val) {
+        return String(val || '').replace(/[^0-9\s\+\-\(\)]/g, '').trim().slice(0, 20);
+    },
+    // Email — basic lowercase trim
+    email(val) {
+        return String(val || '').toLowerCase().trim().slice(0, 254);
+    },
+    // Date ISO string — returns '' if invalid
+    date(val) {
+        if (!val) return '';
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? '' : d.toISOString();
+    },
+    // Safe ID — alphanumeric + dash/underscore only
+    id(val) {
+        return String(val || '').replace(/[^a-zA-Z0-9\-_]/g, '').slice(0, 64);
+    },
+    // Boolean
+    bool(val) { return val === true || val === 'true' || val === 1; },
+
+    // Deep-clean an entire patient object before saving
+    paciente(p) {
+        if (!p || typeof p !== 'object') return null;
+        return {
+            ...p,
+            id:                   sanitize.id(p.id),
+            nombre:               sanitize.str(p.nombre, 120),
+            cedula:               sanitize.str(p.cedula, 20),
+            telefono:             sanitize.phone(p.telefono),
+            email:                sanitize.email(p.email),
+            fechaNacimiento:      p.fechaNacimiento ? sanitize.str(p.fechaNacimiento, 10) : '',
+            sexo:                 ['M','F',''].includes(p.sexo) ? p.sexo : '',
+            grupoSanguineo:       sanitize.str(p.grupoSanguineo, 5),
+            direccion:            sanitize.str(p.direccion, 300),
+            alergias:             sanitize.str(p.alergias, 500),
+            condiciones:          sanitize.str(p.condiciones, 500),
+            seguro:               sanitize.str(p.seguro, 100),
+            emergenciaNombre:     sanitize.str(p.emergenciaNombre, 120),
+            emergenciaTelefono:   sanitize.phone(p.emergenciaTelefono),
+        };
+    },
+
+    // Deep-clean a factura object
+    factura(f) {
+        if (!f || typeof f !== 'object') return null;
+        return {
+            ...f,
+            id:          sanitize.id(f.id),
+            numero:      sanitize.str(f.numero, 30),
+            paciente:    sanitize.str(f.paciente, 120),
+            profesional: sanitize.str(f.profesional, 120),
+            total:       sanitize.num(f.total),
+            subtotal:    sanitize.num(f.subtotal),
+            descuento:   sanitize.pct(f.descuento),
+            notas:       sanitize.str(f.notas, 1000),
+            procedimientos: (f.procedimientos || []).map(pr => ({
+                ...pr,
+                descripcion:   sanitize.str(pr.descripcion, 300),
+                precioUnitario: sanitize.num(pr.precioUnitario),
+                cantidad:       sanitize.int(pr.cantidad, 1),
+            })),
+            pagos: (f.pagos || []).map(pg => ({
+                ...pg,
+                monto:  sanitize.num(pg.monto),
+                metodo: sanitize.str(pg.metodo, 50),
+            })),
+        };
+    },
+
+    // Deep-clean a cita object
+    cita(c) {
+        if (!c || typeof c !== 'object') return null;
+        return {
+            ...c,
+            id:          sanitize.id(c.id),
+            paciente:    sanitize.str(c.paciente, 120),
+            profesional: sanitize.str(c.profesional, 120),
+            motivo:      sanitize.str(c.motivo, 500),
+            hora:        sanitize.str(c.hora, 10),
+            duracionMin: sanitize.int(c.duracionMin, 5, 480),
+        };
+    },
+};
+
+// ── Error display helper — friendlier than alert() ──────
+function showError(msg, detail) {
+    const friendly = {
+        'permission-denied':  'Sin permiso para guardar. Recarga la página.',
+        'unavailable':        'Sin conexión con el servidor. Verifica tu internet.',
+        'deadline-exceeded':  'La operación tardó demasiado. Intenta de nuevo.',
+        'not-found':          'Documento no encontrado en Firebase.',
+        'already-exists':     'Ya existe un registro con ese ID.',
+    };
+    const code = detail?.code?.replace('firestore/', '') || '';
+    const text = friendly[code] || msg;
+    setConnectionState('error');
+    showToast(`❌ ${text}`, 5000, '#c0392b');
+    console.error('[SMILE]', msg, detail);
+}
+
+// Generic toast (reuse mostrarToastConfig for non-config toasts too)
+function showToast(text, duration = 3000, bg = '#1E1C1A') {
+    let toast = document.getElementById('smileToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'smileToast';
+        toast.style.cssText = `
+            position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);
+            background:${bg};color:white;padding:10px 20px;border-radius:100px;
+            font-size:13px;font-family:inherit;z-index:99999;opacity:0;
+            transition:opacity 0.25s,transform 0.25s;pointer-events:none;
+            box-shadow:0 4px 20px rgba(0,0,0,0.25);white-space:nowrap;max-width:90vw;text-align:center;`;
+        document.body.appendChild(toast);
+    }
+    toast.textContent = text;
+    toast.style.background = bg;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(20px)';
+    }, duration);
+}
+
 // Load data from Firebase
+
 async function loadData() {
     try {
         // Intentar cargar desde caché primero (más rápido)
@@ -254,15 +447,21 @@ async function loadData() {
         }
     } catch (error) {
         console.error('❌ Error loading from Firebase:', error);
+        setConnectionState('offline');
 
-        // Si falla, intentar usar caché aunque sea viejo
+        // Fall back to cache if available
         const cached = localStorage.getItem('clinicaData_cache');
         if (cached) {
-            console.log('⚠️ Usando caché de respaldo...');
-            const cachedData = JSON.parse(cached);
-            Object.assign(appData, cachedData);
+            try {
+                const cachedData = JSON.parse(cached);
+                Object.assign(appData, cachedData);
+                showToast('⚠️ Sin conexión — mostrando datos guardados localmente', 5000, '#e65100');
+            } catch(e) {
+                appData.personal = getDefaultPersonal();
+            }
         } else {
             appData.personal = getDefaultPersonal();
+            showToast('⚠️ Sin conexión. Verifica tu internet e intenta de nuevo.', 6000, '#e65100');
         }
     }
 }
@@ -298,27 +497,30 @@ function updateLocalCache() {
 // Save data to Firebase
 async function saveData() {
     try {
-        console.log(`💾 Guardando datos en Firebase...`);
+        setConnectionState('saving');
+        console.log('💾 Guardando datos en Firebase…');
 
-        // SMILE multi-tenant: pacientes SIEMPRE en subcollection
-        // 1. Guardar documento principal SIN pacientes
+        // Sanitize arrays before writing to Firebase
+        const facturasSafe  = (appData.facturas  || []).map(f => sanitize.factura(f)).filter(Boolean);
+        const citasSafe     = (appData.citas     || []).map(c => sanitize.cita(c)).filter(Boolean);
+
         await db.collection('clinicas').doc(CLINIC_PATH).set({
-            facturas: appData.facturas,
-            personal: appData.personal,
-            gastos: appData.gastos,
-            avances: appData.avances,
+            facturas:     facturasSafe,
+            personal:     appData.personal,
+            gastos:       appData.gastos,
+            avances:      appData.avances,
             cuadresDiarios: appData.cuadresDiarios || {},
-            pacientes: [],  // siempre vacío — viven en subcollection
-            citas: appData.citas || [],
+            pacientes:    [],  // always empty — live in subcollection
+            citas:        citasSafe,
             laboratorios: appData.laboratorios || [],
-            reversiones: appData.reversiones || [],
-            auditLogs: appData.auditLogs || [],
-            settings: appData.settings || {},
-            lastUpdated: new Date().toISOString(),
+            reversiones:  appData.reversiones  || [],
+            auditLogs:    appData.auditLogs    || [],
+            settings:     appData.settings     || {},
+            lastUpdated:  new Date().toISOString(),
             usaSubcollectionPacientes: true
         });
 
-        // 2. Guardar pacientes en subcollection en lotes de 100 (seguro dentro del límite de Firestore)
+        // Save patients in batches of 100
         if (appData.pacientes.length > 0) {
             const BATCH_SIZE = 100;
             for (let i = 0; i < appData.pacientes.length; i += BATCH_SIZE) {
@@ -327,18 +529,17 @@ async function saveData() {
                 lote.forEach(paciente => {
                     const docRef = db.collection('clinicas').doc(CLINIC_PATH)
                         .collection('pacientes').doc(paciente.id || generateId('PAC-'));
-                    batch.set(docRef, paciente);
+                    batch.set(docRef, sanitize.paciente(paciente) || paciente);
                 });
                 await batch.commit();
             }
         }
 
-        console.log(`✅ Datos guardados exitosamente en Firebase`);
+        console.log('✅ Datos guardados exitosamente');
         updateLocalCache();
-        showSyncIndicator();
+        setConnectionState('online');
     } catch (error) {
-        console.error('❌ ERROR CRÍTICO guardando en Firebase:', error);
-        alert(`❌ ERROR AL GUARDAR EN FIREBASE\n\nError: ${error.code}\nMensaje: ${error.message}\n\nLos datos NO se guardaron. Revisa la configuración de Firebase.`);
+        showError('Error al guardar los datos. Intenta de nuevo.', error);
     }
 }
 
@@ -350,14 +551,15 @@ async function savePaciente(paciente) {
         return saveData();
     }
     try {
+        setConnectionState('saving');
+        const safe = sanitize.paciente(paciente) || paciente;
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('pacientes').doc(paciente.id)
-            .set(paciente);
+            .set(safe);
         updateLocalCache();
-        showSyncIndicator();
+        setConnectionState('online');
     } catch (error) {
-        console.error('❌ Error guardando paciente:', error);
-        alert(`❌ Error al guardar. Intenta de nuevo.\n${error.message}`);
+        showError('Error al guardar el paciente.', error);
     }
 }
 
@@ -588,6 +790,9 @@ function showApp() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appContainer').style.display = 'block';
 
+    // Start network/Firebase connection monitor
+    initConnectionMonitor();
+
     // Header: show clinic name (not user name — user is in the nav)
     const clinicTitle = clinicConfig.nombre || getNombreClinica();
     document.getElementById('appTitle').textContent = clinicTitle;
@@ -743,26 +948,13 @@ function openAddProcedimiento() {
 }
 
 function agregarProcedimiento() {
-    const desc = document.getElementById('procDesc').value;
-    const cant = parseInt(document.getElementById('procCant').value);
-    const precio = parseFloat(document.getElementById('procPrecio').value);
+    const desc   = sanitize.str(document.getElementById('procDesc')?.value, 300);
+    const cant   = sanitize.int(document.getElementById('procCant')?.value, 1, 999);
+    const precio = sanitize.num(document.getElementById('procPrecio')?.value, 0);
 
-    if (!desc || !cant || !precio) {
-        alert('Complete todos los campos');
-        return;
-    }
-
-    // VALIDACIÓN: Precio no puede ser negativo
-    if (precio < 0) {
-        alert('❌ El precio no puede ser negativo');
-        return;
-    }
-
-    // VALIDACIÓN: Cantidad debe ser positiva
-    if (cant <= 0) {
-        alert('❌ La cantidad debe ser mayor a 0');
-        return;
-    }
+    if (!desc)      { showToast('⚠️ Escribe la descripción del procedimiento'); return; }
+    if (cant < 1)   { showToast('⚠️ La cantidad debe ser al menos 1'); return; }
+    if (precio <= 0){ showToast('⚠️ El precio debe ser mayor a cero'); return; }
 
     tempProcedimientos.push({
         id: generateId(),
@@ -829,6 +1021,7 @@ function updateTotal() {
 }
 
 async function generarFactura() {
+    try {
     const contenedor  = document.getElementById('cobros-content') || document;
     const pacienteInput = contenedor.querySelector('#pacienteNombre') || document.getElementById('pacienteNombre');
     const paciente = pacienteInput.value;
@@ -836,18 +1029,18 @@ async function generarFactura() {
     const notas = notasEl ? notasEl.value : '';
 
     if (!paciente) {
-        alert('Complete el nombre del paciente');
+        showToast('⚠️ Selecciona el paciente primero');
         return;
     }
 
     // VALIDACIÓN ESTRICTA: El paciente debe haber sido seleccionado de la lista
     if (!pacienteInput.dataset.pacienteSeleccionado || pacienteInput.dataset.pacienteSeleccionado !== 'true') {
-        alert('❌ Debe seleccionar el paciente de la lista de sugerencias.\n\nNo puede escribir el nombre libremente.');
+        showToast('⚠️ Selecciona el paciente de la lista — no escribas el nombre libre', 4000);
         return;
     }
 
     if (tempProcedimientos.length === 0 && tempOrdenesLab.length === 0) {
-        alert('Agregue al menos un procedimiento o una orden de laboratorio');
+        showToast('⚠️ Agrega al menos un procedimiento o una orden de lab');
         return;
     }
 
@@ -869,7 +1062,7 @@ async function generarFactura() {
     if (appData.currentRole === 'admin') {
         const profesionalSelect = contenedor.querySelector('#profesionalQueAtendio') || document.getElementById('profesionalQueAtendio');
         if (!profesionalSelect.value) {
-            alert('❌ Debe seleccionar el profesional que atendió al paciente');
+            showToast('⚠️ Selecciona el profesional que atendió al paciente');
             return;
         }
         profesionalQueAtendio = profesionalSelect.value;
@@ -953,6 +1146,9 @@ async function generarFactura() {
     tempOrdenesLab = [];
     updateProcedimientosList();
     updateListaOrdenesLabTemp();
+    } catch(e) {
+        showError('Error al generar la factura.', e);
+    }
 }
 
 // Ingresos Tab
@@ -1073,7 +1269,7 @@ function actualizarNuevoBalance() {
 
 function openPagarFactura(facturaId) {
     if (!tienePermiso('cobrar')) {
-        alert('⛔ No tienes autorización para procesar cobros.');
+        showToast('⛔ Sin autorización para cobros', 3000, '#c0392b');
         return;
     }
     const factura = appData.facturas.find(f => f.id === facturaId);
@@ -1125,21 +1321,18 @@ document.getElementById('comprobanteFile').addEventListener('change', function(e
 });
 
 function confirmarPago() {
-    const monto = parseFloat(document.getElementById('pagoMonto').value);
-    const metodo = document.getElementById('pagoMetodo').value;
+    const monto  = sanitize.num(document.getElementById('pagoMonto')?.value, 0);
+    const metodo = sanitize.str(document.getElementById('pagoMetodo')?.value, 50);
 
-    if (!monto || monto <= 0) {
-        alert('Ingrese un monto válido');
-        return;
+    if (monto <= 0) {
+        showToast('⚠️ Ingresa un monto válido mayor a cero'); return;
     }
 
-    // Validar que el monto no supere el balance pendiente
     const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
-    const balancePendiente = currentFacturaToPay.total - totalPagadoActual;
+    const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
 
-    if (monto > balancePendiente + 0.01) { // +0.01 para tolerancia de decimales
-        alert(`❌ El monto ingresado (${formatCurrency(monto)}) supera el balance pendiente (${formatCurrency(balancePendiente)}).\n\nNo se puede cobrar más de lo que se debe.`);
-        return;
+    if (monto > balancePendiente + 0.01) {
+        showToast(`⚠️ El monto supera el balance pendiente (${formatCurrency(balancePendiente)})`, 4000, '#e65100'); return;
     }
 
     const pago = {
@@ -1674,36 +1867,35 @@ document.getElementById('gastoFile').addEventListener('change', function(e) {
 });
 
 function registrarGasto() {
-    const desc = document.getElementById('gastoDesc').value;
-    const monto = parseFloat(document.getElementById('gastoMonto').value);
-    const proveedor = document.getElementById('gastoProveedor').value;
-    const metodo = document.getElementById('gastoMetodo').value;
+    const desc      = sanitize.str(document.getElementById('gastoDesc')?.value, 300);
+    const monto     = sanitize.num(document.getElementById('gastoMonto')?.value, 0);
+    const proveedor = sanitize.str(document.getElementById('gastoProveedor')?.value, 120);
+    const metodo    = sanitize.str(document.getElementById('gastoMetodo')?.value, 50);
 
-    if (!desc || !monto || !proveedor) {
-        alert('Complete todos los campos obligatorios');
-        return;
-    }
+    if (!desc)      { showToast('⚠️ Describe el gasto'); return; }
+    if (monto <= 0) { showToast('⚠️ El monto debe ser mayor a cero'); return; }
+    if (!proveedor) { showToast('⚠️ Ingresa el proveedor'); return; }
 
     const preview = document.getElementById('gastoPreview');
-    const facturaData = preview.src && !preview.classList.contains('hidden') ? preview.src : null;
+    const facturaData = preview?.src && !preview.classList.contains('hidden') ? preview.src : null;
 
     const gasto = {
-        id: generateId(),
-        fecha: new Date().toISOString(),
-        descripcion: desc,
+        id:            generateId(),
+        fecha:         new Date().toISOString(),
+        descripcion:   desc,
         monto,
         proveedor,
         metodo,
         registradoPor: appData.currentUser,
         facturaData,
-        aprobado: true
+        aprobado:      true
     };
 
     appData.gastos.push(gasto);
     saveData();
     updateGastosTab();
     closeModal('modalAddGasto');
-    alert('Gasto registrado exitosamente');
+    showToast('✓ Gasto registrado');
 }
 
 function updateGastosTab() {
@@ -1773,26 +1965,29 @@ function toggleSueldo() {
 }
 
 function agregarPersonal() {
-    const nombre = document.getElementById('personalNombre').value;
-    const tipo = document.getElementById('personalTipo').value;
-    const sueldo = parseFloat(document.getElementById('personalSueldo').value);
-    const password = document.getElementById('personalPassword').value;
-    const exequatur = document.getElementById('personalExequatur').value.trim();
+    const nombre    = sanitize.str(document.getElementById('personalNombre')?.value, 120);
+    const tipo      = document.getElementById('personalTipo')?.value || 'regular';
+    const sueldoRaw = document.getElementById('personalSueldo')?.value;
+    const sueldo    = sanitize.num(sueldoRaw, 0);
+    const password  = sanitize.str(document.getElementById('personalPassword')?.value, 100);
+    const exequatur = sanitize.str(document.getElementById('personalExequatur')?.value, 20);
 
-    if (!nombre || (tipo === 'empleado' && !sueldo)) {
-        alert('Complete todos los campos obligatorios');
-        return;
+    if (!nombre) {
+        showToast('⚠️ El nombre es obligatorio'); return;
+    }
+    if (tipo === 'empleado' && sueldo <= 0) {
+        showToast('⚠️ Ingresa el sueldo del empleado'); return;
     }
 
     const person = {
         id: generateId(),
         nombre,
         tipo,
-        exequatur: tipo !== 'empleado' ? exequatur : null, // Solo profesionales tienen exequatur
-        sueldo: tipo === 'empleado' ? sueldo : null,
-        password: tipo !== 'empleado' && password ? password : (tipo === 'empleado' ? 'empleado123' : null),
-        canAccessReception: tipo === 'empleado' ? false : false,
-        nextPayDate: tipo === 'empleado' ? null : null
+        exequatur: tipo !== 'empleado' ? exequatur : null,
+        sueldo:    tipo === 'empleado' ? sueldo : null,
+        password:  tipo !== 'empleado' && password ? password : (tipo === 'empleado' ? 'empleado123' : null),
+        canAccessReception: false,
+        nextPayDate: null
     };
 
     appData.personal.push(person);
@@ -1800,7 +1995,7 @@ function agregarPersonal() {
     updatePersonalTab();
     updateProfessionalPicker();
     closeModal('modalAddPersonal');
-    alert('Personal agregado exitosamente');
+    showToast('✓ Personal agregado exitosamente');
 }
 
 function updatePersonalTab() {
@@ -3027,31 +3222,31 @@ function abrirModalNuevoPaciente() {
 }
 
 async function guardarPaciente() {
-    const nombre = document.getElementById('nuevoPacienteNombre').value.trim();
-    const telefono = document.getElementById('nuevoPacienteTelefono').value.trim();
+    try {
+    const nombre   = sanitize.str(document.getElementById('nuevoPacienteNombre')?.value, 120);
+    const telefono = sanitize.phone(document.getElementById('nuevoPacienteTelefono')?.value);
 
-    if (!nombre || !telefono) {
-        alert('Nombre y teléfono son obligatorios');
-        return;
-    }
+    if (!nombre)   { showToast('⚠️ El nombre del paciente es obligatorio'); return; }
+    if (!telefono) { showToast('⚠️ El teléfono es obligatorio'); return; }
 
+    const val = id => sanitize.str(document.getElementById(id)?.value, 300);
     const paciente = {
-        id: generateId('PAC-'),
+        id:              generateId('PAC-'),
         nombre,
-        cedula: document.getElementById('nuevoPacienteCedula').value.trim(),
+        cedula:          sanitize.str(document.getElementById('nuevoPacienteCedula')?.value, 20),
         telefono,
-        email: document.getElementById('nuevoPacienteEmail').value.trim(),
-        fechaNacimiento: document.getElementById('nuevoPacienteFechaNacimiento').value,
-        sexo: document.getElementById('nuevoPacienteSexo').value,
-        grupoSanguineo: document.getElementById('nuevoPacienteGrupoSanguineo').value,
-        direccion: document.getElementById('nuevoPacienteDireccion').value.trim(),
-        alergias: document.getElementById('nuevoPacienteAlergias').value.trim(),
-        seguroMedico: document.getElementById('nuevoPacienteSeguro').value.trim(),
+        email:           sanitize.email(document.getElementById('nuevoPacienteEmail')?.value),
+        fechaNacimiento: sanitize.str(document.getElementById('nuevoPacienteFechaNacimiento')?.value, 10),
+        sexo:            document.getElementById('nuevoPacienteSexo')?.value || '',
+        grupoSanguineo:  sanitize.str(document.getElementById('nuevoPacienteGrupoSanguineo')?.value, 5),
+        direccion:       val('nuevoPacienteDireccion'),
+        alergias:        val('nuevoPacienteAlergias'),
+        seguroMedico:    sanitize.str(document.getElementById('nuevoPacienteSeguro')?.value, 100),
         contactoEmergencia: {
-            nombre: document.getElementById('nuevoPacienteEmergenciaNombre').value.trim(),
-            telefono: document.getElementById('nuevoPacienteEmergenciaTelefono').value.trim()
+            nombre:   sanitize.str(document.getElementById('nuevoPacienteEmergenciaNombre')?.value, 120),
+            telefono: sanitize.phone(document.getElementById('nuevoPacienteEmergenciaTelefono')?.value),
         },
-        condiciones: document.getElementById('nuevoPacienteCondiciones').value.trim(),
+        condiciones:  val('nuevoPacienteCondiciones'),
         fechaRegistro: new Date().toISOString()
     };
 
@@ -3074,6 +3269,9 @@ async function guardarPaciente() {
     document.getElementById('nuevoPacienteEmergenciaNombre').value = '';
     document.getElementById('nuevoPacienteEmergenciaTelefono').value = '';
     document.getElementById('nuevoPacienteCondiciones').value = '';
+    } catch(e) {
+        showError('Error al guardar el paciente.', e);
+    }
 }
 
 function verPaciente(pacienteId) {
@@ -3440,6 +3638,7 @@ function _odontoSeleccionarEstado(key) {
 }
 
 async function guardarEstadoDiente() {
+    try {
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente || !_dienteActual) return;
     if (!paciente.odontograma) paciente.odontograma = {};
@@ -3463,6 +3662,9 @@ async function guardarEstadoDiente() {
 
     // Full re-render of odontogram
     renderTabOdontograma(paciente);
+    } catch(e) {
+        showError('Error al guardar el odontograma.', e);
+    }
 }
 
 function renderTabResumen(paciente) {
@@ -4295,6 +4497,7 @@ function seleccionarPaciente(nombre) {
 }
 
 async function guardarCita() {
+    try {
     const pacienteInput = document.getElementById('citaPacienteInput');
     const paciente = pacienteInput.value.trim();
     const profesional = document.getElementById('citaProfesional').value;
@@ -4310,7 +4513,7 @@ async function guardarCita() {
 
     // VALIDACIÓN ESTRICTA: El paciente debe haber sido seleccionado de la lista
     if (!pacienteInput.dataset.pacienteSeleccionado || pacienteInput.dataset.pacienteSeleccionado !== 'true') {
-        alert('❌ Debe seleccionar el paciente de la lista de sugerencias.\n\nNo puede escribir el nombre libremente.');
+        showToast('⚠️ Selecciona el paciente de la lista — no escribas el nombre libre', 4000);
         return;
     }
 
@@ -4385,6 +4588,9 @@ async function guardarCita() {
     closeModal('modalNuevaCita');
     updateAgendaTab();
     alert('✅ Cita creada exitosamente');
+    } catch(e) {
+        showError('Error al guardar la cita.', e);
+    }
 }
 
 // ========================================
@@ -4424,33 +4630,16 @@ function calcularMargenLab() {
 }
 
 function agregarOrdenLabAFactura() {
-    const tipo = document.getElementById('labTipo').value;
-    const dientes = document.getElementById('labDientes').value.trim();
-    const descripcion = document.getElementById('labDescripcion').value.trim();
-    const laboratorio = document.getElementById('labLaboratorio').value.trim();
-    const precio = parseFloat(document.getElementById('labPrecio').value) || 0;
-    const costo = parseFloat(document.getElementById('labCosto').value) || 0;
+    const tipo        = sanitize.str(document.getElementById('labTipo')?.value, 100);
+    const dientes     = sanitize.str(document.getElementById('labDientes')?.value, 100);
+    const descripcion = sanitize.str(document.getElementById('labDescripcion')?.value, 300);
+    const laboratorio = sanitize.str(document.getElementById('labLaboratorio')?.value, 120);
+    const precio      = sanitize.num(document.getElementById('labPrecio')?.value, 0);
+    const costo       = sanitize.num(document.getElementById('labCosto')?.value, 0);
 
-    if (!descripcion) {
-        alert('Por favor ingresa una descripción');
-        return;
-    }
-
-    if (!laboratorio) {
-        alert('Por favor ingresa el nombre del laboratorio');
-        return;
-    }
-
-    if (precio <= 0) {
-        alert('❌ El precio debe ser mayor a 0');
-        return;
-    }
-
-    // VALIDACIÓN: Costo no puede ser negativo
-    if (costo < 0) {
-        alert('❌ El costo no puede ser negativo');
-        return;
-    }
+    if (!descripcion)  { showToast('⚠️ Ingresa una descripción'); return; }
+    if (!laboratorio)  { showToast('⚠️ Ingresa el nombre del laboratorio'); return; }
+    if (precio <= 0)   { showToast('⚠️ El precio debe ser mayor a cero'); return; }
 
     const orden = {
         id: generateId('TEMP-LAB-'),
@@ -4515,6 +4704,7 @@ function eliminarOrdenLabTemp(index) {
 }
 
 async function crearOrdenesLabDesdeFactura(factura) {
+    try {
     if (tempOrdenesLab.length === 0) return;
 
     const ordenesLab = tempOrdenesLab.map(temp => ({
@@ -4552,6 +4742,9 @@ async function crearOrdenesLabDesdeFactura(factura) {
     updateListaOrdenesLabTemp();
 
     await saveData();
+    } catch(e) {
+        showError('Error al crear las órdenes de laboratorio.', e);
+    }
 }
 
 function updateLaboratorioTab() {
@@ -4799,6 +4992,7 @@ function renderizarBotonesAvance(orden) {
 }
 
 async function avanzarEstadoLab(nuevoEstado) {
+    try {
     // Solo profesionales y admin pueden avanzar estados de laboratorio
     if (appData.currentRole === 'reception') {
         alert('❌ Solo los profesionales o el administrador pueden actualizar el estado del laboratorio.');
@@ -4854,6 +5048,9 @@ async function avanzarEstadoLab(nuevoEstado) {
 
     verDetalleOrdenLab(orden.id);
     updateLaboratorioTab();
+    } catch(e) {
+        showError('Error al actualizar el estado del laboratorio.', e);
+    }
 }
 
 function formatTime(isoDate) {
@@ -4892,6 +5089,7 @@ function getIconoEstadoCita(estado) {
 }
 
 async function cambiarEstadoCita(citaId, nuevoEstado) {
+    try {
     const cita = appData.citas.find(c => c.id === citaId);
     if (!cita) {
         alert('Cita no encontrada');
@@ -4953,6 +5151,9 @@ async function cambiarEstadoCita(citaId, nuevoEstado) {
     closeModal('modalDetalleCita');
 
     alert(`✅ Estado actualizado a: ${nuevoEstado}`);
+    } catch(e) {
+        showError('Error al cambiar el estado de la cita.', e);
+    }
 }
 
 // Función para inicializar estados en citas existentes
@@ -5121,6 +5322,7 @@ function limpiarFirma() {
 }
 
 async function guardarConsentimiento() {
+    try {
     if (!currentPacienteConsentimiento) return;
 
     const canvas = document.getElementById('signatureCanvas');
@@ -5153,6 +5355,9 @@ async function guardarConsentimiento() {
 
     // Also refresh the patient list badge in the background
     updatePacientesTab();
+    } catch(e) {
+        showError('Error al guardar el consentimiento.', e);
+    }
 }
 
 function verFirma(pacienteId) {
@@ -5521,6 +5726,7 @@ function previsualizarPlaca() {
 }
 
 async function guardarPlaca() {
+    try {
     const tipo = document.getElementById('placaTipo').value;
     const notas = document.getElementById('placaNotas').value.trim();
     const input = document.getElementById('placaInput');
@@ -5645,6 +5851,9 @@ async function guardarPlaca() {
 
         alert(mensaje);
     }
+    } catch(e) {
+        showError('Error al guardar la placa.', e);
+    }
 }
 
 function verPlacaFullscreen(placaId) {
@@ -5678,6 +5887,7 @@ function editarPlaca(placaId) {
 }
 
 async function guardarEdicionPlaca() {
+    try {
     const placaId = document.getElementById('editPlacaId').value;
     const nuevoTipo = document.getElementById('editPlacaTipo').value;
     const nuevasNotas = document.getElementById('editPlacaNotas').value.trim();
@@ -5698,9 +5908,13 @@ async function guardarEdicionPlaca() {
     renderizarGaleriaPlacas();
 
     alert('✅ Placa actualizada exitosamente');
+    } catch(e) {
+        showError('Error al guardar los cambios de la placa.', e);
+    }
 }
 
 async function eliminarPlaca(placaId) {
+    try {
     if (!currentPacienteGaleria) return;
 
     const placa = currentPacienteGaleria.placas.find(p => p.id === placaId);
@@ -5729,6 +5943,9 @@ async function eliminarPlaca(placaId) {
     } catch (error) {
         console.error('Error al eliminar placa:', error);
         alert('❌ Error al eliminar la placa. Por favor intenta de nuevo.');
+    }
+    } catch(e) {
+        showError('Error al eliminar la placa.', e);
     }
 }
 
@@ -5917,6 +6134,7 @@ function eliminarMedicamentoTemp(medId) {
 }
 
 async function guardarReceta() {
+    try {
     const diagnostico = document.getElementById('recetaDiagnostico').value.trim();
     const indicaciones = document.getElementById('recetaIndicaciones').value.trim();
 
@@ -5948,6 +6166,9 @@ async function guardarReceta() {
 
     closeModal('modalNuevaReceta');
     renderizarRecetas();   // list refreshes immediately — no need to close/reopen
+    } catch(e) {
+        showError('Error al guardar la receta.', e);
+    }
 }
 
 function descargarRecetaPDF(recetaId) {
@@ -7959,6 +8180,7 @@ function togglePlanModulo(key) {
 }
 
 async function guardarCambiosPlan() {
+    try {
     const tab = document.getElementById('tab-miplan');
     if (!tab) return;
 
@@ -8006,6 +8228,9 @@ async function guardarCambiosPlan() {
             btn.style.background = '';
             btn.disabled = false;
         }, 2500);
+    }
+    } catch(e) {
+        showError('Error al guardar los cambios del plan.', e);
     }
 }
 
@@ -8327,6 +8552,7 @@ function cerrarModalProcedimiento() {
 }
 
 async function guardarProcedimiento(idx) {
+    try {
     const nombre = document.getElementById('proc-modal-nombre').value.trim();
     const precio = parseInt(document.getElementById('proc-modal-precio').value) || 0;
     if (!nombre) { alert('El nombre es obligatorio'); return; }
@@ -8349,6 +8575,9 @@ async function guardarProcedimiento(idx) {
     } catch(e) {
         console.error(e);
         alert('Error al guardar. Intenta de nuevo.');
+    }
+    } catch(e) {
+        showError('Error al guardar el procedimiento.', e);
     }
 }
 
