@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;1,200&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <style>
   :root {
     --bg: #EEEAE4;
@@ -1719,6 +1720,10 @@ async function activateClinic() {
   btn.disabled = true;
 
   try {
+    // Establecer sesión Firebase anónima (requerida por Firestore Security Rules)
+    const auth = firebase.auth();
+    if (!auth.currentUser) await auth.signInAnonymously();
+
     // Build clinic ID from subdomain
     const clinicId = state.subdomain || state.clinicName.toLowerCase()
       .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e')
