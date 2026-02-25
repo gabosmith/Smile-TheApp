@@ -358,7 +358,7 @@ function showError(msg, detail) {
     console.error('[SMILE]', msg, detail);
 }
 
-// Generic toast (reuse mostrarToastConfig for non-config toasts too)
+// Generic toast notification
 function showToast(text, duration = 3000, bg = '#1E1C1A') {
     let toast = document.getElementById('smileToast');
     if (!toast) {
@@ -395,14 +395,11 @@ async function loadData() {
         if (cached && cacheTimestamp) {
             const cacheAge = Date.now() - parseInt(cacheTimestamp);
             if (cacheAge < 5 * 60 * 1000) { // 5 minutos
-                console.log('📦 Cargando desde caché local...');
                 const cachedData = JSON.parse(cached);
                 Object.assign(appData, cachedData);
                 // Continuar cargando desde Firebase en background
             }
         }
-
-        console.log('☁️ Cargando desde Firebase...');
         const doc = await db.collection('clinicas').doc(CLINIC_PATH).get();
 
         if (doc.exists) {
@@ -426,15 +423,12 @@ async function loadData() {
             } else {
                 appData.pacientes = data.pacientes || [];
             }
-            console.log(`✅ ${appData.pacientes.length} pacientes cargados`);
 
             // Guardar en caché local
             updateLocalCache();
 
             // Limpiar/migrar datos antiguos automáticamente
             await limpiarDatosAntiguos();
-
-            console.log('✅ Datos cargados desde Firebase');
         } else {
             appData.personal = getDefaultPersonal();
             await saveData();
@@ -528,8 +522,6 @@ async function saveData() {
                 await batch.commit();
             }
         }
-
-        console.log('✅ Datos guardados exitosamente');
         updateLocalCache();
         setConnectionState('online');
     } catch (error) {
@@ -732,7 +724,7 @@ let appData = {
 
 let currentPersonalToEdit = null;
 let currentReciboText = '';
-let currentFacturaToReverse = null; // NUEVO: para reversar cobros
+let currentFacturaToReverse = null;
 
 // Role selector
 document.querySelectorAll('.role-btn').forEach(btn => {
@@ -1247,7 +1239,7 @@ function updateProcedimientosList() {
                     <div style="font-size: 13px; color: #666;">${p.cantidad}x ${formatCurrency(p.precioUnitario)}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <strong style="color: var(--clinic-primary, #C4856A);">${formatCurrency(p.cantidad * p.precioUnitario)}</strong>
+                    <strong style="color: var(--clinic-color, #C4856A);">${formatCurrency(p.cantidad * p.precioUnitario)}</strong>
                     <button class="procedimiento-delete" onclick="removeProcedimiento('${p.id}')">×</button>
                 </div>
             </div>
@@ -1503,7 +1495,7 @@ function selectTipoPago(tipo) {
     const montoInput = document.getElementById('pagoMonto');
 
     if (tipo === 'total') {
-        btnTotal.style.background = 'var(--clinic-primary, #C4856A)';
+        btnTotal.style.background = 'var(--clinic-color, #C4856A)';
         btnTotal.style.color = 'white';
         btnAbono.style.background = '#f0f0f0';
         btnAbono.style.color = '#333';
@@ -1513,7 +1505,7 @@ function selectTipoPago(tipo) {
             montoInput.value = balance.toFixed(2);
         }
     } else {
-        btnAbono.style.background = 'var(--clinic-primary, #C4856A)';
+        btnAbono.style.background = 'var(--clinic-color, #C4856A)';
         btnAbono.style.color = 'white';
         btnTotal.style.background = '#f0f0f0';
         btnTotal.style.color = '#333';
@@ -1647,12 +1639,12 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     let facturaHTML = `
         <div style="text-align: center; margin-bottom: 25px;">
             ${clinicConfig.logoPositivo ? `<img src="${clinicConfig.logoPositivo}" alt="Logo" style="max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">` : ''}
-            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-primary, #C4856A); margin-bottom: 6px;">${clinicConfig.nombre || 'Clínica Dental'}</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 6px;">${clinicConfig.nombre || 'Clínica Dental'}</div>
         </div>
 
-        <div style="border-top: 3px solid var(--clinic-primary, #C4856A); border-bottom: 3px solid var(--clinic-primary, #C4856A); padding: 15px 0; margin: 20px 0;">
+        <div style="border-top: 3px solid var(--clinic-color, #C4856A); border-bottom: 3px solid var(--clinic-color, #C4856A); padding: 15px 0; margin: 20px 0;">
             <div style="text-align: center;">
-                <h3 style="color: var(--clinic-primary, #C4856A); margin: 0; font-size: 20px;">${esPagoTotal ? 'RECIBO DE PAGO' : 'COMPROBANTE DE ABONO'}</h3>
+                <h3 style="color: var(--clinic-color, #C4856A); margin: 0; font-size: 20px;">${esPagoTotal ? 'RECIBO DE PAGO' : 'COMPROBANTE DE ABONO'}</h3>
                 <div style="color: #666; font-size: 13px; margin-top: 5px;">Factura: ${factura.numero}</div>
             </div>
         </div>
@@ -1677,14 +1669,14 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         <div style="border-top: 2px solid #e0e0e0; margin: 20px 0;"></div>
 
         <div style="margin: 20px 0;">
-            <h4 style="color: var(--clinic-primary, #C4856A); margin-bottom: 10px;">Detalle del Tratamiento:</h4>
+            <h4 style="color: var(--clinic-color, #C4856A); margin-bottom: 10px;">Detalle del Tratamiento:</h4>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
                     <tr style="background: #f5f5f5;">
-                        <th style="padding: 8px; text-align: left; color: var(--clinic-primary, #C4856A);">Descripción</th>
-                        <th style="padding: 8px; text-align: center; color: var(--clinic-primary, #C4856A);">Cant.</th>
-                        <th style="padding: 8px; text-align: right; color: var(--clinic-primary, #C4856A);">Precio</th>
-                        <th style="padding: 8px; text-align: right; color: var(--clinic-primary, #C4856A);">Total</th>
+                        <th style="padding: 8px; text-align: left; color: var(--clinic-color, #C4856A);">Descripción</th>
+                        <th style="padding: 8px; text-align: center; color: var(--clinic-color, #C4856A);">Cant.</th>
+                        <th style="padding: 8px; text-align: right; color: var(--clinic-color, #C4856A);">Precio</th>
+                        <th style="padding: 8px; text-align: right; color: var(--clinic-color, #C4856A);">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1738,9 +1730,9 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     }
 
     facturaHTML += `
-                <tr style="border-top: 2px solid var(--clinic-primary, #C4856A);">
-                    <td style="padding: 10px 0; color: var(--clinic-primary, #C4856A); font-size: 16px; font-weight: 700;">TOTAL DEL TRATAMIENTO:</td>
-                    <td style="padding: 10px 0; text-align: right; color: var(--clinic-primary, #C4856A); font-size: 18px; font-weight: 700;">${formatCurrency(factura.total)}</td>
+                <tr style="border-top: 2px solid var(--clinic-color, #C4856A);">
+                    <td style="padding: 10px 0; color: var(--clinic-color, #C4856A); font-size: 16px; font-weight: 700;">TOTAL DEL TRATAMIENTO:</td>
+                    <td style="padding: 10px 0; text-align: right; color: var(--clinic-color, #C4856A); font-size: 18px; font-weight: 700;">${formatCurrency(factura.total)}</td>
                 </tr>
             </table>
         </div>
@@ -1789,7 +1781,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
 
     facturaHTML += `
         <div style="border-top: 2px solid #e0e0e0; margin-top: 30px; padding-top: 20px; text-align: center;">
-            <div style="color: var(--clinic-primary, #C4856A); font-weight: 600; font-size: 16px; margin-bottom: 10px;">
+            <div style="color: var(--clinic-color, #C4856A); font-weight: 600; font-size: 16px; margin-bottom: 10px;">
                 ¡Gracias por preferirnos!
             </div>
             <div style="color: #888; font-size: 13px;">
@@ -2097,13 +2089,13 @@ function mostrarHistorialCuadres() {
         return `
             <li>
                 <div style="margin-bottom: 10px;">
-                    <strong style="color: var(--clinic-primary, #C4856A);">${fechaStr}</strong>
+                    <strong style="color: var(--clinic-color, #C4856A);">${fechaStr}</strong>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
                     <div>Ingresos: <strong style="color: #34c759;">${formatCurrency(cuadre.totalIngresos)}</strong></div>
                     <div>Gastos: <strong style="color: #ff3b30;">${formatCurrency(cuadre.gastos)}</strong></div>
                     <div>Balance: <strong style="color: ${cuadre.balance >= 0 ? '#34c759' : '#ff3b30'};">${formatCurrency(cuadre.balance)}</strong></div>
-                    <div>En caja: <strong style="color: var(--clinic-primary, #C4856A);">${formatCurrency(cuadre.efectivoCaja)}</strong></div>
+                    <div>En caja: <strong style="color: var(--clinic-color, #C4856A);">${formatCurrency(cuadre.efectivoCaja)}</strong></div>
                 </div>
             </li>
         `;
@@ -2293,7 +2285,7 @@ function updatePersonalTab() {
                         </div>
                         <div style="text-align: right;">
                             ${p.tipo !== 'empleado' ? `
-                                <div style="font-size: 18px; font-weight: 700; color: var(--clinic-primary, #C4856A);">${comisionRate}%</div>
+                                <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A);">${comisionRate}%</div>
                                 ${comisionesAcum > 0 ? `<div style="font-size: 13px; color: #ff9500;">${formatCurrency(comisionesAcum)}</div>` : ''}
                             ` : `
                                 <div style="font-size: 18px; font-weight: 700; color: #34c759;">${formatCurrency(p.sueldo)}</div>
@@ -2515,7 +2507,7 @@ function confirmarPagoProfesional(id) {
                 <div style="font-size: 36px; font-weight: 700;">${formatCurrency(netoAPagar)}</div>
             </div>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 8px;">
+                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
                     ${person.nombre}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
@@ -2823,7 +2815,7 @@ function guardarComisionPersonal(personId) {
 
     person.comisionPct = val;
     saveData();
-    mostrarToastConfig(`✓ Comisión de ${person.nombre} actualizada a ${val}%`);
+    showToast(`✓ Comisión de ${person.nombre} actualizada a ${val}%`);
 
     // Refresh the modal to show the individual badge
     openPersonalDetail(personId);
@@ -2835,7 +2827,7 @@ function resetearComisionPersonal(personId) {
 
     delete person.comisionPct;
     saveData();
-    mostrarToastConfig('✓ Comisión reseteada a tasa global');
+    showToast('✓ Comisión reseteada a tasa global');
     openPersonalDetail(personId);
 }
 
@@ -2884,7 +2876,7 @@ function eliminarPersonal(id) {
         titulo: `⚠️ Eliminar Personal`,
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <div style="font-size: 18px; font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 8px;">
+                <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
                     ${person.nombre}
                 </div>
                 <div style="font-size: 14px; color: #666;">
@@ -3001,7 +2993,7 @@ async function guardarIdentidadClinica() {
         applyLogoEverywhere(logo || null, nombre);
         loadClinicBranding(); // also syncs color and other branding
 
-        mostrarToastConfig('✓ Identidad guardada');
+        showToast('✓ Identidad guardada');
     } catch(e) {
         console.error(e);
         alert('❌ Error al guardar. Verifica tu conexión e intenta de nuevo.');
@@ -3032,7 +3024,7 @@ async function guardarContrasenaAdmin() {
         await saveData();
         document.getElementById('configNewPassword').value  = '';
         document.getElementById('configConfirmPassword').value = '';
-        mostrarToastConfig('✓ Contraseña actualizada');
+        showToast('✓ Contraseña actualizada');
         registrarAuditoria('seguridad', 'cambio_contrasena', 'Contraseña de administrador actualizada');
     } catch(e) {
         showError('Error al guardar la contraseña.', e);
@@ -3054,7 +3046,7 @@ async function guardarTasasComision() {
 
     try {
         await saveData();
-        mostrarToastConfig('✓ Tasas de comisión guardadas');
+        showToast('✓ Tasas de comisión guardadas');
     } catch(e) {
         console.error(e);
         alert('❌ Error al guardar.');
@@ -3078,25 +3070,13 @@ async function guardarConfigAgenda() {
 
     try {
         await saveData();
-        mostrarToastConfig('✓ Configuración de agenda guardada');
+        showToast('✓ Configuración de agenda guardada');
     } catch(e) {
         console.error(e);
         alert('❌ Error al guardar.');
     }
 }
 
-function mostrarToastConfig(msg) {
-    let n = document.getElementById('app-notif');
-    if (!n) {
-        n = document.createElement('div');
-        n.id = 'app-notif';
-        n.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:white;padding:12px 24px;border-radius:100px;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap';
-        document.body.appendChild(n);
-    }
-    n.textContent = msg;
-    n.style.opacity = '1';
-    setTimeout(() => n.style.opacity = '0', 2500);
-}
 
 function updatePerfilTab() {
     document.getElementById('perfilNombre').textContent = appData.currentUser;
@@ -3247,7 +3227,7 @@ function eliminarFactura(facturaId) {
         titulo: '⚠️ Eliminar Factura',
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <div style="font-size: 18px; font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 10px;">
+                <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
                     Factura ${factura.numero}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
@@ -3461,7 +3441,7 @@ function updatePacientesTab() {
         return `
             <div class="list-item" onclick="verPaciente('${p.id}')" style="cursor: pointer; padding: 20px; margin-bottom: 16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-size: 18px; font-weight: 600; color: var(--clinic-primary, #C4856A);">${p.nombre}</div>
+                    <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A);">${p.nombre}</div>
                     <div>
                         ${balance > 0 ? `<span class="badge badge-warning">${formatCurrency(balance)}</span>` :
                           balance === 0 && facturasPaciente.length > 0 ? `<span class="badge badge-success">Al día</span>` : ''}
@@ -4019,7 +3999,7 @@ function renderTabResumen(paciente) {
 
         <!-- Información del paciente -->
         <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 24px;">
-            <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 16px; font-weight: 700;">Información Personal</h3>
+            <h3 style="font-size: 16px; color: var(--clinic-color, #C4856A); margin-bottom: 16px; font-weight: 700;">Información Personal</h3>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
                 <div>
                     <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Cédula</div>
@@ -4107,7 +4087,7 @@ function renderTabResumen(paciente) {
                 const ultima = recetas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
                 return `
                     <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 12px; font-weight: 700;">💊 Última Receta</h3>
+                        <h3 style="font-size: 16px; color: var(--clinic-color, #C4856A); margin-bottom: 12px; font-weight: 700;">💊 Última Receta</h3>
                         <div style="font-size: 14px; color: #666; margin-bottom: 8px;">${formatDate(ultima.fecha)} - ${ultima.profesional}</div>
                         ${ultima.medicamentos.map(med => `
                             <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 6px;">
@@ -4315,7 +4295,7 @@ function renderTabRecetas(paciente) {
             <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #007AFF;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
                     <div>
-                        <div style="font-size: 18px; font-weight: 700; color: var(--clinic-primary, #C4856A); margin-bottom: 4px;">${formatDate(receta.fecha)}</div>
+                        <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">${formatDate(receta.fecha)}</div>
                         <div style="font-size: 14px; color: #666;">${receta.profesional}</div>
                     </div>
                     <button class="btn btn-secondary" onclick="currentPacienteRecetas = appData.pacientes.find(p => p.id === '${paciente.id}'); descargarRecetaPDF('${receta.id}');" style="background: #28a745; color: white; font-size: 13px; padding: 8px 16px;">
@@ -4361,7 +4341,7 @@ function renderTabDocumentos(paciente) {
             <!-- Consentimiento -->
             <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;">
                 <div style="font-size: 48px; margin-bottom: 16px;">${tieneConsentimiento ? '✅' : '📋'}</div>
-                <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 8px; font-weight: 700;">Consentimiento Informado</h3>
+                <h3 style="font-size: 16px; color: var(--clinic-color, #C4856A); margin-bottom: 8px; font-weight: 700;">Consentimiento Informado</h3>
                 ${tieneConsentimiento ? `
                     <div style="color: #28a745; font-size: 14px; margin-bottom: 16px;">Firmado el ${formatDate(paciente.consentimiento.fecha)}</div>
                     <button class="btn btn-secondary" onclick="verFirma('${paciente.id}')" style="width: 100%; background: #28a745; color: white;">
@@ -4378,7 +4358,7 @@ function renderTabDocumentos(paciente) {
             <!-- Placas -->
             <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;">
                 <div style="font-size: 48px; margin-bottom: 16px;">🦷</div>
-                <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 8px; font-weight: 700;">Placas Radiográficas</h3>
+                <h3 style="font-size: 16px; color: var(--clinic-color, #C4856A); margin-bottom: 8px; font-weight: 700;">Placas Radiográficas</h3>
                 <div style="color: #666; font-size: 14px; margin-bottom: 16px;">${totalPlacas} ${totalPlacas === 1 ? 'placa' : 'placas'} ${totalPlacas === 0 ? 'registradas' : 'registrada'}</div>
                 <button class="btn btn-submit" onclick="abrirGaleriaPlacas('${paciente.id}')" style="width: 100%;">
                     ${totalPlacas === 0 ? '📤 Subir Primera Placa' : '👁️ Ver Galería'}
@@ -4420,7 +4400,7 @@ function renderTabBalance(paciente) {
             </div>
             <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
                 <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL FACTURADO</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--clinic-primary, #C4856A);">${formatCurrency(totalFacturado)}</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--clinic-color, #C4856A);">${formatCurrency(totalFacturado)}</div>
             </div>
             <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
                 <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL PAGADO</div>
@@ -4462,7 +4442,7 @@ function renderTabBalance(paciente) {
         <!-- Facturas Pendientes -->
         ${facturasPendientes.length > 0 ? `
         <div style="margin-bottom: 24px;">
-            <h3 style="font-size: 18px; font-weight: 700; color: var(--clinic-primary, #C4856A); margin-bottom: 16px;">
+            <h3 style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 16px;">
                 📋 Facturas Pendientes (${facturasPendientes.length})
             </h3>
             <div style="display: grid; gap: 12px;">
@@ -4473,7 +4453,7 @@ function renderTabBalance(paciente) {
                     <div style="background: #fff; border: 2px solid #e5e5e7; border-radius: 8px; padding: 16px;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                             <div>
-                                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-primary, #C4856A);">${f.numero}</div>
+                                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
                                 <div style="font-size: 13px; color: #666; margin-top: 4px;">${formatDate(f.fecha)} • ${f.profesional}</div>
                             </div>
                             <div style="text-align: right;">
@@ -4495,7 +4475,7 @@ function renderTabBalance(paciente) {
         <!-- Facturas Completadas -->
         ${facturasCompletadas.length > 0 ? `
         <div>
-            <h3 style="font-size: 18px; font-weight: 700; color: var(--clinic-primary, #C4856A); margin-bottom: 16px;">
+            <h3 style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 16px;">
                 ✅ Facturas Pagadas (${facturasCompletadas.length})
             </h3>
             <div style="display: grid; gap: 12px;">
@@ -4503,7 +4483,7 @@ function renderTabBalance(paciente) {
                     <div style="background: #f8f9fa; border: 2px solid #28a745; border-radius: 8px; padding: 16px; opacity: 0.8;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-primary, #C4856A);">${f.numero}</div>
+                                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
                                 <div style="font-size: 12px; color: #666;">${formatDate(f.fecha)}</div>
                             </div>
                             <div style="text-align: right;">
@@ -4595,10 +4575,10 @@ function updateAgendaTab() {
         const esHoy = dia.toDateString() === new Date().toDateString();
 
         html += `
-            <div style="border: 2px solid ${esHoy ? 'var(--clinic-primary, #C4856A)' : '#e5e5e7'}; border-radius: 8px; padding: 10px; min-height: 400px; background: ${esHoy ? '#f0f4ff' : 'white'};">
+            <div style="border: 2px solid ${esHoy ? 'var(--clinic-color, #C4856A)' : '#e5e5e7'}; border-radius: 8px; padding: 10px; min-height: 400px; background: ${esHoy ? '#f0f4ff' : 'white'};">
                 <div style="text-align: center; margin-bottom: 12px;">
                     <div style="font-size: 12px; color: #666; font-weight: 600;">${dias[i]}</div>
-                    <div style="font-size: 20px; font-weight: 700; color: ${esHoy ? 'var(--clinic-primary, #C4856A)' : '#1d1d1f'};">${dia.getDate()}</div>
+                    <div style="font-size: 20px; font-weight: 700; color: ${esHoy ? 'var(--clinic-color, #C4856A)' : '#1d1d1f'};">${dia.getDate()}</div>
                 </div>
                 ${citasDelDia.map(c => {
                     const estadoCita = c.estado || 'Pendiente';
@@ -4945,7 +4925,7 @@ function updateListaOrdenesLabTemp() {
         <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #007AFF;">
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="flex: 1;">
-                    <div style="font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 4px;">
+                    <div style="font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
                         ${orden.tipo}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
                     </div>
                     <div style="font-size: 13px; color: #666; margin-bottom: 2px;">
@@ -5085,7 +5065,7 @@ function updateLaboratorioTab() {
             <div style="background: white; border: 1px solid #e0e0e0; border-left: 4px solid ${colorEstado}; border-radius: 8px; padding: 15px; margin-bottom: 12px; cursor: pointer;" onclick="verDetalleOrdenLab('${orden.id}')">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
                     <div style="flex: 1;">
-                        <div style="font-size: 16px; font-weight: 700; color: var(--clinic-primary, #C4856A); margin-bottom: 4px;">
+                        <div style="font-size: 16px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
                             ${orden.tipo}${orden.dientes ? ` - ${orden.dientes}` : ''}
                         </div>
                         <div style="font-size: 14px; color: #666; margin-bottom: 2px;">
@@ -5130,7 +5110,7 @@ function verDetalleOrdenLab(ordenId) {
 
     document.getElementById('detalleLabInfo').innerHTML = `
         <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-primary, #C4856A); margin-bottom: 10px;">
+            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
                 ${orden.tipo}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
             </div>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
@@ -5185,7 +5165,7 @@ function verDetalleOrdenLab(ordenId) {
                     ${!isLast ? `<div style="width: 2px; flex: 1; background: #dee2e6; margin: 4px 0;"></div>` : ''}
                 </div>
                 <div style="flex: 1; padding-bottom: ${isLast ? '0' : '10px'};">
-                    <div style="font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 4px;">${evento.estado}</div>
+                    <div style="font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">${evento.estado}</div>
                     <div style="font-size: 12px; color: #666; margin-bottom: 2px;">
                         📅 ${formatDate(evento.fecha)} ${formatTime(evento.fecha)}
                     </div>
@@ -5439,7 +5419,6 @@ function inicializarEstadosCitas() {
         }
     });
     if (actualizadas > 0) {
-        console.log(`✅ ${actualizadas} citas actualizadas con estado inicial`);
         saveData();
     }
 }
@@ -5932,7 +5911,7 @@ function renderizarGaleriaPlacas() {
                 </div>
             </div>
             <div style="padding: 15px;">
-                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 8px;">${placa.tipo || 'Radiografía'}</div>
+                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">${placa.tipo || 'Radiografía'}</div>
                 ${placa.subidoPor ? `
                     <div style="font-size: 11px; color: #999; margin-bottom: 8px;">
                         👤 ${placa.subidoPor}
@@ -6289,7 +6268,7 @@ function renderizarRecetas() {
         <div style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #007AFF;">
             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                 <div>
-                    <div style="font-size: 16px; font-weight: 700; color: var(--clinic-primary, #C4856A); margin-bottom: 4px;">${formatDate(receta.fecha)}</div>
+                    <div style="font-size: 16px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">${formatDate(receta.fecha)}</div>
                     <div style="font-size: 13px; color: #666;">${receta.profesional}</div>
                 </div>
                 <button class="btn btn-secondary" onclick="descargarRecetaPDF('${receta.id}')" style="background: #28a745; color: white; font-size: 12px; padding: 6px 12px;">
@@ -6683,7 +6662,7 @@ function renderizarAuditoria() {
 
     container.innerHTML = Object.entries(logsPorDia).map(([dia, logsDelDia]) => `
         <div style="margin-bottom: 30px;">
-            <h3 style="font-size: 16px; color: var(--clinic-primary, #C4856A); margin-bottom: 12px; font-weight: 700; border-bottom: 2px solid #e5e5e7; padding-bottom: 8px;">
+            <h3 style="font-size: 16px; color: var(--clinic-color, #C4856A); margin-bottom: 12px; font-weight: 700; border-bottom: 2px solid #e5e5e7; padding-bottom: 8px;">
                 ${dia}
             </h3>
             ${logsDelDia.map(log => {
@@ -6702,7 +6681,7 @@ function renderizarAuditoria() {
                 return `
                     <div style="background: white; border-radius: 8px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); border-left: 4px solid ${color};">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                            <div style="font-weight: 600; font-size: 14px; color: var(--clinic-primary, #C4856A);">
+                            <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">
                                 ${icono} ${log.accion.toUpperCase()} ${log.tipo}
                             </div>
                             <div style="font-size: 12px; color: #999;">
@@ -7442,7 +7421,7 @@ function updateDashboardTab() {
             return `
                 <div style="display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${color};">
                     <div style="flex: 1;">
-                        <div style="font-weight: 600; font-size: 14px; color: var(--clinic-primary, #C4856A);">${hora} - ${c.paciente}</div>
+                        <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">${hora} - ${c.paciente}</div>
                         <div style="font-size: 13px; color: #666; margin-top: 2px;">${c.motivo} • ${c.profesional}</div>
                     </div>
                     <div style="background: ${color}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
@@ -7549,7 +7528,7 @@ function buscarGlobal() {
         pacientes.forEach(p => {
             html += `
                 <div onclick="irAPaciente('${p.id}')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
-                    <div style="font-weight: 600; font-size: 14px; color: var(--clinic-primary, #C4856A); margin-bottom: 4px;">
+                    <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
                         ${p.nombre}
                     </div>
                     <div style="font-size: 12px; color: #666;">
@@ -7580,7 +7559,7 @@ function buscarGlobal() {
             html += `
                 <div onclick="irAFactura('${f.id}')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <div style="font-weight: 600; font-size: 14px; color: var(--clinic-primary, #C4856A);">
+                        <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">
                             ${f.numero} • ${f.paciente}
                         </div>
                         <div style="background: ${color}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
@@ -7615,11 +7594,12 @@ function buscarGlobal() {
             }).format(new Date(c.fecha));
             const esPasada = citaKey < todayKeySearch;
             const color = getColorEstadoCita(c.estado);
+            const fechaCita = new Date(c.fecha);
 
             html += `
                 <div onclick="irACita('${c.id}')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s; ${esPasada ? 'opacity: 0.6;' : ''}" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <div style="font-weight: 600; font-size: 14px; color: var(--clinic-primary, #C4856A);">
+                        <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">
                             ${fechaCita.toLocaleDateString('es-DO')} ${fechaCita.toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'})}
                         </div>
                         <div style="background: ${color}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
@@ -7826,7 +7806,7 @@ function mostrarMapeoColumnas() {
     camposApp.forEach(campo => {
         html += `
             <div style="display: grid; grid-template-columns: 200px 1fr; gap: 15px; align-items: center; padding: 12px; background: white; border: 1px solid #e5e5e7; border-radius: 8px;">
-                <div style="font-weight: 600; color: var(--clinic-primary, #C4856A);">
+                <div style="font-weight: 600; color: var(--clinic-color, #C4856A);">
                     ${campo.label}
                 </div>
                 <select id="map-${campo.key}" style="padding: 8px; border: 1px solid #e5e5e7; border-radius: 6px;">
@@ -8045,7 +8025,7 @@ function ejecutarImportacion() {
         mensaje: `
             <div style="text-align: center; padding: 20px;">
                 <div style="font-size: 48px; margin-bottom: 15px;">📥</div>
-                <div style="font-size: 18px; font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 10px;">
+                <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
                     ¿Confirmar importación de ${window.pacientesAImportar.length} pacientes?
                 </div>
                 <div style="font-size: 14px; color: #666;">
@@ -8064,18 +8044,13 @@ function ejecutarImportacion() {
             const cantidadDespues = appData.pacientes.length;
 
             console.log(`📥 Importación: ${cantidadAntes} → ${cantidadDespues} pacientes`);
-            console.log(`✅ Pacientes agregados a appData correctamente`);
             console.log(`💾 Llamando a saveData()...`);
 
             await saveData();
-
-            console.log(`✅ saveData() completado`);
             console.log(`🔄 Actualizando tab de pacientes...`);
 
             // Actualizar tab de pacientes para reflejar los nuevos
             updatePacientesTab();
-
-            console.log(`✅ Tab actualizado. Mostrando mensaje de éxito...`);
 
             // Mostrar resultado
             document.getElementById('resultadoImportacion').style.display = 'block';
@@ -8196,7 +8171,7 @@ function cancelarCita() {
         titulo: '❌ Cancelar Cita',
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-primary, #C4856A); margin-bottom: 8px;">
+                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
                     ${cita.paciente}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
@@ -8844,7 +8819,7 @@ async function guardarProcedimiento(idx) {
             .update({ procItems: clinicConfig.procItems });
         cerrarModalProcedimiento();
         renderCatalogoTab();
-        mostrarToastCatalogo('✓ Guardado');
+        showToast('✓ Guardado');
     } catch(e) {
         console.error(e);
         alert('Error al guardar. Intenta de nuevo.');
@@ -8862,19 +8837,7 @@ async function eliminarProcedimiento(idx) {
             .collection('config').doc('settings')
             .update({ procItems: clinicConfig.procItems });
         renderCatalogoTab();
-        mostrarToastCatalogo('✓ Eliminado');
+        showToast('✓ Eliminado');
     } catch(e) { console.error(e); }
 }
 
-function mostrarToastCatalogo(msg) {
-    let n = document.getElementById('app-notif');
-    if (!n) {
-        n = document.createElement('div');
-        n.id = 'app-notif';
-        n.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:white;padding:12px 24px;border-radius:100px;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap';
-        document.body.appendChild(n);
-    }
-    n.textContent = msg;
-    n.style.opacity = '1';
-    setTimeout(() => n.style.opacity = '0', 2500);
-}
