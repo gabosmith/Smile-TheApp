@@ -1074,7 +1074,7 @@ function expireSession(reason) {
         registrarAuditoria('seguridad', 'sesion_expirada', `Sesión cerrada por: ${reason}`);
         // Save audit log before logging out
         saveData().finally(() => {
-            alert(`🔒 Sesión cerrada por ${reason}.\n\nPor seguridad, debes iniciar sesión de nuevo.`);
+            showToast(`🔒 Sesión cerrada por ${reason}. Inicia sesión de nuevo.`, 6000, '#c0392b');
             logout();
         });
     }
@@ -1129,32 +1129,32 @@ async function login() {
 
     if (role === 'professional') {
         username = document.getElementById('professionalPicker').value;
-        if (!username) { alert('Por favor selecciona un profesional'); return; }
+        if (!username) { showToast('⚠️ Selecciona un profesional'); return; }
         person = appData.personal.find(p => p.nombre === username);
-        if (!person)           { alert('Profesional no encontrado. Recarga la página.'); return; }
-        if (!person.password)  { alert('Este profesional no tiene contraseña configurada'); return; }
+        if (!person)           { showToast('⚠️ Profesional no encontrado. Recarga la página.', 4000, '#c0392b'); return; }
+        if (!person.password)  { showToast('⚠️ Este profesional no tiene contraseña configurada', 4000, '#e65100'); return; }
 
         if (!checkRateLimit(username)) return;
         const ok = await verifyPassword(person, password);
         if (!ok) {
             recordFailedAttempt(username);
-            alert('Contraseña incorrecta');
+            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
             return;
         }
         appData.currentRole = 'professional';
 
     } else if (role === 'reception') {
         username = document.getElementById('receptionPicker').value;
-        if (!username) { alert('Por favor selecciona un usuario'); return; }
+        if (!username) { showToast('⚠️ Selecciona un usuario'); return; }
         person = appData.personal.find(p => p.nombre === username);
-        if (!person || !person.canAccessReception) { alert('Usuario sin acceso a recepción'); return; }
-        if (!person.password) { alert('Este usuario no tiene contraseña configurada. Contacta al administrador.'); return; }
+        if (!person || !person.canAccessReception) { showToast('⚠️ Usuario sin acceso a recepción', 3000, '#c0392b'); return; }
+        if (!person.password) { showToast('⚠️ Sin contraseña configurada. Contacta al administrador.', 4000, '#e65100'); return; }
 
         if (!checkRateLimit(username)) return;
         const ok = await verifyPassword(person, password);
         if (!ok) {
             recordFailedAttempt(username);
-            alert('Contraseña incorrecta');
+            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
             return;
         }
         appData.currentRole = 'reception';
@@ -1163,13 +1163,13 @@ async function login() {
         // Admin
         username = document.getElementById('username').value || 'admin';
         const admin = appData.personal.find(p => p.isAdmin);
-        if (!admin) { alert('Credenciales incorrectas'); return; }
+        if (!admin) { showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b'); return; }
 
         if (!checkRateLimit('admin')) return;
         const ok = await verifyPassword(admin, password);
         if (!ok) {
             recordFailedAttempt('admin');
-            alert('Credenciales incorrectas');
+            showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b');
             return;
         }
         username = admin.nombre;
@@ -1581,7 +1581,8 @@ async function generarFactura() {
         ? `✅ Factura generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
         : '✅ Factura generada exitosamente';
 
-    alert(mensaje + (tempOrdenesLab.length > 0 ? `\n\n🔬 ${tempOrdenesLab.length} orden(es) de laboratorio creadas` : ''));
+    const labMsg = tempOrdenesLab.length > 0 ? ` · ${tempOrdenesLab.length} orden(es) de lab creadas` : '';
+    showToast(mensaje.replace('✅ ', '') + labMsg);
 
     const pnEl = getFacturaEl('pacienteNombre');
     if (pnEl) { pnEl.value = ''; pnEl.dataset.pacienteSeleccionado = 'false'; }
@@ -2086,7 +2087,7 @@ function imprimirFactura() {
 function copiarFactura() {
     const texto = document.getElementById('facturaClienteContent').innerText;
     navigator.clipboard.writeText(texto).then(() => {
-        alert('Factura copiada al portapapeles');
+        showToast('✓ Factura copiada al portapapeles');
     });
 }
 
@@ -2873,7 +2874,7 @@ function compartirWhatsApp() {
 
 function copiarRecibo() {
     navigator.clipboard.writeText(currentReciboText).then(() => {
-        alert('Recibo copiado al portapapeles');
+        showToast('✓ Recibo copiado al portapapeles');
     });
 }
 
@@ -2952,7 +2953,7 @@ function registrarAvance() {
     const notas = document.getElementById('avanceNotas').value;
 
     if (!monto || monto <= 0) {
-        alert('Ingrese un monto válido');
+        showToast('⚠️ Ingresa un monto válido', 3000, '#e65100');
         return;
     }
 
@@ -2962,7 +2963,8 @@ function registrarAvance() {
         const disponible = currentPersonalDetail.sueldo - avancesActuales;
 
         if (monto > disponible) {
-            alert(`❌ El avance (${formatCurrency(monto)}) supera el sueldo disponible.\n\nSueldo: ${formatCurrency(currentPersonalDetail.sueldo)}\nAvances previos: ${formatCurrency(avancesActuales)}\nDisponible: ${formatCurrency(disponible)}`);
+            showToast(`❌ Avance supera el sueldo disponible. Máximo: ${formatCurrency(disponible)}`, 5000, '#c0392b');
+            console.error('[Avance] Monto:', monto, 'Disponible:', disponible);
             return;
         }
     }
@@ -2980,7 +2982,7 @@ function registrarAvance() {
     saveData();
     closeModal('modalAvance');
     updatePersonalTab();
-    alert('Avance registrado exitosamente');
+    showToast('✓ Avance registrado exitosamente');
 }
 
 function togglePermiso(personId, key, valorActual) {
@@ -3014,7 +3016,7 @@ function guardarComisionPersonal(personId) {
 
     const val = parseFloat(input.value);
     if (isNaN(val) || val < 0 || val > 100) {
-        alert('La comisión debe ser un número entre 0 y 100');
+        showToast('⚠️ La comisión debe ser entre 0 y 100', 3000, '#e65100');
         return;
     }
 
@@ -3042,7 +3044,8 @@ function eliminarPersonal(id) {
 
     // Prevenir auto-eliminación de admin
     if (person.isAdmin) {
-        alert('❌ No se puede eliminar la cuenta de administrador.');
+        showToast('❌ No se puede eliminar la cuenta de administrador', 4000, '#c0392b');
+        console.error('[Personal] Intento de eliminar admin bloqueado.');
         return;
     }
 
@@ -3202,7 +3205,8 @@ async function guardarIdentidadClinica() {
         showToast('✓ Identidad guardada');
     } catch(e) {
         console.error(e);
-        alert('❌ Error al guardar. Verifica tu conexión e intenta de nuevo.');
+        showToast('❌ Error al guardar. Verifica tu conexión.', 5000, '#c0392b');
+        console.error('[Config] Error guardando identidad:', e);
     }
 }
 
@@ -3242,7 +3246,7 @@ async function guardarTasasComision() {
     const especialista = parseInt(document.getElementById('configComisionEspecialista').value) || 50;
 
     if (regular < 0 || regular > 100 || especialista < 0 || especialista > 100) {
-        alert('Las tasas deben estar entre 0% y 100%');
+        showToast('⚠️ Las tasas deben estar entre 0% y 100%', 3000, '#e65100');
         return;
     }
 
@@ -3255,7 +3259,8 @@ async function guardarTasasComision() {
         showToast('✓ Tasas de comisión guardadas');
     } catch(e) {
         console.error(e);
-        alert('❌ Error al guardar.');
+        showToast('❌ Error al guardar tasas.', 4000, '#c0392b');
+        console.error('[Config] Error guardando comisiones:', e);
     }
 }
 
@@ -3265,7 +3270,7 @@ async function guardarConfigAgenda() {
     const duracion = parseInt(document.getElementById('configDuracionCita').value);
 
     if (apertura >= cierre) {
-        alert('La hora de apertura debe ser antes de la hora de cierre');
+        showToast('⚠️ La hora de apertura debe ser antes del cierre', 3000, '#e65100');
         return;
     }
 
@@ -3279,7 +3284,7 @@ async function guardarConfigAgenda() {
         showToast('✓ Configuración de agenda guardada');
     } catch(e) {
         console.error(e);
-        alert('❌ Error al guardar.');
+        showToast('❌ Error al guardar. Verifica tu conexión.', 4000, '#c0392b'); console.error('[Config Agenda] Error guardando:', e);
     }
 }
 
@@ -3421,7 +3426,7 @@ function eliminarFactura(facturaId) {
     if (!factura) return;
 
     if (appData.currentRole !== 'admin') {
-        alert('Solo el administrador puede eliminar facturas');
+        showToast('⛔ Solo el administrador puede eliminar facturas', 3000, '#c0392b');
         return;
     }
 
@@ -3469,7 +3474,7 @@ function eliminarFactura(facturaId) {
             appData.facturas = appData.facturas.filter(f => f.id !== facturaId);
             saveData();
             updateCobrarTab();
-            alert('✅ Factura eliminada correctamente');
+            showToast('✓ Factura eliminada correctamente');
         }
     });
 }
@@ -3481,13 +3486,13 @@ function eliminarFactura(facturaId) {
 function abrirReversarCobro(facturaId) {
     // Solo admin puede reversar cobros
     if (appData.currentRole !== 'admin') {
-        alert('❌ Solo el administrador puede reversar cobros.');
+        showToast('⛔ Solo el administrador puede reversar cobros', 3000, '#c0392b');
         return;
     }
 
     const factura = appData.facturas.find(f => f.id === facturaId);
     if (!factura || factura.pagos.length === 0) {
-        alert('No hay pagos para reversar');
+        showToast('⚠️ No hay pagos para reversar', 3000, '#e65100');
         return;
     }
 
@@ -3510,7 +3515,7 @@ function confirmarReversion() {
     const motivo = document.getElementById('reversarMotivo').value.trim();
 
     if (!motivo) {
-        alert('Por favor ingresa el motivo de la reversión');
+        showToast('⚠️ Ingresa el motivo de la reversión', 3000, '#e65100');
         return;
     }
 
@@ -3563,7 +3568,7 @@ function confirmarReversion() {
     updateCobrarTab();
     closeModal('modalReversarCobro');
 
-    alert(`✅ Pago reversado correctamente\n\nMonto: ${formatCurrency(pagoReversado.monto)}\n\nEl registro quedará en el historial de admin.`);
+    showToast(`✓ Pago de ${formatCurrency(pagoReversado.monto)} reversado correctamente`);
 }
 
 // ========================================
@@ -4966,7 +4971,7 @@ async function guardarCita() {
     const motivo = document.getElementById('citaMotivo').value.trim();
 
     if (!paciente || !profesional || !fecha || !hora || !consultorio || !motivo) {
-        alert('Complete todos los campos');
+        showToast('⚠️ Completa todos los campos', 3000, '#e65100');
         return;
     }
 
@@ -4983,7 +4988,7 @@ async function guardarCita() {
     fechaSeleccionada.setHours(0, 0, 0, 0);
 
     if (fechaSeleccionada < hoy) {
-        alert('❌ No puedes crear una cita en el pasado.\n\nPor favor selecciona una fecha de hoy en adelante.');
+        showToast('❌ No puedes crear una cita en el pasado', 4000, '#c0392b');
         return;
     }
 
@@ -4993,7 +4998,7 @@ async function guardarCita() {
     const [horaNum, minutos] = hora.split(':').map(Number);
     if (horaNum < horaApertura || horaNum >= horaCierre) {
         const fmt = h => h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h-12}:00 PM`;
-        alert(`❌ Las citas solo se pueden agendar entre ${fmt(horaApertura)} y ${fmt(horaCierre)}.\n\nPor favor selecciona otro horario.`);
+        showToast(`❌ Horario fuera de rango: ${fmt(horaApertura)} – ${fmt(horaCierre)}`, 4000, '#c0392b');
         return;
     }
 
@@ -5019,11 +5024,7 @@ async function guardarCita() {
 
     if (citasSolapadas.length > 0) {
         const citaSolapada = citasSolapadas[0];
-        alert(`⚠️ CITA SE SOLAPA\n\nEl Consultorio ${consultorio} ya tiene una cita:\n\n` +
-              `Paciente: ${citaSolapada.paciente}\n` +
-              `Hora: ${citaSolapada.hora}\n` +
-              `Profesional: ${citaSolapada.profesional}\n\n` +
-              `Por favor elige otra hora o consultorio.`);
+        showToast(`⚠️ Consultorio ${consultorio} ocupado a las ${citaSolapada.hora} — elige otra hora`, 5000, '#e65100');
         return;
     }
 
@@ -5461,19 +5462,21 @@ async function avanzarEstadoLab(nuevoEstado) {
     try {
     // Solo profesionales y admin pueden avanzar estados de laboratorio
     if (appData.currentRole === 'reception') {
-        alert('❌ Solo los profesionales o el administrador pueden actualizar el estado del laboratorio.');
+        showToast('⛔ Sin permiso para actualizar el laboratorio', 3000, '#c0392b');
         return;
     }
 
     if (!window.currentOrdenLabId) {
-        alert('Error: No hay orden seleccionada');
+        showToast('⚠️ No hay orden seleccionada', 3000, '#e65100');
+        console.error('[Lab] actualizarEstadoLab llamado sin orden activa.');
         return;
     }
 
     const orden = appData.laboratorios.find(o => o.id === window.currentOrdenLabId);
 
     if (!orden) {
-        alert('Error: Orden no encontrada');
+        showToast('⚠️ Orden no encontrada', 3000, '#e65100');
+        console.error('[Lab] Orden no encontrada en appData.laboratorios.');
         return;
     }
 
@@ -5558,7 +5561,7 @@ async function cambiarEstadoCita(citaId, nuevoEstado) {
     try {
     const cita = appData.citas.find(c => c.id === citaId);
     if (!cita) {
-        alert('Cita no encontrada');
+        showToast('⚠️ Cita no encontrada', 3000, '#e65100'); console.error('[Citas] cambiarEstadoCita: ID no encontrado:', citaId);
         return;
     }
 
@@ -5616,7 +5619,7 @@ async function cambiarEstadoCita(citaId, nuevoEstado) {
     updateAgendaTab();
     closeModal('modalDetalleCita');
 
-    alert(`✅ Estado actualizado a: ${nuevoEstado}`);
+    showToast(`✓ Estado actualizado: ${nuevoEstado}`);
     } catch(e) {
         showError('Error al cambiar el estado de la cita.', e);
     }
@@ -5798,7 +5801,7 @@ async function guardarConsentimiento() {
     const hasSignature = imageData.data.some(channel => channel !== 0);
 
     if (!hasSignature) {
-        alert('Por favor firme el consentimiento');
+        showToast('⚠️ Por favor firma el consentimiento', 3000, '#e65100');
         return;
     }
 
@@ -5828,7 +5831,7 @@ async function guardarConsentimiento() {
 function verFirma(pacienteId) {
     const paciente = appData.pacientes.find(p => p.id === pacienteId);
     if (!paciente || !paciente.consentimiento || !paciente.consentimiento.firmado) {
-        alert('Este paciente no tiene consentimiento firmado');
+        showToast('⚠️ Este paciente no tiene consentimiento firmado', 4000, '#e65100');
         return;
     }
 
@@ -6204,7 +6207,7 @@ async function guardarPlaca() {
     const input = document.getElementById('placaInput');
 
     if (!input.files || !input.files[0]) {
-        alert('Por favor selecciona una imagen');
+        showToast('⚠️ Selecciona una imagen', 3000, '#e65100');
         return;
     }
 
@@ -6212,13 +6215,13 @@ async function guardarPlaca() {
 
     // Validar tamaño (máximo 5MB)
     if (file.size > 5 * 1024 * 1024) {
-        alert('❌ La imagen es demasiado grande. Máximo 5MB.');
+        showToast('❌ Imagen demasiado grande. Máximo 5MB', 4000, '#c0392b');
         return;
     }
 
     // Validar tipo
     if (!file.type.startsWith('image/')) {
-        alert('❌ Solo se permiten imágenes.');
+        showToast('❌ Solo se permiten imágenes', 3000, '#c0392b');
         return;
     }
 
@@ -6265,7 +6268,7 @@ async function guardarPlaca() {
         closeModal('modalSubirPlaca');
         renderizarGaleriaPlacas();
 
-        alert('✅ Placa radiográfica guardada exitosamente');
+        showToast('✓ Placa radiográfica guardada');
     } catch (error) {
         console.error('❌ Error completo:', error);
         console.error('Código de error:', error.code);
@@ -6310,7 +6313,7 @@ async function guardarPlaca() {
                 closeModal('modalSubirPlaca');
                 renderizarGaleriaPlacas();
 
-                alert('⚠️ Placa guardada en modo legacy (base64).\n\nPara mejores resultados, configura Firebase Storage.');
+                showToast('⚠️ Placa guardada en modo legacy. Configura Firebase Storage para mejores resultados.', 6000, '#e65100');
             };
             reader.readAsDataURL(input.files[0]);
 
@@ -6321,7 +6324,7 @@ async function guardarPlaca() {
             mensaje += 'Detalles: ' + error.message;
         }
 
-        alert(mensaje);
+        showToast(mensaje);
     }
     } catch(e) {
         showError('Error al guardar la placa.', e);
@@ -6379,7 +6382,7 @@ async function guardarEdicionPlaca() {
     closeModal('modalEditarPlaca');
     renderizarGaleriaPlacas();
 
-    alert('✅ Placa actualizada exitosamente');
+    showToast('✓ Placa actualizada');
     } catch(e) {
         showError('Error al guardar los cambios de la placa.', e);
     }
@@ -6411,10 +6414,11 @@ async function eliminarPlaca(placaId) {
         await savePaciente(currentPacienteGaleria);
         renderizarGaleriaPlacas();
 
-        alert('✅ Placa eliminada exitosamente');
+        showToast('✓ Placa eliminada');
     } catch (error) {
         console.error('Error al eliminar placa:', error);
-        alert('❌ Error al eliminar la placa. Por favor intenta de nuevo.');
+        showToast('❌ Error al eliminar la placa. Intenta de nuevo.', 4000, '#c0392b');
+        console.error('[Placas] Error eliminando placa.');
     }
     } catch(e) {
         showError('Error al eliminar la placa.', e);
@@ -6434,7 +6438,7 @@ function descargarPlaca() {
     link.click();
     document.body.removeChild(link);
 
-    alert('✅ Placa descargada exitosamente');
+    showToast('✓ Placa descargada');
 }
 
 // Asegurar que avanzarEstadoLab esté disponible globalmente
@@ -6528,13 +6532,13 @@ function abrirNuevaReceta() {
     // Admin siempre puede crear recetas
     // Recepción y empleados no pueden
     if (appData.currentRole === 'reception') {
-        alert('❌ PERMISO DENEGADO\n\nSolo los profesionales o el administrador pueden crear recetas.');
+        showToast('⛔ Solo profesionales o admin pueden crear recetas', 4000, '#c0392b');
         return;
     }
     if (appData.currentRole !== 'admin') {
         const usuarioActual = appData.personal.find(p => p.nombre === appData.currentUser);
         if (!usuarioActual || usuarioActual.tipo === 'empleado') {
-            alert('❌ PERMISO DENEGADO\n\nSolo los profesionales médicos pueden crear recetas.\n\nContacta a un doctor para crear una receta.');
+            showToast('⛔ Solo médicos pueden crear recetas', 4000, '#c0392b');
             return;
         }
     }
@@ -6557,7 +6561,7 @@ function agregarMedicamento() {
     const duracion = document.getElementById('medDuracion').value.trim();
 
     if (!nombre || !dosis || !frecuencia) {
-        alert('Completa nombre, dosis y frecuencia del medicamento');
+        showToast('⚠️ Completa nombre, dosis y frecuencia del medicamento', 3000, '#e65100');
         return;
     }
 
@@ -6611,7 +6615,7 @@ async function guardarReceta() {
     const indicaciones = document.getElementById('recetaIndicaciones').value.trim();
 
     if (medicamentosTemp.length === 0) {
-        alert('Debes agregar al menos un medicamento');
+        showToast('⚠️ Agrega al menos un medicamento', 3000, '#e65100');
         return;
     }
 
@@ -6844,7 +6848,7 @@ function registrarAuditoria(accion, tipo, detalles) {
 
 function verAuditoria() {
     if (appData.currentRole !== 'admin') {
-        alert('❌ ACCESO DENEGADO\n\nSolo administradores pueden ver el historial de auditoría.');
+        showToast('⛔ Solo administradores pueden ver la auditoría', 3000, '#c0392b');
         return;
     }
 
@@ -7067,7 +7071,7 @@ function exportarFacturasExcel() {
     // Usar librería SheetJS que ya está disponible
     const XLSX = window.XLSX;
     if (!XLSX) {
-        alert('Error: Librería de Excel no disponible');
+        showToast('❌ Librería de Excel no disponible', 3000, '#c0392b'); console.error('[Export] XLSX no cargado.');
         return;
     }
 
@@ -7126,12 +7130,12 @@ function exportarFacturasExcel() {
     const nombreArchivo = `Facturas_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
 
-    alert('✅ Archivo Excel generado exitosamente');
+    showToast('✓ Archivo Excel generado');
 }
 
 function exportarPacientesCSV() {
     const pacientes = appData.pacientes || [];
-    if (pacientes.length === 0) { alert('No hay pacientes para exportar.'); return; }
+    if (pacientes.length === 0) { showToast('⚠️ No hay pacientes para exportar', 3000, '#e65100'); return; }
 
     const campos = [
         'nombre','cedula','telefono','email','fechaNacimiento','sexo',
@@ -7161,10 +7165,10 @@ function exportarPacientesCSV() {
 
 function exportarPacientesExcel() {
     const XLSX = window.XLSX;
-    if (!XLSX) { alert('Librería de Excel no disponible.'); return; }
+    if (!XLSX) { showToast('❌ Librería de Excel no disponible', 3000, '#c0392b'); console.error('[Export] XLSX no cargado.'); return; }
 
     const pacientes = appData.pacientes || [];
-    if (pacientes.length === 0) { alert('No hay pacientes para exportar.'); return; }
+    if (pacientes.length === 0) { showToast('⚠️ No hay pacientes para exportar', 3000, '#e65100'); return; }
 
     const datos = pacientes.map(p => ({
         'Nombre':                p.nombre          || '',
@@ -7202,7 +7206,7 @@ function exportarPacientesExcel() {
 function exportarCitasExcel() {
     const XLSX = window.XLSX;
     if (!XLSX) {
-        alert('Error: Librería de Excel no disponible');
+        showToast('❌ Librería de Excel no disponible', 3000, '#c0392b'); console.error('[Export] XLSX no cargado.');
         return;
     }
 
@@ -7226,13 +7230,13 @@ function exportarCitasExcel() {
     const nombreArchivo = `Citas_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
 
-    alert('✅ Archivo Excel generado exitosamente');
+    showToast('✓ Archivo Excel generado');
 }
 
 function exportarComisionesExcel() {
     const XLSX = window.XLSX;
     if (!XLSX) {
-        alert('Error: Librería de Excel no disponible');
+        showToast('❌ Librería de Excel no disponible', 3000, '#c0392b'); console.error('[Export] XLSX no cargado.');
         return;
     }
 
@@ -7258,13 +7262,13 @@ function exportarComisionesExcel() {
     const nombreArchivo = `Comisiones_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
 
-    alert('✅ Archivo Excel generado exitosamente');
+    showToast('✓ Archivo Excel generado');
 }
 
 function exportarCuadreExcel() {
     const XLSX = window.XLSX;
     if (!XLSX) {
-        alert('Error: Librería de Excel no disponible');
+        showToast('❌ Librería de Excel no disponible', 3000, '#c0392b'); console.error('[Export] XLSX no cargado.');
         return;
     }
 
@@ -7288,7 +7292,7 @@ function exportarCuadreExcel() {
     const nombreArchivo = `Cuadre_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
 
-    alert('✅ Archivo Excel generado exitosamente');
+    showToast('✓ Archivo Excel generado');
 }
 
 // ========================================
@@ -7306,7 +7310,7 @@ function guardarZonaHoraria() {
     saveData();
 
     console.log('✅ Zona horaria guardada:', timezone);
-    alert('✅ Zona horaria actualizada correctamente');
+    showToast('✓ Zona horaria actualizada');
 }
 
 function getTimezone() {
@@ -7866,7 +7870,7 @@ function irAFactura(id) {
         setTimeout(() => openPagarFactura(id), 100);
     } else {
         showTab('ingresos');
-        alert(`Factura ${factura.numero} ya está pagada.\nPuedes verla en el tab Ingresos.`);
+        showToast(`Factura ${factura.numero} ya está pagada`, 4000, '#e65100');
     }
 }
 
@@ -7901,12 +7905,12 @@ function procesarCSV() {
     const file = fileInput.files[0];
 
     if (!file) {
-        alert('Por favor selecciona un archivo CSV primero');
+        showToast('⚠️ Selecciona un archivo CSV primero', 3000, '#e65100');
         return;
     }
 
     if (!file.name.endsWith('.csv')) {
-        alert('El archivo debe ser un CSV (.csv)');
+        showToast('⚠️ El archivo debe ser un CSV (.csv)', 3000, '#e65100');
         return;
     }
 
@@ -7924,7 +7928,8 @@ function procesarCSV() {
         parsearCSV(text);
     };
     reader.onerror = function() {
-        alert('Error al leer el archivo');
+        showToast('❌ Error al leer el archivo', 4000, '#c0392b');
+        console.error('[CSV] Error en FileReader.');
     };
     reader.readAsText(file);
 }
@@ -7934,7 +7939,7 @@ function parsearCSV(text) {
     const lines = text.split('\n').filter(line => line.trim());
 
     if (lines.length < 1) {
-        alert('El archivo CSV está vacío');
+        showToast('⚠️ El archivo CSV está vacío', 3000, '#e65100');
         return;
     }
 
@@ -7980,7 +7985,9 @@ function parsearCSV(text) {
 
     // Mostrar advertencia si es formato Hessy
     if (!tieneHeaders && csvData.length > 100) {
-        alert(`✅ CSV detectado (${csvData.length} filas)\n\n` +
+        showToast(`✓ CSV detectado: ${csvData.length} filas cargadas`);
+    /* REMOVIDO: alert con detalles — ver consola si se necesita info */
+    void (
               `ℹ️ Formato detectado: Apellido + Nombre separados\n` +
               `Se combinarán automáticamente como "Nombre Apellido"`);
     }
@@ -8127,7 +8134,7 @@ function generarVistaPrevia() {
 
     // Validar campos requeridos
     if (!mapeo.nombre || !mapeo.telefono) {
-        alert('❌ Debes mapear al menos Nombre y Teléfono (campos obligatorios)');
+        showToast('⚠️ Mapea al menos Nombre y Teléfono', 3000, '#e65100');
         return;
     }
 
@@ -8236,7 +8243,7 @@ function generarVistaPrevia() {
 
 function ejecutarImportacion() {
     if (!window.pacientesAImportar || window.pacientesAImportar.length === 0) {
-        alert('No hay pacientes para importar');
+        showToast('⚠️ No hay pacientes para importar', 3000, '#e65100');
         return;
     }
 
@@ -8356,7 +8363,7 @@ function guardarEdicionPaciente() {
 
     // Validar campos requeridos
     if (!paciente.nombre || !paciente.telefono) {
-        alert('Nombre y teléfono son obligatorios');
+        showToast('⚠️ Nombre y teléfono son obligatorios', 3000, '#e65100');
         return;
     }
 
@@ -8364,7 +8371,7 @@ function guardarEdicionPaciente() {
     updatePacientesTab();
     closeModal('modalEditarPaciente');
 
-    alert('✅ Paciente actualizado correctamente');
+    showToast('✓ Paciente actualizado correctamente');
 
     // Volver a abrir ficha actualizada
     verPaciente(currentPacienteId);
@@ -8377,13 +8384,13 @@ let currentCitaIdDetalle = null;
 // Cancelar cita desde modal detalle
 function cancelarCita() {
     if (!currentCitaIdDetalle) {
-        alert('No se puede identificar la cita');
+        showToast('⚠️ No se puede identificar la cita', 3000, '#e65100');
         return;
     }
     
     const cita = appData.citas.find(c => c.id === currentCitaIdDetalle);
     if (!cita) {
-        alert('Cita no encontrada');
+        showToast('⚠️ Cita no encontrada', 3000, '#e65100');
         return;
     }
     
@@ -8417,7 +8424,7 @@ function cancelarCita() {
             saveData();
             closeModal('modalDetalleCita');
             updateAgendaTab();
-            alert('✅ Cita cancelada');
+            showToast('✓ Cita cancelada');
         }
     });
 }
@@ -8427,7 +8434,7 @@ function cancelarCita() {
 function abrirAbonoBalance(pacienteId) {
     // VALIDAR PERMISO: Solo admin y recepción pueden cobrar
     if (appData.currentRole === 'professional') {
-        alert('⛔ Acceso Denegado\n\nLos profesionales no tienen permiso para realizar cobros.\nContacta a recepción o administración.');
+        showToast('⛔ Sin permiso para realizar cobros', 4000, '#c0392b');
         return;
     }
     
@@ -8458,7 +8465,8 @@ function abrirAbonoBalance(pacienteId) {
     console.log('Facturas pendientes encontradas:', facturasPendientes.length);
     
     if (facturasPendientes.length === 0) {
-        alert('No hay facturas pendientes para este paciente.\n\nRevisa la consola (F12) para más detalles.');
+        showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
+        console.warn('[Cobros] No hay facturas pendientes para paciente de cita:', currentCitaIdDetalle);
         return;
     }
     
@@ -8473,7 +8481,7 @@ function abrirAbonoBalance(pacienteId) {
 function abrirPagoFactura(facturaId, pacienteId) {
     // VALIDAR PERMISO: Solo admin y recepción pueden cobrar
     if (appData.currentRole === 'professional') {
-        alert('⛔ Acceso Denegado\n\nLos profesionales no tienen permiso para realizar cobros.\nContacta a recepción o administración.');
+        showToast('⛔ Sin permiso para realizar cobros', 4000, '#c0392b');
         return;
     }
     
@@ -9026,7 +9034,7 @@ async function guardarProcedimiento(idx) {
     try {
     const nombre = document.getElementById('proc-modal-nombre').value.trim();
     const precio = parseInt(document.getElementById('proc-modal-precio').value) || 0;
-    if (!nombre) { alert('El nombre es obligatorio'); return; }
+    if (!nombre) { showToast('⚠️ El nombre es obligatorio', 3000, '#e65100'); return; }
 
     if (!clinicConfig.procItems) clinicConfig.procItems = [];
 
@@ -9046,7 +9054,8 @@ async function guardarProcedimiento(idx) {
         showToast('✓ Guardado');
     } catch(e) {
         console.error(e);
-        alert('Error al guardar. Intenta de nuevo.');
+        showToast('❌ Error al guardar. Intenta de nuevo.', 4000, '#c0392b');
+        console.error('[Catálogo] Error guardando procedimiento:', e);
     }
     } catch(e) {
         showError('Error al guardar el procedimiento.', e);
