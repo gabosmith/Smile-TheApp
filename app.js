@@ -423,6 +423,42 @@ function showError(msg, detail) {
     setConnectionState('error');
     showToast(`❌ ${text}`, 5000, '#c0392b');
     console.error('[SMILE]', msg, detail);
+    // Registrar en el log de errores del admin
+    logErrorToFirestore(code || 'DEFAULT', msg, detail?.message || String(detail || ''), 'showError');
+}
+
+// Registra errores en Firestore para que aparezcan en el admin log.
+// Se llama automáticamente desde showError() y desde canWriteToFirebase().
+async function logErrorToFirestore(codigoError, titulo, detalle, contexto) {
+    if (!CLINIC_PATH) return; // sin clínica activa, no tiene sentido registrar
+    try {
+        const severidades = {
+            'permission-denied': 'critico',
+            'snapshot-not-found': 'critico',
+            'unavailable':        'error',
+            'not-found':          'error',
+            'deadline-exceeded':  'aviso',
+            'already-exists':     'aviso',
+            'cache-corrupto':     'info',
+            'canWriteToFirebase': 'aviso',
+        };
+        const entrada = {
+            fecha:       new Date().toISOString(),
+            clinicaId:   CLINIC_PATH,
+            codigoError: codigoError || 'DEFAULT',
+            titulo:      titulo || 'Error sin título',
+            detalle:     String(detalle || '').slice(0, 500), // max 500 chars
+            usuario:     (typeof appData !== 'undefined' && appData.currentUser) || 'Sistema',
+            contexto:    contexto || '',
+            severidad:   severidades[codigoError] || 'error',
+            resuelto:    false,
+        };
+        // Guardar en colección global para que el admin lo vea
+        await db.collection('smile_errors').add(entrada);
+    } catch(e) {
+        // Nunca crashear por intentar loggear un error
+        console.warn('[ErrorLog] No se pudo registrar el error en Firestore:', e.message);
+    }
 }
 
 // Generic toast notification
@@ -595,6 +631,7 @@ function canWriteToFirebase(context = '') {
     const sessionClinica = sessionStorage.getItem('smile_clinica_session');
     if (sessionClinica && sessionClinica !== CLINIC_PATH) {
         console.error(`[Write Guard] Mismatch clínica: CLINIC_PATH=${CLINIC_PATH}, sesión=${sessionClinica} — ${context}`);
+        logErrorToFirestore('canWriteToFirebase', 'Conflicto de sesión al intentar guardar', `CLINIC_PATH=${CLINIC_PATH} vs sesión=${sessionClinica}`, context);
         showToast('⚠️ Conflicto de sesión detectado. Recarga la página.', 6000, '#c0392b');
         return false;
     }
@@ -750,6 +787,7 @@ function initRealtimeListener() {
         (error) => {
             // Error del listener (auth expirada, sin conexion, reglas, etc.)
             console.error('[Snapshot] Error en listener:', error.code, error.message);
+            logErrorToFirestore(error.code, 'Error en listener de Firestore', error.message, 'onSnapshot');
             if (error.code === 'permission-denied') {
                 showToast('Sesion expirada. Recarga la pagina.', 6000, '#c0392b');
             } else {

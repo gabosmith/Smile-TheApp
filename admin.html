@@ -166,6 +166,83 @@
 
   .sidebar-version { font-size: 11px; color: #3A3836; letter-spacing: 1px; }
 
+  /* ── ERROR LOG ── */
+  .error-log-list { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+
+  .error-card {
+    background: var(--white);
+    border: 1.5px solid transparent;
+    border-radius: 16px;
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+  }
+  .error-card:hover { border-color: rgba(196,112,112,0.3); box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .error-card.expanded { border-color: rgba(196,112,112,0.4); }
+  .error-card-severity {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 100px; margin-bottom: 10px;
+  }
+  .sev-critico  { background: #fde8e8; color: #9b2c2c; }
+  .sev-error    { background: #fef0e0; color: #7b4a00; }
+  .sev-aviso    { background: #fefce8; color: #713f12; }
+  .sev-info     { background: #e8f4fd; color: #1a4a6b; }
+
+  .error-title { font-size: 15px; font-weight: 600; color: var(--dark); margin-bottom: 4px; }
+  .error-meta  { font-size: 12px; color: var(--mid); margin-bottom: 0; }
+  .error-detail { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--bg); }
+  .error-detail.open { display: block; }
+
+  .error-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--mid); margin-bottom: 8px; }
+  .error-explanation  { font-size: 14px; color: var(--dark); line-height: 1.7; margin-bottom: 16px; }
+
+  .fix-steps { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .fix-step {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: var(--surface); border-radius: 10px; padding: 12px 14px;
+  }
+  .fix-step-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--terracota); color: white;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fix-step-text { font-size: 13px; color: var(--dark); line-height: 1.5; }
+  .fix-step-text b { font-weight: 600; }
+
+  .error-raw {
+    background: #1E1C1A; color: #a0f0a0; font-family: monospace;
+    font-size: 11px; padding: 12px 16px; border-radius: 10px;
+    overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+    max-height: 120px; overflow-y: auto;
+  }
+
+  .error-log-empty {
+    text-align: center; padding: 80px 20px; color: var(--mid);
+  }
+  .error-log-empty .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .error-log-empty .empty-title { font-size: 18px; font-weight: 300; margin-bottom: 8px; color: var(--dark); }
+  .error-log-empty .empty-sub { font-size: 14px; }
+
+  .error-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .filter-pill {
+    padding: 6px 14px; border-radius: 100px; font-size: 12px; font-weight: 500;
+    border: 1.5px solid var(--light); background: transparent; color: var(--mid);
+    cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .filter-pill.active, .filter-pill:hover { background: var(--dark); color: var(--white); border-color: var(--dark); }
+
+  .resolve-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 100px; font-size: 12px; font-weight: 600;
+    border: none; cursor: pointer; font-family: inherit; transition: opacity 0.15s;
+  }
+  .resolve-btn:hover { opacity: 0.75; }
+  .resolve-btn.resolved { background: var(--surface); color: var(--mid); }
+  .resolve-btn.unresolved { background: var(--green); color: white; }
+
   .logout-btn {
     font-size: 12px;
     color: #4A4440;
@@ -615,6 +692,11 @@
       <div class="nav-item" onclick="showSection('contactos')">
         <span class="nav-icon">💬</span> Contactos
       </div>
+      <div class="nav-item" onclick="showSection('errores')" id="navErrores">
+        <span class="nav-icon">🔴</span> Errores
+        <span id="errorBadge" style="display:none;margin-left:auto;background:#C47070;color:white;
+          font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;min-width:18px;text-align:center"></span>
+      </div>
     </nav>
     <div class="sidebar-bottom">
       <div class="sidebar-version">SMILE.app v1.0</div>
@@ -693,6 +775,7 @@ async function initApp() {
   }
   await loadClinicas();
   showSection('overview');
+  actualizarErrorBadge();
 }
 
 async function recargarAdmin() {
@@ -775,7 +858,7 @@ function calcMRR(plan, modulos = [], personalCount = 0) {
 function showSection(section) {
   currentSection = section;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const idx = ['overview','clinicas','nueva','contactos'].indexOf(section);
+  const idx = ['overview','clinicas','nueva','contactos','errores'].indexOf(section);
   document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
 
   const main = document.getElementById('main');
@@ -783,6 +866,7 @@ function showSection(section) {
   else if (section === 'clinicas') renderClinicas(main);
   else if (section === 'nueva') renderNuevaClinica(main);
   else if (section === 'contactos') renderContactos(main);
+  else if (section === 'errores') renderErrorLog(main);
 
 }
 
@@ -1517,6 +1601,318 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 </script>
-<script src="smile-nav.js"></script>
+<script src="smile-nav.js">
+
+// ══════════════════════════════════════════════════════════════
+// ERROR LOG — Base de conocimiento de errores de SMILE.app
+// Cada error tiene: qué pasó, por qué pasó, cómo resolverlo.
+// Los errores se guardan en Firestore: clinicas/{id}/errorLog
+// ══════════════════════════════════════════════════════════════
+
+// Base de conocimiento: código de error → explicación humana + pasos
+const ERROR_KB = {
+  'permission-denied': {
+    titulo: 'Sin permiso para leer/escribir datos',
+    severidad: 'critico',
+    explicacion: 'Firebase rechazó la operación porque las reglas de seguridad no lo permiten. Esto suele pasar cuando la sesión anónima de la clínica expiró, o cuando las Firestore Rules no están configuradas correctamente.',
+    pasos: [
+      { accion: 'Verificar Firestore Rules', detalle: 'En la consola de Firebase → Firestore → Reglas. Las rules deben permitir lectura/escritura a usuarios anónimos autenticados.' },
+      { accion: 'Pedir al usuario que recargue la página', detalle: 'La sesión anónima de Firebase dura 1 hora. Recargar la app inicia una sesión nueva automáticamente.' },
+      { accion: 'Si persiste, revisar si la clínica tiene auth anónima activada', detalle: 'Firebase Console → Authentication → Sign-in method → Anónimo debe estar activado.' },
+    ]
+  },
+  'unavailable': {
+    titulo: 'Firebase no disponible (sin conexión)',
+    severidad: 'error',
+    explicacion: 'El servidor de Firebase no respondió. Puede ser una interrupción temporal del servicio, o el usuario perdió conexión a internet.',
+    pasos: [
+      { accion: 'Verificar status.firebase.google.com', detalle: 'Si Firebase está caído, solo queda esperar. Suele resolverse en minutos.' },
+      { accion: 'Verificar la conexión del usuario', detalle: 'Pedir al usuario que verifique su WiFi o datos móviles y recargue la página.' },
+      { accion: 'La app muestra datos en caché', detalle: 'SMILE guarda los últimos datos en el dispositivo. El usuario puede seguir viendo (no editando) mientras vuelve la conexión.' },
+    ]
+  },
+  'not-found': {
+    titulo: 'Documento no encontrado en Firebase',
+    severidad: 'error',
+    explicacion: 'La app intentó leer un documento que no existe. Puede pasar si la clínica fue creada de forma incompleta (el onboarding no terminó), o si un registro fue eliminado directamente desde la consola.',
+    pasos: [
+      { accion: 'Verificar que el onboarding completó bien', detalle: 'En Firebase Console → Firestore → clinicas/{id}/config/settings debe existir el documento.' },
+      { accion: 'Si falta config/settings, crearlo manualmente', detalle: 'Crear el documento con campos: nombre, color, plan: "clinica", activa: true, modulos: [], moneda: "DOP".' },
+      { accion: 'Contactar al cliente y hacer que repita el onboarding si es necesario', detalle: 'Usar la sección "Nueva clínica" del admin para recrear la clínica con el mismo ID.' },
+    ]
+  },
+  'already-exists': {
+    titulo: 'Ya existe un registro con ese ID',
+    severidad: 'aviso',
+    explicacion: 'Se intentó crear un documento que ya existe. Normalmente pasa cuando alguien hace doble-click en "Activar clínica" durante el onboarding.',
+    pasos: [
+      { accion: 'Verificar si la clínica fue creada correctamente', detalle: 'Buscarla en Firebase Firestore. Si existe y tiene todos los campos, el usuario puede ignorar el error y entrar normalmente.' },
+      { accion: 'Si el documento está incompleto, eliminarlo y repetir', detalle: 'Borrar el documento desde Firebase Console y pedir al usuario que haga el onboarding de nuevo.' },
+    ]
+  },
+  'deadline-exceeded': {
+    titulo: 'Operación muy lenta (timeout)',
+    severidad: 'aviso',
+    explicacion: 'Firebase tardó demasiado en responder. Suele pasar con conexiones lentas o cuando la clínica tiene muchos datos y se está guardando todo de una vez.',
+    pasos: [
+      { accion: 'Pedir al usuario que reintente', detalle: 'En la mayoría de casos, reintentar la operación funciona.' },
+      { accion: 'Si es recurrente, la clínica puede tener demasiados datos en un solo documento', detalle: 'Firestore tiene un límite de 1MB por documento. Revisar el tamaño del documento en la consola.' },
+    ]
+  },
+  'canWriteToFirebase': {
+    titulo: 'Intento de escritura bloqueado por guardia de seguridad',
+    severidad: 'aviso',
+    explicacion: 'El sistema detectó un estado inválido antes de guardar: sesión sin clínica activa, conflicto de clínica entre tabs, o usuario no logueado. Se bloqueó la escritura para evitar corrupción de datos.',
+    pasos: [
+      { accion: 'Pedir al usuario que recargue la página', detalle: 'Generalmente se resuelve con una recarga. La sesión se reinicia limpiamente.' },
+      { accion: 'Si el usuario tiene múltiples tabs abiertas con clínicas diferentes, cerrarlas', detalle: 'SMILE detecta conflictos entre tabs. Usar una sola tab por sesión.' },
+    ]
+  },
+  'snapshot-not-found': {
+    titulo: 'Documento de clínica desapareció del listener',
+    severidad: 'critico',
+    explicacion: 'El listener de tiempo real detectó que el documento principal de la clínica ya no existe en Firebase. Puede haberse eliminado accidentalmente.',
+    pasos: [
+      { accion: 'Verificar en Firebase Console si el documento existe', detalle: 'Ir a Firestore → clinicas → buscar el ID de la clínica.' },
+      { accion: 'Si fue eliminado, restaurarlo', detalle: 'Crear el documento manualmente con los campos básicos: facturas: [], personal: [], citas: [], etc.' },
+      { accion: 'Contactar al cliente inmediatamente', detalle: 'Sus datos pueden estar perdidos. Verificar si hay backup en el cache local del navegador.' },
+    ]
+  },
+  'cache-corrupto': {
+    titulo: 'Cache local corrupto o inválido',
+    severidad: 'info',
+    explicacion: 'El cache guardado en el navegador del usuario no era JSON válido y fue limpiado automáticamente. El usuario puede haber tenido corrupción de almacenamiento local (común si el disco o el browser tuvo problemas).',
+    pasos: [
+      { accion: 'No requiere acción inmediata', detalle: 'La app limpió el cache automáticamente y cargó los datos frescos desde Firebase.' },
+      { accion: 'Si el usuario reporta datos faltantes', detalle: 'Los datos reales están en Firebase, no en el cache. Recargar la página carga todo de nuevo.' },
+    ]
+  },
+  'DEFAULT': {
+    titulo: 'Error desconocido',
+    severidad: 'error',
+    explicacion: 'Ocurrió un error que no está en la base de conocimiento. El detalle técnico está abajo.',
+    pasos: [
+      { accion: 'Copiar el mensaje de error técnico', detalle: 'Está visible en el recuadro verde al expandir esta tarjeta.' },
+      { accion: 'Buscar el código en Google o en la documentación de Firebase', detalle: 'La mayoría de errores de Firestore tienen solución documentada en firebase.google.com/docs.' },
+      { accion: 'Si no se resuelve, contactar soporte de SMILE', detalle: 'Con el mensaje técnico y el nombre de la clínica afectada.' },
+    ]
+  }
+};
+
+function getSeveridadLabel(sev) {
+  const labels = { critico: '🔴 Crítico', error: '🟠 Error', aviso: '🟡 Aviso', info: '🔵 Info' };
+  return labels[sev] || '⚪ Desconocido';
+}
+
+function formatErrorTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-DO', { day: 'numeric', month: 'short', year: 'numeric' }) +
+         ' · ' + d.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
+}
+
+let _errFiltro = 'todos';
+let _errLogs   = [];  // cache local de los logs cargados
+
+async function cargarErrorLogs() {
+  // Leer auditLogs de TODAS las clínicas y filtrar los que son errores
+  const errores = [];
+  for (const clinica of clinicas) {
+    try {
+      const doc = await db.collection('clinicas').doc(clinica.id).get();
+      if (!doc.exists) continue;
+      const data = doc.data();
+      const logs = data.auditLogs || [];
+      // Filtrar solo entradas de error (las que tienen campo 'error' o tipo 'error')
+      logs.filter(l => l.tipo === 'error' || l.error).forEach(l => {
+        errores.push({ ...l, clinicaId: clinica.id, clinicaNombre: clinica.nombre || clinica.id });
+      });
+    } catch(e) { /* clínica inaccesible, skip */ }
+  }
+  // También leer de la colección global smile_errors si existe
+  try {
+    const errSnap = await db.collection('smile_errors').orderBy('fecha', 'desc').limit(200).get();
+    errSnap.docs.forEach(d => {
+      const e = d.data();
+      errores.push({ ...e, _docId: d.id });
+    });
+  } catch(e) { /* colección no existe aún */ }
+
+  // Ordenar por fecha desc
+  errores.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+  _errLogs = errores;
+  return errores;
+}
+
+function toggleErrorCard(id) {
+  const detail = document.getElementById('detail-' + id);
+  const card   = document.getElementById('card-' + id);
+  if (!detail) return;
+  detail.classList.toggle('open');
+  card.classList.toggle('expanded');
+}
+
+function marcarResuelto(id, activo, event) {
+  event.stopPropagation();
+  const btn = document.getElementById('resolve-' + id);
+  const idx = _errLogs.findIndex(e => e._docId === id || e.id === id);
+  if (idx < 0) return;
+  _errLogs[idx]._resuelto = activo;
+  if (activo) {
+    btn.textContent = '✓ Resuelto';
+    btn.className = 'resolve-btn resolved';
+    btn.onclick = (ev) => marcarResuelto(id, false, ev);
+    // Guardar en Firestore si tiene docId
+    if (_errLogs[idx]._docId) {
+      db.collection('smile_errors').doc(_errLogs[idx]._docId).update({ resuelto: true, resueltoEn: new Date().toISOString() }).catch(() => {});
+    }
+  } else {
+    btn.textContent = '↩ Reabrir';
+    btn.className = 'resolve-btn unresolved';
+    btn.onclick = (ev) => marcarResuelto(id, true, ev);
+    if (_errLogs[idx]._docId) {
+      db.collection('smile_errors').doc(_errLogs[idx]._docId).update({ resuelto: false }).catch(() => {});
+    }
+  }
+}
+
+function filtrarYRenderErrorList(container) {
+  let lista = _errLogs;
+  if (_errFiltro !== 'todos')     lista = lista.filter(e => e.severidad === _errFiltro);
+  if (_errFiltro === 'abiertos')  lista = lista.filter(e => !e._resuelto && !e.resuelto);
+  if (_errFiltro === 'resueltos') lista = lista.filter(e => e._resuelto || e.resuelto);
+
+  if (lista.length === 0) {
+    container.innerHTML = `
+      <div class="error-log-empty">
+        <div class="empty-icon">${_errFiltro === 'resueltos' ? '✅' : '🎉'}</div>
+        <div class="empty-title">${_errFiltro === 'resueltos' ? 'No hay errores resueltos aún' : '¡Sin errores registrados!'}</div>
+        <div class="empty-sub">Cuando algo falle en cualquier clínica, aparecerá aquí con instrucciones para resolverlo.</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = lista.map((err, i) => {
+    const uid = err._docId || err.id || ('err-' + i);
+    const kb  = ERROR_KB[err.codigoError] || ERROR_KB[err.codigo] || ERROR_KB['DEFAULT'];
+    const sev = err.severidad || kb.severidad || 'error';
+    const titulo = err.titulo || kb.titulo || 'Error sin clasificar';
+    const resuelto = err._resuelto || err.resuelto;
+
+    return `
+    <div class="error-card ${resuelto ? 'opacity: 0.6' : ''}" id="card-${uid}" onclick="toggleErrorCard('${uid}')"
+         style="${resuelto ? 'opacity:0.55' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div class="error-card-severity sev-${sev}">${getSeveridadLabel(sev)}</div>
+          <div class="error-title">${titulo}</div>
+          <div class="error-meta">
+            🏥 ${err.clinicaNombre || err.clinicaId || 'Sin clínica'} &nbsp;·&nbsp;
+            🕐 ${formatErrorTime(err.fecha)} &nbsp;·&nbsp;
+            👤 ${err.usuario || 'Sistema'}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <button id="resolve-${uid}"
+            class="resolve-btn ${resuelto ? 'resolved' : 'unresolved'}"
+            onclick="${resuelto ? `marcarResuelto('${uid}',false,event)` : `marcarResuelto('${uid}',true,event)`}">
+            ${resuelto ? '✓ Resuelto' : '↩ Marcar resuelto'}
+          </button>
+          <span style="font-size:18px;color:var(--mid);transform:rotate(${0}deg);transition:transform 0.2s" id="chevron-${uid}">›</span>
+        </div>
+      </div>
+
+      <div class="error-detail" id="detail-${uid}">
+        <div class="error-section-title">¿Qué pasó?</div>
+        <div class="error-explanation">${kb.explicacion || err.mensaje || 'Sin descripción disponible.'}</div>
+
+        <div class="error-section-title">Cómo resolverlo</div>
+        <div class="fix-steps">
+          ${(kb.pasos || []).map((p, n) => `
+            <div class="fix-step">
+              <div class="fix-step-num">${n + 1}</div>
+              <div class="fix-step-text"><b>${p.accion}</b> — ${p.detalle}</div>
+            </div>`).join('')}
+        </div>
+
+        ${(err.detalle || err.rawError) ? `
+          <div class="error-section-title">Detalle técnico (para desarrolladores)</div>
+          <div class="error-raw">${(err.detalle || err.rawError || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+        ` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function renderErrorLog(main) {
+  main.innerHTML = `
+    <div class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Log de Errores</div>
+          <div class="page-sub">Cada error viene con una explicación y pasos para resolverlo</div>
+        </div>
+        <button class="header-btn" onclick="recargarErrorLog()" style="background:none;border:1px solid var(--light);color:var(--mid)">
+          ↻ Actualizar
+        </button>
+      </div>
+
+      <div class="error-filters">
+        <button class="filter-pill active" onclick="setErrFiltro('todos', this)">Todos</button>
+        <button class="filter-pill" onclick="setErrFiltro('abiertos', this)">Sin resolver</button>
+        <button class="filter-pill" onclick="setErrFiltro('resueltos', this)">Resueltos</button>
+        <button class="filter-pill" onclick="setErrFiltro('critico', this)">🔴 Crítico</button>
+        <button class="filter-pill" onclick="setErrFiltro('error', this)">🟠 Error</button>
+        <button class="filter-pill" onclick="setErrFiltro('aviso', this)">🟡 Aviso</button>
+        <button class="filter-pill" onclick="setErrFiltro('info', this)">🔵 Info</button>
+      </div>
+
+      <div id="errorLogContainer">
+        <div style="text-align:center;padding:60px 20px;color:var(--mid)">
+          <div style="font-size:24px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block">⏳</div>
+          <div>Cargando errores de todas las clínicas...</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const container = document.getElementById('errorLogContainer');
+  await cargarErrorLogs();
+  filtrarYRenderErrorList(container);
+}
+
+function setErrFiltro(filtro, btn) {
+  _errFiltro = filtro;
+  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const container = document.getElementById('errorLogContainer');
+  if (container) filtrarYRenderErrorList(container);
+}
+
+async function recargarErrorLog() {
+  const container = document.getElementById('errorLogContainer');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mid)">↻ Actualizando...</div>';
+  await cargarErrorLogs();
+  filtrarYRenderErrorList(container);
+}
+
+// Actualizar el badge de errores en el nav cuando carga el admin
+async function actualizarErrorBadge() {
+  try {
+    const snap = await db.collection('smile_errors')
+      .where('resuelto', '==', false).limit(99).get();
+    const badge = document.getElementById('errorBadge');
+    if (!badge) return;
+    if (snap.size > 0) {
+      badge.textContent = snap.size > 9 ? '9+' : snap.size;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch(e) { /* colección no existe aún — normal */ }
+}
+
+</script>
 </body>
 </html>
