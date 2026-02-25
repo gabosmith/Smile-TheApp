@@ -388,8 +388,8 @@ function showToast(text, duration = 3000, bg = '#1E1C1A') {
 async function loadData() {
     try {
         // Intentar cargar desde caché primero (más rápido)
-        const cached = localStorage.getItem('clinicaData_cache');
-        const cacheTimestamp = localStorage.getItem('clinicaData_cacheTime');
+        const cached = localStorage.getItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
+        const cacheTimestamp = localStorage.getItem('clinicaData_cacheTime_' + (CLINIC_PATH || 'default'));
 
         // Si hay caché reciente (menos de 5 minutos), usarlo temporalmente
         if (cached && cacheTimestamp) {
@@ -438,7 +438,7 @@ async function loadData() {
         setConnectionState('offline');
 
         // Fall back to cache if available
-        const cached = localStorage.getItem('clinicaData_cache');
+        const cached = localStorage.getItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
         if (cached) {
             try {
                 const cachedData = JSON.parse(cached);
@@ -473,12 +473,12 @@ function updateLocalCache() {
             auditLogs: appData.auditLogs
         };
 
-        localStorage.setItem('clinicaData_cache', JSON.stringify(dataToCache));
-        localStorage.setItem('clinicaData_cacheTime', Date.now().toString());
+        localStorage.setItem('clinicaData_cache_' + (CLINIC_PATH || 'default'), JSON.stringify(dataToCache));
+        localStorage.setItem('clinicaData_cacheTime_' + (CLINIC_PATH || 'default'), Date.now().toString());
     } catch (e) {
         console.warn('No se pudo guardar caché:', e);
         // Si localStorage está lleno, limpiar caché viejo
-        localStorage.removeItem('clinicaData_cache');
+        localStorage.removeItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
     }
 }
 
@@ -553,7 +553,7 @@ async function savePaciente(paciente) {
 function getDefaultPersonal() {
     // Returns a generic admin user — password should be set during clinic creation
     return [
-        {id: '1', nombre: 'Administrador', tipo: 'regular', password: 'admin123', isAdmin: true, canAccessReception: true}
+        {id: '1', nombre: 'Administrador', tipo: 'regular', password: null, isAdmin: true, canAccessReception: true}
     ];
 }
 
@@ -1030,6 +1030,8 @@ function logout() {
         clearTimeout(_inactivityTimer);
         clearInterval(_sessionCheckInterval);
         sessionStorage.removeItem('smile_session');
+        localStorage.removeItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
+        localStorage.removeItem('clinicaData_cacheTime_' + (CLINIC_PATH || 'default'));
 
         // Sign out Firebase anonymous session
         try { firebase.auth().signOut(); } catch(e) {}
@@ -5835,6 +5837,13 @@ async function limpiarDatosAntiguos() {
         }
     });
 
+    // Normalizar estados de facturas legacy (inglés → español)
+    appData.facturas.forEach(f => {
+        if (f.estado === 'pending') { f.estado = 'pendiente'; cambios++; }
+        if (f.estado === 'parcial') { f.estado = 'partial'; cambios++; }
+        if (f.estado === 'paid')    { f.estado = 'pagada'; cambios++; }
+    });
+
     // Inicializar estados en citas sin estado
     appData.citas.forEach(c => {
         if (!c.estado) {
@@ -6618,8 +6627,8 @@ function registrarAuditoria(accion, tipo, detalles) {
     }
 
     appData.auditLogs.push(log);
-    // ✅ No saveData() here — logs are included in the next saveData() call automatically.
-    console.log('📝 Auditoría:', log);
+    // Limitar a 500 entradas — evita que el doc de Firebase crezca infinitamente
+    if (appData.auditLogs.length > 500) appData.auditLogs = appData.auditLogs.slice(-500);
 }
 
 function verAuditoria() {
