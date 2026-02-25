@@ -1167,6 +1167,37 @@ function openClinicDetail(id) {
       </div>
     </div>
 
+    ${(() => {
+      const adminPerson = c.raw?.personal?.find(p => p.isAdmin) || c.raw?.personal?.[0];
+      const pwd = adminPerson?.password;
+      if (!pwd) return '';
+      // SHA-256 produce 64 chars hex — si tiene esa longitud, fue cambiada por el cliente
+      const esHash = /^[a-f0-9]{64}$/i.test(pwd);
+      return `
+      <div style="margin-bottom:24px">
+        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Acceso admin</div>
+        <div style="background:var(--bg);border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+          <div>
+            <div style="font-size:11px;color:var(--light);margin-bottom:6px">Usuario · ${adminPerson.nombre || 'Administrador'}</div>
+            ${esHash
+              ? `<div style="font-size:13px;color:var(--mid);font-style:italic">Contraseña cambiada por el cliente — usa Reset contraseña para generar una nueva</div>`
+              : `<div style="font-family:monospace;font-size:22px;letter-spacing:4px;color:var(--dark)" id="adminPwdDisplay">${pwd}</div>`
+            }
+          </div>
+          ${!esHash ? `
+          <button onclick="copyToClipboard('${pwd}')" style="
+            flex-shrink:0;padding:8px 16px;background:transparent;
+            border:1.5px solid rgba(30,28,26,0.12);border-radius:100px;
+            font-size:12px;color:var(--mid);font-family:inherit;cursor:pointer;
+            transition:all 0.15s;white-space:nowrap"
+            onmouseover="this.style.borderColor='var(--terracota)';this.style.color='var(--terracota)'"
+            onmouseout="this.style.borderColor='rgba(30,28,26,0.12)';this.style.color='var(--mid)'">
+            Copiar
+          </button>` : ''}
+        </div>
+      </div>`;
+    })()}
+
     <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Módulos activos</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px">
       ${c.modulos.length ? c.modulos.map(m => `<span style="background:var(--bg);padding:6px 14px;border-radius:8px;font-size:12px;color:var(--mid)">${m}</span>`).join('') : '<span style="font-size:13px;color:var(--light)">Sin módulos adicionales</span>'}
