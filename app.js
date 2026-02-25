@@ -7,18 +7,78 @@ let CLINIC_PATH = null;
 function detectClinica() {
     const urlParams = new URLSearchParams(window.location.search);
     const urlClinica = urlParams.get('clinica');
+
     if (urlClinica) {
+        const sesionAnterior = sessionStorage.getItem('smile_clinica_session');
+
+        // Si la clínica en la URL es DIFERENTE a la sesión activa,
+        // limpiar todo el estado para que Clínica B no vea datos de Clínica A
+        if (sesionAnterior && sesionAnterior !== urlClinica) {
+            console.warn(`[detectClinica] Cambio de clínica detectado: ${sesionAnterior} → ${urlClinica}. Limpiando estado.`);
+            _limpiarEstadoApp();
+        }
+
         CLINIC_PATH = urlClinica;
-        // sessionStorage: solo persiste en esta pestaña, no contamina otras clínicas
         sessionStorage.setItem('smile_clinica_session', urlClinica);
         return urlClinica;
     }
+
     const session = sessionStorage.getItem('smile_clinica_session');
     if (session) {
         CLINIC_PATH = session;
         return session;
     }
     return null;
+}
+
+// Limpia todo el estado en memoria y caches locales.
+// Se llama cuando se detecta un cambio de clínica en la misma pestaña.
+function _limpiarEstadoApp() {
+    // Limpiar datos en memoria
+    if (typeof appData !== 'undefined') {
+        appData.facturas       = [];
+        appData.personal       = [];
+        appData.gastos         = [];
+        appData.avances        = [];
+        appData.cuadresDiarios = {};
+        appData.citas          = [];
+        appData.settings       = {};
+        appData.laboratorios   = [];
+        appData.reversiones    = [];
+        appData.auditLogs      = [];
+        appData.pacientes      = [];
+        appData.currentUser    = null;
+        appData.currentRole    = null;
+    }
+
+    // Limpiar clinicConfig
+    if (typeof clinicConfig !== 'undefined') {
+        clinicConfig.modulos    = [];
+        clinicConfig.plan       = 'clinica';
+        clinicConfig.nombre     = '';
+        clinicConfig.color      = '';
+        clinicConfig.activa     = true;
+        clinicConfig.enTrial    = false;
+        clinicConfig._logoSrc   = null;
+        clinicConfig.logoPositivo = null;
+        clinicConfig.logoNegativo = null;
+    }
+
+    // Limpiar caches locales de la clínica anterior
+    const anterior = sessionStorage.getItem('smile_clinica_session');
+    if (anterior) {
+        localStorage.removeItem('clinicaData_cache_' + anterior);
+        localStorage.removeItem('clinicaData_cacheTime_' + anterior);
+    }
+
+    // Cancelar listener de Firestore si existe
+    if (typeof unsubscribeSnapshot !== 'undefined' && unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+    }
+
+    // Limpiar sesión activa
+    sessionStorage.removeItem('smile_session');
 }
 
 // Cargar branding dinámico desde Firebase config
@@ -449,7 +509,7 @@ async function loadData() {
             appData.reversiones    = [];
             appData.auditLogs      = [];
             appData.pacientes      = [];
-            await saveData();
+            await saveData('saveData-init');
         }
     } catch (error) {
         console.error('❌ Error loading from Firebase:', error);
@@ -500,11 +560,51 @@ function updateLocalCache() {
     }
 }
 
+// ── GUARDIA DE ESCRITURA A FIREBASE ──────────────────────────
+// Valida que el estado de la app es coherente antes de enviar
+// datos a Firestore. Si algo está mal, cancela la escritura y
+// muestra un aviso amable. Previene corrupción de datos.
+function canWriteToFirebase(context = '') {
+    // 1. Debe haber una clínica activa
+    if (!CLINIC_PATH) {
+        console.error('[Write Guard] Sin CLINIC_PATH —', context);
+        showToast('⚠️ No hay clínica activa. Recarga la página.', 5000, '#e65100');
+        return false;
+    }
+
+    // 2. CLINIC_PATH no puede ser vacío ni solo espacios
+    if (CLINIC_PATH.trim() === '') {
+        console.error('[Write Guard] CLINIC_PATH vacío —', context);
+        showToast('⚠️ ID de clínica inválido. Recarga la página.', 5000, '#e65100');
+        return false;
+    }
+
+    // 3. El CLINIC_PATH activo debe coincidir con la sesión
+    const sessionClinica = sessionStorage.getItem('smile_clinica_session');
+    if (sessionClinica && sessionClinica !== CLINIC_PATH) {
+        console.error(`[Write Guard] Mismatch clínica: CLINIC_PATH=${CLINIC_PATH}, sesión=${sessionClinica} — ${context}`);
+        showToast('⚠️ Conflicto de sesión detectado. Recarga la página.', 6000, '#c0392b');
+        return false;
+    }
+
+    // 4. Debe haber un usuario logueado (excepto en init)
+    const allowedWithoutUser = ['saveData-init', 'savePaciente-init'];
+    if (!appData?.currentUser && !allowedWithoutUser.includes(context)) {
+        console.error('[Write Guard] Sin usuario logueado —', context);
+        showToast('⚠️ Tu sesión expiró. Inicia sesión de nuevo.', 5000, '#e65100');
+        return false;
+    }
+
+    return true;
+}
+
 // Save data to Firebase
-async function saveData() {
+async function saveData(context = '') {
+    // Guardia: validar estado antes de escribir
+    if (!canWriteToFirebase(context || 'saveData')) return;
+
     try {
         setConnectionState('saving');
-        console.log('💾 Guardando datos en Firebase…');
 
         // Sanitize arrays before writing to Firebase
         const facturasSafe  = (appData.facturas  || []).map(f => sanitize.factura(f)).filter(Boolean);
@@ -552,8 +652,11 @@ async function saveData() {
 async function savePaciente(paciente) {
     if (!paciente || !paciente.id) {
         console.warn('savePaciente: paciente sin ID, fallback a saveData()');
-        return saveData();
+        return saveData('savePaciente-fallback');
     }
+    // Guardia: validar estado antes de escribir
+    if (!canWriteToFirebase('savePaciente')) return;
+
     try {
         setConnectionState('saving');
         const safe = sanitize.paciente(paciente) || paciente;
@@ -811,7 +914,7 @@ async function migratePasswordIfNeeded(person, plaintext) {
         const hashed = await hashPassword(plaintext);
         person.password    = hashed;
         person._pwHashed   = true;
-        await saveData();
+        await saveData('saveData-init');
         console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
     } catch(e) {
         console.warn('[Auth] No se pudo migrar contraseña:', e);
@@ -2995,7 +3098,8 @@ async function guardarIdentidadClinica() {
     const color  = document.getElementById('configColorClinica').value;
     const logo   = document.getElementById('configLogoUrl').value.trim();
 
-    if (!nombre) { alert('El nombre de la clínica es obligatorio'); return; }
+    if (!nombre) { showToast('⚠️ El nombre de la clínica es obligatorio', 4000, '#e65100'); return; }
+    if (!canWriteToFirebase('guardarIdentidadClinica')) return;
 
     try {
         await db.collection('clinicas').doc(CLINIC_PATH)
@@ -8477,6 +8581,9 @@ async function guardarCambiosPlan() {
             return s + (m ? m.precio : 0);
         }, basePrice);
 
+        // Guardia antes de escribir
+        if (!canWriteToFirebase('guardarModulosPlan')) return;
+
         // Update Firebase config
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings').set({
@@ -8846,6 +8953,7 @@ async function guardarProcedimiento(idx) {
     }
 
     try {
+        if (!canWriteToFirebase('guardarProcedimiento')) return;
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings')
             .set({ procItems: clinicConfig.procItems }, { merge: true });
@@ -8865,6 +8973,7 @@ async function eliminarProcedimiento(idx) {
     if (!confirm('¿Eliminar este procedimiento?')) return;
     clinicConfig.procItems.splice(idx, 1);
     try {
+        if (!canWriteToFirebase('eliminarProcedimiento')) return;
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings')
             .set({ procItems: clinicConfig.procItems }, { merge: true });
