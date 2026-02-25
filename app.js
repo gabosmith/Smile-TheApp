@@ -462,9 +462,16 @@ async function loadData() {
         if (cached && cacheTimestamp) {
             const cacheAge = Date.now() - parseInt(cacheTimestamp);
             if (cacheAge < 5 * 60 * 1000) { // 5 minutos
-                const cachedData = JSON.parse(cached);
-                Object.assign(appData, cachedData);
-                // Continuar cargando desde Firebase en background
+                try {
+                    const cachedData = JSON.parse(cached);
+                    Object.assign(appData, cachedData);
+                    // Continuar cargando desde Firebase en background
+                } catch(e) {
+                    // Cache corrupto — limpiar y continuar con Firebase
+                    console.warn('[Cache] JSON inválido, limpiando cache.', e.message);
+                    localStorage.removeItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
+                    localStorage.removeItem('clinicaData_cacheTime_' + (CLINIC_PATH || 'default'));
+                }
             }
         }
         const doc = await db.collection('clinicas').doc(CLINIC_PATH).get();
@@ -689,53 +696,67 @@ let unsubscribeSnapshot = null;
 
 function initRealtimeListener() {
     if (unsubscribeSnapshot) unsubscribeSnapshot();
-    unsubscribeSnapshot = db.collection('clinicas').doc(CLINIC_PATH).onSnapshot((doc) => {
-        if (!doc.exists) {
-            // Doc fue eliminado o nunca existió — no tocar appData
-            console.warn('[Snapshot] Documento de clínica no encontrado:', CLINIC_PATH);
-            return;
-        }
-        if (doc.exists && !doc.metadata.hasPendingWrites) {
+    unsubscribeSnapshot = db.collection('clinicas').doc(CLINIC_PATH).onSnapshot(
+        (doc) => {
+            // Doc eliminado o no existe — no tocar appData
+            if (!doc.exists) {
+                console.warn('[Snapshot] Documento no encontrado:', CLINIC_PATH);
+                return;
+            }
+
+            // Ignorar escrituras pendientes propias para evitar loops
+            if (doc.metadata.hasPendingWrites) return;
+
             const data = doc.data() || {};
+
+            // Todos los campos con defaults seguros — nunca undefined
             appData.facturas = (data.facturas || []).map(f => ({
                 ...f,
-                pagos: f.pagos || [],
+                pagos:          f.pagos          || [],
                 procedimientos: f.procedimientos || [],
-                ordenesLab: f.ordenesLab || [],
+                ordenesLab:     f.ordenesLab     || [],
             }));
-            appData.personal = data.personal || getDefaultPersonal();
-            appData.gastos = data.gastos || [];
-            appData.avances = data.avances || [];
+            appData.personal       = data.personal       || getDefaultPersonal();
+            appData.gastos         = data.gastos         || [];
+            appData.avances        = data.avances        || [];
             appData.cuadresDiarios = data.cuadresDiarios || {};
-            // ⚠️ NO sobreescribir pacientes desde el doc raíz —
-            // viven en subcollección, solo loadData() los carga correctamente.
-            // Si el doc raíz tiene pacientes (clínicas antiguas), usar como fallback
-            // SOLO si la subcollección aún no cargó nada.
+            appData.citas          = data.citas          || [];
+            appData.laboratorios   = data.laboratorios   || [];
+            appData.reversiones    = data.reversiones    || [];
+            appData.auditLogs      = data.auditLogs      || [];
+
+            // Pacientes viven en subcolleccion — no sobreescribir.
+            // Solo usar como fallback si la subcolleccion aun no cargo nada.
             if (!appData.pacientes || appData.pacientes.length === 0) {
                 appData.pacientes = data.pacientes || [];
             }
-            appData.citas = data.citas || [];
-            appData.laboratorios = data.laboratorios || [];
-            appData.reversiones = data.reversiones || [];
-            appData.auditLogs = data.auditLogs || [];
+
             updateLocalCache();
-            if (appData.currentUser) {
-                const activeTab = document.querySelector('.tab-content.active');
-                if (activeTab) {
-                    const tabId = activeTab.id.replace('tab-', '');
-                    if (tabId === 'ingresos') updateIngresosTab();
-                    if (tabId === 'cobrar') updateCobrarTab();
-                    // Skip cuadre refresh on snapshots — cuadre saves its own data which would
-                    // trigger another snapshot, creating a loop. Cuadre refreshes on tab switch.
-                    if (tabId === 'gastos') updateGastosTab();
-                    if (tabId === 'personal') updatePersonalTab();
-                    if (tabId === 'laboratorio') updateLaboratorioTab();
-                    if (tabId === 'agenda') updateAgendaTab();
-                    if (tabId === 'pacientes') updatePacientesTab();
-                }
+
+            // Refrescar la tab activa si el usuario ya esta logueado
+            if (!appData.currentUser) return;
+            const activeTab = document.querySelector('.tab-content.active');
+            if (!activeTab) return;
+            const tabId = activeTab.id.replace('tab-', '');
+            if (tabId === 'ingresos')    updateIngresosTab();
+            if (tabId === 'cobrar')      updateCobrarTab();
+            if (tabId === 'gastos')      updateGastosTab();
+            if (tabId === 'personal')    updatePersonalTab();
+            if (tabId === 'laboratorio') updateLaboratorioTab();
+            if (tabId === 'agenda')      updateAgendaTab();
+            if (tabId === 'pacientes')   updatePacientesTab();
+            // cuadre excluido intencionalmente — su propio save dispara un loop
+        },
+        (error) => {
+            // Error del listener (auth expirada, sin conexion, reglas, etc.)
+            console.error('[Snapshot] Error en listener:', error.code, error.message);
+            if (error.code === 'permission-denied') {
+                showToast('Sesion expirada. Recarga la pagina.', 6000, '#c0392b');
+            } else {
+                setConnectionState('offline');
             }
         }
-    });
+    );
 }
 
 
@@ -1024,12 +1045,16 @@ function resetInactivityTimer() {
 
     // Update lastActivity
     try {
-        const s = JSON.parse(sessionStorage.getItem('smile_session') || '{}');
+        const raw = sessionStorage.getItem('smile_session') || '{}';
+        const s = JSON.parse(raw);
         if (s.user) {
             s.lastActivity = Date.now();
             sessionStorage.setItem('smile_session', JSON.stringify(s));
         }
-    } catch(e) {}
+    } catch(e) {
+        // Session corrupta — limpiar silenciosamente
+        sessionStorage.removeItem('smile_session');
+    }
 }
 
 function checkSessionValidity() {
@@ -1501,10 +1526,14 @@ async function generarFactura() {
         .map(f => parseInt(f.numero.replace('F-', '')) || 0)
         .reduce((max, n) => Math.max(max, n), 0);
     const nuevoNumero = String(ultimoNumero + 1).padStart(4, '0');
+    // Sufijo único (últimos 3 dígitos del timestamp) para evitar
+    // colisiones si dos usuarios generan facturas simultáneamente
+    const sufijo = Date.now().toString().slice(-3);
+    const numeroFinal = `F-${nuevoNumero}-${sufijo}`;
 
     const factura = {
         id: generateId(),
-        numero: 'F-' + nuevoNumero,
+        numero: numeroFinal,
         fecha: new Date().toISOString(),
         paciente,
         pacienteId: document.getElementById('pacienteNombre').dataset.pacienteId || null,
@@ -1523,6 +1552,10 @@ async function generarFactura() {
         citaMotivo: citaHoy ? citaHoy.motivo : null
     };
 
+    // Guardar estado anterior para rollback si Firebase falla
+    const backupFacturas = appData.facturas.length;
+    const backupCitaEstado = citaHoy ? citaHoy.estado : null;
+
     appData.facturas.push(factura);
 
     // Marcar cita como completada (SIN vincular a factura)
@@ -1535,7 +1568,14 @@ async function generarFactura() {
     // Crear órdenes de laboratorio vinculadas a esta factura
     await crearOrdenesLabDesdeFactura(factura);
 
-    await saveData();
+    try {
+        await saveData();
+    } catch(saveErr) {
+        // Revertir mutaciones locales si Firebase rechazó la escritura
+        appData.facturas.splice(backupFacturas, 1);
+        if (citaHoy && backupCitaEstado) citaHoy.estado = backupCitaEstado;
+        throw saveErr; // re-throw para que el catch externo lo maneje
+    }
 
     const mensaje = citaHoy
         ? `✅ Factura generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
@@ -2299,8 +2339,13 @@ function registrarGasto() {
         aprobado:      true
     };
 
+    const backupGastos = appData.gastos.length;
     appData.gastos.push(gasto);
-    saveData();
+    saveData().catch(() => {
+        appData.gastos.splice(backupGastos, 1); // revertir
+        updateGastosTab();
+        showToast('❌ No se pudo guardar el gasto. Intenta de nuevo.', 4000, '#c0392b');
+    });
     updateGastosTab();
     closeModal('modalAddGasto');
     showToast('✓ Gasto registrado');
@@ -2318,7 +2363,7 @@ function updateGastosTab() {
                     <div class="item-amount" style="color: #ff3b30;">${formatCurrency(g.monto)}</div>
                 </div>
                 <div class="item-meta">
-                    ${g.proveedor} • ${g.metodo.charAt(0).toUpperCase() + g.metodo.slice(1)} • ${new Date(g.fecha).toLocaleDateString('es-DO')}
+                    ${g.proveedor || ''} • ${g.metodo ? g.metodo.charAt(0).toUpperCase() + g.metodo.slice(1) : 'N/A'} • ${new Date(g.fecha).toLocaleDateString('es-DO')}
                 </div>
                 ${g.facturaData ? `
                     <button class="btn btn-secondary" style="margin-top: 10px; padding: 8px 16px; font-size: 13px;" onclick="verComprobante('${g.facturaData}')">
@@ -2409,8 +2454,15 @@ async function agregarPersonal() {
         nextPayDate: null
     };
 
+    const backupPersonal = appData.personal.length;
     appData.personal.push(person);
-    await saveData();
+    try {
+        await saveData();
+    } catch(saveErr) {
+        appData.personal.splice(backupPersonal, 1); // revertir
+        showError('Error al agregar personal. Intenta de nuevo.', saveErr);
+        return;
+    }
     updatePersonalTab();
     updateProfessionalPicker();
     closeModal('modalAddPersonal');
@@ -4990,11 +5042,17 @@ async function guardarCita() {
         fechaCreacion: new Date().toISOString()
     };
 
+    const backupCitas = appData.citas.length;
     appData.citas.push(cita);
-    await saveData();
+    try {
+        await saveData();
+    } catch(saveErr) {
+        appData.citas.splice(backupCitas, 1); // revertir
+        throw saveErr;
+    }
     closeModal('modalNuevaCita');
     updateAgendaTab();
-    alert('✅ Cita creada exitosamente');
+    showToast('✅ Cita creada exitosamente');
     } catch(e) {
         showError('Error al guardar la cita.', e);
     }
