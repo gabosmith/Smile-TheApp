@@ -9,13 +9,14 @@ function detectClinica() {
     const urlClinica = urlParams.get('clinica');
     if (urlClinica) {
         CLINIC_PATH = urlClinica;
-        localStorage.setItem('smile_clinica', urlClinica);
+        // sessionStorage: solo persiste en esta pestaña, no contamina otras clínicas
+        sessionStorage.setItem('smile_clinica_session', urlClinica);
         return urlClinica;
     }
-    const saved = localStorage.getItem('smile_clinica');
-    if (saved) {
-        CLINIC_PATH = saved;
-        return saved;
+    const session = sessionStorage.getItem('smile_clinica_session');
+    if (session) {
+        CLINIC_PATH = session;
+        return session;
     }
     return null;
 }
@@ -624,22 +625,93 @@ function initRealtimeListener() {
 
 // Wait for Firebase to be ready, then load data
 window.addEventListener('load', async function() {
-    // Detectar clínica desde URL o localStorage
     const clinicaDetectada = detectClinica();
+
     if (!clinicaDetectada) {
-        // Sin clínica en URL — mostrar pantalla de selección o error
-        console.warn('⚠️ No se especificó una clínica. Usa ?clinica=tu-clinica-id en la URL.');
-        // Puedes redirigir a una página de selección aquí si quieres
+        // Sin clínica en URL → mostrar pantalla de acceso por ID
+        mostrarPantallaAcceso();
+        return;
     }
+
     console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
-
-    // Cargar branding antes de mostrar la app
     await loadClinicBranding();
-
     await loadData();
     updateProfessionalPicker();
     inicializarEstadosCitas();
 });
+
+// ── PANTALLA DE ACCESO POR ID DE CLÍNICA ──────────────────────
+function mostrarPantallaAcceso() {
+    const overlay = document.getElementById('clinicAccessOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+async function accederPorId() {
+    const idInput = document.getElementById('clinicIdInput');
+    const passInput = document.getElementById('clinicAccessPass');
+    const errEl = document.getElementById('clinicAccessErr');
+    const btn = document.getElementById('clinicAccessBtn');
+
+    const clinicId = (idInput.value || '').toLowerCase()
+        .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
+        .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
+        .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
+        .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-|-$/g,'');
+    const password = passInput.value.trim();
+
+    if (!clinicId) { errEl.textContent = 'Escribe el ID de tu clínica.'; errEl.style.display='block'; return; }
+    if (!password) { errEl.textContent = 'Escribe tu contraseña.'; errEl.style.display='block'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Verificando...';
+    errEl.style.display = 'none';
+
+    try {
+        // Ensure Firebase auth for Firestore rules
+        const auth = firebase.auth();
+        if (!auth.currentUser) await auth.signInAnonymously();
+
+        // Check clinic exists
+        const doc = await db.collection('clinicas').doc(clinicId).get();
+        if (!doc.exists) {
+            errEl.textContent = 'No encontramos una clínica con ese ID.';
+            errEl.style.display = 'block';
+            btn.disabled = false; btn.textContent = 'Entrar →';
+            return;
+        }
+
+        // Find admin user in personal array and verify password
+        const data = doc.data();
+        const personal = data.personal || [];
+        const admin = personal.find(p => p.isAdmin);
+
+        if (!admin) {
+            errEl.textContent = 'Esta clínica no tiene administrador configurado.';
+            errEl.style.display = 'block';
+            btn.disabled = false; btn.textContent = 'Entrar →';
+            return;
+        }
+
+        // Verify password (handles both hashed and plaintext legacy)
+        const valid = await verifyPassword(admin, password);
+        if (!valid) {
+            errEl.textContent = 'Contraseña incorrecta.';
+            errEl.style.display = 'block';
+            btn.disabled = false; btn.textContent = 'Entrar →';
+            return;
+        }
+
+        // ✅ Correct — redirect to clinic URL
+        const base = window.location.origin + window.location.pathname;
+        window.location.href = base + '?clinica=' + clinicId;
+
+    } catch(e) {
+        console.error('accederPorId error:', e);
+        errEl.textContent = 'Error de conexión. Intenta de nuevo.';
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Entrar →';
+    }
+}
 
 // ========================================
 // REST OF THE APP CODE

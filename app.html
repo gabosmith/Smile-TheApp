@@ -909,6 +909,141 @@
         .stat-grid { grid-template-columns: repeat(2, 1fr); }
         .content-area { padding: 16px 12px; }
     }
+
+    /* ── CLINIC ACCESS OVERLAY ── */
+    #clinicAccessOverlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        z-index: 9999;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+
+    .clinic-access-card {
+        background: var(--white);
+        border-radius: 24px;
+        padding: 40px 36px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04),
+                    inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    .clinic-access-logo {
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 7px;
+        color: var(--mid);
+        margin-bottom: 36px;
+        text-align: center;
+    }
+
+    .clinic-access-title {
+        font-size: 26px;
+        font-weight: 200;
+        letter-spacing: -0.5px;
+        color: var(--dark);
+        margin-bottom: 6px;
+    }
+
+    .clinic-access-sub {
+        font-size: 14px;
+        color: var(--mid);
+        line-height: 1.6;
+        margin-bottom: 28px;
+    }
+
+    .clinic-access-field {
+        margin-bottom: 14px;
+    }
+
+    .clinic-access-field label {
+        display: block;
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--mid);
+        margin-bottom: 8px;
+    }
+
+    .clinic-access-field input {
+        width: 100%;
+        padding: 14px 18px;
+        background: var(--surface);
+        border: 1.5px solid transparent;
+        border-radius: 12px;
+        font-size: 16px;
+        font-family: inherit;
+        font-weight: 300;
+        color: var(--dark);
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        box-sizing: border-box;
+    }
+
+    .clinic-access-field input:focus {
+        border-color: var(--clinic-color, #C4856A);
+        box-shadow: 0 0 0 3px rgba(196,133,106,0.12);
+        background: var(--white);
+    }
+
+    .clinic-id-hint {
+        font-size: 11px;
+        color: var(--clinic-color, #C4856A);
+        margin-top: 5px;
+        min-height: 16px;
+        padding-left: 2px;
+    }
+
+    .clinic-access-btn {
+        width: 100%;
+        padding: 16px;
+        background: var(--dark);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 12px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        font-family: inherit;
+        font-weight: 400;
+        cursor: pointer;
+        transition: background 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 16px rgba(30,28,26,0.15);
+        margin-top: 8px;
+        min-height: 52px;
+    }
+
+    .clinic-access-btn:hover { background: #C4856A; box-shadow: 0 6px 24px rgba(196,133,106,0.3); }
+    .clinic-access-btn:disabled { background: var(--light); box-shadow: none; cursor: not-allowed; }
+
+    .clinic-access-err {
+        display: none;
+        font-size: 12px;
+        color: #E57373;
+        margin-top: 12px;
+        text-align: center;
+        padding: 10px 14px;
+        background: rgba(229,115,115,0.08);
+        border-radius: 8px;
+    }
+
+    .clinic-access-footer {
+        margin-top: 24px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--light);
+    }
+
+    .clinic-access-footer a {
+        color: var(--clinic-color, #C4856A);
+        text-decoration: none;
+    }
+
 </style>
 </head>
 <body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
@@ -923,6 +1058,49 @@
     <div class="sync-indicator" id="syncIndicator">✓ Sincronizado</div>
 
     <!-- Login Screen -->
+    <!-- ── PANTALLA DE ACCESO POR ID DE CLÍNICA ── -->
+    <div id="clinicAccessOverlay">
+        <div class="clinic-access-card">
+            <div class="clinic-access-logo">SMILE</div>
+            <div class="clinic-access-title">Accede a<br>tu clínica.</div>
+            <div class="clinic-access-sub">Escribe el ID de tu clínica y tu contraseña de administrador.</div>
+
+            <div class="clinic-access-field">
+                <label>ID de clínica</label>
+                <input
+                    type="text"
+                    id="clinicIdInput"
+                    placeholder="mi-clinica"
+                    autocomplete="off"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    oninput="onClinicIdHint(this.value)"
+                    onkeydown="if(event.key==='Enter')document.getElementById('clinicAccessPass').focus()">
+                <div class="clinic-id-hint" id="clinicIdHint"></div>
+            </div>
+
+            <div class="clinic-access-field">
+                <label>Contraseña</label>
+                <input
+                    type="password"
+                    id="clinicAccessPass"
+                    placeholder="••••••"
+                    autocomplete="current-password"
+                    onkeydown="if(event.key==='Enter')accederPorId()">
+            </div>
+
+            <div class="clinic-access-err" id="clinicAccessErr"></div>
+
+            <button class="clinic-access-btn" id="clinicAccessBtn" onclick="accederPorId()">
+                Entrar →
+            </button>
+
+            <div class="clinic-access-footer">
+                ¿No tienes cuenta? <a href="smile-onboarding.html">Crear clínica gratis →</a>
+            </div>
+        </div>
+    </div>
+
     <div id="loginScreen" class="login-screen" style="display:none">
         <div class="logo-container">
             <img src="logo.png" alt="Clínica" id="logoImg" onerror="this.style.display='none'">
@@ -2003,6 +2181,23 @@
 
     <!-- Aplicar branding desde Firebase config -->
     <script>
+    // ── Clinic ID hint for access overlay ──
+    function onClinicIdHint(val) {
+        const clean = val.toLowerCase()
+            .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
+            .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
+            .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
+            .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-|-$/g,'');
+        const hint = document.getElementById('clinicIdHint');
+        if (clean.length > 1) {
+            hint.textContent = 'smile.app/' + clean;
+        } else {
+            hint.textContent = '';
+        }
+        // Sync cleaned value
+        document.getElementById('clinicIdInput').value = clean;
+    }
+
     // Genera una versión más oscura del color para gradientes
     function darkenColor(hex, pct) {
         const n = parseInt(hex.replace('#',''), 16);

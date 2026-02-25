@@ -1714,6 +1714,20 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // ─── ACTIVATION ───────────────────────────────────────
+// ── Crypto helpers (replicados de app.js para hashear password al crear clínica) ──
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray  = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashPassword(plaintext) {
+    // In onboarding, CLINIC_PATH = clinicId (set just before calling this)
+    const salt = window._pendingClinicId || 'smile-default-salt';
+    return sha256(salt + ':' + plaintext);
+}
+
 async function activateClinic() {
   const btn = document.getElementById('btn-activate');
   btn.textContent = '⏳ Creando tu clínica...';
@@ -1769,14 +1783,21 @@ async function activateClinic() {
     const personal = [
       {
         id: '1',
-        nombre: state.adminName,
+        nombre: state.adminName.trim(),
         tipo: 'regular',
-        password: adminPassword,
+        password: adminPassword,  // se reemplaza abajo con hash
+        _pwHashed: false,
         isAdmin: true,
         canAccessReception: true,
         email: state.adminEmail,
       }
     ];
+
+    // Hash admin password before saving (SHA-256 + clinic salt)
+    window._pendingClinicId = clinicId; // used by hashPassword as salt
+    const hashedAdminPw = await hashPassword(adminPassword);
+    personal[0].password = hashedAdminPw;
+    personal[0]._pwHashed = true;
 
     // 1. Create main clinic document
     await db.collection('clinicas').doc(clinicId).set({
@@ -1851,29 +1872,44 @@ async function activateClinic() {
     btnIr.style.display = 'block';
     btnIr.onclick = () => window.open(appUrl, '_blank');
 
+    // Build success details — clear login instructions
     document.getElementById('successDetails').innerHTML = `
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--light);margin-bottom:16px;text-align:center">
-        Guarda estos datos — los necesitas para entrar
+        📋 Guarda estos datos — los necesitas para entrar
       </div>
+
+      <div class="success-detail-card" style="grid-column:1/-1;border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
+        <div class="sd-label">🔗 Cómo entrar a tu clínica</div>
+        <div style="font-size:13px;color:var(--mid);line-height:1.7;margin-top:4px">
+          Abre <strong style="color:var(--dark)">app.html</strong> (o el link de abajo), escribe el ID de tu clínica y tu contraseña.
+        </div>
+      </div>
+
       <div class="success-detail-card" style="border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
-        <div class="sd-label">👤 Usuario</div>
-        <div class="sd-val" style="font-size:16px">${state.adminName}</div>
+        <div class="sd-label">🏷️ ID de clínica</div>
+        <div class="sd-val" style="font-family:monospace;font-size:16px;color:var(--dark)">${clinicId}</div>
       </div>
+
       <div class="success-detail-card" style="border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
         <div class="sd-label">🔑 Contraseña inicial</div>
         <div class="sd-val" style="font-family:monospace;letter-spacing:4px;font-size:24px;color:var(--terracota)">${adminPassword}</div>
       </div>
+
       <div class="success-detail-card">
-        <div class="sd-label">🏥 Clínica</div>
-        <div class="sd-val">${state.clinicName}</div>
+        <div class="sd-label">👤 Admin</div>
+        <div class="sd-val">${state.adminName.trim()}</div>
       </div>
+
       <div class="success-detail-card">
         <div class="sd-label">💳 Plan mensual</div>
         <div class="sd-val" style="color:var(--terracota)">RD\$${total.toLocaleString()}</div>
       </div>
-      <div class="success-detail-card">
-        <div class="sd-label">🎁 Trial gratis hasta</div>
-        <div class="sd-val">${getFreeTrialDate()}</div>
+
+      <div class="success-detail-card" style="grid-column:1/-1;background:var(--surface);border:none">
+        <div class="sd-label">⚠️ Importante</div>
+        <div style="font-size:12px;color:var(--mid);line-height:1.7;margin-top:4px">
+          Guarda la contraseña ahora — no la podrás ver de nuevo. Puedes cambiarla desde el panel de administración de la app.
+        </div>
       </div>
     `;
 
