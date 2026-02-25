@@ -1846,7 +1846,18 @@ async function activateClinic() {
         // Flat fields for quick access
         waName:  state.waName || state.adminName || '',
         waCargo: state.waCargo || '',
-        waPhone: state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : ''
+        waPhone: state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : '',
+
+        // Campos de configuración que app.js lee y necesita desde el día 1
+        moneda:        'DOP',
+        horaApertura:  8,
+        horaCierre:    20,
+        duracionCita:  30,
+        comisionRegular:      60,
+        comisionEspecialista: 50,
+
+        // procItems siempre presente (vacío si procMode = 'libre')
+        procItems: state.procMode === 'lista' ? (state.procItems || []) : [],
       });
 
     // ── Show success screen ──────────────────────────
@@ -1918,8 +1929,26 @@ async function activateClinic() {
 
   } catch(err) {
     console.error('Error creando clínica:', err);
-    btn.textContent = '❌ Error — intenta de nuevo';
+    // Mensaje específico según el tipo de error
+    let msg = '❌ Error — intenta de nuevo';
+    if (err.code === 'permission-denied') {
+        msg = '❌ Sin permisos. Recarga e intenta de nuevo';
+    } else if (err.code === 'unavailable' || err.message?.includes('network')) {
+        msg = '❌ Sin conexión. Verifica tu internet';
+    } else if (err.code === 'already-exists') {
+        msg = '❌ Ya existe una clínica con ese ID';
+    }
+    btn.textContent = msg;
     btn.disabled = false;
+    // Mostrar detalle del error debajo del botón
+    const errDiv = document.getElementById('activateError') || (() => {
+        const d = document.createElement('div');
+        d.id = 'activateError';
+        d.style.cssText = 'margin-top:12px;font-size:12px;color:#c0392b;text-align:center;opacity:0.8';
+        btn.parentNode.appendChild(d);
+        return d;
+    })();
+    errDiv.textContent = err.message || 'Error desconocido';
   }
 }
 

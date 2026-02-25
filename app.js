@@ -471,7 +471,12 @@ async function loadData() {
 
         if (doc.exists) {
             const data = doc.data();
-            appData.facturas = data.facturas || [];
+            appData.facturas = (data.facturas || []).map(f => ({
+                ...f,
+                pagos: f.pagos || [],
+                procedimientos: f.procedimientos || [],
+                ordenesLab: f.ordenesLab || [],
+            }));
             appData.personal = data.personal || getDefaultPersonal();
             appData.gastos = data.gastos || [];
             appData.avances = data.avances || [];
@@ -692,7 +697,12 @@ function initRealtimeListener() {
         }
         if (doc.exists && !doc.metadata.hasPendingWrites) {
             const data = doc.data() || {};
-            appData.facturas = data.facturas || [];
+            appData.facturas = (data.facturas || []).map(f => ({
+                ...f,
+                pagos: f.pagos || [],
+                procedimientos: f.procedimientos || [],
+                ordenesLab: f.ordenesLab || [],
+            }));
             appData.personal = data.personal || getDefaultPersonal();
             appData.gastos = data.gastos || [];
             appData.avances = data.avances || [];
@@ -889,6 +899,16 @@ function updateProfessionalPicker() {
 
 // ═══════════════════════════════════════════════════════════
 // SEGURIDAD — SHA-256, RATE LIMITING, SESSION MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// UTILIDADES — estas funciones son candidatas a utils.js
+// cuando el proyecto crezca. Son puras (sin side effects)
+// y no dependen de appData ni del DOM.
+// Candidatas: sha256, hashPassword, verifyPassword,
+//             formatCurrency, generateId, darkenColor,
+//             lightenColor, sanitize, getTodayKey,
+//             isSameDayTZ, getTimezone
 // ═══════════════════════════════════════════════════════════
 
 // SHA-256 via Web Crypto API (nativo en todos los browsers modernos)
@@ -1545,8 +1565,8 @@ function updateIngresosTab() {
     const misFacturas = appData.facturas.filter(f => f.profesional === appData.currentUser);
 
     const ingresosHoy = misFacturas
-        .flatMap(f => f.pagos)
-        .filter(p => isSameDayTZ(p.fecha, todayKey))
+        .flatMap(f => f.pagos || [])
+        .filter(p => p && isSameDayTZ(p.fecha, todayKey))
         .reduce((sum, p) => sum + p.monto, 0);
 
     const prof = appData.personal.find(p => p.nombre === appData.currentUser);
@@ -1556,11 +1576,11 @@ function updateIngresosTab() {
     const lastPayment = prof?.lastPaymentDate ? new Date(prof.lastPaymentDate) : new Date(0);
     const comisionesAcum = misFacturas
         .filter(f => f.estado === 'pagada' && new Date(f.fecha) > lastPayment)
-        .reduce((sum, f) => sum + (f.pagos.reduce((s, p) => s + p.monto, 0) * comision / 100), 0);
+        .reduce((sum, f) => sum + ((f.pagos || []).reduce((s, p) => s + p.monto, 0) * comision / 100), 0);
 
     const porCobrar = misFacturas
         .filter(f => f.estado !== 'pagada')
-        .reduce((sum, f) => sum + (f.total - f.pagos.reduce((s, p) => s + p.monto, 0)), 0);
+        .reduce((sum, f) => sum + (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)), 0);
 
     document.getElementById('ingresosHoy').textContent = formatCurrency(ingresosHoy);
     document.getElementById('comisionesHoy').textContent = formatCurrency(comisionesHoy);
@@ -2053,8 +2073,8 @@ function updateCuadreTab() {
     document.getElementById('fechaCuadre').textContent = todayDate;
 
     const pagosHoy = appData.facturas
-        .flatMap(f => f.pagos)
-        .filter(p => isSameDayTZ(p.fecha, todayKey));
+        .flatMap(f => f.pagos || [])
+        .filter(p => p && isSameDayTZ(p.fecha, todayKey));
 
     const efectivoHoy = pagosHoy.filter(p => p.metodo === 'efectivo').reduce((sum, p) => sum + p.monto, 0);
     const tarjetaHoy = pagosHoy.filter(p => p.metodo === 'tarjeta').reduce((sum, p) => sum + p.monto, 0);
@@ -2318,8 +2338,13 @@ function eliminarGasto(id) {
     if (!gasto) return;
 
     if (confirm(`🗑️ ¿Eliminar gasto?\n\n${gasto.descripcion}\nMonto: ${formatCurrency(gasto.monto)}\n${gasto.proveedor ? `Proveedor: ${gasto.proveedor}\n` : ''}\nEsta acción no se puede deshacer.`)) {
+        const backup = [...appData.gastos];
         appData.gastos = appData.gastos.filter(g => g.id !== id);
-        saveData();
+        saveData().catch(() => {
+            appData.gastos = backup; // revertir si falla
+            updateGastosTab();
+            showToast('❌ No se pudo eliminar. Intenta de nuevo.', 4000, '#c0392b');
+        });
         updateGastosTab();
     }
 }
@@ -5187,7 +5212,8 @@ function updateLaboratorioTab() {
     }
 
     lista.innerHTML = ordenesFiltradas.map(orden => {
-        const ultimoEvento = orden.timeline[orden.timeline.length - 1];
+        const timeline = orden.timeline || [];
+        const ultimoEvento = timeline.length > 0 ? timeline[timeline.length - 1] : { fecha: orden.fechaCreacion || new Date().toISOString(), usuario: 'Sistema', notas: '' };
         const colorEstado = getColorEstado(orden.estadoActual);
 
         return `
@@ -5283,8 +5309,8 @@ function verDetalleOrdenLab(ordenId) {
         </div>
     `;
 
-    document.getElementById('detalleLabTimeline').innerHTML = orden.timeline.map((evento, index) => {
-        const isLast = index === orden.timeline.length - 1;
+    document.getElementById('detalleLabTimeline').innerHTML = (orden.timeline || []).map((evento, index) => {
+        const isLast = index === (orden.timeline || []).length - 1;
         const color = getColorEstado(evento.estado);
 
         return `
@@ -7429,14 +7455,14 @@ function updateDashboardTab() {
 
     // INGRESOS HOY
     const pagosHoy = appData.facturas
-        .flatMap(f => f.pagos)
-        .filter(p => isSameDayTZ(p.fecha, todayKey));
+        .flatMap(f => f.pagos || [])
+        .filter(p => p && isSameDayTZ(p.fecha, todayKey));
     const ingresosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
 
     // Comparación con ayer
     const pagosAyer = appData.facturas
-        .flatMap(f => f.pagos)
-        .filter(p => isSameDayTZ(p.fecha, yesterdayKey));
+        .flatMap(f => f.pagos || [])
+        .filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
     const ingresosAyer = pagosAyer.reduce((sum, p) => sum + p.monto, 0);
 
     document.getElementById('dashIngresosHoy').textContent = formatCurrency(ingresosHoy);
