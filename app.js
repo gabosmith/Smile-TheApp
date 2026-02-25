@@ -692,9 +692,13 @@ async function accederPorId() {
             return;
         }
 
+        // Set CLINIC_PATH so hashPassword uses the correct salt
+        CLINIC_PATH = clinicId;
+
         // Verify password (handles both hashed and plaintext legacy)
         const valid = await verifyPassword(admin, password);
         if (!valid) {
+            CLINIC_PATH = null; // reset on failure
             errEl.textContent = 'Contraseña incorrecta.';
             errEl.style.display = 'block';
             btn.disabled = false; btn.textContent = 'Entrar →';
