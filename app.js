@@ -3686,9 +3686,11 @@ function updatePacientesTab() {
     lista.innerHTML = appData.pacientes.map(p => {
         const balance = calcularBalancePaciente(p.nombre);
         const facturasPaciente = appData.facturas.filter(f => f.paciente === p.nombre);
+        // data-search incluye nombre, cédula y teléfono para filtrado preciso
+        const searchText = [p.nombre, p.cedula, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
 
         return `
-            <div class="list-item" onclick="verPaciente('${p.id}')" style="cursor: pointer; padding: 20px; margin-bottom: 16px;">
+            <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor: pointer; padding: 20px; margin-bottom: 16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                     <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A);">${p.nombre}</div>
                     <div>
@@ -3707,11 +3709,12 @@ function updatePacientesTab() {
 }
 
 function filterPacientes() {
-    const search = document.getElementById('searchPacientes').value.toLowerCase();
+    const search = document.getElementById('searchPacientes').value.toLowerCase().trim();
     const items = document.querySelectorAll('#listaPacientes .list-item');
     items.forEach(item => {
-        const text = item.textContent.toLowerCase();
-        item.style.display = text.includes(search) ? 'block' : 'none';
+        // Usar data-search para evitar falsos positivos con montos y badges
+        const text = (item.dataset.search || item.textContent).toLowerCase();
+        item.style.display = text.includes(search) ? '' : 'none';
     });
 }
 
@@ -3752,8 +3755,15 @@ async function guardarPaciente() {
         fechaRegistro: new Date().toISOString()
     };
 
+    const backupPacientes = appData.pacientes.length;
     appData.pacientes.push(paciente);
-    await saveData();
+    try {
+        await saveData();
+    } catch(saveErr) {
+        appData.pacientes.splice(backupPacientes, 1);
+        showError('Error al guardar el paciente. Intenta de nuevo.', saveErr);
+        return;
+    }
     closeModal('modalNuevoPaciente');
     updatePacientesTab();
 
@@ -3788,14 +3798,7 @@ function verPaciente(pacienteId) {
     if (paciente.telefono) subtitulo += subtitulo ? ` • ${paciente.telefono}` : paciente.telefono;
     document.getElementById('verPacienteSubtitulo').textContent = subtitulo;
 
-    // Renderizar tabs
-    renderTabResumen(paciente);
-    renderTabBalance(paciente);
-    renderTabOdontograma(paciente);
-    renderTabHistorial(paciente);
-    renderTabRecetas(paciente);
-    renderTabDocumentos(paciente);
-    
+    // Solo ocultar/mostrar Balance por rol — renderizado lazy al cambiar tab
     // Ocultar tab Balance para profesionales (solo admin y recepción pueden cobrar)
     const tabBalanceBtn = document.getElementById('tabBalanceBtn');
     if (tabBalanceBtn) {
@@ -3806,7 +3809,7 @@ function verPaciente(pacienteId) {
         }
     }
 
-    // Activar primer tab
+    // Activar primer tab — cambiarTabPaciente renderizará solo ese tab
     cambiarTabPaciente('resumen');
 
     openModal('modalVerPaciente');
@@ -3817,7 +3820,16 @@ function cambiarTabPaciente(tabName) {
     document.querySelectorAll('.paciente-tab').forEach(btn => {
         btn.classList.remove('active');
     });
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
+    // Renderizado lazy: solo renderizar el tab que se activa
+    const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+    if (!paciente) return;
+    if (tabName === 'resumen')      renderTabResumen(paciente);
+    else if (tabName === 'odontograma')  renderTabOdontograma(paciente);
+    else if (tabName === 'historial')    renderTabHistorial(paciente);
+    else if (tabName === 'recetas')      renderTabRecetas(paciente);
+    else if (tabName === 'documentos')   renderTabDocumentos(paciente);
+    else if (tabName === 'balance')      renderTabBalance(paciente);
 
     // Actualizar contenido
     document.querySelectorAll('.paciente-tab-content').forEach(content => {
@@ -4017,8 +4029,11 @@ function _odontoDienteUp(e) {
 }
 
 function _odontoDienteClick(num) {
-    // Only fires on short tap (long press cleared the timer and opened modal)
-    if (!_longPressTimer && _dienteActual === null) return; // was a long press
+    // Si el timer fue cancelado por un long press (_longPressTimer = null
+    // tras disparar _odontoAbrirModal), el modal ya está abierto — no rotar.
+    // Si el timer aún existe o fue cancelado por _odontoDienteUp (click corto),
+    // entonces fue un tap/click normal → rotar estado.
+    if (_dienteActual !== null) return; // modal de diente abierto — long press activo
     clearTimeout(_longPressTimer);
     _longPressTimer = null;
     _odontoRotarEstado(num);
@@ -4194,22 +4209,23 @@ function renderTabResumen(paciente) {
 
     document.getElementById('tabResumen').innerHTML = `
         <!-- Tarjetas de estadísticas -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
-                <div style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">${totalCitas}</div>
-                <div style="font-size: 13px; opacity: 0.9;">Citas</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
+            <div style="background: var(--surface, #F5F2EE); padding: 18px; border-radius: 12px; border: 1.5px solid rgba(30,28,26,0.07);">
+                <div style="font-size: 28px; font-weight: 300; margin-bottom: 4px; color: var(--dark, #1E1C1A);">${totalCitas}</div>
+                <div style="font-size: 12px; color: var(--mid, #9C9189); letter-spacing: 0.5px;">Citas</div>
             </div>
-            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; color: white;">
-                <div style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">${totalRecetas}</div>
-                <div style="font-size: 13px; opacity: 0.9;">Recetas</div>
+            <div style="background: var(--surface, #F5F2EE); padding: 18px; border-radius: 12px; border: 1.5px solid rgba(30,28,26,0.07);">
+                <div style="font-size: 28px; font-weight: 300; margin-bottom: 4px; color: var(--dark, #1E1C1A);">${totalRecetas}</div>
+                <div style="font-size: 12px; color: var(--mid, #9C9189); letter-spacing: 0.5px;">Recetas</div>
             </div>
-            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; color: white;">
-                <div style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">${totalPlacas}</div>
-                <div style="font-size: 13px; opacity: 0.9;">Placas</div>
+            <div style="background: var(--surface, #F5F2EE); padding: 18px; border-radius: 12px; border: 1.5px solid rgba(30,28,26,0.07);">
+                <div style="font-size: 28px; font-weight: 300; margin-bottom: 4px; color: var(--dark, #1E1C1A);">${totalPlacas}</div>
+                <div style="font-size: 12px; color: var(--mid, #9C9189); letter-spacing: 0.5px;">Placas</div>
             </div>
-            <div style="background: linear-gradient(135deg, ${balance > 0 ? '#fa709a 0%, #fee140' : '#30cfd0 0%, #330867'} 100%); padding: 20px; border-radius: 12px; color: white;">
-                <div style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">${formatCurrency(balance)}</div>
-                <div style="font-size: 13px; opacity: 0.9;">Balance</div>
+            <div style="background: ${balance > 0 ? 'rgba(196,133,106,0.1)' : 'rgba(107,143,113,0.1)'}; padding: 18px; border-radius: 12px;
+                        border: 1.5px solid ${balance > 0 ? 'rgba(196,133,106,0.3)' : 'rgba(107,143,113,0.3)'};">
+                <div style="font-size: 22px; font-weight: 500; margin-bottom: 4px; color: ${balance > 0 ? 'var(--terracota, #C4856A)' : '#3a7a4a'}; letter-spacing: -0.5px;">${formatCurrency(balance)}</div>
+                <div style="font-size: 12px; color: var(--mid, #9C9189); letter-spacing: 0.5px;">Balance</div>
             </div>
         </div>
 
@@ -4318,11 +4334,11 @@ function renderTabResumen(paciente) {
             if (citasFuturas.length > 0) {
                 const proxima = citasFuturas[0];
                 return `
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; color: white; margin-bottom: 24px;">
-                        <h3 style="font-size: 16px; margin-bottom: 12px; font-weight: 700;">📅 Próxima Cita</h3>
-                        <div style="font-size: 20px; font-weight: 600; margin-bottom: 4px;">${formatDate(proxima.fecha)} a las ${proxima.hora}</div>
-                        <div style="font-size: 14px; opacity: 0.9;">${proxima.motivo}</div>
-                        <div style="font-size: 13px; opacity: 0.8; margin-top: 4px;">Con ${proxima.profesional}</div>
+                    <div style="background: var(--surface, #F5F2EE); border-radius: 12px; padding: 20px; margin-bottom: 24px;
+                                    border: 1.5px solid rgba(30,28,26,0.07); border-left: 4px solid var(--clinic-color, #C4856A);">
+                        <div style="font-size: 11px; color: var(--mid,#9C9189); letter-spacing: 1px; text-transform:uppercase; margin-bottom: 8px;">📅 Próxima Cita</div>
+                        <div style="font-size: 18px; font-weight: 400; margin-bottom: 4px; color: var(--dark, #1E1C1A);">${formatDate(proxima.fecha)} · ${proxima.hora}</div>
+                        <div style="font-size: 13px; color: var(--mid,#9C9189);">${proxima.motivo} · Con ${proxima.profesional}</div>
                     </div>
                 `;
             }
@@ -4643,9 +4659,9 @@ function renderTabBalance(paciente) {
     document.getElementById('tabBalance').innerHTML = `
         <!-- Resumen de Balance -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px; border-radius: 12px;">
-                <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">BALANCE ACTUAL</div>
-                <div style="font-size: 32px; font-weight: 700;">${formatCurrency(balance)}</div>
+            <div style="background: ${balance > 0 ? 'var(--terracota,#C4856A)' : '#3a7a4a'}; color: white; padding: 24px; border-radius: 12px;">
+                <div style="font-size: 11px; opacity: 0.8; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;">Balance Actual</div>
+                <div style="font-size: 32px; font-weight: 300;">${formatCurrency(balance)}</div>
             </div>
             <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
                 <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL FACTURADO</div>
