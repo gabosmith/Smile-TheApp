@@ -221,23 +221,16 @@ function setConnectionState(state, detail) {
 
 function showSyncIndicator() { setConnectionState('online'); }
 
-// Firebase Realtime Database connection detection
-// Uses the special .info/connected path — more reliable than navigator.onLine
+// Connection detection via browser events + Firestore probe
 function initConnectionMonitor() {
-    try {
-        const connectedRef = firebase.database().ref('.info/connected');
-        connectedRef.on('value', snap => {
-            if (snap.val() === true) {
-                if (_connectionState === 'offline') setConnectionState('online');
-            } else {
-                setConnectionState('offline');
-            }
-        });
-    } catch(e) {
-        // Firebase Realtime DB not configured — fall back to browser events
-        window.addEventListener('online',  () => setConnectionState('online'));
-        window.addEventListener('offline', () => setConnectionState('offline'));
+    // Estado inicial basado en browser
+    if (navigator.onLine) {
+        setConnectionState('online');
+    } else {
+        setConnectionState('offline');
     }
+    window.addEventListener('online',  () => setConnectionState('online'));
+    window.addEventListener('offline', () => setConnectionState('offline'));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -634,6 +627,7 @@ window.addEventListener('load', async function() {
     }
 
     console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
+    initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
     await loadData();
