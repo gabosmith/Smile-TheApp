@@ -7553,6 +7553,17 @@ function updateDashboardTab() {
         `;
     }
 
+    // Hacer stat cards clicables → navegan a su módulo
+    const statCards = document.querySelectorAll('#tab-dashboard .dash-stat');
+    const statNavs = ['cobros', 'agenda', 'cobros', 'laboratorio'];
+    statCards.forEach((card, i) => {
+        card.style.cursor = 'pointer';
+        card.style.transition = (card.style.transition || '') + ', transform 0.15s, box-shadow 0.15s';
+        card.onclick = () => showTab(statNavs[i]);
+        card.onmouseenter = () => { card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.18)'; };
+        card.onmouseleave = () => { card.style.transform = ''; card.style.boxShadow = ''; };
+    });
+
     // INGRESOS HOY
     const pagosHoy = appData.facturas
         .flatMap(f => f.pagos || [])
@@ -7586,7 +7597,10 @@ function updateDashboardTab() {
     document.getElementById('dashCitasPendientes').textContent =
         citasPendientes > 0 ? `${citasPendientes} pendientes` : 'Todas completadas';
 
-    // POR COBRAR (admin) / MIS COMISIONES (profesional)
+    // facturasPendientes siempre disponible — se usa también en el bloque de alertas
+    const facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada');
+
+    // POR COBRAR (admin/recepción) / MIS COMISIONES (profesional)
     if (dashRole === 'professional') {
         const person = appData.personal.find(p => p.nombre === appData.currentUser);
         if (person) {
@@ -7602,9 +7616,8 @@ function updateDashboardTab() {
                     : `${comisionRate}% comisión`;
         }
     } else {
-        const facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada');
         const porCobrar = facturasPendientes.reduce((sum, f) => {
-            const pagado = f.pagos.reduce((s, p) => s + p.monto, 0);
+            const pagado = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
             return sum + (f.total - pagado);
         }, 0);
 
@@ -7621,6 +7634,9 @@ function updateDashboardTab() {
         o.estadoActual === 'Toma de impresión' || o.estadoActual === 'Enviado a laboratorio'
     ).length;
 
+    // Mostrar u ocultar stat card de lab según módulo activo
+    const labCard = document.querySelector('#tab-dashboard .dash-stat:nth-child(4)');
+    if (labCard) labCard.style.display = hasModule('laboratorio') ? '' : 'none';
     document.getElementById('dashLabActivo').textContent = labActivo.length;
     document.getElementById('dashLabPendiente').textContent =
         labPendiente > 0 ? `${labPendiente} pendientes` : 'Todos en proceso';
@@ -7637,12 +7653,14 @@ function updateDashboardTab() {
         alertas.push(`${facturasViejas.length} factura${facturasViejas.length !== 1 ? 's' : ''} pendiente${facturasViejas.length !== 1 ? 's' : ''} de más de 30 días`);
     }
 
-    // Pacientes sin consentimiento
-    const pacientesSinConsentimiento = appData.pacientes.filter(p =>
-        !p.consentimiento || !p.consentimiento.firmado
-    );
-    if (pacientesSinConsentimiento.length > 0 && pacientesSinConsentimiento.length <= 10) {
-        alertas.push(`${pacientesSinConsentimiento.length} paciente${pacientesSinConsentimiento.length !== 1 ? 's' : ''} sin consentimiento firmado`);
+    // Pacientes sin consentimiento (solo admin — es quien puede gestionarlo globalmente)
+    if (dashRole === 'admin') {
+        const pacientesSinConsentimiento = appData.pacientes.filter(p =>
+            !p.consentimiento || !p.consentimiento.firmado
+        );
+        if (pacientesSinConsentimiento.length > 0 && pacientesSinConsentimiento.length <= 10) {
+            alertas.push(`${pacientesSinConsentimiento.length} paciente${pacientesSinConsentimiento.length !== 1 ? 's' : ''} sin consentimiento firmado`);
+        }
     }
 
     // Próxima cita (en 1 hora)
@@ -7681,12 +7699,16 @@ function updateDashboardTab() {
             const icono = getIconoEstadoCita(c.estado);
 
             return `
-                <div style="display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${color};">
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">${hora} - ${c.paciente}</div>
-                        <div style="font-size: 13px; color: #666; margin-top: 2px;">${c.motivo} • ${c.profesional}</div>
+                <div onclick="verDetalleCita('${c.id}')" style="display:flex;align-items:center;padding:12px;margin-bottom:8px;
+                    background:var(--surface);border-radius:10px;border-left:4px solid ${color};
+                    cursor:pointer;transition:background 0.15s"
+                    onmouseenter="this.style.background='var(--bg)'"
+                    onmouseleave="this.style.background='var(--surface)'">
+                    <div style="flex:1;">
+                        <div style="font-weight:500;font-size:14px;color:var(--dark)">${hora} · ${c.paciente}</div>
+                        <div style="font-size:12px;color:var(--mid);margin-top:3px">${c.motivo || 'Sin motivo'} · ${c.profesional}</div>
                     </div>
-                    <div style="background: ${color}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                    <div style="background:${color};color:white;padding:5px 11px;border-radius:100px;font-size:11px;font-weight:600;flex-shrink:0">
                         ${icono} ${c.estado}
                     </div>
                 </div>
