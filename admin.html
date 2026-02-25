@@ -530,19 +530,19 @@
   }
   .modal-action-btn {
     padding: 12px 16px;
-    background: var(--bg);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--surface);
+    border: 1.5px solid rgba(30,28,26,0.08);
     border-radius: 12px;
-    color: var(--surface-mid);
+    color: var(--mid);
     font-family: inherit;
     font-size: 13px;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
   }
-  .modal-action-btn:hover { background: rgba(255,255,255,0.06); color: var(--surface); }
+  .modal-action-btn:hover { background: var(--white); color: var(--dark); border-color: rgba(30,28,26,0.15); }
   .modal-action-btn span { font-size: 15px; }
   .modal-action-btn.btn-danger { color: #e07070; }
   .modal-action-btn.btn-danger:hover { background: rgba(220,80,80,0.1); }
@@ -680,19 +680,19 @@
     <div class="sidebar-logo">SMILE</div>
     <div class="sidebar-role">Admin</div>
     <nav class="sidebar-nav">
-      <div class="nav-item active" onclick="showSection('overview')">
+      <div class="nav-item active" data-section="overview" onclick="showSection('overview')">
         <span class="nav-icon">📊</span> Overview
       </div>
-      <div class="nav-item" onclick="showSection('clinicas')">
+      <div class="nav-item" data-section="clinicas" onclick="showSection('clinicas')">
         <span class="nav-icon">🏥</span> Clínicas
       </div>
-      <div class="nav-item" onclick="showSection('nueva')">
+      <div class="nav-item" data-section="nueva" onclick="showSection('nueva')">
         <span class="nav-icon">✦</span> Nueva clínica
       </div>
-      <div class="nav-item" onclick="showSection('contactos')">
+      <div class="nav-item" data-section="contactos" onclick="showSection('contactos')">
         <span class="nav-icon">💬</span> Contactos
       </div>
-      <div class="nav-item" onclick="showSection('errores')" id="navErrores">
+      <div class="nav-item" data-section="errores" onclick="showSection('errores')" id="navErrores">
         <span class="nav-icon">🔴</span> Errores
         <span id="errorBadge" style="display:none;margin-left:auto;background:#C47070;color:white;
           font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;min-width:18px;text-align:center"></span>
@@ -858,8 +858,8 @@ function calcMRR(plan, modulos = [], personalCount = 0) {
 function showSection(section) {
   currentSection = section;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const idx = ['overview','clinicas','nueva','contactos','errores'].indexOf(section);
-  document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
+  const navEl = document.querySelector(`.nav-item[data-section="${section}"]`);
+  if (navEl) navEl.classList.add('active');
 
   const main = document.getElementById('main');
   if (section === 'overview') renderOverview(main);
@@ -908,18 +908,18 @@ function renderContactos(main) {
       : 'Base';
 
     return `
-    <div style="background:var(--card);border-radius:16px;padding:20px 24px;
-                border:1px solid rgba(255,255,255,0.04);margin-bottom:10px;
+    <div style="background:var(--white);border-radius:16px;padding:20px 24px;
+                border:1.5px solid rgba(30,28,26,0.07);margin-bottom:10px;
                 display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start">
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <div style="font-size:15px;font-weight:400;color:var(--surface)">${c.nombre}</div>
+          <div style="font-size:15px;font-weight:400;color:var(--dark)">${c.nombre}</div>
           <span style="padding:3px 10px;border-radius:100px;font-size:10px;letter-spacing:1px;
                        background:${statusColor}22;color:${statusColor}">${statusLabel}</span>
           ${c.trial && trialDias !== null ? `<span style="font-size:11px;color:var(--mid)">${trialDias}d restantes</span>` : ''}
         </div>
         <div style="font-size:12px;color:var(--mid);margin-bottom:4px">
-          ${c.waName ? `<strong style="color:var(--surface-mid)">${c.waName}</strong>${c.waCargo ? ' · ' + c.waCargo : ''}` : '<span style="opacity:0.4">Sin contacto WA</span>'}
+          ${c.waName ? `<strong style="color:var(--dark)">${c.waName}</strong>${c.waCargo ? ' · ' + c.waCargo : ''}` : '<span style="color:var(--light)">Sin contacto WA</span>'}
         </div>
         <div style="font-size:12px;color:var(--mid);margin-bottom:8px">
           ${c.waPhone ? c.waPhone : ''}
@@ -941,8 +941,11 @@ function renderContactos(main) {
         </a>` : '<span style="font-size:11px;color:var(--mid);opacity:0.5">Sin WA</span>'}
         <button onclick="openClinicDetail('${c.id}')" style="
           padding:8px 16px;background:transparent;color:var(--mid);
-          border:1px solid rgba(255,255,255,0.08);border-radius:100px;
-          font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap">
+          border:1px solid rgba(30,28,26,0.15);border-radius:100px;
+          font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;
+          transition:all 0.15s"
+          onmouseover="this.style.borderColor='var(--terracota)';this.style.color='var(--terracota)'"
+          onmouseout="this.style.borderColor='rgba(30,28,26,0.15)';this.style.color='var(--mid)'">
           Ver clínica →
         </button>
       </div>
@@ -956,8 +959,8 @@ function renderContactos(main) {
           <div class="page-title">Contactos</div>
           <div class="page-sub">${lista.length} clínica${lista.length !== 1 ? 's' : ''} · Actualizado en tiempo real</div>
         </div>
-        <div style="display:flex;gap:4px;background:rgba(255,255,255,0.04);
-                    border-radius:100px;padding:4px">
+        <div style="display:flex;gap:4px;background:var(--surface);
+                    border-radius:100px;padding:4px;border:1.5px solid rgba(30,28,26,0.07)">
           ${filterBtns}
         </div>
       </div>
@@ -1314,7 +1317,7 @@ function renderNuevaClinica(main) {
         </div>
       </div>
 
-      <div style="max-width:560px">
+      <div style="max-width:560px;background:var(--white);border-radius:20px;padding:32px;border:1.5px solid rgba(30,28,26,0.06)">
         <div class="modal-field">
           <label>Nombre de la clínica *</label>
           <input type="text" id="new-nombre" placeholder="Clínica Dental García" oninput="autoSlug(this.value)">
@@ -1544,11 +1547,11 @@ function extendTrial(id) {
   const fmt  = d => d.toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'});
   const btn  = (days, date) => `
     <button onclick="confirmExtendTrial('${id}','${date.toISOString()}')"
-      style="padding:16px 20px;background:var(--bg);border:1px solid rgba(255,255,255,0.06);
-             border-radius:12px;color:var(--surface);font-family:inherit;font-size:14px;
-             cursor:pointer;text-align:left;width:100%;transition:background 0.2s"
-      onmouseover="this.style.background='rgba(196,133,106,0.12)'"
-      onmouseout="this.style.background='var(--bg)'">
+      style="padding:16px 20px;background:var(--white);border:1.5px solid rgba(30,28,26,0.08);
+             border-radius:12px;color:var(--dark);font-family:inherit;font-size:14px;
+             cursor:pointer;text-align:left;width:100%;transition:background 0.2s,border-color 0.2s"
+      onmouseover="this.style.background='rgba(196,133,106,0.08)';this.style.borderColor='var(--terracota)'"
+      onmouseout="this.style.background='var(--white)';this.style.borderColor='rgba(30,28,26,0.08)'">
       <span style="color:var(--terracota);font-weight:500">+${days} días</span>
       <span style="color:var(--mid);font-size:12px;float:right">hasta ${fmt(date)}</span>
     </button>`;
