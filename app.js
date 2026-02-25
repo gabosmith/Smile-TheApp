@@ -634,6 +634,7 @@ window.addEventListener('load', async function() {
     }
 
     console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
+    await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
     await loadData();
     updateProfessionalPicker();
