@@ -38,8 +38,15 @@ async function loadClinicBranding() {
     try {
         const cfgDoc = await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings').get();
-        if (!cfgDoc.exists) return;
-        const cfg = cfgDoc.data();
+        // Si no existe config, usar defaults y salir limpiamente
+        if (!cfgDoc.exists) {
+            clinicConfig.modulos = [];
+            clinicConfig.plan    = 'clinica';
+            clinicConfig.activa  = true;
+            clinicConfig.enTrial = true;
+            return;
+        }
+        const cfg = cfgDoc.data() || {};
 
         // ── Store config globally for module gating ──
         clinicConfig.modulos    = cfg.modulos || [];
@@ -430,7 +437,18 @@ async function loadData() {
             // Limpiar/migrar datos antiguos automáticamente
             await limpiarDatosAntiguos();
         } else {
-            appData.personal = getDefaultPersonal();
+            // Doc no existe — inicializar todos los campos con defaults seguros
+            appData.facturas       = [];
+            appData.personal       = getDefaultPersonal();
+            appData.gastos         = [];
+            appData.avances        = [];
+            appData.cuadresDiarios = {};
+            appData.citas          = [];
+            appData.settings       = {};
+            appData.laboratorios   = [];
+            appData.reversiones    = [];
+            appData.auditLogs      = [];
+            appData.pacientes      = [];
             await saveData();
         }
     } catch (error) {
@@ -564,8 +582,13 @@ let unsubscribeSnapshot = null;
 function initRealtimeListener() {
     if (unsubscribeSnapshot) unsubscribeSnapshot();
     unsubscribeSnapshot = db.collection('clinicas').doc(CLINIC_PATH).onSnapshot((doc) => {
+        if (!doc.exists) {
+            // Doc fue eliminado o nunca existió — no tocar appData
+            console.warn('[Snapshot] Documento de clínica no encontrado:', CLINIC_PATH);
+            return;
+        }
         if (doc.exists && !doc.metadata.hasPendingWrites) {
-            const data = doc.data();
+            const data = doc.data() || {};
             appData.facturas = data.facturas || [];
             appData.personal = data.personal || getDefaultPersonal();
             appData.gastos = data.gastos || [];
@@ -668,7 +691,7 @@ async function accederPorId() {
         }
 
         // Find admin user in personal array and verify password
-        const data = doc.data();
+        const data = doc.data() || {};
         const personal = data.personal || [];
         const admin = personal.find(p => p.isAdmin);
 
@@ -2977,12 +3000,12 @@ async function guardarIdentidadClinica() {
     try {
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings')
-            .update({
+            .set({
                 nombre,
                 color,
                 logoPositivo: logo || null,
                 logoNegativo: logo || null,
-            });
+            }, { merge: true });
 
         // Update local state immediately
         clinicConfig.nombre       = nombre;
@@ -8456,11 +8479,11 @@ async function guardarCambiosPlan() {
 
         // Update Firebase config
         await db.collection('clinicas').doc(CLINIC_PATH)
-            .collection('config').doc('settings').update({
+            .collection('config').doc('settings').set({
                 modulos: nuevosModulos,
                 mrr: nuevoMRR,
                 planModificadoEn: new Date().toISOString(),
-            });
+            }, { merge: true });
 
         // Update local state
         clinicConfig.modulos = nuevosModulos;
@@ -8825,7 +8848,7 @@ async function guardarProcedimiento(idx) {
     try {
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings')
-            .update({ procItems: clinicConfig.procItems });
+            .set({ procItems: clinicConfig.procItems }, { merge: true });
         cerrarModalProcedimiento();
         renderCatalogoTab();
         showToast('✓ Guardado');
@@ -8844,7 +8867,7 @@ async function eliminarProcedimiento(idx) {
     try {
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings')
-            .update({ procItems: clinicConfig.procItems });
+            .set({ procItems: clinicConfig.procItems }, { merge: true });
         renderCatalogoTab();
         showToast('✓ Eliminado');
     } catch(e) { console.error(e); }
