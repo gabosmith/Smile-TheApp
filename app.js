@@ -1547,11 +1547,15 @@ async function generarFactura() {
     const manana = new Date(hoy);
     manana.setDate(manana.getDate() + 1);
 
+    const pacienteId = document.getElementById('pacienteNombre')?.dataset?.pacienteId || null;
     const citaHoy = appData.citas.find(c => {
         const fechaCita = new Date(c.fecha);
         fechaCita.setHours(0, 0, 0, 0);
-
-        return c.paciente === paciente &&
+        // Buscar por ID si está disponible, sino por nombre (compatibilidad con datos legacy)
+        const mismoP = pacienteId
+            ? (c.pacienteId === pacienteId || c.paciente === paciente)
+            : c.paciente === paciente;
+        return mismoP &&
                fechaCita >= hoy &&
                fechaCita < manana &&
                c.profesional === profesionalQueAtendio &&
@@ -1677,8 +1681,8 @@ function updateIngresosTab() {
                         <div style="font-size: 12px; color: #8e8e93;">${f.numero}</div>
                         <div class="item-title">${f.paciente}</div>
                     </div>
-                    <span class="badge badge-${f.estado === 'pagada' ? 'paid' : f.estado === 'partial' ? 'partial' : 'pending'}">
-                        ${f.estado === 'pagada' ? 'Pagada' : f.estado === 'partial' ? 'Con Abono' : 'Pendiente'}
+                    <span class="badge badge-${f.estado === 'pagada' ? 'paid' : (f.estado === 'parcial' || f.estado === 'partial') ? 'partial' : 'pending'}">
+                        ${f.estado === 'pagada' ? 'Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? 'Con Abono' : 'Pendiente'}
                     </span>
                 </div>
                 <div class="item-amount">${formatCurrency(f.total)}</div>
@@ -1807,7 +1811,7 @@ document.getElementById('comprobanteFile').addEventListener('change', function(e
     }
 });
 
-function confirmarPago() {
+async function confirmarPago() {
     const monto  = sanitize.num(document.getElementById('pagoMonto')?.value, 0);
     const metodo = sanitize.str(document.getElementById('pagoMetodo')?.value, 50);
 
@@ -1837,16 +1841,25 @@ function confirmarPago() {
         }
     }
 
+    const estadoAnterior = currentFacturaToPay.estado;
     currentFacturaToPay.pagos.push(pago);
 
     const totalPagado = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
     if (totalPagado >= currentFacturaToPay.total) {
         currentFacturaToPay.estado = 'pagada';
     } else if (totalPagado > 0) {
-        currentFacturaToPay.estado = 'partial';
+        currentFacturaToPay.estado = 'parcial';
     }
 
-    saveData();
+    try {
+        await saveData();
+    } catch(saveErr) {
+        // Rollback: quitar el pago y restaurar estado
+        currentFacturaToPay.pagos.pop();
+        currentFacturaToPay.estado = estadoAnterior;
+        showError('Error al registrar el pago. Intenta de nuevo.', saveErr);
+        return;
+    }
 
     // Generar factura para cliente
     generarFacturaCliente(currentFacturaToPay, monto, metodo);
@@ -2213,7 +2226,7 @@ function updateCuadreTab() {
         // Obtener facturas con pagos de hoy para vincular
         const facturasConPagosHoy = appData.facturas
             .map(f => {
-                const pagosDeHoy = f.pagos.filter(p => isSameDayTZ(p.fecha, todayKey));
+                const pagosDeHoy = (f.pagos || []).filter(p => isSameDayTZ(p.fecha, todayKey));
                 return pagosDeHoy.length > 0 ? { ...f, pagosDeHoy } : null;
             })
             .filter(f => f !== null);
@@ -2560,7 +2573,7 @@ function calcularComisionesAcumuladas(person) {
     // (el total ya incluye laboratorio, no hay que contarlo aparte)
     const comisiones = appData.facturas
         .filter(f => f.profesional === person.nombre && f.estado === 'pagada' && new Date(f.fecha) > lastPayment)
-        .reduce((sum, f) => sum + (f.pagos.reduce((s, p) => s + p.monto, 0) * comisionRate / 100), 0);
+        .reduce((sum, f) => sum + ((f.pagos || []).reduce((s, p) => s + p.monto, 0) * comisionRate / 100), 0);
 
     return comisiones;
 }
@@ -3501,7 +3514,7 @@ function eliminarFactura(facturaId) {
         `,
         tipo: 'peligro',
         confirmText: 'Sí, Eliminar Factura',
-        onConfirm: () => {
+        onConfirm: async () => {
             // Registrar auditoría ANTES de eliminar
             registrarAuditoria(
                 'eliminar',
@@ -3509,10 +3522,16 @@ function eliminarFactura(facturaId) {
                 `Factura ${factura.numero} - Paciente: ${factura.paciente} - Total: ${formatCurrency(factura.total)}`
             );
 
+            const backupFacturas = [...appData.facturas];
             appData.facturas = appData.facturas.filter(f => f.id !== facturaId);
-            saveData();
-            updateCobrarTab();
-            showToast('✓ Factura eliminada correctamente');
+            try {
+                await saveData();
+                updateCobrarTab();
+                showToast('✓ Factura eliminada correctamente');
+            } catch(saveErr) {
+                appData.facturas = backupFacturas;
+                showError('Error al eliminar la factura.', saveErr);
+            }
         }
     });
 }
@@ -3549,7 +3568,7 @@ function abrirReversarCobro(facturaId) {
     openModal('modalReversarCobro');
 }
 
-function confirmarReversion() {
+async function confirmarReversion() {
     const motivo = document.getElementById('reversarMotivo').value.trim();
 
     if (!motivo) {
@@ -3578,9 +3597,9 @@ function confirmarReversion() {
     // Recalcular estado de la factura
     const totalPagado = factura.pagos.reduce((sum, p) => sum + p.monto, 0);
     if (totalPagado === 0) {
-        factura.estado = 'Pendiente';
+        factura.estado = 'pendiente';
     } else if (totalPagado < factura.total) {
-        factura.estado = 'partial';
+        factura.estado = 'parcial';
     } else {
         factura.estado = 'pagada';
     }
@@ -3601,11 +3620,19 @@ function confirmarReversion() {
 
     appData.reversiones.push(reversion);
 
-    // Guardar cambios
-    saveData();
+    try {
+        await saveData();
+    } catch(saveErr) {
+        // Rollback: restaurar el pago y recalcular estado
+        factura.pagos.splice(pagoIdx, 0, pagoReversado);
+        const totalRestaurado = factura.pagos.reduce((s, p) => s + p.monto, 0);
+        factura.estado = totalRestaurado >= factura.total ? 'pagada' : totalRestaurado > 0 ? 'parcial' : 'pendiente';
+        appData.reversiones.pop();
+        showError('Error al reversar el cobro. Intenta de nuevo.', saveErr);
+        return;
+    }
     updateCobrarTab();
     closeModal('modalReversarCobro');
-
     showToast(`✓ Pago de ${formatCurrency(pagoReversado.monto)} reversado correctamente`);
 }
 
@@ -4232,7 +4259,7 @@ function renderTabResumen(paciente) {
         ${(() => {
             const pendientes = getFacturasDePaciente(paciente).filter(f => {
                 const e = (f.estado || '').toLowerCase();
-                return e === 'pendiente' || e === 'pending' || e === 'parcial' || e === 'partial';
+                return e === 'pendiente' || e === 'pending' || e === 'parcial' || e === 'partial' || e === 'Pendiente';
             });
             if (balance <= 0 || pendientes.length === 0) return '';
             const primeraFactura = pendientes.sort((a,b) => new Date(a.fecha)-new Date(b.fecha))[0];
@@ -4641,7 +4668,7 @@ function renderTabBalance(paciente) {
     const facturasPendientes = facturasPaciente.filter(f => {
         const estado = (f.estado || '').toLowerCase().trim();
         return estado === 'pendiente' || estado === 'pending' ||
-               estado === 'parcial' || estado === 'partial';
+               estado === 'parcial' || estado === 'partial' || estado === 'Pendiente';
     });
     
     const facturasCompletadas = facturasPaciente.filter(f => {
@@ -5553,7 +5580,7 @@ async function avanzarEstadoLab(nuevoEstado) {
             f.paciente === orden.paciente && f.estado !== 'pagada'
         );
         const balancePendiente = facturasDelPaciente.reduce((sum, f) => {
-            const pagado = f.pagos.reduce((s, p) => s + p.monto, 0);
+            const pagado = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
             return sum + (f.total - pagado);
         }, 0);
 
@@ -6110,7 +6137,7 @@ async function limpiarDatosAntiguos() {
     // Normalizar estados de facturas legacy (inglés → español)
     appData.facturas.forEach(f => {
         if (f.estado === 'pending') { f.estado = 'pendiente'; cambios++; }
-        if (f.estado === 'parcial') { f.estado = 'partial'; cambios++; }
+        if (f.estado === 'partial') { f.estado = 'parcial'; cambios++; }
         if (f.estado === 'paid')    { f.estado = 'pagada'; cambios++; }
     });
 
@@ -7025,9 +7052,9 @@ function aplicarFiltrosFacturas() {
         list.innerHTML = '<li style="text-align: center; color: #999;">No hay facturas que coincidan con los filtros</li>';
     } else {
         list.innerHTML = facturasFiltradas.map(f => {
-            const balance = f.total - f.pagos.reduce((sum, p) => sum + p.monto, 0);
-            const hasComprobante = f.pagos.some(p => p.comprobanteData);
-            const hasPagos = f.pagos.length > 0;
+            const balance = f.total - (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
+            const hasComprobante = (f.pagos || []).some(p => p.comprobanteData);
+            const hasPagos = (f.pagos || []).length > 0;
 
             return `
                 <li style="cursor: default;">
@@ -7035,8 +7062,8 @@ function aplicarFiltrosFacturas() {
                         <div>
                             <div style="font-size: 12px; color: #8e8e93;">${f.numero} - ${formatDate(f.fecha)}</div>
                             <div class="item-title">${f.paciente}</div>
-                            <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : f.estado === 'partial' ? '#007aff' : '#ff3b30'}; font-weight: 600;">
-                                ${f.estado === 'pagada' ? '✅ Pagada' : f.estado === 'partial' ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
+                            <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff' : '#ff3b30'}; font-weight: 600;">
+                                ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
                             </div>
                             <div style="font-size: 13px; color: #666; margin-top: 4px;">Total: ${formatCurrency(f.total)}</div>
                             ${hasComprobante ? '<div style="font-size: 12px; color: #007aff; margin-top: 4px;">📎 Tiene comprobante</div>' : ''}
@@ -7159,7 +7186,7 @@ function exportarFacturasExcel() {
 
     // Preparar datos para Excel
     const datos = facturas.map(f => {
-        const totalPagado = f.pagos.reduce((sum, p) => sum + p.monto, 0);
+        const totalPagado = (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
         const balance = f.total - totalPagado;
 
         return {
