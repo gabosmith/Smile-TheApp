@@ -2194,7 +2194,7 @@ function updateCuadreTab() {
     document.getElementById('gastosHoy').textContent = formatCurrency(gastosHoy);
     document.getElementById('gastosEfectivoHoy').textContent = formatCurrency(gastosEfectivoHoy);
     document.getElementById('balanceDia').textContent = formatCurrency(balance);
-    document.getElementById('balanceDia').style.color = balance >= 0 ? '#34c759' : '#ff3b30';
+    document.getElementById('balanceDia').style.color = balance >= 0 ? 'var(--green, #6B8F71)' : 'var(--red, #C47070)';
     document.getElementById('efectivoCaja').textContent = formatCurrency(efectivoCaja);
 
     // Guardar cuadre del día actual (solo si hay actividad)
@@ -2244,7 +2244,7 @@ function updateCuadreTab() {
                             <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
                             <div style="font-size: 12px; color: #999;">Factura ${f.numero} - ${p.metodo}</div>
                         </div>
-                        <div style="font-weight: 600; color: #34c759;">${formatCurrency(p.monto)}</div>
+                        <div style="font-weight: 500; color: var(--green,#6B8F71);">${formatCurrency(p.monto)}</div>
                     </div>
                 `;
             });
@@ -2269,7 +2269,7 @@ function updateCuadreTab() {
                         ${g.proveedor ? `<div style="font-size: 12px; color: #999;">Proveedor: ${g.proveedor}</div>` : ''}
                         <div style="font-size: 12px; color: #999;">${g.metodo}</div>
                     </div>
-                    <div style="font-weight: 600; color: #ff3b30;">${formatCurrency(g.monto)}</div>
+                    <div style="font-weight: 500; color: var(--red,#C47070);">${formatCurrency(g.monto)}</div>
                 </div>
             `;
         });
@@ -2332,9 +2332,9 @@ function mostrarHistorialCuadres() {
                     <strong style="color: var(--clinic-color, #C4856A);">${fechaStr}</strong>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                    <div>Ingresos: <strong style="color: #34c759;">${formatCurrency(cuadre.totalIngresos)}</strong></div>
-                    <div>Gastos: <strong style="color: #ff3b30;">${formatCurrency(cuadre.gastos)}</strong></div>
-                    <div>Balance: <strong style="color: ${cuadre.balance >= 0 ? '#34c759' : '#ff3b30'};">${formatCurrency(cuadre.balance)}</strong></div>
+                    <div>Ingresos: <strong style="color: var(--green,#6B8F71);">${formatCurrency(cuadre.totalIngresos)}</strong></div>
+                    <div>Gastos: <strong style="color: var(--red,#C47070);">${formatCurrency(cuadre.gastos)}</strong></div>
+                    <div>Balance: <strong style="color: ${cuadre.balance >= 0 ? 'var(--green,#6B8F71)' : 'var(--red,#C47070)'};">${formatCurrency(cuadre.balance)}</strong></div>
                     <div>En caja: <strong style="color: var(--clinic-color, #C4856A);">${formatCurrency(cuadre.efectivoCaja)}</strong></div>
                 </div>
             </li>
@@ -2412,7 +2412,7 @@ function updateGastosTab() {
             <li>
                 <div class="item-header">
                     <div class="item-title">${g.descripcion}</div>
-                    <div class="item-amount" style="color: #ff3b30;">${formatCurrency(g.monto)}</div>
+                    <div class="item-amount" style="color: var(--red, #C47070);">${formatCurrency(g.monto)}</div>
                 </div>
                 <div class="item-meta">
                     ${g.proveedor || ''} • ${g.metodo ? g.metodo.charAt(0).toUpperCase() + g.metodo.slice(1) : 'N/A'} • ${new Date(g.fecha).toLocaleDateString('es-DO')}
@@ -2434,16 +2434,22 @@ function eliminarGasto(id) {
     const gasto = appData.gastos.find(g => g.id === id);
     if (!gasto) return;
 
-    if (confirm(`🗑️ ¿Eliminar gasto?\n\n${gasto.descripcion}\nMonto: ${formatCurrency(gasto.monto)}\n${gasto.proveedor ? `Proveedor: ${gasto.proveedor}\n` : ''}\nEsta acción no se puede deshacer.`)) {
-        const backup = [...appData.gastos];
-        appData.gastos = appData.gastos.filter(g => g.id !== id);
-        saveData().catch(() => {
-            appData.gastos = backup; // revertir si falla
+    mostrarConfirmacion({
+        titulo: 'Eliminar gasto',
+        mensaje: `<strong>${gasto.descripcion}</strong><br><span style="color:var(--mid)">${formatCurrency(gasto.monto)}${gasto.proveedor ? ' · ' + gasto.proveedor : ''}</span><br><br>Esta acción no se puede deshacer.`,
+        tipo: 'peligro',
+        confirmText: 'Eliminar',
+        onConfirm: () => {
+            const backup = [...appData.gastos];
+            appData.gastos = appData.gastos.filter(g => g.id !== id);
+            saveData().catch(() => {
+                appData.gastos = backup;
+                updateGastosTab();
+                showToast('❌ No se pudo eliminar. Intenta de nuevo.', 4000, '#c0392b');
+            });
             updateGastosTab();
-            showToast('❌ No se pudo eliminar. Intenta de nuevo.', 4000, '#c0392b');
-        });
-        updateGastosTab();
-    }
+        }
+    });
 }
 
 // Personal
@@ -5328,11 +5334,8 @@ async function crearOrdenesLabDesdeFactura(factura) {
         appData.laboratorios = [];
     }
     appData.laboratorios.push(...ordenesLab);
-
-    tempOrdenesLab = [];
-    updateListaOrdenesLabTemp();
-
-    await saveData();
+    // No llamar saveData() aquí — generarFactura() lo hace después
+    // para evitar doble escritura a Firebase.
     } catch(e) {
         showError('Error al crear las órdenes de laboratorio.', e);
     }
@@ -5368,22 +5371,22 @@ function updateLaboratorioTab() {
     };
 
     document.getElementById('statsLaboratorio').innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
-            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 24px; font-weight: 700; color: #856404;">${porEstado['Toma de impresión']}</div>
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">Impresión</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px;">
+            <div style="background: rgba(196,133,106,0.1); padding: 15px; border-radius: 10px; text-align: center; border: 1.5px solid rgba(196,133,106,0.2);">
+                <div style="font-size: 28px; font-weight: 300; color: var(--terracota,#C4856A);">${porEstado['Toma de impresión']}</div>
+                <div style="font-size: 11px; color: var(--mid,#9C9189); margin-top: 4px; letter-spacing: 0.5px;">Impresión</div>
             </div>
-            <div style="background: #cfe2ff; padding: 15px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 24px; font-weight: 700; color: #084298;">${porEstado['Enviado a laboratorio']}</div>
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">En Laboratorio</div>
+            <div style="background: rgba(123,143,161,0.1); padding: 15px; border-radius: 10px; text-align: center; border: 1.5px solid rgba(123,143,161,0.2);">
+                <div style="font-size: 28px; font-weight: 300; color: var(--azul,#7B8FA1);">${porEstado['Enviado a laboratorio']}</div>
+                <div style="font-size: 11px; color: var(--mid,#9C9189); margin-top: 4px; letter-spacing: 0.5px;">En Lab</div>
             </div>
-            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 24px; font-weight: 700; color: #856404;">${porEstado['Listo para prueba']}</div>
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">Para Prueba</div>
+            <div style="background: rgba(196,133,106,0.07); padding: 15px; border-radius: 10px; text-align: center; border: 1.5px solid rgba(196,133,106,0.15);">
+                <div style="font-size: 28px; font-weight: 300; color: var(--terracota,#C4856A);">${porEstado['Listo para prueba']}</div>
+                <div style="font-size: 11px; color: var(--mid,#9C9189); margin-top: 4px; letter-spacing: 0.5px;">Para Prueba</div>
             </div>
-            <div style="background: #d1e7dd; padding: 15px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 24px; font-weight: 700; color: #0f5132;">${porEstado['Entregado']}</div>
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">Entregados</div>
+            <div style="background: rgba(107,143,113,0.1); padding: 15px; border-radius: 10px; text-align: center; border: 1.5px solid rgba(107,143,113,0.2);">
+                <div style="font-size: 28px; font-weight: 300; color: var(--green,#6B8F71);">${porEstado['Entregado']}</div>
+                <div style="font-size: 11px; color: var(--mid,#9C9189); margin-top: 4px; letter-spacing: 0.5px;">Entregados</div>
             </div>
         </div>
     `;
@@ -5418,7 +5421,7 @@ function updateLaboratorioTab() {
                         <div style="background: ${colorEstado}; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
                             ${orden.estadoActual}
                         </div>
-                        <div style="font-size: 14px; font-weight: 700; color: #28a745;">
+                        <div style="font-size: 14px; font-weight: 400; color: var(--green,#6B8F71);">
                             ${formatCurrency(orden.precio)}
                         </div>
                     </div>
@@ -5434,13 +5437,13 @@ function updateLaboratorioTab() {
 
 function getColorEstado(estado) {
     const colores = {
-        'Toma de impresión': '#ffc107',
-        'Enviado a laboratorio': '#007AFF',
-        'Listo para prueba': '#ff9500',
-        'Reenviado a laboratorio': '#dc3545',
-        'Entregado': '#28a745'
+        'Toma de impresión':      'var(--terracota, #C4856A)',
+        'Enviado a laboratorio':  'var(--azul, #7B8FA1)',
+        'Listo para prueba':      '#E8A838',
+        'Reenviado a laboratorio':'var(--red, #C47070)',
+        'Entregado':              'var(--green, #6B8F71)'
     };
-    return colores[estado] || '#666';
+    return colores[estado] || 'var(--mid, #9C9189)';
 }
 
 function verDetalleOrdenLab(ordenId) {
@@ -5477,15 +5480,15 @@ function verDetalleOrdenLab(ordenId) {
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
                 <div>
                     <div style="font-size: 11px; color: #666;">Precio</div>
-                    <div style="font-size: 16px; font-weight: 700; color: #28a745;">${formatCurrency(orden.precio)}</div>
+                    <div style="font-size: 16px; font-weight: 400; color: var(--green,#6B8F71);">${formatCurrency(orden.precio)}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666;">Costo</div>
-                    <div style="font-size: 16px; font-weight: 700; color: #dc3545;">${formatCurrency(orden.costo)}</div>
+                    <div style="font-size: 16px; font-weight: 400; color: var(--red,#C47070);">${formatCurrency(orden.costo)}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666;">Margen</div>
-                    <div style="font-size: 16px; font-weight: 700; color: ${orden.margen >= 0 ? '#28a745' : '#dc3545'};">
+                    <div style="font-size: 16px; font-weight: 400; color: ${orden.margen >= 0 ? 'var(--green,#6B8F71)' : 'var(--red,#C47070)'};">
                         ${formatCurrency(orden.margen)}
                     </div>
                 </div>
@@ -5520,7 +5523,15 @@ function verDetalleOrdenLab(ordenId) {
     window.currentOrdenLabId = ordenId;
 
     const botonesHTML = renderizarBotonesAvance(orden);
-    document.getElementById('botonesAvanceLab').innerHTML = botonesHTML;
+    document.getElementById('botonesAvanceLab').innerHTML = `
+        ${orden.estadoActual !== 'Entregado' ? `
+        <textarea id="notasAvanceLab" placeholder="Notas del cambio (opcional)..."
+            style="width:100%;padding:10px 12px;border:1.5px solid rgba(30,28,26,0.1);
+                   border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;
+                   min-height:56px;background:var(--surface,#F5F2EE);color:var(--dark,#1E1C1A);
+                   margin-bottom:10px"></textarea>` : ''}
+        ${botonesHTML}
+    `;
 
     openModal('modalDetalleOrdenLab');
 }
@@ -5605,11 +5616,34 @@ async function avanzarEstadoLab(nuevoEstado) {
         return;
     }
 
-    const notas = prompt(`Notas para el cambio a "${nuevoEstado}":\n\n(Puedes dejar vacío si no hay notas)`);
+    // Leer notas del textarea en el modal de detalle
+    const notasEl = document.getElementById('notasAvanceLab');
+    const notas = notasEl ? notasEl.value.trim() : '';
 
-    if (notas === null) return; // Usuario canceló
+    const ejecutarAvance = async () => {
+        if (!orden.timeline) orden.timeline = [];
+        const estadoAnterior = orden.estadoActual;
+        orden.timeline.push({
+            estado: nuevoEstado,
+            fecha: new Date().toISOString(),
+            usuario: appData.currentUser,
+            notas: notas || ''
+        });
+        orden.estadoActual = nuevoEstado;
 
-    // ── Warning de balance pendiente al marcar como Entregado ──
+        try {
+            await saveData();
+            verDetalleOrdenLab(orden.id);
+            updateLaboratorioTab();
+        } catch(e) {
+            // Rollback
+            orden.timeline.pop();
+            orden.estadoActual = estadoAnterior;
+            showError('Error al actualizar el laboratorio.', e);
+        }
+    };
+
+    // Advertencia de balance pendiente al entregar — sin bloquear
     if (nuevoEstado === 'Entregado' && orden.paciente) {
         const facturasDelPaciente = appData.facturas.filter(f =>
             f.paciente === orden.paciente && f.estado !== 'pagada'
@@ -5620,28 +5654,18 @@ async function avanzarEstadoLab(nuevoEstado) {
         }, 0);
 
         if (balancePendiente > 0) {
-            const continuar = confirm(
-                `⚠️ Balance pendiente\n\n` +
-                `${orden.paciente} tiene ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''} sin saldar por un total de ${formatCurrency(balancePendiente)}.\n\n` +
-                `¿Deseas marcar la orden como entregada de todas formas?`
-            );
-            if (!continuar) return;
+            mostrarConfirmacion({
+                titulo: 'Balance pendiente',
+                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
+                tipo: 'advertencia',
+                confirmText: 'Sí, entregar',
+                onConfirm: ejecutarAvance
+            });
+            return;
         }
     }
 
-    orden.timeline.push({
-        estado: nuevoEstado,
-        fecha: new Date().toISOString(),
-        usuario: appData.currentUser,
-        notas: notas.trim() || 'Sin notas adicionales'
-    });
-
-    orden.estadoActual = nuevoEstado;
-
-    await saveData();
-
-    verDetalleOrdenLab(orden.id);
-    updateLaboratorioTab();
+    await ejecutarAvance();
     } catch(e) {
         showError('Error al actualizar el estado del laboratorio.', e);
     }
@@ -7229,13 +7253,13 @@ function exportarFacturasExcel() {
             'Fecha': formatDateWithTimezone(f.fecha),
             'Paciente': f.paciente,
             'Profesional': f.profesional,
-            'Procedimientos': f.procedimientos.map(p => p.descripcion).join(', '),
+            'Procedimientos': (f.procedimientos || []).map(p => p.descripcion).join(', '),
             'Subtotal': f.subtotal,
             'Descuento %': (f.descuento || 0).toFixed(0),
             'Total': f.total,
             'Pagado': totalPagado,
             'Balance': balance,
-            'Estado': f.estado === 'pagada' ? 'Pagada' : 'Pendiente'
+            'Estado': f.estado === 'pagada' ? 'Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? 'Con Abono' : 'Pendiente'
         };
     });
 
