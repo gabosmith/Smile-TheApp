@@ -855,7 +855,7 @@ function calcMRR(plan, modulos = [], personalCount = 0) {
 }
 
 // ── SECTIONS ──────────────────────────────────────────
-function showSection(section) {
+async function showSection(section) {
   currentSection = section;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const navEl = document.querySelector(`.nav-item[data-section="${section}"]`);
@@ -866,7 +866,7 @@ function showSection(section) {
   else if (section === 'clinicas') renderClinicas(main);
   else if (section === 'nueva') renderNuevaClinica(main);
   else if (section === 'contactos') renderContactos(main);
-  else if (section === 'errores') renderErrorLog(main);
+  else if (section === 'errores') await renderErrorLog(main);
 
 }
 
@@ -1812,9 +1812,9 @@ function marcarResuelto(id, activo, event) {
 
 function filtrarYRenderErrorList(container) {
   let lista = _errLogs;
-  if (_errFiltro !== 'todos')     lista = lista.filter(e => e.severidad === _errFiltro);
-  if (_errFiltro === 'abiertos')  lista = lista.filter(e => !e._resuelto && !e.resuelto);
-  if (_errFiltro === 'resueltos') lista = lista.filter(e => e._resuelto || e.resuelto);
+  if (_errFiltro === 'abiertos')       lista = lista.filter(e => !e._resuelto && !e.resuelto);
+  else if (_errFiltro === 'resueltos') lista = lista.filter(e => e._resuelto || e.resuelto);
+  else if (_errFiltro !== 'todos')     lista = lista.filter(e => e.severidad === _errFiltro);
 
   if (lista.length === 0) {
     container.innerHTML = `
@@ -1910,9 +1910,14 @@ async function renderErrorLog(main) {
     </div>
   `;
 
+  try {
+    await cargarErrorLogs();
+  } catch(e) {
+    console.error('[Admin] Error cargando error logs:', e);
+  }
+  // Verificar que el container sigue en el DOM (el usuario pudo navegar a otro tab)
   const container = document.getElementById('errorLogContainer');
-  await cargarErrorLogs();
-  filtrarYRenderErrorList(container);
+  if (container) filtrarYRenderErrorList(container);
 }
 
 function setErrFiltro(filtro, btn) {
