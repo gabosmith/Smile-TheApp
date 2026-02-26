@@ -194,8 +194,43 @@ async function loadClinicBranding() {
         }
 
     } catch(e) {
-        console.log('Branding no disponible:', e.message);
+        console.error('[Branding] Error cargando config de clínica:', e.code, e.message);
+        // Si es permission-denied probablemente auth no está lista — no mostrar "sin conexión"
+        // ya que el problema es de auth, no de red
+        if (e.code === 'permission-denied') {
+            console.warn('[Branding] permission-denied — verificar que firebase-auth-compat.js está cargado');
+        } else if (e.code === 'unavailable' || e.message?.includes('offline')) {
+            // Problema real de red — intentar cargar branding desde cache
+            _loadBrandingFromCache();
+        }
+        // No llamar setConnectionState('offline') aquí — loadData lo manejará
     }
+}
+
+// Intenta restaurar branding básico desde localStorage si Firebase no está disponible
+function _loadBrandingFromCache() {
+    try {
+        const cached = localStorage.getItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
+        if (!cached) return;
+        const data = JSON.parse(cached);
+        const color = data.clinicColor || clinicConfig.color;
+        const nombre = data.clinicNombre || clinicConfig.nombre;
+        if (color) {
+            const darker  = darkenColor(color, 15);
+            const lighter = lightenColor(color, 25);
+            document.documentElement.style.setProperty('--clinic-color', color);
+            document.documentElement.style.setProperty('--clinic-color-dark', darker);
+            document.documentElement.style.setProperty('--clinic-color-light', lighter);
+            let styleTag = document.getElementById('clinic-color-style');
+            if (!styleTag) { styleTag = document.createElement('style'); styleTag.id = 'clinic-color-style'; document.head.appendChild(styleTag); }
+            styleTag.textContent = `:root{--clinic-color:${color}!important;--clinic-color-dark:${darker}!important;--clinic-color-light:${lighter}!important;}.login-screen{background:linear-gradient(135deg,${color} 0%,${darker} 100%)!important;}`;
+        }
+        if (nombre) {
+            document.title = nombre;
+            const el = document.getElementById('clinicNameLogin');
+            if (el) el.textContent = nombre;
+        }
+    } catch(e) { /* cache corrupto, ignorar */ }
 }
 
 // Applies the clinic logo to every branded surface in one call.
@@ -292,16 +327,32 @@ function setConnectionState(state, detail) {
 
 function showSyncIndicator() { setConnectionState('online'); }
 
-// Connection detection via browser events + Firestore probe
+// Connection detection via browser events + Firestore internal channel
 function initConnectionMonitor() {
-    // Estado inicial basado en browser
-    if (navigator.onLine) {
-        setConnectionState('online');
-    } else {
+    // Estado inicial: no mostrar nada hasta confirmar
+    // navigator.onLine puede ser true cuando Firebase no responde
+    if (!navigator.onLine) {
         setConnectionState('offline');
     }
-    window.addEventListener('online',  () => setConnectionState('online'));
+    // Browser eventos de red
+    window.addEventListener('online',  () => {
+        setConnectionState('online');
+        // Al reconectar, reintentar cargar si hay datos pendientes
+        if (_connectionState === 'offline' && CLINIC_PATH && appData.currentUser) {
+            loadData().catch(e => console.warn('[Reconexión] loadData fallido:', e.message));
+        }
+    });
     window.addEventListener('offline', () => setConnectionState('offline'));
+
+    // Firestore tiene su propio detector de conectividad interno
+    // que es más confiable que navigator.onLine para detectar problemas con Firebase
+    if (typeof db !== 'undefined') {
+        try {
+            // enableNetwork/disableNetwork de Firestore sigue el estado real de la conexión
+            // El listener de onSnapshot ya maneja errors de red — no necesitamos probe extra
+            // Solo escuchar el evento 'online' del browser para reconectar
+        } catch(e) { /* ignorar */ }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -620,22 +671,63 @@ async function loadData() {
             await saveData('saveData-init');
         }
     } catch (error) {
-        console.error('❌ Error loading from Firebase:', error);
-        setConnectionState('offline');
+        console.error('❌ Error loading from Firebase:', error.code, error.message);
+        logErrorToFirestore(error.code || 'load-error', 'Error al cargar datos de la clínica',
+            error.message, 'loadData');
 
-        // Fall back to cache if available
+        if (error.code === 'permission-denied') {
+            // Problema de autenticación — no es offline, es un problema de auth
+            console.error('[loadData] permission-denied: Firebase Auth no está lista o las rules bloquearon la lectura');
+            showToast('⚠️ Error de autenticación. Recarga la página.', 7000, '#c0392b');
+            // Intentar re-autenticar y reintentar UNA vez
+            try {
+                await ensureFirebaseAuth();
+                const docRetry = await db.collection('clinicas').doc(CLINIC_PATH).get();
+                if (docRetry.exists) {
+                    const data = docRetry.data();
+                    appData.facturas       = (data.facturas || []).map(f => ({ ...f, pagos: f.pagos||[], procedimientos: f.procedimientos||[], ordenesLab: f.ordenesLab||[] }));
+                    appData.personal       = data.personal || getDefaultPersonal();
+                    appData.gastos         = data.gastos         || [];
+                    appData.avances        = data.avances        || [];
+                    appData.cuadresDiarios = data.cuadresDiarios || {};
+                    appData.citas          = data.citas          || [];
+                    appData.laboratorios   = data.laboratorios   || [];
+                    appData.inventario     = (data.inventario    || []).map(i => ({ movimientos: [], ...i }));
+                    appData.reversiones    = data.reversiones    || [];
+                    appData.auditLogs      = data.auditLogs      || [];
+                    updateLocalCache();
+                    showToast('✓ Conexión restablecida', 2500);
+                    return; // éxito en el retry
+                }
+            } catch(retryErr) {
+                console.error('[loadData] Retry también falló:', retryErr.message);
+            }
+        } else {
+            // Error de red genuino
+            setConnectionState('offline');
+        }
+
+        // Fall back a cache si está disponible
         const cached = localStorage.getItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
         if (cached) {
             try {
                 const cachedData = JSON.parse(cached);
                 Object.assign(appData, cachedData);
-                showToast('⚠️ Sin conexión — mostrando datos guardados localmente', 5000, '#e65100');
+                // Restaurar branding desde cache si loadClinicBranding también falló
+                if (!clinicConfig.color && cachedData.clinicColor) {
+                    _loadBrandingFromCache();
+                }
+                if (error.code !== 'permission-denied') {
+                    showToast('⚠️ Sin conexión — mostrando datos guardados localmente', 5000, '#e65100');
+                }
             } catch(e) {
                 appData.personal = getDefaultPersonal();
             }
         } else {
             appData.personal = getDefaultPersonal();
-            showToast('⚠️ Sin conexión. Verifica tu internet e intenta de nuevo.', 6000, '#e65100');
+            if (error.code !== 'permission-denied') {
+                showToast('⚠️ Sin conexión. Verifica tu internet e intenta de nuevo.', 6000, '#e65100');
+            }
         }
     }
 }
@@ -656,7 +748,12 @@ function updateLocalCache() {
             citas: appData.citas,
             laboratorios: appData.laboratorios,
             reversiones: appData.reversiones,
-            auditLogs: appData.auditLogs
+            auditLogs: appData.auditLogs,
+            inventario: appData.inventario || [],
+            // Guardar branding para restaurar offline sin Firebase
+            clinicColor:  clinicConfig.color  || null,
+            clinicNombre: clinicConfig.nombre  || null,
+            clinicLogo:   clinicConfig.logoNegativo || clinicConfig.logoPositivo || null,
         };
 
         localStorage.setItem('clinicaData_cache_' + (CLINIC_PATH || 'default'), JSON.stringify(dataToCache));
@@ -1192,18 +1289,44 @@ function registerActivity() {
 let _firebaseAuthUid = null;
 
 async function ensureFirebaseAuth() {
-    try {
-        const auth = firebase.auth();
-        if (auth.currentUser) {
-            _firebaseAuthUid = auth.currentUser.uid;
-            return;
-        }
-        const cred = await auth.signInAnonymously();
-        _firebaseAuthUid = cred.user.uid;
-        console.log('[Auth] Firebase anonymous session:', _firebaseAuthUid);
-    } catch(e) {
-        console.warn('[Auth] Firebase anonymous auth failed (rules may still work):', e.message);
+    // Verificar que el SDK de Auth está disponible
+    if (!firebase.auth) {
+        console.error('[Auth] firebase-auth-compat.js no cargado. Verificar scripts en HTML.');
+        return;
     }
+
+    const auth = firebase.auth();
+
+    // Ya autenticado en esta sesión
+    if (auth.currentUser) {
+        _firebaseAuthUid = auth.currentUser.uid;
+        return;
+    }
+
+    // Intentar auth anónima con timeout de 8 segundos y 2 reintentos
+    const intentarAuth = () => new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('auth-timeout')), 8000);
+        auth.signInAnonymously()
+            .then(cred => { clearTimeout(timeout); resolve(cred); })
+            .catch(err => { clearTimeout(timeout); reject(err); });
+    });
+
+    for (let intento = 1; intento <= 3; intento++) {
+        try {
+            const cred = await intentarAuth();
+            _firebaseAuthUid = cred.user.uid;
+            console.log(`[Auth] Firebase auth OK (intento ${intento}):`, _firebaseAuthUid);
+            return;
+        } catch(e) {
+            console.warn(`[Auth] Intento ${intento}/3 fallido:`, e.message);
+            if (intento < 3) await new Promise(r => setTimeout(r, 1000 * intento)); // espera 1s, 2s
+        }
+    }
+
+    // Si falló los 3 intentos, continuar sin auth (las reglas pueden fallar)
+    console.error('[Auth] No se pudo establecer sesión Firebase después de 3 intentos.');
+    logErrorToFirestore('auth-failed', 'Error de autenticación Firebase',
+        'signInAnonymously falló 3 veces al cargar la app', 'ensureFirebaseAuth');
 }
 
 // Update reception picker
