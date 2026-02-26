@@ -47,6 +47,7 @@ function _limpiarEstadoApp() {
         appData.reversiones    = [];
         appData.auditLogs      = [];
         appData.pacientes      = [];
+        appData.inventario     = [];
         appData.currentUser    = null;
         appData.currentRole    = null;
     }
@@ -394,6 +395,32 @@ const sanitize = {
         };
     },
 
+    // Deep-clean an inventario item
+    item(i) {
+        if (!i || typeof i !== 'object') return null;
+        return {
+            ...i,
+            id:           sanitize.id(i.id),
+            nombre:       sanitize.str(i.nombre, 200),
+            categoria:    sanitize.str(i.categoria, 100),
+            proveedor:    sanitize.str(i.proveedor, 200),
+            unidad:       sanitize.str(i.unidad, 50),
+            stock:        sanitize.num(i.stock, 0, 9999999),
+            stockMinimo:  sanitize.num(i.stockMinimo, 0, 9999999),
+            costo:        sanitize.num(i.costo),
+            notas:        sanitize.str(i.notas, 500),
+            activo:       sanitize.bool(i.activo !== false),
+            movimientos:  (i.movimientos || []).map(m => ({
+                ...m,
+                tipo:       sanitize.str(m.tipo, 20),
+                cantidad:   sanitize.num(m.cantidad, -9999999, 9999999),
+                motivo:     sanitize.str(m.motivo, 300),
+                usuario:    sanitize.str(m.usuario, 120),
+                fecha:      sanitize.str(m.fecha, 30),
+            })),
+        };
+    },
+
     // Deep-clean a cita object
     cita(c) {
         if (!c || typeof c !== 'object') return null;
@@ -529,6 +556,7 @@ async function loadData() {
             appData.laboratorios = data.laboratorios || [];
             appData.reversiones = data.reversiones || [];
             appData.auditLogs = data.auditLogs || [];
+            appData.inventario = (data.inventario || []).map(i => ({ movimientos: [], ...i }));
 
             // Cargar pacientes desde subcollection (siempre en SMILE multi-tenant)
             const pacientesSnapshot = await db.collection('clinicas').doc(CLINIC_PATH)
@@ -668,6 +696,7 @@ async function saveData(context = '') {
             pacientes:    [],  // always empty — live in subcollection
             citas:        citasSafe,
             laboratorios: appData.laboratorios || [],
+            inventario:   (appData.inventario || []).map(i => sanitize.item(i)).filter(Boolean),
             reversiones:  appData.reversiones  || [],
             auditLogs:    appData.auditLogs    || [],
             settings:     appData.settings     || {},
@@ -9045,6 +9074,9 @@ function abrirMas() {
     if (role === 'admin' && hasModule('nomina')) {
         items.push({ icon: '👥', label: 'Personal',    action: `cerrarMas();irTab('personal')` });
     }
+    if (hasModule('inventario') && (role === 'admin' || role === 'reception')) {
+        items.push({ icon: '📦', label: 'Inventario',  action: `cerrarMas();irTab('inventario')` });
+    }
     if (hasModule('reportes') && role === 'admin') {
         items.push({ icon: '📊', label: 'Reportes',    action: `cerrarMas();irTab('reportes')` });
     }
@@ -9096,8 +9128,9 @@ function irTab(tabName) {
     const tab = document.getElementById('tab-' + tabName);
     if (tab) tab.classList.add('active');
     if (tabName === 'perfil') updatePerfilTab();
-    if (tabName === 'reportes' && typeof updateReportesTab === 'function') updateReportesTab();
-    if (tabName === 'personal' && typeof updatePersonalTab === 'function') updatePersonalTab();
+    if (tabName === 'reportes'   && typeof updateReportesTab   === 'function') updateReportesTab();
+    if (tabName === 'personal'   && typeof updatePersonalTab   === 'function') updatePersonalTab();
+    if (tabName === 'inventario' && typeof updateInventarioTab === 'function') updateInventarioTab();
 }
 
 
@@ -9629,5 +9662,540 @@ function updateReportesTab() {
     } else if (desdeEl && desdeEl.value) {
         generarReporte();
     }
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// MÓDULO DE INVENTARIO
+// ═══════════════════════════════════════════════════════════
+
+const INV_CATEGORIAS = [
+    'Materiales dentales', 'Anestesia', 'Instrumental', 'Equipos',
+    'Higiene y desinfección', 'Papelería', 'Medicamentos', 'Otros'
+];
+
+const INV_UNIDADES = ['unidad', 'caja', 'frasco', 'sobre', 'rollo', 'par', 'kit', 'ml', 'g'];
+
+// ── Estado UI local ──────────────────────────────────────
+let _invFiltroCategoria = 'todos';
+let _invFiltroAlerta    = false;
+let _invBusqueda        = '';
+
+// ── Helpers ──────────────────────────────────────────────
+function _invItemsActivos() {
+    return (appData.inventario || []).filter(i => i.activo !== false);
+}
+
+function _invItemsBajoStock() {
+    return _invItemsActivos().filter(i => i.stock <= i.stockMinimo);
+}
+
+function _invStatsResumen() {
+    const items   = _invItemsActivos();
+    const bajoStock = _invItemsBajoStock();
+    const valorTotal = items.reduce((s, i) => s + (i.stock * i.costo), 0);
+    return { total: items.length, bajoStock: bajoStock.length, valorTotal };
+}
+
+// ── Tab principal ─────────────────────────────────────────
+function updateInventarioTab() {
+    const tab = document.getElementById('tab-inventario');
+    if (!tab) return;
+
+    const stats  = _invStatsResumen();
+    const items  = _invItemsActivos();
+
+    // Categorías únicas para filtro
+    const cats = ['todos', ...new Set(items.map(i => i.categoria).filter(Boolean))].sort((a, b) =>
+        a === 'todos' ? -1 : a.localeCompare(b));
+
+    // Filtrar
+    let lista = items;
+    if (_invFiltroCategoria !== 'todos') lista = lista.filter(i => i.categoria === _invFiltroCategoria);
+    if (_invFiltroAlerta)                lista = lista.filter(i => i.stock <= i.stockMinimo);
+    if (_invBusqueda) {
+        const q = _invBusqueda.toLowerCase();
+        lista = lista.filter(i =>
+            (i.nombre || '').toLowerCase().includes(q) ||
+            (i.categoria || '').toLowerCase().includes(q) ||
+            (i.proveedor || '').toLowerCase().includes(q)
+        );
+    }
+    lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+
+    tab.innerHTML = `
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+            <div>
+                <div class="section-title" style="margin:0">Inventario</div>
+                <div class="section-sub" style="margin-top:2px">${stats.total} producto${stats.total!==1?'s':''} · ${formatCurrency(stats.valorTotal)} en stock</div>
+            </div>
+            <button onclick="abrirModalItem(null)" style="
+                padding:10px 20px;background:var(--dark,#1E1C1A);color:white;
+                border:none;border-radius:100px;font-size:12px;font-family:inherit;
+                letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap">
+                + Producto
+            </button>
+        </div>
+
+        <!-- Stats rápidas -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+            <div style="background:var(--white);border-radius:14px;padding:14px;border:1.5px solid rgba(30,28,26,0.07);text-align:center">
+                <div style="font-size:24px;font-weight:300;color:var(--dark)">${stats.total}</div>
+                <div style="font-size:11px;color:var(--mid);letter-spacing:0.5px;margin-top:2px">Productos</div>
+            </div>
+            <div style="background:var(--white);border-radius:14px;padding:14px;border:1.5px solid ${stats.bajoStock > 0 ? 'rgba(196,113,113,0.3)' : 'rgba(30,28,26,0.07)'};text-align:center;cursor:${stats.bajoStock > 0 ? 'pointer' : 'default'}"
+                 onclick="${stats.bajoStock > 0 ? '_invToggleAlerta()' : ''}">
+                <div style="font-size:24px;font-weight:300;color:${stats.bajoStock > 0 ? 'var(--red,#C47070)' : 'var(--green,#6B8F71)'}">${stats.bajoStock}</div>
+                <div style="font-size:11px;color:var(--mid);letter-spacing:0.5px;margin-top:2px">Bajo stock</div>
+            </div>
+            <div style="background:var(--white);border-radius:14px;padding:14px;border:1.5px solid rgba(30,28,26,0.07);text-align:center">
+                <div style="font-size:24px;font-weight:300;color:var(--dark)">${cats.length - 1}</div>
+                <div style="font-size:11px;color:var(--mid);letter-spacing:0.5px;margin-top:2px">Categorías</div>
+            </div>
+        </div>
+
+        <!-- Búsqueda -->
+        <div style="position:relative;margin-bottom:12px">
+            <input type="text" id="invBusqueda" placeholder="Buscar producto, categoría, proveedor…"
+                value="${_invBusqueda}"
+                oninput="_invBusqueda=this.value;updateInventarioTab()"
+                style="width:100%;padding:11px 16px 11px 40px;border:1.5px solid rgba(30,28,26,0.12);
+                       border-radius:100px;font-size:14px;font-family:inherit;outline:none;
+                       background:var(--white);box-sizing:border-box;color:var(--dark)"
+                onfocus="this.style.borderColor='var(--clinic-color)'"
+                onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+            <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none">🔍</span>
+            ${_invBusqueda ? `<button onclick="_invBusqueda='';updateInventarioTab()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;color:var(--mid);cursor:pointer;line-height:1">✕</button>` : ''}
+        </div>
+
+        <!-- Filtros de categoría -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+            ${cats.map(c => `
+                <button onclick="_invFiltroCategoria='${c}';updateInventarioTab()"
+                    style="padding:6px 14px;border:1.5px solid ${_invFiltroCategoria===c ? 'var(--clinic-color)' : 'rgba(30,28,26,0.12)'};
+                           border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;transition:all 0.15s;
+                           background:${_invFiltroCategoria===c ? 'var(--clinic-color)' : 'none'};
+                           color:${_invFiltroCategoria===c ? 'white' : 'var(--mid)'}">
+                    ${c === 'todos' ? 'Todos' : c}
+                </button>`).join('')}
+            ${stats.bajoStock > 0 ? `
+            <button onclick="_invToggleAlerta()"
+                style="padding:6px 14px;border:1.5px solid ${_invFiltroAlerta ? 'var(--red,#C47070)' : 'rgba(196,113,113,0.3)'};
+                       border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;transition:all 0.15s;
+                       background:${_invFiltroAlerta ? 'var(--red,#C47070)' : 'none'};
+                       color:${_invFiltroAlerta ? 'white' : 'var(--red,#C47070)'}">
+                ⚠️ Stock bajo (${stats.bajoStock})
+            </button>` : ''}
+        </div>
+
+        <!-- Lista de productos -->
+        <div id="invLista">
+            ${lista.length === 0 ? `
+                <div style="text-align:center;padding:60px 24px">
+                    <div style="font-size:40px;margin-bottom:12px">📦</div>
+                    <div style="font-size:16px;font-weight:300;color:var(--dark);margin-bottom:6px">
+                        ${items.length === 0 ? 'Sin productos aún' : 'Sin resultados'}
+                    </div>
+                    <div style="font-size:13px;color:var(--mid)">
+                        ${items.length === 0 ? 'Agrega los materiales y productos de tu clínica' : 'Prueba con otro filtro o búsqueda'}
+                    </div>
+                </div>
+            ` : lista.map(item => _invRenderItem(item)).join('')}
+        </div>
+    `;
+}
+
+function _invToggleAlerta() {
+    _invFiltroAlerta = !_invFiltroAlerta;
+    updateInventarioTab();
+}
+
+function _invRenderItem(item) {
+    const bajoStock   = item.stock <= item.stockMinimo;
+    const sinStock    = item.stock === 0;
+    const stockColor  = sinStock ? 'var(--red,#C47070)' : bajoStock ? '#E8A838' : 'var(--green,#6B8F71)';
+    const stockBg     = sinStock ? 'rgba(196,113,113,0.08)' : bajoStock ? 'rgba(232,168,56,0.08)' : 'rgba(107,143,113,0.08)';
+    const stockBorder = sinStock ? 'rgba(196,113,113,0.25)' : bajoStock ? 'rgba(232,168,56,0.25)' : 'rgba(107,143,113,0.2)';
+
+    return `
+    <div style="background:var(--white);border-radius:14px;padding:16px;margin-bottom:8px;
+                border:1.5px solid ${bajoStock ? (sinStock ? 'rgba(196,113,113,0.2)' : 'rgba(232,168,56,0.2)') : 'rgba(30,28,26,0.07)'};
+                transition:border-color 0.2s">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+            <!-- Info -->
+            <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+                    <span style="font-size:15px;font-weight:400;color:var(--dark)">${item.nombre}</span>
+                    ${item.categoria ? `<span style="font-size:10px;color:var(--mid);background:rgba(30,28,26,0.05);padding:2px 8px;border-radius:100px;letter-spacing:0.5px">${item.categoria}</span>` : ''}
+                </div>
+                <div style="font-size:12px;color:var(--mid)">
+                    ${item.proveedor ? `${item.proveedor} · ` : ''}${formatCurrency(item.costo)} / ${item.unidad || 'unidad'}
+                </div>
+            </div>
+
+            <!-- Stock badge -->
+            <div style="background:${stockBg};border:1.5px solid ${stockBorder};border-radius:10px;padding:8px 12px;text-align:center;flex-shrink:0">
+                <div style="font-size:20px;font-weight:300;color:${stockColor};line-height:1">${item.stock}</div>
+                <div style="font-size:10px;color:var(--mid);letter-spacing:0.3px;margin-top:1px">${item.unidad || 'uds'}</div>
+            </div>
+        </div>
+
+        <!-- Barra de stock -->
+        <div style="margin-top:10px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:11px;color:var(--mid)">Stock actual</span>
+                <span style="font-size:11px;color:var(--mid)">Mínimo: ${item.stockMinimo}</span>
+            </div>
+            <div style="height:4px;background:rgba(30,28,26,0.07);border-radius:100px;overflow:hidden">
+                <div style="height:100%;border-radius:100px;background:${stockColor};
+                            width:${item.stockMinimo > 0 ? Math.min(100, Math.round((item.stock / (item.stockMinimo * 3)) * 100)) : (item.stock > 0 ? 100 : 0)}%;
+                            transition:width 0.4s ease"></div>
+            </div>
+            ${bajoStock ? `<div style="font-size:11px;color:${stockColor};margin-top:4px">
+                ${sinStock ? '⚠️ Sin stock' : '⚠️ Bajo el mínimo — considera reponer'}
+            </div>` : ''}
+        </div>
+
+        <!-- Acciones -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="abrirModalMovimiento('${item.id}', 'entrada')"
+                style="padding:7px 14px;background:rgba(107,143,113,0.1);border:1.5px solid rgba(107,143,113,0.25);
+                       border-radius:100px;font-size:12px;font-family:inherit;color:var(--green,#6B8F71);cursor:pointer">
+                + Entrada
+            </button>
+            <button onclick="abrirModalMovimiento('${item.id}', 'salida')"
+                style="padding:7px 14px;background:rgba(196,113,113,0.08);border:1.5px solid rgba(196,113,113,0.2);
+                       border-radius:100px;font-size:12px;font-family:inherit;color:var(--red,#C47070);cursor:pointer">
+                − Salida
+            </button>
+            <button onclick="abrirModalMovimiento('${item.id}', 'ajuste')"
+                style="padding:7px 14px;background:rgba(123,143,161,0.08);border:1.5px solid rgba(123,143,161,0.2);
+                       border-radius:100px;font-size:12px;font-family:inherit;color:var(--azul,#7B8FA1);cursor:pointer">
+                ⟳ Ajuste
+            </button>
+            <button onclick="abrirModalItem('${item.id}')"
+                style="padding:7px 14px;background:none;border:1.5px solid rgba(30,28,26,0.12);
+                       border-radius:100px;font-size:12px;font-family:inherit;color:var(--mid);cursor:pointer;margin-left:auto">
+                Editar
+            </button>
+        </div>
+    </div>`;
+}
+
+// ── Modal: Crear / Editar producto ───────────────────────
+function abrirModalItem(idONull) {
+    const item = idONull ? (appData.inventario || []).find(i => i.id === idONull) : null;
+    const esNuevo = !item;
+
+    const categoriaOptions = INV_CATEGORIAS.map(c =>
+        `<option value="${c}" ${item?.categoria === c ? 'selected' : ''}>${c}</option>`
+    ).join('');
+    const unidadOptions = INV_UNIDADES.map(u =>
+        `<option value="${u}" ${(item?.unidad || 'unidad') === u ? 'selected' : ''}>${u}</option>`
+    ).join('');
+
+    mostrarModal({
+        titulo: esNuevo ? 'Nuevo producto' : 'Editar producto',
+        body: `
+            <div style="display:flex;flex-direction:column;gap:14px">
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Nombre *</label>
+                    <input type="text" id="invNombre" value="${item?.nombre || ''}" placeholder="Ej: Guantes de látex"
+                        style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div>
+                        <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Categoría</label>
+                        <select id="invCategoria"
+                            style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:14px;font-family:inherit;outline:none;background:white;box-sizing:border-box">
+                            <option value="">Sin categoría</option>
+                            ${categoriaOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Unidad</label>
+                        <select id="invUnidad"
+                            style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:14px;font-family:inherit;outline:none;background:white;box-sizing:border-box">
+                            ${unidadOptions}
+                        </select>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+                    <div>
+                        <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Stock ${esNuevo ? 'inicial' : 'actual'}</label>
+                        <input type="number" id="invStock" value="${item?.stock ?? 0}" min="0"
+                            style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                            onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Mínimo</label>
+                        <input type="number" id="invStockMinimo" value="${item?.stockMinimo ?? 5}" min="0"
+                            style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                            onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Costo</label>
+                        <input type="number" id="invCosto" value="${item?.costo ?? 0}" min="0"
+                            style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                            onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Proveedor</label>
+                    <input type="text" id="invProveedor" value="${item?.proveedor || ''}" placeholder="Nombre del proveedor"
+                        style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Notas</label>
+                    <textarea id="invNotas" placeholder="Observaciones, código de referencia, etc." rows="2"
+                        style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:14px;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">${item?.notas || ''}</textarea>
+                </div>
+                ${!esNuevo ? `
+                <div style="padding-top:8px;border-top:1px solid rgba(30,28,26,0.07)">
+                    <button onclick="confirmarEliminarItem('${item.id}')"
+                        style="background:none;border:none;color:var(--red,#C47070);font-size:13px;font-family:inherit;cursor:pointer;padding:0">
+                        Eliminar producto →
+                    </button>
+                </div>` : ''}
+            </div>
+        `,
+        confirmText: esNuevo ? 'Agregar' : 'Guardar',
+        onConfirm: () => guardarItem(idONull)
+    });
+    setTimeout(() => document.getElementById('invNombre')?.focus(), 80);
+}
+
+async function guardarItem(idONull) {
+    const nombre     = document.getElementById('invNombre')?.value.trim();
+    const categoria  = document.getElementById('invCategoria')?.value;
+    const unidad     = document.getElementById('invUnidad')?.value;
+    const stock      = parseFloat(document.getElementById('invStock')?.value) || 0;
+    const stockMin   = parseFloat(document.getElementById('invStockMinimo')?.value) || 0;
+    const costo      = parseFloat(document.getElementById('invCosto')?.value) || 0;
+    const proveedor  = document.getElementById('invProveedor')?.value.trim();
+    const notas      = document.getElementById('invNotas')?.value.trim();
+
+    if (!nombre) { showToast('⚠️ El nombre es obligatorio', 3000, '#e65100'); return; }
+    if (!appData.inventario) appData.inventario = [];
+
+    if (idONull) {
+        // Editar existente
+        const idx = appData.inventario.findIndex(i => i.id === idONull);
+        if (idx < 0) return;
+        const backup = { ...appData.inventario[idx] };
+        appData.inventario[idx] = { ...appData.inventario[idx], nombre, categoria, unidad, stockMinimo: stockMin, costo, proveedor, notas };
+        try {
+            await saveData('editarItem');
+            cerrarModal();
+            updateInventarioTab();
+            showToast('✓ Producto actualizado');
+        } catch(e) {
+            appData.inventario[idx] = backup;
+            showError('Error al guardar el producto.', e);
+        }
+    } else {
+        // Crear nuevo
+        const nuevoItem = {
+            id: generateId('INV-'), nombre, categoria, unidad,
+            stock, stockMinimo: stockMin, costo, proveedor, notas,
+            activo: true,
+            movimientos: stock > 0 ? [{
+                tipo: 'entrada', cantidad: stock, motivo: 'Stock inicial',
+                usuario: appData.currentUser, fecha: new Date().toISOString()
+            }] : []
+        };
+        appData.inventario.push(nuevoItem);
+        try {
+            await saveData('crearItem');
+            cerrarModal();
+            updateInventarioTab();
+            showToast('✓ Producto agregado');
+        } catch(e) {
+            appData.inventario.pop();
+            showError('Error al guardar el producto.', e);
+        }
+    }
+}
+
+// ── Modal: Movimiento de stock ───────────────────────────
+function abrirModalMovimiento(itemId, tipoInicial) {
+    const item = (appData.inventario || []).find(i => i.id === itemId);
+    if (!item) return;
+
+    mostrarModal({
+        titulo: `${item.nombre}`,
+        body: `
+            <div style="background:rgba(30,28,26,0.03);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:13px;color:var(--mid)">Stock actual</span>
+                <span style="font-size:22px;font-weight:300;color:var(--dark)">${item.stock} <span style="font-size:13px;color:var(--mid)">${item.unidad || 'uds'}</span></span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Tipo</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" id="movTipoSelector">
+                        ${['entrada','salida','ajuste'].map(t => `
+                        <button id="movBtn_${t}" onclick="invSeleccionarTipo('${t}')"
+                            style="padding:10px;border-radius:10px;font-size:13px;font-family:inherit;cursor:pointer;transition:all 0.15s;
+                                   border:1.5px solid ${tipoInicial===t ? (_tipoColor(t)+';background:'+_tipoBg(t)) : 'rgba(30,28,26,0.12);background:none'};
+                                   color:${tipoInicial===t ? _tipoColor(t) : 'var(--mid)'}">
+                            ${t === 'entrada' ? '+ Entrada' : t === 'salida' ? '− Salida' : '⟳ Ajuste'}
+                        </button>`).join('')}
+                    </div>
+                    <input type="hidden" id="movTipo" value="${tipoInicial}">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px" id="movCantidadLabel">
+                        ${tipoInicial === 'ajuste' ? 'Stock nuevo total' : 'Cantidad'}
+                    </label>
+                    <input type="number" id="movCantidad" value="" min="0" placeholder="0"
+                        style="width:100%;padding:12px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:18px;font-family:inherit;outline:none;box-sizing:border-box;text-align:center"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'"
+                        onkeydown="if(event.key==='Enter')registrarMovimiento('${itemId}')">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Motivo</label>
+                    <input type="text" id="movMotivo" placeholder="${tipoInicial==='entrada' ? 'Ej: Compra a proveedor' : tipoInicial==='salida' ? 'Ej: Uso en procedimientos' : 'Ej: Conteo físico'}"
+                        style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:14px;font-family:inherit;outline:none;box-sizing:border-box"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                </div>
+                <!-- Historial últimos movimientos -->
+                ${_renderUltimosMovimientos(item)}
+            </div>
+        `,
+        confirmText: 'Registrar',
+        onConfirm: () => registrarMovimiento(itemId)
+    });
+    setTimeout(() => document.getElementById('movCantidad')?.focus(), 80);
+}
+
+function _tipoColor(tipo) {
+    return tipo === 'entrada' ? 'var(--green,#6B8F71)' : tipo === 'salida' ? 'var(--red,#C47070)' : 'var(--azul,#7B8FA1)';
+}
+function _tipoBg(tipo) {
+    return tipo === 'entrada' ? 'rgba(107,143,113,0.08)' : tipo === 'salida' ? 'rgba(196,113,113,0.08)' : 'rgba(123,143,161,0.08)';
+}
+
+function invSeleccionarTipo(tipo) {
+    document.getElementById('movTipo').value = tipo;
+    ['entrada','salida','ajuste'].forEach(t => {
+        const btn = document.getElementById('movBtn_' + t);
+        if (!btn) return;
+        if (t === tipo) {
+            btn.style.border = `1.5px solid ${_tipoColor(tipo)}`;
+            btn.style.background = _tipoBg(tipo);
+            btn.style.color = _tipoColor(tipo);
+        } else {
+            btn.style.border = '1.5px solid rgba(30,28,26,0.12)';
+            btn.style.background = 'none';
+            btn.style.color = 'var(--mid)';
+        }
+    });
+    const label = document.getElementById('movCantidadLabel');
+    if (label) label.textContent = tipo === 'ajuste' ? 'Stock nuevo total' : 'Cantidad';
+    const motivo = document.getElementById('movMotivo');
+    if (motivo) motivo.placeholder = tipo === 'entrada' ? 'Ej: Compra a proveedor' : tipo === 'salida' ? 'Ej: Uso en procedimientos' : 'Ej: Conteo físico';
+}
+
+function _renderUltimosMovimientos(item) {
+    const movs = (item.movimientos || []).slice(-5).reverse();
+    if (movs.length === 0) return '';
+    return `
+        <div style="border-top:1px solid rgba(30,28,26,0.07);padding-top:12px">
+            <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Últimos movimientos</div>
+            ${movs.map(m => {
+                const esEntrada = m.tipo === 'entrada';
+                const esAjuste  = m.tipo === 'ajuste';
+                const color = esAjuste ? 'var(--azul,#7B8FA1)' : esEntrada ? 'var(--green,#6B8F71)' : 'var(--red,#C47070)';
+                const signo = esAjuste ? '⟳' : esEntrada ? '+' : '−';
+                const fecha = m.fecha ? new Date(m.fecha).toLocaleDateString('es-DO', {day:'numeric',month:'short'}) : '';
+                return `
+                    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(30,28,26,0.05)">
+                        <span style="font-size:13px;font-weight:600;color:${color};width:28px;flex-shrink:0">${signo}${m.cantidad}</span>
+                        <span style="font-size:12px;color:var(--mid);flex:1">${m.motivo || '—'}</span>
+                        <span style="font-size:11px;color:var(--light)">${fecha}</span>
+                    </div>`;
+            }).join('')}
+        </div>`;
+}
+
+async function registrarMovimiento(itemId) {
+    const idx = (appData.inventario || []).findIndex(i => i.id === itemId);
+    if (idx < 0) return;
+
+    const tipo     = document.getElementById('movTipo')?.value || 'entrada';
+    const cantidad = parseFloat(document.getElementById('movCantidad')?.value);
+    const motivo   = document.getElementById('movMotivo')?.value.trim() || '';
+
+    if (isNaN(cantidad) || cantidad < 0) {
+        showToast('⚠️ Ingresa una cantidad válida', 3000, '#e65100'); return;
+    }
+
+    const item       = appData.inventario[idx];
+    const stockAntes = item.stock;
+
+    if (tipo === 'ajuste') {
+        item.stock = cantidad;
+    } else if (tipo === 'entrada') {
+        item.stock = stockAntes + cantidad;
+    } else { // salida
+        if (cantidad > stockAntes) {
+            showToast('⚠️ No hay suficiente stock', 3000, '#e65100'); return;
+        }
+        item.stock = stockAntes - cantidad;
+    }
+
+    if (!item.movimientos) item.movimientos = [];
+    item.movimientos.push({
+        tipo, cantidad, motivo,
+        stockAntes, stockDespues: item.stock,
+        usuario: appData.currentUser,
+        fecha:   new Date().toISOString()
+    });
+
+    try {
+        await saveData('movimientoInventario');
+        cerrarModal();
+        updateInventarioTab();
+        const etiqueta = tipo === 'entrada' ? 'Entrada registrada' : tipo === 'salida' ? 'Salida registrada' : 'Stock ajustado';
+        showToast(`✓ ${etiqueta} — ${item.nombre}: ${item.stock} ${item.unidad || 'uds'}`);
+        // Alerta automática si queda bajo mínimo
+        if (item.stock <= item.stockMinimo && item.stock >= 0) {
+            setTimeout(() => showToast(`⚠️ ${item.nombre} está bajo el mínimo (${item.stockMinimo})`, 4000, '#e65100'), 1500);
+        }
+    } catch(e) {
+        // Rollback
+        item.stock = stockAntes;
+        item.movimientos.pop();
+        showError('Error al registrar el movimiento.', e);
+    }
+}
+
+// ── Eliminar producto ────────────────────────────────────
+function confirmarEliminarItem(itemId) {
+    const item = (appData.inventario || []).find(i => i.id === itemId);
+    if (!item) return;
+    cerrarModal();
+    mostrarConfirmacion({
+        titulo: 'Eliminar producto',
+        mensaje: `<strong>${item.nombre}</strong> y su historial de movimientos serán eliminados permanentemente.`,
+        tipo: 'peligro',
+        confirmText: 'Eliminar',
+        onConfirm: async () => {
+            const backup = [...appData.inventario];
+            appData.inventario = appData.inventario.filter(i => i.id !== itemId);
+            try {
+                await saveData('eliminarItem');
+                updateInventarioTab();
+                showToast('✓ Producto eliminado');
+            } catch(e) {
+                appData.inventario = backup;
+                showError('Error al eliminar el producto.', e);
+            }
+        }
+    });
 }
 
