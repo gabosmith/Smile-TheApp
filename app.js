@@ -1278,8 +1278,9 @@ function expireSession(reason) {
 }
 
 // Register user activity — call on any interaction
+// Guard: puede ser llamada antes de que app.js cargue (onmousemove en body)
 function registerActivity() {
-    if (appData.currentUser) resetInactivityTimer();
+    if (typeof appData !== 'undefined' && appData.currentUser) resetInactivityTimer();
 }
 
 // ── FIREBASE ANONYMOUS AUTH ───────────────────────────────
@@ -6405,7 +6406,7 @@ async function limpiarDatosAntiguos() {
     });
 
     if (cambios > 0) {
-        await saveData();
+        await saveData('saveData-init'); // contexto permitido sin usuario logueado
         updateProfessionalPicker();
         updateReceptionPicker();
     }
@@ -8029,6 +8030,82 @@ function updateDashboardTab() {
 // ========================================
 
 let accionConfirmacion = null;
+
+// ── Modal genérico dinámico ──────────────────────────────
+// Usado por módulos como Inventario y Sedes para formularios.
+// Crea el modal en el DOM, lo muestra, y lo destruye al cerrar.
+let _modalOnConfirm = null;
+
+function mostrarModal({ titulo, body, confirmText = 'Confirmar', onConfirm, hideConfirm = false }) {
+    // Eliminar modal previo si existe
+    const prev = document.getElementById('genericModal');
+    if (prev) prev.remove();
+
+    _modalOnConfirm = onConfirm || null;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'genericModal';
+    overlay.style.cssText = `
+        position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;
+        display:flex;align-items:flex-end;justify-content:center;
+        animation:fadeIn 0.2s ease;
+    `;
+    overlay.innerHTML = `
+        <div id="genericModalSheet" style="
+            background:var(--white,#FDFCFB);border-radius:24px 24px 0 0;
+            width:100%;max-width:560px;max-height:92vh;overflow-y:auto;
+            padding:0 0 calc(env(safe-area-inset-bottom) + 16px);
+            animation:slideUp 0.3s cubic-bezier(0.34,1.1,0.64,1);
+        ">
+            <div style="position:sticky;top:0;background:var(--white,#FDFCFB);z-index:1;
+                        padding:20px 24px 16px;border-bottom:1px solid rgba(30,28,26,0.07)">
+                <div style="width:36px;height:4px;background:rgba(30,28,26,0.12);
+                            border-radius:100px;margin:0 auto 16px"></div>
+                <div style="font-size:17px;font-weight:400;color:var(--dark,#1E1C1A)">${titulo}</div>
+            </div>
+            <div style="padding:20px 24px" id="genericModalBody">
+                ${body}
+            </div>
+            ${!hideConfirm ? `
+            <div style="padding:0 24px;display:flex;gap:10px">
+                <button onclick="cerrarModal()" style="
+                    flex:1;padding:14px;background:none;
+                    border:1.5px solid rgba(30,28,26,0.12);border-radius:100px;
+                    font-size:14px;font-family:inherit;color:var(--mid,#9C9189);cursor:pointer">
+                    Cancelar
+                </button>
+                <button id="genericModalConfirmBtn" onclick="_ejecutarModal()" style="
+                    flex:2;padding:14px;background:var(--dark,#1E1C1A);color:white;
+                    border:none;border-radius:100px;
+                    font-size:14px;font-family:inherit;cursor:pointer">
+                    ${confirmText}
+                </button>
+            </div>` : ''}
+        </div>
+    `;
+
+    // Cerrar al tocar el overlay (fuera del sheet)
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) cerrarModal();
+    });
+
+    document.body.appendChild(overlay);
+}
+
+function cerrarModal() {
+    const el = document.getElementById('genericModal');
+    if (el) {
+        el.style.animation = 'fadeOut 0.15s ease forwards';
+        setTimeout(() => el.remove(), 150);
+    }
+    _modalOnConfirm = null;
+}
+
+function _ejecutarModal() {
+    if (_modalOnConfirm) {
+        _modalOnConfirm();
+    }
+}
 
 function mostrarConfirmacion(opciones) {
     const {
