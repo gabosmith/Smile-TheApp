@@ -2571,8 +2571,11 @@ function calcularComisionesAcumuladas(person) {
 
     // Calcular comisiones sobre el TOTAL COBRADO de facturas pagadas
     // (el total ya incluye laboratorio, no hay que contarlo aparte)
+    // Incluir facturas pagadas Y parciales — la comisión es sobre lo cobrado, no el total
     const comisiones = appData.facturas
-        .filter(f => f.profesional === person.nombre && f.estado === 'pagada' && new Date(f.fecha) > lastPayment)
+        .filter(f => f.profesional === person.nombre &&
+                    (f.estado === 'pagada' || f.estado === 'parcial' || f.estado === 'partial') &&
+                    new Date(f.fecha) > lastPayment)
         .reduce((sum, f) => sum + ((f.pagos || []).reduce((s, p) => s + p.monto, 0) * comisionRate / 100), 0);
 
     return comisiones;
@@ -2829,19 +2832,20 @@ Firma: _____________________
             `;
 
             // Resetear comisiones
+            const backupLastPayment = person.lastPaymentDate;
             person.lastPaymentDate = new Date().toISOString();
 
             currentReciboText = recibo;
             document.getElementById('reciboContent').textContent = recibo;
 
-            saveData();
-            closeModal('modalPersonalDetail');
-            openModal('modalRecibo');
-
-            // Actualizar la lista
-            setTimeout(() => {
+            saveData().then(() => {
+                closeModal('modalPersonalDetail');
+                openModal('modalRecibo');
                 updatePersonalTab();
-            }, 100);
+            }).catch(e => {
+                person.lastPaymentDate = backupLastPayment; // rollback
+                showError('Error al registrar el pago. Intenta de nuevo.', e);
+            });
         }
     });
 }
@@ -2853,9 +2857,19 @@ function confirmarPagoEmpleado(id) {
     const totalAvances = calcularTotalAvances(person.id);
     const neto = person.sueldo - totalAvances;
 
-    if (!confirm(`¿Confirmar pago de salario de ${formatCurrency(person.sueldo)} para ${person.nombre}?\n\nAvances: ${formatCurrency(totalAvances)}\nPago Neto: ${formatCurrency(neto)}`)) {
-        return;
-    }
+    mostrarConfirmacion({
+        titulo: '💰 Pagar Salario',
+        mensaje: `
+            <div style="background:var(--surface,#F5F2EE);border-radius:12px;padding:20px;margin-bottom:16px">
+                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Neto a pagar</div>
+                <div style="font-size:32px;font-weight:300;color:var(--green,#6B8F71)">${formatCurrency(neto)}</div>
+            </div>
+            <div style="font-size:14px;color:var(--mid);margin-bottom:4px"><strong style="color:var(--dark)">${person.nombre}</strong> · ${getTipoLabel(person.tipo)}</div>
+            <div style="font-size:13px;color:var(--mid)">Salario base: ${formatCurrency(person.sueldo)}${totalAvances > 0 ? ` · Avances descontados: -${formatCurrency(totalAvances)}` : ''}</div>
+        `,
+        tipo: 'normal',
+        confirmText: 'Sí, Pagar Ahora',
+        onConfirm: async () => {
 
     // Generar recibo
     const fecha = new Date().toLocaleDateString('es-DO', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
@@ -2902,20 +2916,24 @@ Firma: _____________________
 ================================
     `;
 
-    // Resetear avances
+    // Resetear avances con rollback
+    const backupAvances = [...appData.avances];
     appData.avances = appData.avances.filter(a => a.personalId !== person.id);
 
     currentReciboText = recibo;
     document.getElementById('reciboContent').textContent = recibo;
 
-    saveData();
-    closeModal('modalPersonalDetail');
-    openModal('modalRecibo');
-
-    // Actualizar la lista
-    setTimeout(() => {
+    try {
+        await saveData();
+        closeModal('modalPersonalDetail');
+        openModal('modalRecibo');
         updatePersonalTab();
-    }, 100);
+    } catch(e) {
+        appData.avances = backupAvances; // rollback
+        showError('Error al registrar el pago. Intenta de nuevo.', e);
+    }
+        } // end onConfirm
+    }); // end mostrarConfirmacion
 }
 
 function compartirWhatsApp() {
@@ -2984,7 +3002,12 @@ async function guardarEdicion() {
         if (payDate) currentPersonalToEdit.nextPayDate = new Date(payDate).toISOString();
     }
 
-    await saveData();
+    try {
+        await saveData();
+    } catch(e) {
+        showError('Error al guardar los cambios. Intenta de nuevo.', e);
+        return;
+    }
     updatePersonalTab();
     updateProfessionalPicker();
     closeModal('modalEditPersonal');
@@ -3029,11 +3052,16 @@ function registrarAvance() {
         registradoPor: appData.currentUser
     };
 
+    const backupAvances = appData.avances.length;
     appData.avances.push(avance);
-    saveData();
-    closeModal('modalAvance');
-    updatePersonalTab();
-    showToast('✓ Avance registrado exitosamente');
+    saveData().then(() => {
+        closeModal('modalAvance');
+        updatePersonalTab();
+        showToast('✓ Avance registrado exitosamente');
+    }).catch(e => {
+        appData.avances.splice(backupAvances, 1); // rollback
+        showError('Error al registrar el avance.', e);
+    });
 }
 
 function togglePermiso(personId, key, valorActual) {
@@ -3053,7 +3081,6 @@ function togglePermiso(personId, key, valorActual) {
         btn.setAttribute('onclick', `togglePermiso('${personId}', '${key}', ${nuevoValor})`);
     }
 
-    savePaciente && savePaciente; // just use saveData for personal
     saveData();
     registrarAuditoria('editar', 'permiso', `${key}: ${nuevoValor ? 'activado' : 'desactivado'} para ${person.nombre}`);
 }
@@ -3149,15 +3176,23 @@ function eliminarPersonal(id) {
         `,
         tipo: 'peligro',
         confirmText: 'Sí, Eliminar Personal',
-        onConfirm: () => {
+        onConfirm: async () => {
+            const backupPersonal = [...appData.personal];
+            const backupAvances  = [...appData.avances];
             appData.personal = appData.personal.filter(p => p.id !== id);
-            // Limpiar avances huérfanos
-            appData.avances = appData.avances.filter(a => a.personalId !== id);
-            saveData();
-            closeModal('modalPersonalDetail');
-            closeModal('modalEditPersonal');
-            updatePersonalTab();
-            updateProfessionalPicker();
+            appData.avances  = appData.avances.filter(a => a.personalId !== id);
+            try {
+                await saveData();
+                closeModal('modalPersonalDetail');
+                closeModal('modalEditPersonal');
+                updatePersonalTab();
+                updateProfessionalPicker();
+                showToast('✓ Personal eliminado');
+            } catch(e) {
+                appData.personal = backupPersonal; // rollback
+                appData.avances  = backupAvances;
+                showError('Error al eliminar. Intenta de nuevo.', e);
+            }
         }
     });
 }
