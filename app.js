@@ -8769,7 +8769,7 @@ function renderMiPlanTab() {
                 <div>
                     <div style="font-size:13px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Plan base</div>
                     <div style="font-size:18px;font-weight:300;color:var(--dark)">${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
-                    <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · NCF · Expediente clínico</div>
+                    <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
                 </div>
                 <div style="text-align:right">
                     <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">RD$${basePrice.toLocaleString()}</div>
@@ -9042,7 +9042,7 @@ function abrirMas() {
     if (role === 'admin' || role === 'professional') {
         items.push({ icon: '💰', label: 'Cobros',      action: `cerrarMas();showTab('cobros')` });
     }
-    if (role === 'admin' && clinicConfig.plan !== 'solo') {
+    if (role === 'admin' && hasModule('nomina')) {
         items.push({ icon: '👥', label: 'Personal',    action: `cerrarMas();irTab('personal')` });
     }
     if (hasModule('reportes') && role === 'admin') {
@@ -9251,5 +9251,383 @@ async function eliminarProcedimiento(idx) {
         renderCatalogoTab();
         showToast('✓ Eliminado');
     } catch(e) { console.error(e); }
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// MÓDULO DE REPORTES AVANZADOS
+// ═══════════════════════════════════════════════════════════
+
+let _reportePeriodo = null; // { desde: 'YYYY-MM-DD', hasta: 'YYYY-MM-DD', label: '' }
+
+function setReportePeriodo(tipo) {
+    const tz = getTimezone();
+    const ahora = new Date();
+
+    function keyEnTZ(d) {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(d);
+    }
+
+    const hoy = keyEnTZ(ahora);
+
+    if (tipo === 'hoy') {
+        _reportePeriodo = { desde: hoy, hasta: hoy, label: 'Hoy' };
+    } else if (tipo === 'ayer') {
+        const ayer = new Date(ahora);
+        ayer.setDate(ayer.getDate() - 1);
+        const k = keyEnTZ(ayer);
+        _reportePeriodo = { desde: k, hasta: k, label: 'Ayer' };
+    } else if (tipo === 'semana') {
+        // Lunes de la semana actual
+        const dia = ahora.getDay();
+        const offsetLun = (dia === 0) ? -6 : 1 - dia;
+        const lunes = new Date(ahora);
+        lunes.setDate(ahora.getDate() + offsetLun);
+        _reportePeriodo = { desde: keyEnTZ(lunes), hasta: hoy, label: 'Esta semana' };
+    } else if (tipo === 'mes') {
+        const primeroDeMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+        _reportePeriodo = { desde: keyEnTZ(primeroDeMes), hasta: hoy, label: 'Este mes' };
+    } else if (tipo === 'mes_anterior') {
+        const primeroDeMesAnt = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1);
+        const ultimoDeMesAnt  = new Date(ahora.getFullYear(), ahora.getMonth(), 0);
+        _reportePeriodo = { desde: keyEnTZ(primeroDeMesAnt), hasta: keyEnTZ(ultimoDeMesAnt), label: 'Mes anterior' };
+    } else if (tipo === 'año') {
+        const primeroDeAño = new Date(ahora.getFullYear(), 0, 1);
+        _reportePeriodo = { desde: keyEnTZ(primeroDeAño), hasta: hoy, label: 'Este año' };
+    }
+
+    // Actualizar inputs de fecha
+    const desdeEl = document.getElementById('reporteFechaInicio');
+    const hastaEl = document.getElementById('reporteFechaFin');
+    if (desdeEl) desdeEl.value = _reportePeriodo.desde;
+    if (hastaEl) hastaEl.value = _reportePeriodo.hasta;
+
+    // Resaltar botón activo
+    document.querySelectorAll('.reporte-periodo-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.periodo === tipo);
+    });
+
+    generarReporte();
+}
+
+function _fechaEnRango(fechaISO, desde, hasta) {
+    if (!fechaISO) return false;
+    try {
+        const tz = getTimezone();
+        const key = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(new Date(fechaISO));
+        return key >= desde && key <= hasta;
+    } catch(e) {
+        const k = new Date(fechaISO).toISOString().slice(0, 10);
+        return k >= desde && k <= hasta;
+    }
+}
+
+function generarReporte() {
+    const desdeEl = document.getElementById('reporteFechaInicio');
+    const hastaEl = document.getElementById('reporteFechaFin');
+    if (!desdeEl || !hastaEl) return;
+
+    const desde = desdeEl.value;
+    const hasta  = hastaEl.value;
+    if (!desde || !hasta) {
+        showToast('⚠️ Selecciona el período', 3000, '#e65100');
+        return;
+    }
+    if (desde > hasta) {
+        showToast('⚠️ La fecha de inicio debe ser antes del fin', 3000, '#e65100');
+        return;
+    }
+
+    // ── Calcular métricas ────────────────────────────────
+    const facturasDelPeriodo = appData.facturas.filter(f => _fechaEnRango(f.fecha, desde, hasta));
+    const gastosDelPeriodo   = appData.gastos.filter(g => _fechaEnRango(g.fecha, desde, hasta));
+    const citasDelPeriodo    = appData.citas.filter(c => _fechaEnRango(c.fecha, desde, hasta));
+    const labDelPeriodo      = (appData.laboratorios || []).filter(o => _fechaEnRango(o.fechaCreacion, desde, hasta));
+
+    // Ingresos: suma de pagos cuya fecha cae en el período (no la fecha de factura)
+    const pagosDelPeriodo = appData.facturas
+        .flatMap(f => (f.pagos || []).map(p => ({ ...p, facturaId: f.id, paciente: f.paciente, profesional: f.profesional })))
+        .filter(p => _fechaEnRango(p.fecha, desde, hasta));
+
+    const totalCobrado    = pagosDelPeriodo.reduce((s, p) => s + p.monto, 0);
+    const totalGastos     = gastosDelPeriodo.reduce((s, g) => s + g.monto, 0);
+    const balanceNeto     = totalCobrado - totalGastos;
+    const pendienteCobro  = facturasDelPeriodo.reduce((s, f) => {
+        const pagado = (f.pagos || []).reduce((a, p) => a + p.monto, 0);
+        return s + Math.max(0, f.total - pagado);
+    }, 0);
+    const totalFacturado  = facturasDelPeriodo.reduce((s, f) => s + f.total, 0);
+
+    // Desglose por método de pago
+    const efectivo      = pagosDelPeriodo.filter(p => p.metodo === 'efectivo').reduce((s, p) => s + p.monto, 0);
+    const tarjeta       = pagosDelPeriodo.filter(p => p.metodo === 'tarjeta').reduce((s, p) => s + p.monto, 0);
+    const transferencia = pagosDelPeriodo.filter(p => p.metodo === 'transferencia').reduce((s, p) => s + p.monto, 0);
+
+    // Por profesional
+    const porProfesional = {};
+    facturasDelPeriodo.forEach(f => {
+        const p = f.profesional || 'Sin asignar';
+        if (!porProfesional[p]) porProfesional[p] = { facturado: 0, cobrado: 0, facturas: 0, pacientesSet: new Set() };
+        porProfesional[p].facturado += f.total;
+        porProfesional[p].cobrado   += (f.pagos || []).reduce((s, pg) => s + pg.monto, 0);
+        porProfesional[p].facturas  += 1;
+        if (f.paciente) porProfesional[p].pacientesSet.add(f.paciente);
+    });
+
+    // Top procedimientos
+    const procCount = {};
+    facturasDelPeriodo.forEach(f => {
+        (f.procedimientos || []).forEach(p => {
+            const desc = p.descripcion || 'Sin nombre';
+            if (!procCount[desc]) procCount[desc] = { cantidad: 0, ingresos: 0 };
+            procCount[desc].cantidad += (p.cantidad || 1);
+            procCount[desc].ingresos += (p.cantidad || 1) * (p.precioUnitario || 0);
+        });
+    });
+    const topProc = Object.entries(procCount)
+        .sort((a, b) => b[1].cantidad - a[1].cantidad)
+        .slice(0, 8);
+
+    // Citas por estado
+    const citasEstados = {};
+    citasDelPeriodo.forEach(c => {
+        const e = c.estado || 'Pendiente';
+        citasEstados[e] = (citasEstados[e] || 0) + 1;
+    });
+
+    // Laboratorio
+    const labEstados = {};
+    labDelPeriodo.forEach(o => {
+        const e = o.estadoActual || 'Desconocido';
+        labEstados[e] = (labEstados[e] || 0) + 1;
+    });
+    const costoLab    = labDelPeriodo.reduce((s, o) => s + (o.costo  || 0), 0);
+    const ingresoLab  = labDelPeriodo.reduce((s, o) => s + (o.precio || 0), 0);
+    const margenLab   = ingresoLab - costoLab;
+
+    // Pacientes nuevos (registrados en el período)
+    const pacientesNuevos = (appData.pacientes || []).filter(p => _fechaEnRango(p.fechaCreacion, desde, hasta)).length;
+
+    // ── Renderizar ────────────────────────────────────────
+    _renderReporteResumen({ totalCobrado, totalGastos, balanceNeto, pendienteCobro, totalFacturado, efectivo, tarjeta, transferencia, pagosDelPeriodo, desde, hasta });
+    _renderReporteProfesional(porProfesional);
+    _renderReporteTopProc(topProc);
+    _renderReporteCitas(citasEstados, citasDelPeriodo.length, pacientesNuevos);
+    if (hasModule('laboratorio')) _renderReporteLab(labEstados, labDelPeriodo.length, costoLab, ingresoLab, margenLab);
+}
+
+function _pct(parte, total) {
+    if (!total) return 0;
+    return Math.round((parte / total) * 100);
+}
+
+function _barraMetodo(label, monto, total, color) {
+    const pct = _pct(monto, total);
+    return `
+        <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span style="font-size:13px;color:var(--mid)">${label}</span>
+                <span style="font-size:13px;font-weight:500;color:var(--dark)">${formatCurrency(monto)} <span style="color:var(--mid);font-weight:400">${pct}%</span></span>
+            </div>
+            <div style="height:5px;background:rgba(30,28,26,0.07);border-radius:100px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${color};border-radius:100px;transition:width 0.4s ease"></div>
+            </div>
+        </div>`;
+}
+
+function _renderReporteResumen({ totalCobrado, totalGastos, balanceNeto, pendienteCobro, totalFacturado, efectivo, tarjeta, transferencia, pagosDelPeriodo, desde, hasta }) {
+    const el = document.getElementById('reporteResumenFinanciero');
+    if (!el) return;
+
+    const margenPct = totalFacturado > 0 ? _pct(totalCobrado, totalFacturado) : 0;
+    const gastosPct = totalCobrado > 0 ? _pct(totalGastos, totalCobrado) : 0;
+
+    el.innerHTML = `
+        <!-- KPIs principales -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+            <div style="background:rgba(107,143,113,0.08);border:1.5px solid rgba(107,143,113,0.2);border-radius:14px;padding:16px">
+                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Cobrado</div>
+                <div style="font-size:26px;font-weight:300;color:var(--green,#6B8F71);line-height:1">${formatCurrency(totalCobrado)}</div>
+                <div style="font-size:11px;color:var(--mid);margin-top:4px">${pagosDelPeriodo.length} pago${pagosDelPeriodo.length !== 1 ? 's' : ''}</div>
+            </div>
+            <div style="background:rgba(196,133,106,0.08);border:1.5px solid rgba(196,133,106,0.2);border-radius:14px;padding:16px">
+                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Pendiente</div>
+                <div style="font-size:26px;font-weight:300;color:var(--terracota,#C4856A);line-height:1">${formatCurrency(pendienteCobro)}</div>
+                <div style="font-size:11px;color:var(--mid);margin-top:4px">${margenPct}% de recuperación</div>
+            </div>
+            <div style="background:rgba(196,133,106,0.05);border:1.5px solid rgba(30,28,26,0.07);border-radius:14px;padding:16px">
+                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Gastos</div>
+                <div style="font-size:26px;font-weight:300;color:var(--red,#C47070);line-height:1">${formatCurrency(totalGastos)}</div>
+                <div style="font-size:11px;color:var(--mid);margin-top:4px">${gastosPct}% del cobrado</div>
+            </div>
+            <div style="background:${balanceNeto >= 0 ? 'rgba(107,143,113,0.05)' : 'rgba(196,113,113,0.05)'};border:1.5px solid ${balanceNeto >= 0 ? 'rgba(107,143,113,0.15)' : 'rgba(196,113,113,0.15)'};border-radius:14px;padding:16px">
+                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Balance neto</div>
+                <div style="font-size:26px;font-weight:300;color:${balanceNeto >= 0 ? 'var(--green,#6B8F71)' : 'var(--red,#C47070)'};line-height:1">${formatCurrency(balanceNeto)}</div>
+                <div style="font-size:11px;color:var(--mid);margin-top:4px">Cobrado − gastos</div>
+            </div>
+        </div>
+
+        <!-- Métodos de pago -->
+        ${totalCobrado > 0 ? `
+        <div style="border-top:1px solid rgba(30,28,26,0.07);padding-top:16px;margin-bottom:4px">
+            <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Métodos de cobro</div>
+            ${_barraMetodo('💵 Efectivo',       efectivo,      totalCobrado, 'var(--green,#6B8F71)')}
+            ${_barraMetodo('💳 Tarjeta',        tarjeta,       totalCobrado, 'var(--azul,#7B8FA1)')}
+            ${_barraMetodo('🔄 Transferencia',  transferencia, totalCobrado, 'var(--terracota,#C4856A)')}
+        </div>` : ''}
+    `;
+}
+
+function _renderReporteProfesional(porProfesional) {
+    const el = document.getElementById('reportePorProfesional');
+    if (!el) return;
+    const entries = Object.entries(porProfesional).sort((a, b) => b[1].cobrado - a[1].cobrado);
+    if (entries.length === 0) {
+        el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--mid);font-size:13px">Sin facturas en este período</div>';
+        return;
+    }
+    const maxCobrado = Math.max(...entries.map(e => e[1].cobrado), 1);
+    el.innerHTML = entries.map(([nombre, d]) => {
+        const cobradoPct = _pct(d.cobrado, maxCobrado);
+        const recuperacion = d.facturado > 0 ? _pct(d.cobrado, d.facturado) : 0;
+        const colorRecup = recuperacion >= 80 ? 'var(--green,#6B8F71)' : recuperacion >= 50 ? '#E8A838' : 'var(--red,#C47070)';
+        return `
+            <div style="padding:14px 0;border-bottom:1px solid rgba(30,28,26,0.06)">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                    <div>
+                        <div style="font-size:14px;font-weight:400;color:var(--dark)">${nombre}</div>
+                        <div style="font-size:12px;color:var(--mid);margin-top:2px">${d.facturas} factura${d.facturas!==1?'s':''} · ${d.pacientesSet.size} paciente${d.pacientesSet.size!==1?'s':''}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:15px;font-weight:500;color:var(--dark)">${formatCurrency(d.cobrado)}</div>
+                        <div style="font-size:11px;color:${colorRecup};margin-top:2px">${recuperacion}% recuperado</div>
+                    </div>
+                </div>
+                <div style="height:4px;background:rgba(30,28,26,0.07);border-radius:100px;overflow:hidden">
+                    <div style="height:100%;width:${cobradoPct}%;background:var(--clinic-color,#C4856A);border-radius:100px;transition:width 0.5s ease"></div>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function _renderReporteTopProc(topProc) {
+    const el = document.getElementById('reporteTopProcedimientos');
+    if (!el) return;
+    if (topProc.length === 0) {
+        el.innerHTML = '<li style="text-align:center;padding:24px;color:var(--mid);font-size:13px">Sin procedimientos en este período</li>';
+        return;
+    }
+    const maxCantidad = topProc[0][1].cantidad;
+    el.innerHTML = topProc.map(([desc, d], i) => {
+        const pct = _pct(d.cantidad, maxCantidad);
+        return `
+            <li style="padding:12px 0;border-bottom:1px solid rgba(30,28,26,0.06)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="font-size:11px;font-weight:600;color:var(--mid);width:18px;text-align:right">${i+1}</span>
+                        <span style="font-size:14px;color:var(--dark)">${desc}</span>
+                    </div>
+                    <div style="text-align:right">
+                        <span style="font-size:13px;font-weight:500;color:var(--dark)">${d.cantidad}×</span>
+                        <span style="font-size:12px;color:var(--mid);margin-left:6px">${formatCurrency(d.ingresos)}</span>
+                    </div>
+                </div>
+                <div style="height:3px;background:rgba(30,28,26,0.07);border-radius:100px;overflow:hidden;margin-left:28px">
+                    <div style="height:100%;width:${pct}%;background:var(--clinic-color,#C4856A);opacity:${1 - i*0.1};border-radius:100px;transition:width 0.5s ease"></div>
+                </div>
+            </li>`;
+    }).join('');
+}
+
+function _renderReporteCitas(citasEstados, totalCitas, pacientesNuevos) {
+    const el = document.getElementById('reporteEstadoCitas');
+    if (!el) return;
+
+    const ordenEstados = ['Completada', 'Confirmada', 'Pendiente', 'En Sala de Espera', 'Cancelada', 'Inasistencia'];
+    const coloresEstados = {
+        'Completada':        'var(--green,#6B8F71)',
+        'Confirmada':        'var(--azul,#7B8FA1)',
+        'Pendiente':         '#E8A838',
+        'En Sala de Espera': 'var(--terracota,#C4856A)',
+        'Cancelada':         'var(--mid,#9C9189)',
+        'Inasistencia':      'var(--red,#C47070)',
+    };
+
+    el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <div>
+                <span style="font-size:28px;font-weight:300;color:var(--dark)">${totalCitas}</span>
+                <span style="font-size:13px;color:var(--mid);margin-left:6px">citas</span>
+            </div>
+            ${pacientesNuevos > 0 ? `
+            <div style="background:rgba(107,143,113,0.08);border:1px solid rgba(107,143,113,0.2);border-radius:100px;padding:6px 14px">
+                <span style="font-size:12px;color:var(--green,#6B8F71);font-weight:500">+${pacientesNuevos} paciente${pacientesNuevos!==1?'s':''} nuevos</span>
+            </div>` : ''}
+        </div>
+        ${totalCitas === 0 ? '<div style="text-align:center;padding:16px;color:var(--mid);font-size:13px">Sin citas en este período</div>' :
+        ordenEstados.filter(e => citasEstados[e]).map(estado => {
+            const n = citasEstados[estado] || 0;
+            const pct = _pct(n, totalCitas);
+            return `
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                    <div style="width:8px;height:8px;border-radius:50%;background:${coloresEstados[estado]};flex-shrink:0"></div>
+                    <span style="font-size:13px;color:var(--mid);flex:1">${estado}</span>
+                    <span style="font-size:13px;font-weight:500;color:var(--dark)">${n}</span>
+                    <span style="font-size:11px;color:var(--mid);width:32px;text-align:right">${pct}%</span>
+                </div>`;
+        }).join('')}
+    `;
+}
+
+function _renderReporteLab(labEstados, totalOrdenes, costoLab, ingresoLab, margenLab) {
+    const el = document.getElementById('reporteLaboratorio');
+    if (!el) return;
+    if (totalOrdenes === 0) {
+        el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--mid);font-size:13px">Sin órdenes de laboratorio en este período</div>';
+        return;
+    }
+    const margenPct = ingresoLab > 0 ? _pct(margenLab, ingresoLab) : 0;
+    const ordenEstados = ['Toma de impresión','Enviado a laboratorio','Listo para prueba','Reenviado a laboratorio','Entregado'];
+    el.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+            <div style="text-align:center">
+                <div style="font-size:22px;font-weight:300;color:var(--dark)">${totalOrdenes}</div>
+                <div style="font-size:11px;color:var(--mid);margin-top:2px">Órdenes</div>
+            </div>
+            <div style="text-align:center">
+                <div style="font-size:22px;font-weight:300;color:var(--green,#6B8F71)">${formatCurrency(margenLab)}</div>
+                <div style="font-size:11px;color:var(--mid);margin-top:2px">Margen</div>
+            </div>
+            <div style="text-align:center">
+                <div style="font-size:22px;font-weight:300;color:${margenPct >= 30 ? 'var(--green,#6B8F71)' : 'var(--terracota,#C4856A)'}">${margenPct}%</div>
+                <div style="font-size:11px;color:var(--mid);margin-top:2px">Rentabilidad</div>
+            </div>
+        </div>
+        ${ordenEstados.filter(e => labEstados[e]).map(e => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <div style="width:7px;height:7px;border-radius:50%;background:${getColorEstado(e)};flex-shrink:0"></div>
+                <span style="font-size:13px;color:var(--mid);flex:1">${e}</span>
+                <span style="font-size:13px;font-weight:500;color:var(--dark)">${labEstados[e]}</span>
+            </div>`).join('')}
+    `;
+}
+
+function updateReportesTab() {
+    // Mostrar/ocultar card de laboratorio según módulo
+    const labCard = document.getElementById('reporteCardLab');
+    if (labCard) labCard.style.display = hasModule('laboratorio') ? '' : 'none';
+
+    // Establecer período por defecto: este mes
+    const desdeEl = document.getElementById('reporteFechaInicio');
+    const hastaEl = document.getElementById('reporteFechaFin');
+    if (desdeEl && !desdeEl.value) {
+        setReportePeriodo('mes');
+    } else if (desdeEl && desdeEl.value) {
+        generarReporte();
+    }
 }
 
