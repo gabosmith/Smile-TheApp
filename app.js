@@ -3218,16 +3218,16 @@ function poblarConfigClinica() {
     if (colorInput) {
         colorInput.value = clinicConfig.color || '#C4856A';
         if (colorHex) colorHex.textContent = clinicConfig.color || '#C4856A';
-        colorInput.addEventListener('input', () => {
+        colorInput.oninput = () => {
             if (colorHex) colorHex.textContent = colorInput.value;
-        });
+        };
     }
 
     const logoInput = document.getElementById('configLogoUrl');
     if (logoInput) {
         logoInput.value = clinicConfig.logoPositivo || '';
         actualizarPreviewLogo(clinicConfig.logoPositivo || '');
-        logoInput.addEventListener('input', () => actualizarPreviewLogo(logoInput.value));
+        logoInput.oninput = () => actualizarPreviewLogo(logoInput.value);
     }
 
     // SEGURIDAD — no pre-llenar contraseña
@@ -3319,6 +3319,8 @@ async function guardarContrasenaAdmin() {
     }
 
     // Hash before saving — never store plaintext
+    const pwAnterior    = admin.password;
+    const pwHashedAntes = admin._pwHashed;
     admin.password  = await hashPassword(nueva);
     admin._pwHashed = true;
 
@@ -3329,6 +3331,8 @@ async function guardarContrasenaAdmin() {
         showToast('✓ Contraseña actualizada');
         registrarAuditoria('seguridad', 'cambio_contrasena', 'Contraseña de administrador actualizada');
     } catch(e) {
+        admin.password  = pwAnterior;    // rollback
+        admin._pwHashed = pwHashedAntes;
         showError('Error al guardar la contraseña.', e);
     }
 }
@@ -7441,18 +7445,18 @@ function exportarCuadreExcel() {
 // ZONA HORARIA
 // ========================================
 
-function guardarZonaHoraria() {
+async function guardarZonaHoraria() {
     const timezone = document.getElementById('timezoneSelect').value;
-
-    if (!appData.settings) {
-        appData.settings = {};
-    }
-
+    if (!appData.settings) appData.settings = {};
+    const tzAnterior = appData.settings.timezone;
     appData.settings.timezone = timezone;
-    saveData();
-
-    console.log('✅ Zona horaria guardada:', timezone);
-    showToast('✓ Zona horaria actualizada');
+    try {
+        await saveData();
+        showToast('✓ Zona horaria actualizada');
+    } catch(e) {
+        appData.settings.timezone = tzAnterior; // rollback
+        showError('Error al guardar la zona horaria.', e);
+    }
 }
 
 function getTimezone() {
@@ -8860,7 +8864,7 @@ async function guardarCambiosPlan() {
         clinicConfig.modulos = nuevosModulos;
 
         btn.textContent = '✓ Cambios guardados';
-        btn.style.background = '#3a9e5f';
+        btn.style.background = 'var(--green, #6B8F71)';
         setTimeout(() => {
             btn.textContent = 'Guardar cambios';
             btn.style.background = '';
@@ -9209,6 +9213,7 @@ async function guardarProcedimiento(idx) {
     if (!nombre) { showToast('⚠️ El nombre es obligatorio', 3000, '#e65100'); return; }
 
     if (!clinicConfig.procItems) clinicConfig.procItems = [];
+    const backupItems = [...clinicConfig.procItems];
 
     if (idx === null || idx === 'null') {
         clinicConfig.procItems.push({ nombre, precio });
@@ -9225,6 +9230,7 @@ async function guardarProcedimiento(idx) {
         renderCatalogoTab();
         showToast('✓ Guardado');
     } catch(e) {
+        clinicConfig.procItems = backupItems; // rollback
         console.error(e);
         showToast('❌ Error al guardar. Intenta de nuevo.', 4000, '#c0392b');
         console.error('[Catálogo] Error guardando procedimiento:', e);
