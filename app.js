@@ -4769,7 +4769,11 @@ function renderTabBalance(paciente) {
 // ========================================
 
 let agendaSemanaInicio = new Date();
-agendaSemanaInicio.setDate(agendaSemanaInicio.getDate() - agendaSemanaInicio.getDay()); // Domingo
+// Semana empieza en lunes (estándar en RD y Latinoamérica)
+const _hoy = new Date();
+const _diaHoy = _hoy.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+const _offsetLunes = _diaHoy === 0 ? -6 : 1 - _diaHoy; // si es domingo, retroceder 6 días
+agendaSemanaInicio.setDate(_hoy.getDate() + _offsetLunes);
 let verAgendaPropia = false; // Toggle para ver agenda propia vs general
 
 function cambiarSemana(delta) {
@@ -4823,8 +4827,8 @@ function updateAgendaTab() {
     document.getElementById('agendaToggle').innerHTML = toggleBtn;
 
     // Renderizar vista semanal
-    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const colores = {1: '#007AFF', 2: '#34C759', 3: '#FF9500', 4: '#AF52DE'};
+    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const colores = {1: 'var(--azul, #7B8FA1)', 2: 'var(--green, #6B8F71)', 3: 'var(--terracota, #C4856A)', 4: '#8B7BA8'};
 
     let html = '<div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">';
 
@@ -4832,15 +4836,16 @@ function updateAgendaTab() {
         const dia = new Date(inicio);
         dia.setDate(dia.getDate() + i);
 
-        const citasDelDia = citasFiltradas.filter(c => {
-            const citaDate = new Date(c.fecha);
-            return citaDate.toDateString() === dia.toDateString();
-        }).sort((a, b) => a.hora.localeCompare(b.hora));
+        // Usar isSameDayTZ para respetar la zona horaria configurada de la clínica
+        const diaKey = `${dia.getFullYear()}-${String(dia.getMonth()+1).padStart(2,'0')}-${String(dia.getDate()).padStart(2,'0')}`;
+        const citasDelDia = citasFiltradas.filter(c => isSameDayTZ(c.fecha, diaKey))
+            .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
 
-        const esHoy = dia.toDateString() === new Date().toDateString();
+        const todayKey2 = getTodayKey();
+        const esHoy = diaKey === todayKey2;
 
         html += `
-            <div style="border: 2px solid ${esHoy ? 'var(--clinic-color, #C4856A)' : '#e5e5e7'}; border-radius: 8px; padding: 10px; min-height: 400px; background: ${esHoy ? '#f0f4ff' : 'white'};">
+            <div style="border: 1.5px solid ${esHoy ? 'var(--clinic-color, #C4856A)' : 'rgba(30,28,26,0.08)'}; border-radius: 10px; padding: 10px; min-height: 400px; background: ${esHoy ? 'rgba(196,133,106,0.05)' : 'var(--white, white)'};">
                 <div style="text-align: center; margin-bottom: 12px;">
                     <div style="font-size: 12px; color: #666; font-weight: 600;">${dias[i]}</div>
                     <div style="font-size: 20px; font-weight: 700; color: ${esHoy ? 'var(--clinic-color, #C4856A)' : '#1d1d1f'};">${dia.getDate()}</div>
@@ -4879,9 +4884,9 @@ function verDetalleCita(citaId) {
     const colores = {1: '#007AFF', 2: '#34C759', 3: '#FF9500', 4: '#AF52DE'};
 
     const html = `
-        <div style="background: ${colores[cita.consultorio]}; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-            <div style="font-size: 28px; font-weight: 700; margin-bottom: 8px;">${cita.hora}</div>
-            <div style="font-size: 14px; opacity: 0.9;">Consultorio ${cita.consultorio}</div>
+        <div style="background: ${colores[cita.consultorio] || 'var(--azul,#7B8FA1)'}; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            <div style="font-size: 28px; font-weight: 300; margin-bottom: 8px; letter-spacing:-1px">${cita.hora}</div>
+            <div style="font-size: 14px; opacity: 0.85;">Consultorio ${cita.consultorio}</div>
         </div>
 
         <!-- ESTADO DE LA CITA -->
@@ -4891,18 +4896,22 @@ function verDetalleCita(citaId) {
         </div>
 
         <!-- CAMBIAR ESTADO -->
-        <div style="background: #f8f9fa; padding: 14px; border-radius: 8px; margin-bottom: 16px;">
-            <label style="font-size: 12px; color: #666; margin-bottom: 8px; display: block; font-weight: 600;">CAMBIAR ESTADO</label>
-            <select id="nuevoEstadoCita" style="width: 100%; padding: 12px; border: 2px solid #e5e5e7; border-radius: 8px; font-size: 14px; font-weight: 500;">
+        <div style="background: var(--surface,#F5F2EE); padding: 14px; border-radius: 10px; margin-bottom: 16px;">
+            <label style="font-size: 11px; color: var(--mid); margin-bottom: 8px; display: block; letter-spacing: 1px; text-transform: uppercase;">Cambiar estado</label>
+            <select id="nuevoEstadoCita" style="width: 100%; padding: 12px; border: 1.5px solid rgba(30,28,26,0.1); border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--white); color: var(--dark);">
                 <option value="Pendiente" ${(cita.estado || 'Pendiente') === 'Pendiente' ? 'selected' : ''}>⏳ Pendiente</option>
                 <option value="Confirmada" ${cita.estado === 'Confirmada' ? 'selected' : ''}>✅ Confirmada</option>
                 <option value="En Sala de Espera" ${cita.estado === 'En Sala de Espera' ? 'selected' : ''}>🏥 En Sala de Espera</option>
                 <option value="Completada" ${cita.estado === 'Completada' ? 'selected' : ''}>✔️ Completada</option>
                 <option value="Cancelada" ${cita.estado === 'Cancelada' ? 'selected' : ''}>❌ Cancelada</option>
-                <option value="Inasistencia" ${cita.estado === 'Inasistencia' ? 'selected' : ''}>⚠️ Inasistencia (No vino)</option>
+                <option value="Inasistencia" ${cita.estado === 'Inasistencia' ? 'selected' : ''}>⚠️ Inasistencia</option>
             </select>
-            <button class="btn btn-submit" style="margin-top: 10px; width: 100%;" onclick="cambiarEstadoCita('${cita.id}', document.getElementById('nuevoEstadoCita').value)">
-                Actualizar Estado
+            <textarea id="notasCambioEstado" placeholder="Notas del cambio (opcional)..."
+                style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid rgba(30,28,26,0.1);
+                       border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:60px;
+                       background:var(--white);color:var(--dark)"></textarea>
+            <button class="btn btn-submit" style="margin-top: 8px; width: 100%;" onclick="cambiarEstadoCita('${cita.id}', document.getElementById('nuevoEstadoCita').value)">
+                Actualizar estado
             </button>
         </div>
 
@@ -5621,59 +5630,52 @@ async function cambiarEstadoCita(citaId, nuevoEstado) {
 
     const estadoAnterior = cita.estado || 'Pendiente';
 
-    // VALIDACIÓN: Si se marca como Completada, debe tener factura
-    if (nuevoEstado === 'Completada' && !cita.facturaId) {
-        const confirmar = confirm(
-            '⚠️ ATENCIÓN: Esta cita no tiene factura asociada.\n\n' +
-            '¿Deseas marcarla como Completada de todas formas?\n\n' +
-            'Recomendación: Genera primero la factura para vincularla automáticamente.'
-        );
-        if (!confirmar) return;
-    }
+    // Advertencia sin bloquear si se completa sin factura
+    const sinFactura = nuevoEstado === 'Completada' && !cita.facturaId;
 
-    // Confirmar cambio
-    if (!confirm(`¿Cambiar estado de "${estadoAnterior}" a "${nuevoEstado}"?`)) {
-        return;
-    }
-
-    // Inicializar historial si no existe
-    if (!cita.historialEstados) {
-        cita.historialEstados = [{
-            estado: estadoAnterior,
-            fecha: cita.fechaCreacion || cita.fecha,
-            usuario: cita.creadoPor || 'Sistema',
-            notas: 'Estado inicial'
-        }];
-    }
-
-    // Agregar cambio al historial
-    cita.historialEstados.push({
-        estado: nuevoEstado,
-        fecha: new Date().toISOString(),
-        usuario: appData.currentUser,
-        notas: ''
-    });
-
-    // Cambiar estado
-    cita.estado = nuevoEstado;
-    cita.ultimaModificacion = new Date().toISOString();
-    cita.modificadoPor = appData.currentUser;
-
-    // Si se marca como completada, agregar nota
-    if (nuevoEstado === 'Completada') {
-        const notas = prompt('Notas del procedimiento realizado (opcional):');
-        if (notas) {
-            cita.notasProcedimiento = notas;
-            // Agregar notas al último registro del historial
-            cita.historialEstados[cita.historialEstados.length - 1].notas = notas;
+    const ejecutarCambio = async (notas) => {
+        // Inicializar historial si no existe
+        if (!cita.historialEstados) {
+            cita.historialEstados = [{
+                estado: estadoAnterior,
+                fecha: cita.fechaCreacion || cita.fecha,
+                usuario: cita.creadoPor || 'Sistema',
+                notas: 'Estado inicial'
+            }];
         }
+        cita.historialEstados.push({
+            estado: nuevoEstado,
+            fecha: new Date().toISOString(),
+            usuario: appData.currentUser,
+            notas: notas || ''
+        });
+        cita.estado = nuevoEstado;
+        cita.ultimaModificacion = new Date().toISOString();
+        cita.modificadoPor = appData.currentUser;
+        if (notas) cita.notasProcedimiento = notas;
+
+        await saveData();
+        updateAgendaTab();
+        closeModal('modalDetalleCita');
+        showToast(`✓ Estado: ${nuevoEstado}`);
+    };
+
+    const notasEl = document.getElementById('notasCambioEstado');
+    const notas = notasEl ? notasEl.value.trim() : '';
+
+    // Si hay advertencia de sin factura, confirmar primero
+    if (sinFactura) {
+        mostrarConfirmacion({
+            titulo: 'Sin factura asociada',
+            mensaje: `Esta cita no tiene factura. ¿Marcar como <strong>Completada</strong> de todas formas?<br><br>
+                     <span style="font-size:13px;color:var(--mid)">Recomendación: genera la factura antes para vincularla automáticamente.</span>`,
+            tipo: 'advertencia',
+            confirmText: 'Sí, completar',
+            onConfirm: () => ejecutarCambio(notas)
+        });
+    } else {
+        await ejecutarCambio(notas);
     }
-
-    await saveData();
-    updateAgendaTab();
-    closeModal('modalDetalleCita');
-
-    showToast(`✓ Estado actualizado: ${nuevoEstado}`);
     } catch(e) {
         showError('Error al cambiar el estado de la cita.', e);
     }
@@ -8495,12 +8497,20 @@ function cancelarCita() {
         `,
         tipo: 'advertencia',
         confirmText: 'Sí, Cancelar Cita',
-        onConfirm: () => {
+        onConfirm: async () => {
+            const estadoOriginal = cita.estado;
             cita.estado = 'Cancelada';
-            saveData();
-            closeModal('modalDetalleCita');
-            updateAgendaTab();
-            showToast('✓ Cita cancelada');
+            cita.ultimaModificacion = new Date().toISOString();
+            cita.modificadoPor = appData.currentUser;
+            try {
+                await saveData();
+                closeModal('modalDetalleCita');
+                updateAgendaTab();
+                showToast('✓ Cita cancelada');
+            } catch(e) {
+                cita.estado = estadoOriginal; // rollback
+                showError('Error al cancelar la cita.', e);
+            }
         }
     });
 }
