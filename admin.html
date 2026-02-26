@@ -820,6 +820,9 @@ async function loadClinicas() {
         trial: config.trialHasta ? new Date(config.trialHasta) > new Date() : false,
         trialHasta: config.trialHasta || null,
         adminEmail: config.adminEmail || '—',
+        clinicaPadre: config.clinicaPadre || null,
+        esSedePrincipal: config.esSedePrincipal || false,
+        nombreSede: config.nombreSede || null,
         creadaEn: config.creadaEn || data.lastUpdated || null,
         migratedAt: data.migratedAt || null,
         pacientes,
@@ -1136,6 +1139,14 @@ function openClinicDetail(id) {
       <div class="detail-card">
         <div class="detail-label">MRR</div>
         <div class="detail-val" style="color:var(--terracota)">RD$${c.mrr.toLocaleString()}</div>
+    ${c.clinicaPadre ? `
+    <div class="detail-label" style="margin-top:12px">Sede de</div>
+    <div class="detail-val"><code style="font-size:12px">${c.clinicaPadre}</code></div>
+    ` : ''}
+    ${c.esSedePrincipal ? `
+    <div class="detail-label" style="margin-top:12px">Tipo</div>
+    <div class="detail-val" style="color:var(--terracota)">Sede principal</div>
+    ` : ''}
       </div>
       <div class="detail-card">
         <div class="detail-label">Plan</div>

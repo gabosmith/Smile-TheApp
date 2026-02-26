@@ -119,8 +119,11 @@ async function loadClinicBranding() {
         clinicConfig.activa     = cfg.activa !== false;
         clinicConfig.trial      = cfg.trial !== false;
         clinicConfig.trialHasta = cfg.trialHasta || null;
-        clinicConfig.procMode   = cfg.procMode || 'libre';
-        clinicConfig.procItems  = cfg.procItems || [];
+        clinicConfig.procMode      = cfg.procMode || 'libre';
+        clinicConfig.procItems     = cfg.procItems || [];
+        clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
+        clinicConfig.esSede        = !!cfg.clinicaPadre;
+        clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
 
         // enTrial: trialHasta es la fuente de verdad
         clinicConfig.enTrial = clinicConfig.trialHasta
@@ -456,35 +459,64 @@ function showError(msg, detail) {
 
 // Registra errores en Firestore para que aparezcan en el admin log.
 // Se llama automáticamente desde showError() y desde canWriteToFirebase().
+// Cola local para errores que no pudieron enviarse a Firestore aún
+const _errorQueue = [];
+
 async function logErrorToFirestore(codigoError, titulo, detalle, contexto) {
-    if (!CLINIC_PATH) return; // sin clínica activa, no tiene sentido registrar
+    if (!CLINIC_PATH) return;
+
+    const severidades = {
+        'permission-denied': 'critico',
+        'snapshot-not-found': 'critico',
+        'unavailable':        'error',
+        'not-found':          'error',
+        'deadline-exceeded':  'aviso',
+        'already-exists':     'aviso',
+        'cache-corrupto':     'info',
+        'canWriteToFirebase': 'aviso',
+    };
+
+    const entrada = {
+        fecha:       new Date().toISOString(),
+        clinicaId:   CLINIC_PATH,
+        codigoError: codigoError || 'DEFAULT',
+        titulo:      titulo || 'Error sin título',
+        detalle:     String(detalle || '').slice(0, 500),
+        usuario:     (typeof appData !== 'undefined' && appData.currentUser) || 'Sistema',
+        contexto:    contexto || '',
+        severidad:   severidades[codigoError] || 'error',
+        resuelto:    false,
+    };
+
     try {
-        const severidades = {
-            'permission-denied': 'critico',
-            'snapshot-not-found': 'critico',
-            'unavailable':        'error',
-            'not-found':          'error',
-            'deadline-exceeded':  'aviso',
-            'already-exists':     'aviso',
-            'cache-corrupto':     'info',
-            'canWriteToFirebase': 'aviso',
-        };
-        const entrada = {
-            fecha:       new Date().toISOString(),
-            clinicaId:   CLINIC_PATH,
-            codigoError: codigoError || 'DEFAULT',
-            titulo:      titulo || 'Error sin título',
-            detalle:     String(detalle || '').slice(0, 500), // max 500 chars
-            usuario:     (typeof appData !== 'undefined' && appData.currentUser) || 'Sistema',
-            contexto:    contexto || '',
-            severidad:   severidades[codigoError] || 'error',
-            resuelto:    false,
-        };
-        // Guardar en colección global para que el admin lo vea
+        // Verificar que Firebase Auth está lista antes de escribir
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            // Auth no lista — encolar para reintentar después del login
+            _errorQueue.push(entrada);
+            console.warn('[ErrorLog] Auth no lista, error encolado:', codigoError);
+            return;
+        }
         await db.collection('smile_errors').add(entrada);
     } catch(e) {
-        // Nunca crashear por intentar loggear un error
-        console.warn('[ErrorLog] No se pudo registrar el error en Firestore:', e.message);
+        // Si falla (ej: sin conexión), encolar para reintentar
+        _errorQueue.push(entrada);
+        console.warn('[ErrorLog] No se pudo registrar en Firestore, encolado:', e.message);
+    }
+}
+
+// Llamar después del login exitoso para vaciar la cola de errores
+async function _flushErrorQueue() {
+    if (_errorQueue.length === 0) return;
+    const pendientes = [..._errorQueue];
+    _errorQueue.length = 0; // vaciar antes de reintentar para evitar duplicados
+    for (const entrada of pendientes) {
+        try {
+            await db.collection('smile_errors').add(entrada);
+        } catch(e) {
+            console.warn('[ErrorLog] Error al vaciar cola:', e.message);
+            _errorQueue.push(entrada); // re-encolar si sigue fallando
+        }
     }
 }
 
@@ -788,6 +820,7 @@ function initRealtimeListener() {
             appData.cuadresDiarios = data.cuadresDiarios || {};
             appData.citas          = data.citas          || [];
             appData.laboratorios   = data.laboratorios   || [];
+            appData.inventario     = (data.inventario    || []).map(i => ({ movimientos: [], ...i }));
             appData.reversiones    = data.reversiones    || [];
             appData.auditLogs      = data.auditLogs      || [];
 
@@ -1251,6 +1284,9 @@ async function login() {
     // Establish Firebase anonymous auth session (enables Security Rules)
     await ensureFirebaseAuth();
 
+    // Vaciar cola de errores que no pudieron enviarse antes del login
+    _flushErrorQueue().catch(e => console.warn('[ErrorLog] flush failed:', e));
+
     // Start session + inactivity tracking
     startSession(username);
 
@@ -1258,7 +1294,7 @@ async function login() {
     registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
 
     initRealtimeListener();
-    showApp();
+    await showApp();
 }
 
 // Logout
@@ -1286,7 +1322,7 @@ function logout() {
 }
 
 // Show app
-function showApp() {
+async function showApp() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appContainer').style.display = 'block';
 
@@ -1299,6 +1335,10 @@ function showApp() {
 
     // Apply logo in header
     applyLogoEverywhere(clinicConfig._logoSrc || clinicConfig.logoPositivo || null, clinicTitle);
+
+    // Cargar y renderizar switcher de sedes (si aplica)
+    await _cargarSedesGrupo();
+    _renderSwitcherSedes();
 
     buildNavigation();
 
@@ -9077,6 +9117,9 @@ function abrirMas() {
     if (hasModule('inventario') && (role === 'admin' || role === 'reception')) {
         items.push({ icon: '📦', label: 'Inventario',  action: `cerrarMas();irTab('inventario')` });
     }
+    if (hasModule('multisucursal') && role === 'admin') {
+        items.push({ icon: '🏢', label: 'Sedes',       action: `cerrarMas();irTab('sedes')` });
+    }
     if (hasModule('reportes') && role === 'admin') {
         items.push({ icon: '📊', label: 'Reportes',    action: `cerrarMas();irTab('reportes')` });
     }
@@ -9131,6 +9174,7 @@ function irTab(tabName) {
     if (tabName === 'reportes'   && typeof updateReportesTab   === 'function') updateReportesTab();
     if (tabName === 'personal'   && typeof updatePersonalTab   === 'function') updatePersonalTab();
     if (tabName === 'inventario' && typeof updateInventarioTab === 'function') updateInventarioTab();
+    if (tabName === 'sedes'      && typeof updateSedesTab      === 'function') updateSedesTab();
 }
 
 
@@ -10197,5 +10241,421 @@ function confirmarEliminarItem(itemId) {
             }
         }
     });
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// MÓDULO MULTISUCURSAL
+// ═══════════════════════════════════════════════════════════
+// Arquitectura Opción A: cada sede es una clínica independiente
+// en Firebase (su propio CLINIC_PATH). Las sedes comparten:
+//   - El módulo multisucursal contratado en la sede principal
+//   - Branding (color + logo) heredado del padre si no tienen propio
+//   - Visibilidad en el switcher de sedes del header
+//
+// Campos en config/settings:
+//   clinicaPadre: 'id-sede-principal'   (solo en sedes hijas)
+//   esSedePrincipal: true                (solo en la sede principal)
+//   nombreSede: 'Sede Norte'             (etiqueta corta para el switcher)
+// ═══════════════════════════════════════════════════════════
+
+// Cache de sedes del grupo cargadas en esta sesión
+let _sedesGrupo = []; // [{ id, nombre, nombreSede, activa, esCurrent }]
+
+async function _cargarSedesGrupo() {
+    _sedesGrupo = [];
+    if (!hasModule('multisucursal')) return;
+    if (!CLINIC_PATH) return;
+
+    try {
+        // La sede actual siempre está en el grupo
+        _sedesGrupo.push({
+            id:         CLINIC_PATH,
+            nombre:     clinicConfig.nombre     || CLINIC_PATH,
+            nombreSede: clinicConfig.nombreSede || (clinicConfig.esSede ? clinicConfig.nombre : 'Sede principal'),
+            activa:     true,
+            esCurrent:  true,
+        });
+
+        // Las sedes hermanas están registradas como array en el config de la sede padre.
+        // Si somos una sede hija, usamos clinicaPadre para leer ese array.
+        // Solo se hacen lecturas a rutas explícitas — nunca a toda la colección.
+        const padreId = clinicConfig.clinicaPadre || CLINIC_PATH;
+
+        const padreDoc = await db.collection('clinicas').doc(padreId)
+            .collection('config').doc('settings').get();
+        if (!padreDoc.exists) return;
+
+        const padreData = padreDoc.data();
+
+        // Si somos la sede hija, agregar la sede principal primero (al inicio)
+        if (clinicConfig.esSede) {
+            _sedesGrupo.unshift({
+                id:         padreId,
+                nombre:     padreData.nombre     || padreId,
+                nombreSede: padreData.nombreSede || 'Sede principal',
+                activa:     padreData.activa !== false,
+                esCurrent:  false,
+            });
+        }
+
+        // Leer el registro de sedes hijas desde el config del padre
+        const sedesRegistradas = padreData.sedesHijas || []; // [{ id, nombre, nombreSede, activa }]
+        for (const s of sedesRegistradas) {
+            if (s.id === CLINIC_PATH) continue; // ya está como current
+            _sedesGrupo.push({
+                id:         s.id,
+                nombre:     s.nombre     || s.id,
+                nombreSede: s.nombreSede || s.nombre || s.id,
+                activa:     s.activa !== false,
+                esCurrent:  false,
+            });
+        }
+    } catch(e) {
+        // No logear como error crítico — puede ser que la clínica aún no tiene sedes
+        console.warn('[Multisucursal] No se pudieron cargar las sedes:', e.message);
+    }
+}
+
+function _renderSwitcherSedes() {
+    // Eliminar switcher previo
+    const previo = document.getElementById('sedesSwitcher');
+    if (previo) previo.remove();
+
+    if (!hasModule('multisucursal') || _sedesGrupo.length < 2) return;
+
+    const actual = _sedesGrupo.find(s => s.esCurrent);
+    if (!actual) return;
+
+    const switcher = document.createElement('div');
+    switcher.id = 'sedesSwitcher';
+    switcher.style.cssText = `
+        display:flex;align-items:center;gap:6px;
+        background:rgba(255,255,255,0.12);
+        border:1px solid rgba(255,255,255,0.2);
+        border-radius:100px;padding:5px 12px 5px 8px;
+        cursor:pointer;transition:background 0.15s;flex-shrink:0;
+        position:relative;
+    `;
+    switcher.innerHTML = `
+        <span style="font-size:14px">🏢</span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.9);font-weight:300;letter-spacing:0.3px;white-space:nowrap">${actual.nombreSede}</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.6);margin-left:2px">▾</span>
+    `;
+    switcher.onclick = _toggleDropdownSedes;
+    switcher.onmouseover = () => switcher.style.background = 'rgba(255,255,255,0.18)';
+    switcher.onmouseout  = () => { if (!document.getElementById('sedesDropdown')) switcher.style.background = 'rgba(255,255,255,0.12)'; };
+
+    // Insertar en el header, entre el brand y la búsqueda
+    const header = document.querySelector('.app-header');
+    const brand  = document.getElementById('appBrand');
+    if (header && brand) {
+        brand.after(switcher);
+    }
+}
+
+function _toggleDropdownSedes() {
+    const existing = document.getElementById('sedesDropdown');
+    if (existing) { existing.remove(); return; }
+
+    const switcher = document.getElementById('sedesSwitcher');
+    if (!switcher) return;
+
+    const dropdown = document.createElement('div');
+    dropdown.id = 'sedesDropdown';
+    dropdown.style.cssText = `
+        position:fixed;z-index:2000;
+        background:white;border-radius:16px;
+        box-shadow:0 8px 32px rgba(0,0,0,0.15),0 2px 8px rgba(0,0,0,0.08);
+        border:1px solid rgba(30,28,26,0.08);
+        min-width:220px;overflow:hidden;
+        animation:fadeIn 0.15s ease;
+    `;
+
+    // Posicionar debajo del switcher
+    const rect = switcher.getBoundingClientRect();
+    dropdown.style.top  = (rect.bottom + 8) + 'px';
+    dropdown.style.left = rect.left + 'px';
+
+    const sedesActivas = _sedesGrupo.filter(s => s.activa);
+
+    dropdown.innerHTML = `
+        <div style="padding:10px 14px 6px;border-bottom:1px solid rgba(30,28,26,0.06)">
+            <div style="font-size:10px;color:#9C9189;letter-spacing:1.5px;text-transform:uppercase">Sedes</div>
+        </div>
+        ${sedesActivas.map(s => `
+            <button onclick="_cambiarSede('${s.id}')" style="
+                width:100%;padding:12px 16px;background:none;border:none;
+                display:flex;align-items:center;gap:12px;
+                font-family:inherit;font-size:14px;font-weight:300;
+                color:${s.esCurrent ? 'var(--clinic-color,#C4856A)' : '#1E1C1A'};
+                cursor:${s.esCurrent ? 'default' : 'pointer'};text-align:left;
+                background:${s.esCurrent ? 'rgba(196,133,106,0.06)' : 'none'};
+                transition:background 0.15s;
+            "
+            onmouseover="if(!${s.esCurrent})this.style.background='rgba(30,28,26,0.04)'"
+            onmouseout="this.style.background='${s.esCurrent ? 'rgba(196,133,106,0.06)' : 'none'}'">
+                <span style="font-size:16px">${s.esCurrent ? '●' : '○'}</span>
+                <div>
+                    <div>${s.nombreSede}</div>
+                    <div style="font-size:11px;color:#9C9189;margin-top:1px">${s.nombre}</div>
+                </div>
+                ${s.esCurrent ? '<span style="font-size:11px;color:var(--clinic-color,#C4856A);margin-left:auto">Actual</span>' : ''}
+            </button>
+        `).join('')}
+        ${appData.currentRole === 'admin' ? `
+        <div style="border-top:1px solid rgba(30,28,26,0.06);padding:8px 0">
+            <button onclick="document.getElementById('sedesDropdown')?.remove();irTab('sedes')" style="
+                width:100%;padding:10px 16px;background:none;border:none;
+                display:flex;align-items:center;gap:10px;
+                font-family:inherit;font-size:13px;color:#9C9189;
+                cursor:pointer;text-align:left;transition:background 0.15s;
+            "
+            onmouseover="this.style.background='rgba(30,28,26,0.04)'"
+            onmouseout="this.style.background='none'">
+                <span>⚙️</span> Gestionar sedes
+            </button>
+        </div>` : ''}
+    `;
+
+    document.body.appendChild(dropdown);
+
+    // Cerrar al hacer click fuera
+    setTimeout(() => {
+        document.addEventListener('click', function _cerrarDropdown(e) {
+            if (!dropdown.contains(e.target) && !switcher.contains(e.target)) {
+                dropdown.remove();
+                document.removeEventListener('click', _cerrarDropdown);
+            }
+        });
+    }, 50);
+}
+
+function _cambiarSede(sedeId) {
+    if (sedeId === CLINIC_PATH) {
+        document.getElementById('sedesDropdown')?.remove();
+        return;
+    }
+    // Navegar a la URL de la sede destino — misma ventana, nuevo CLINIC_PATH
+    const base = window.location.origin + window.location.pathname;
+    window.location.href = `${base}?clinica=${sedeId}`;
+}
+
+// ── Tab de gestión de sedes (solo admin, dentro de la app) ──
+
+function updateSedesTab() {
+    const tab = document.getElementById('tab-sedes');
+    if (!tab) return;
+
+    const esPadre = !clinicConfig.esSede;
+    const sedes   = _sedesGrupo.filter(s => !s.esCurrent); // las otras sedes
+
+    tab.innerHTML = `
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+            <div>
+                <div class="section-title" style="margin:0">Sedes</div>
+                <div class="section-sub" style="margin-top:2px">
+                    ${clinicConfig.esSede
+                        ? `Eres una sede de <strong>${clinicConfig.clinicaPadre}</strong>`
+                        : `Sede principal · ${_sedesGrupo.length - 1} sede${_sedesGrupo.length - 1 !== 1 ? 's' : ''} adicional${_sedesGrupo.length - 1 !== 1 ? 'es' : ''}`}
+                </div>
+            </div>
+            ${esPadre ? `
+            <button onclick="abrirModalCrearSede()" style="
+                padding:10px 20px;background:var(--dark,#1E1C1A);color:white;
+                border:none;border-radius:100px;font-size:12px;font-family:inherit;
+                letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap">
+                + Nueva sede
+            </button>` : ''}
+        </div>
+
+        <!-- Sede actual -->
+        <div style="background:rgba(196,133,106,0.06);border:1.5px solid rgba(196,133,106,0.2);
+                    border-radius:14px;padding:16px;margin-bottom:16px">
+            <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Esta sede</div>
+            <div style="font-size:16px;font-weight:400;color:var(--dark)">${clinicConfig.nombreSede || clinicConfig.nombre}</div>
+            <div style="font-size:12px;color:var(--mid);margin-top:3px">${CLINIC_PATH}</div>
+        </div>
+
+        <!-- Otras sedes -->
+        ${sedes.length === 0 ? `
+            <div style="text-align:center;padding:48px 24px">
+                <div style="font-size:36px;margin-bottom:12px">🏢</div>
+                <div style="font-size:15px;font-weight:300;color:var(--dark);margin-bottom:6px">Sin sedes adicionales</div>
+                <div style="font-size:13px;color:var(--mid)">
+                    ${esPadre ? 'Crea una nueva sede para empezar a gestionarlas desde aquí' : 'El administrador de la sede principal puede gestionar las sedes'}
+                </div>
+            </div>
+        ` : `
+            <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">
+                Otras sedes del grupo
+            </div>
+            ${sedes.map(s => `
+                <div style="background:var(--white);border-radius:14px;padding:16px;margin-bottom:8px;
+                            border:1.5px solid rgba(30,28,26,0.07);display:flex;align-items:center;justify-content:space-between;gap:12px">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:15px;font-weight:400;color:var(--dark)">${s.nombreSede}</div>
+                        <div style="font-size:12px;color:var(--mid);margin-top:2px">${s.nombre} · <code style="font-size:11px">${s.id}</code></div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <div style="width:8px;height:8px;border-radius:50%;background:${s.activa ? 'var(--green,#6B8F71)' : 'var(--mid)'}"></div>
+                        <button onclick="_cambiarSede('${s.id}')"
+                            style="padding:7px 16px;background:var(--dark,#1E1C1A);color:white;
+                                   border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer">
+                            Ir →
+                        </button>
+                    </div>
+                </div>
+            `).join('')}
+        `}
+
+        <!-- Info del módulo -->
+        <div style="background:rgba(30,28,26,0.02);border-radius:12px;padding:14px 16px;margin-top:16px">
+            <div style="font-size:12px;color:var(--mid);line-height:1.7">
+                💡 Cada sede tiene su propia agenda, pacientes, facturación e inventario.
+                Cambia de sede usando el selector en la barra superior.
+                ${esPadre ? '<br>Como sede principal, puedes crear nuevas sedes desde aquí.' : ''}
+            </div>
+        </div>
+    `;
+}
+
+// ── Modal: Crear nueva sede ──────────────────────────────
+function abrirModalCrearSede() {
+    const nombrePadre = clinicConfig.nombre || CLINIC_PATH;
+
+    mostrarModal({
+        titulo: 'Nueva sede',
+        body: `
+            <div style="display:flex;flex-direction:column;gap:14px">
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Nombre de la sede *</label>
+                    <input type="text" id="sedeNombre" placeholder="Ej: Clínica ${nombrePadre} — Sede Norte"
+                        style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'"
+                        oninput="document.getElementById('sedeIdPreview').value=this.value.toLowerCase().replace(/[áàä]/g,'a').replace(/[éèë]/g,'e').replace(/[íìï]/g,'i').replace(/[óòö]/g,'o').replace(/[úùü]/g,'u').replace(/ñ/g,'n').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Nombre corto (para el switcher) *</label>
+                    <input type="text" id="sedeNombreCorto" placeholder="Ej: Sede Norte"
+                        style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">ID de la sede</label>
+                    <input type="text" id="sedeIdPreview"
+                        style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:13px;font-family:monospace;outline:none;box-sizing:border-box;background:rgba(30,28,26,0.02)"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                    <div style="font-size:11px;color:var(--mid);margin-top:5px">El ID será el identificador en la URL. Puedes editarlo.</div>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Ciudad</label>
+                    <input type="text" id="sedeCiudad" placeholder="Ej: Santiago"
+                        style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
+                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                </div>
+                <div style="background:rgba(196,133,106,0.06);border-radius:10px;padding:12px 14px">
+                    <div style="font-size:12px;color:var(--mid);line-height:1.7">
+                        ✦ La nueva sede hereda el branding (color y logo) de esta sede.<br>
+                        ✦ Tendrá su propia agenda, pacientes y facturación.<br>
+                        ✦ El administrador de la sede principal puede cambiar entre sedes usando el selector del header.
+                    </div>
+                </div>
+            </div>
+        `,
+        confirmText: 'Crear sede',
+        onConfirm: () => crearSede()
+    });
+    setTimeout(() => document.getElementById('sedeNombre')?.focus(), 80);
+}
+
+async function crearSede() {
+    const nombre      = document.getElementById('sedeNombre')?.value.trim();
+    const nombreCorto = document.getElementById('sedeNombreCorto')?.value.trim();
+    const idRaw       = document.getElementById('sedeIdPreview')?.value.trim();
+    const ciudad      = document.getElementById('sedeCiudad')?.value.trim() || '';
+
+    if (!nombre)      { showToast('⚠️ El nombre es obligatorio', 3000, '#e65100'); return; }
+    if (!nombreCorto) { showToast('⚠️ El nombre corto es obligatorio', 3000, '#e65100'); return; }
+
+    const sedeId = idRaw.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/^-|-$/g, '');
+    if (!sedeId) { showToast('⚠️ El ID generado no es válido', 3000, '#e65100'); return; }
+
+    // Verificar que el ID no existe
+    try {
+        const existing = await db.collection('clinicas').doc(sedeId).get();
+        if (existing.exists) {
+            showToast('⚠️ Ya existe una clínica con ese ID — elige otro', 4000, '#e65100');
+            return;
+        }
+    } catch(e) { /* sin acceso — asumimos que no existe */ }
+
+    try {
+        const defaultPersonal = [
+            { id: '1', nombre: 'Administrador', tipo: 'regular',
+              password: 'admin123', isAdmin: true, canAccessReception: true }
+        ];
+
+        // Crear documento principal de la sede
+        await db.collection('clinicas').doc(sedeId).set({
+            facturas: [], personal: defaultPersonal,
+            gastos: [], avances: [], cuadresDiarios: {},
+            citas: [], laboratorios: [], reversiones: [],
+            auditLogs: [], pacientes: [],
+            inventario: [],
+            usaSubcollectionPacientes: true,
+            lastUpdated: new Date().toISOString(),
+        });
+
+        // Crear config heredando del padre
+        await db.collection('clinicas').doc(sedeId)
+            .collection('config').doc('settings').set({
+                nombre,
+                nombreSede:    nombreCorto,
+                clinicaId:     sedeId,
+                clinicaPadre:  CLINIC_PATH,
+                ciudad,
+                plan:          clinicConfig.plan,
+                modulos:       clinicConfig.modulos,
+                color:         clinicConfig.color,
+                logoPositivo:  clinicConfig.logoPositivo || null,
+                logoNegativo:  clinicConfig.logoNegativo || null,
+                activa:        true,
+                trial:         false,
+                trialHasta:    null,
+                creadaEn:      new Date().toISOString(),
+            });
+
+        // Registrar la nueva sede en el array sedesHijas del padre
+        const sedesHijasActuales = (
+            (await db.collection('clinicas').doc(CLINIC_PATH)
+                .collection('config').doc('settings').get())
+            .data()?.sedesHijas || []
+        );
+        sedesHijasActuales.push({
+            id:         sedeId,
+            nombre,
+            nombreSede: nombreCorto,
+            activa:     true,
+        });
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings').set({
+                esSedePrincipal: true,
+                nombreSede: clinicConfig.nombreSede || 'Sede principal',
+                sedesHijas: sedesHijasActuales,
+            }, { merge: true });
+
+        cerrarModal();
+        showToast(`✓ Sede "${nombreCorto}" creada`);
+
+        // Recargar las sedes del grupo y actualizar el switcher
+        await _cargarSedesGrupo();
+        _renderSwitcherSedes();
+        updateSedesTab();
+
+    } catch(e) {
+        showError('Error al crear la sede.', e);
+    }
 }
 
