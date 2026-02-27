@@ -1804,6 +1804,31 @@ async function activateClinic() {
       return;
     }
 
+    // ── Anti-spam: verificar si email ya tiene una clínica registrada ──
+    // Guardamos un índice en /registros/{emailHash} para buscar sin
+    // exponer emails completos en Firestore.
+    const emailNorm = state.adminEmail.toLowerCase().trim();
+    const emailKey  = emailNorm.replace(/[^a-z0-9]/g, '_'); // safe Firestore key
+    try {
+      const regSnap = await db.collection('registros').doc(emailKey).get();
+      if (regSnap.exists) {
+        const reg = regSnap.data();
+        btn.textContent = '⚠️ Este email ya tiene una clínica';
+        btn.disabled = false;
+        // Mostrar mensaje más claro al usuario
+        const errEl = document.getElementById('err-adminEmail');
+        if (errEl) {
+          errEl.textContent = `Este email ya está asociado a una clínica (${reg.clinicId || 'existente'}). Usa otro email o accede directamente.`;
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+    } catch(regErr) {
+      // Si falla la verificación (ej: reglas Firestore), continuar igual
+      // No bloquear el onboarding por un error de verificación
+      console.warn('[Anti-spam] No se pudo verificar email:', regErr.message);
+    }
+
     // Calculate pricing
     const BASE = 1200;
     const EXTRA_USER_PRICE = 150;
@@ -1966,6 +1991,20 @@ async function activateClinic() {
         </div>
       </div>
     `;
+
+    // ── Registrar email en índice anti-spam ──
+    try {
+      const emailKey2 = state.adminEmail.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+      await db.collection('registros').doc(emailKey2).set({
+        clinicId: clinicId,
+        email: state.adminEmail.toLowerCase().trim(),
+        creadaEn: new Date().toISOString(),
+        pais: state.pais || '',
+      });
+    } catch(regErr) {
+      // No crítico — si falla el índice, la clínica ya fue creada
+      console.warn('[Anti-spam] No se pudo registrar email:', regErr.message);
+    }
 
     const mockup = document.getElementById('appMockup');
     if (mockup) mockup.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg) scale(1.02)';

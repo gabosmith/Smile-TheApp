@@ -1484,12 +1484,11 @@ async function showApp() {
 function hasModule(key) {
     const always = ['dashboard','pacientes','agenda','factura','cobrar','cuadre','gastos','perfil'];
     if (always.includes(key)) return true;
-    // Plan solo never gets nómina or multisucursal — not relevant for 1 person
+    // Plan solo never gets nómina or multisucursal
     const soloExcluded = ['nomina', 'multisucursal'];
     if (clinicConfig.plan === 'solo' && soloExcluded.includes(key)) return false;
-    // During trial: all remaining modules are active
-    if (clinicConfig.enTrial) return true;
-    // Paid: only contracted modules
+    // Trial o pago: solo módulos contratados en el onboarding
+    // El trial ya NO da acceso a todos los módulos — solo a los elegidos
     return (clinicConfig.modulos || []).includes(key);
 }
 
@@ -1602,7 +1601,7 @@ function formatCurrency(amount) {
 // Usa el locale de la clínica para formatear fechas y números.
 // Fallback a getLocale() si clinicConfig no está listo todavía.
 function getLocale() {
-    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : getLocale();
+    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
 }
 
 // Procedimientos
@@ -9060,9 +9059,10 @@ function renderMiPlanTab() {
     tab.innerHTML = `
         <div class="section-title" style="margin-bottom:4px">Mi plan</div>
         <div class="section-sub">${clinicConfig.enTrial
-            ? `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial!==1?'s':''} restante${diasTrial!==1?'s':''}</strong> · Todos los módulos activos`
+            ? `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial!==1?'s':''} restante${diasTrial!==1?'s':''}</strong>`
             : 'Plan activo · Solo módulos contratados'
         }</div>
+        ${clinicConfig.enTrial ? `<div style="margin-top:6px;padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;font-size:12px;color:var(--mid);border-left:3px solid var(--terracota)">💡 Durante el trial puedes agregar módulos y explorar SMILE. Solo pagas los módulos activos al finalizar.</div>` : ''}
 
         <!-- Plan base -->
         <div class="card" style="margin-bottom:14px">
@@ -9103,7 +9103,7 @@ function renderMiPlanTab() {
                 Guardar cambios
             </button>
             <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
-                Los cambios entran en vigor inmediatamente.<br>Contacta a SMILE por WhatsApp para procesar el pago.
+                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica a partir del próximo ciclo de cobro.<br>Contacta a SMILE por WhatsApp para coordinar el pago.
             </div>
         </div>
     `;
@@ -9129,7 +9129,7 @@ function togglePlanModulo(key) {
     document.getElementById('miplan-modulos').innerHTML =
         MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(clinicConfig.plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
     document.getElementById('miplan-total').textContent =
-        'RD$' + tab._calcTotal().toLocaleString();
+        (clinicConfig.moneda || 'RD$') + tab._calcTotal().toLocaleString();
 }
 
 async function guardarCambiosPlan() {
