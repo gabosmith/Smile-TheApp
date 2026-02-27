@@ -127,9 +127,11 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda        = cfg.moneda  || 'RD$';
-        clinicConfig.locale        = cfg.locale  || getLocale();
-        clinicConfig.pais          = cfg.pais    || '';
+        clinicConfig.moneda              = cfg.moneda              || 'RD$';
+        clinicConfig.locale              = cfg.locale              || getLocale();
+        clinicConfig.pais                = cfg.pais                || '';
+        clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
+        clinicConfig.defaultFrecuenciaPago = cfg.defaultFrecuenciaPago || 'mensual';
 
         // enTrial: trialHasta es la fuente de verdad
         clinicConfig.enTrial = clinicConfig.trialHasta
@@ -2664,27 +2666,51 @@ function openAddPersonal() {
     document.getElementById('personalNombre').value = '';
     document.getElementById('personalTipo').value = 'regular';
     document.getElementById('personalSueldo').value = '';
+    document.getElementById('personalSalarioPro') && (document.getElementById('personalSalarioPro').value = '');
     document.getElementById('personalPassword').value = '';
-    document.getElementById('sueldoGroup').classList.add('hidden');
-    document.getElementById('passwordGroup').classList.remove('hidden');
+    const defRem = clinicConfig.defaultRemuneracion || 'comision';
+    const defFrq = clinicConfig.defaultFrecuenciaPago || 'mensual';
+    const rEl = document.getElementById('personalTipoRemuneracion');
+    const fEl = document.getElementById('personalFrecuenciaPago');
+    if (rEl) rEl.value = defRem;
+    if (fEl) fEl.value = defFrq;
+    // Reset all optional groups before re-initializing
+    ['sueldoGroup','salarioProGroup','frecuenciaPagoGroup',
+     'tipoRemuneracionGroup','exequaturGroup','passwordGroup'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.classList.add('hidden');
+    });
+    // toggleSueldo initializes visibility based on selected tipo (default: regular)
+    toggleSueldo();
     openModal('modalAddPersonal');
+}
+
+function _show(id, vis) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (vis) el.classList.remove('hidden'); else el.classList.add('hidden');
 }
 
 function toggleSueldo() {
     const tipo = document.getElementById('personalTipo').value;
-    const exequaturGroup = document.getElementById('exequaturGroup');
-    const sueldoGroup = document.getElementById('sueldoGroup');
-    const passwordGroup = document.getElementById('passwordGroup');
+    const esEmp = tipo === 'empleado';
+    _show('exequaturGroup',        !esEmp);
+    _show('tipoRemuneracionGroup', !esEmp);
+    _show('sueldoGroup',            esEmp);
+    _show('passwordGroup',         !esEmp);
+    _show('frecuenciaPagoGroup',    esEmp);
+    if (!esEmp) toggleTipoRemuneracion();
+}
 
-    if (tipo === 'empleado') {
-        sueldoGroup.classList.remove('hidden');
-        passwordGroup.classList.add('hidden');
-        exequaturGroup.classList.add('hidden'); // Empleados no necesitan exequatur
-    } else {
-        sueldoGroup.classList.add('hidden');
-        passwordGroup.classList.remove('hidden');
-        exequaturGroup.classList.remove('hidden'); // Profesionales sí necesitan exequatur
-    }
+function toggleTipoRemuneracion() {
+    const v = document.getElementById('personalTipoRemuneracion')?.value || 'comision';
+    _show('salarioProGroup',    v === 'salario');
+    _show('frecuenciaPagoGroup', v === 'salario');
+}
+
+function toggleEditTipoRemuneracion() {
+    const v = document.getElementById('editTipoRemuneracion')?.value || 'comision';
+    _show('editSalarioProGroup',    v === 'salario');
+    _show('editFrecuenciaPagoGroup', v === 'salario');
 }
 
 async function agregarPersonal() {
@@ -2707,16 +2733,31 @@ async function agregarPersonal() {
     const rawPassword = (tipo !== 'empleado' && password) ? password : defaultPw;
     const hashedPw    = rawPassword ? await hashPassword(rawPassword) : null;
 
+    const esEmp = tipo === 'empleado';
+    const tipoRem = esEmp ? 'salario'
+        : (document.getElementById('personalTipoRemuneracion')?.value || 'comision');
+    const salFijo = (!esEmp && tipoRem === 'salario')
+        ? sanitize.num(document.getElementById('personalSalarioPro')?.value, 0) : null;
+    const frecPago = (esEmp || tipoRem === 'salario')
+        ? (document.getElementById('personalFrecuenciaPago')?.value || 'mensual') : null;
+
+    if (!esEmp && tipoRem === 'salario' && (!salFijo || salFijo <= 0)) {
+        showToast('⚠️ Ingresa el salario fijo del profesional'); return;
+    }
+
     const person = {
         id: generateId(),
         nombre,
         tipo,
-        exequatur: tipo !== 'empleado' ? exequatur : null,
-        sueldo:    tipo === 'empleado' ? sueldo : null,
-        password:  hashedPw,
-        _pwHashed: !!hashedPw,
+        exequatur:          !esEmp ? exequatur : null,
+        sueldo:              esEmp ? sueldo    : null,
+        tipoRemuneracion:   tipoRem,
+        salarioFijo:        salFijo,
+        frecuenciaPago:     frecPago,
+        password:           hashedPw,
+        _pwHashed:          !!hashedPw,
         canAccessReception: false,
-        nextPayDate: null
+        nextPayDate:        null
     };
 
     const backupPersonal = appData.personal.length;
@@ -2742,40 +2783,55 @@ function updatePersonalTab() {
         list.innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay personal registrado</li>';
     } else {
         list.innerHTML = personal.map(p => {
-            const comisionRate = getComisionRate(p.tipo, p);
-            const comisionesAcum = p.tipo !== 'empleado' ? calcularComisionesAcumuladas(p) : 0;
-            const totalAvances = calcularTotalAvances(p.id);
+            const esEmp   = p.tipo === 'empleado';
+            const esSalFj = !esEmp && p.tipoRemuneracion === 'salario';
+            const avances = calcularTotalAvances(p.id);
 
-            return `
-                <li onclick="openPersonalDetail('${p.id}')">
-                    <div class="item-header">
-                        <div>
-                            <div class="item-title">${p.nombre}</div>
-                            <div class="item-meta">${getTipoLabel(p.tipo)}</div>
-                        </div>
-                        <div style="text-align: right;">
-                            ${p.tipo !== 'empleado' ? `
-                                <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A);">${comisionRate}%</div>
-                                ${comisionesAcum > 0 ? `<div style="font-size: 13px; color: #ff9500;">${formatCurrency(comisionesAcum)}</div>` : ''}
-                            ` : `
-                                <div style="font-size: 18px; font-weight: 700; color: #34c759;">${formatCurrency(p.sueldo)}</div>
-                                ${totalAvances > 0 ? `<div style="font-size: 13px; color: #8e44ad;">Avances: ${formatCurrency(totalAvances)}</div>` : ''}
-                            `}
-                        </div>
-                    </div>
-                </li>
-            `;
+            let rightHtml;
+            if (esEmp || esSalFj) {
+                const base  = esEmp ? (p.sueldo || 0) : (p.salarioFijo || 0);
+                const frec  = getFrecuenciaLabel(p.frecuenciaPago || 'mensual');
+                rightHtml   = '<div style="font-size:17px;font-weight:600;color:#34c759">' + formatCurrency(base) + '</div>'
+                            + '<div style="font-size:11px;color:var(--light)">' + frec + '</div>'
+                            + (avances > 0 ? '<div style="font-size:12px;color:#8e44ad">Avances: ' + formatCurrency(avances) + '</div>' : '');
+            } else {
+                const rate  = getComisionRate(p.tipo, p);
+                const acum  = calcularComisionesAcumuladas(p);
+                rightHtml   = '<div style="font-size:17px;font-weight:600;color:var(--clinic-color,#C4856A)">' + rate + '%</div>'
+                            + '<div style="font-size:11px;color:var(--light)">comisión</div>'
+                            + (acum > 0 ? '<div style="font-size:12px;color:#ff9500">' + formatCurrency(acum) + '</div>' : '');
+            }
+
+            return '<li onclick="openPersonalDetail(\'' + p.id + '\')">' 
+                 + '<div class="item-header">'
+                 + '<div style="flex:1;min-width:0">'
+                 + '<div class="item-title" style="font-size:15px;font-weight:500;color:var(--dark)">' + p.nombre + '</div>'
+                 + '<div class="item-meta">' + getTipoLabel(p.tipo, p) + '</div>'
+                 + '</div>'
+                 + '<div style="text-align:right;flex-shrink:0;margin-left:12px">' + rightHtml + '</div>'
+                 + '</div></li>';
         }).join('');
     }
 }
 
-function getTipoLabel(tipo) {
+function getTipoLabel(tipo, person) {
     const labels = {
         'regular': 'Odontólogo Regular',
         'especialista': 'Especialista',
-        'empleado': 'Empleado'
+        'empleado': 'Empleado / Administrativo'
     };
-    return labels[tipo] || tipo;
+    let label = labels[tipo] || tipo;
+    if (person && tipo !== 'empleado') {
+        if (person.tipoRemuneracion === 'salario') label += ' · Salario fijo';
+        else label += ' · Comisión';
+        if (person.frecuenciaPago && person.frecuenciaPago !== 'mensual')
+            label += ' · pago ' + (person.frecuenciaPago);
+    }
+    return label;
+}
+
+function getFrecuenciaLabel(frec) {
+    return { mensual:'Mensual', quincenal:'Quincenal', semanal:'Semanal' }[frec] || 'Mensual';
 }
 
 function calcularComisionesAcumuladas(person) {
@@ -2811,7 +2867,7 @@ function openPersonalDetail(id) {
         registrarAuditoria(
             'acceso',
             'dato_sensible',
-            `Consultó información salarial de ${person.nombre} (${getTipoLabel(person.tipo)})`
+            'Consultó info salarial de ' + person.nombre + ' (' + getTipoLabel(person.tipo, person) + ')'
         );
     }
 
@@ -2821,50 +2877,59 @@ function openPersonalDetail(id) {
     let content = `
         <div style="margin-bottom: 20px;">
             <div style="color: #666; font-size: 14px;">Tipo</div>
-            <div style="font-weight: 600; font-size: 16px;">${getTipoLabel(person.tipo)}</div>
+            <div style="font-weight: 600; font-size: 16px;">${getTipoLabel(person.tipo, person)}</div>
         </div>
     `;
 
     if (person.tipo !== 'empleado') {
-        const comisionRate = getComisionRate(person.tipo, person);
-        const comisionesAcum = calcularComisionesAcumuladas(person);
+        const esSalFj = person.tipoRemuneracion === 'salario';
 
-        content += `
-            <div style="margin-bottom: 20px;">
-                <div style="color: #666; font-size: 14px; margin-bottom: 6px;">Comisión personalizada</div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="number" id="inputComisionPersonal" value="${typeof person.comisionPct === 'number' ? person.comisionPct : comisionRate}"
-                        min="0" max="100" step="1"
-                        style="width: 80px; padding: 8px 10px; border: 1.5px solid #e0e0e0; border-radius: 10px;
-                               font-size: 16px; font-family: inherit; text-align: center;"
-                        onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'">
-                    <span style="color: #666; font-size: 16px;">%</span>
-                    <button onclick="guardarComisionPersonal('${person.id}')"
-                        style="padding: 8px 16px; background: var(--clinic-color); color: white; border: none;
-                               border-radius: 100px; font-size: 13px; font-family: inherit; cursor: pointer;">
-                        Guardar
-                    </button>
-                    ${typeof person.comisionPct === 'number' ? `
-                    <button onclick="resetearComisionPersonal('${person.id}')"
-                        style="padding: 8px 12px; background: none; border: 1.5px solid #e0e0e0; color: #999;
-                               border-radius: 100px; font-size: 12px; font-family: inherit; cursor: pointer;"
-                        title="Usar tasa global">↺</button>` : ''}
-                </div>
-                ${typeof person.comisionPct === 'number'
-                    ? `<div style="font-size: 11px; color: var(--clinic-color); margin-top: 4px;">Tasa individual activa (global: ${getComisionRate(person.tipo)}%)</div>`
-                    : `<div style="font-size: 11px; color: #999; margin-top: 4px;">Usando tasa global</div>`}
-            </div>
-            <div style="margin-bottom: 20px;">
-                <div style="color: #666; font-size: 14px;">Comisiones Acumuladas</div>
-                <div style="font-weight: 700; font-size: 24px; color: #ff9500;">${formatCurrency(comisionesAcum)}</div>
-            </div>
-        `;
-
-        content += `
-            <button class="btn btn-submit" style="background: #34c759; margin-bottom: 15px; width: 100%;" onclick="event.stopPropagation(); confirmarPagoProfesional('${person.id}')">
-                💰 Pagar Comisiones
-            </button>
-        `;
+        if (esSalFj) {
+            // ── Profesional con salario fijo ──
+            const avances = calcularTotalAvances(person.id);
+            const base    = person.salarioFijo || 0;
+            const neto    = Math.max(0, base - avances);
+            const frec    = getFrecuenciaLabel(person.frecuenciaPago || 'mensual');
+            content += '<div style="background:var(--surface);border-radius:14px;padding:18px;margin-bottom:18px">'
+                     + '<div style="font-size:11px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Salario fijo &middot; ' + frec + '</div>'
+                     + '<div style="font-size:30px;font-weight:300;color:#34c759;letter-spacing:-1px">' + formatCurrency(base) + '</div>'
+                     + (avances > 0
+                         ? '<div style="font-size:13px;color:#8e44ad;margin-top:4px">Avances: -' + formatCurrency(avances) + '</div>'
+                         + '<div style="font-size:13px;color:var(--dark);font-weight:500">Neto: ' + formatCurrency(neto) + '</div>'
+                         : '')
+                     + '</div>'
+                     + '<button class="btn btn-submit" style="background:#34c759;margin-bottom:12px;width:100%" onclick="event.stopPropagation();confirmarPagoProfesional(\'' + person.id + '\')">💰 Pagar Salario</button>'
+                     + '<button class="btn btn-add" style="width:100%;margin-bottom:15px" onclick="event.stopPropagation();openAvance(\'' + person.id + '\')">+ Registrar Avance</button>';
+        } else {
+            // ── Profesional con comisiones ──
+            const rate = getComisionRate(person.tipo, person);
+            const acum = calcularComisionesAcumuladas(person);
+            const avances = calcularTotalAvances(person.id);
+            const hasCustom = typeof person.comisionPct === 'number';
+            content += '<div style="background:var(--surface);border-radius:14px;padding:18px;margin-bottom:18px">'
+                     + '<div style="font-size:11px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Comisiones acumuladas</div>'
+                     + '<div style="font-size:30px;font-weight:300;color:#ff9500;letter-spacing:-1px">' + formatCurrency(acum) + '</div>'
+                     + (avances > 0
+                         ? '<div style="font-size:13px;color:#8e44ad;margin-top:4px">Avances: -' + formatCurrency(avances) + '</div>'
+                         + '<div style="font-size:13px;color:var(--dark);font-weight:500">Neto: ' + formatCurrency(Math.max(0, acum - avances)) + '</div>'
+                         : '')
+                     + '</div>'
+                     + '<div style="margin-bottom:18px">'
+                     + '<div style="color:#666;font-size:13px;margin-bottom:8px">Tasa de comisión</div>'
+                     + '<div style="display:flex;align-items:center;gap:10px">'
+                     + '<input type="number" id="inputComisionPersonal" value="' + rate + '" min="0" max="100" step="1"'
+                     + ' style="width:72px;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;font-family:inherit;text-align:center"'
+                     + ' onfocus="this.style.borderColor=\'var(--clinic-color)\'" onblur="this.style.borderColor=\'#e0e0e0\'">'
+                     + '<span style="color:#666;font-size:16px">%</span>'
+                     + '<button onclick="guardarComisionPersonal(\'' + person.id + '\')" style="padding:8px 16px;background:var(--clinic-color);color:white;border:none;border-radius:100px;font-size:13px;font-family:inherit;cursor:pointer">Guardar</button>'
+                     + (hasCustom ? '<button onclick="resetearComisionPersonal(\'' + person.id + '\')" style="padding:8px 12px;background:none;border:1.5px solid #e0e0e0;color:#999;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer" title="Usar tasa global">↺</button>' : '')
+                     + '</div>'
+                     + (hasCustom
+                         ? '<div style="font-size:11px;color:var(--clinic-color);margin-top:4px">Tasa individual activa (global: ' + getComisionRate(person.tipo) + '%)</div>'
+                         : '<div style="font-size:11px;color:#999;margin-top:4px">Usando tasa global</div>')
+                     + '</div>'
+                     + '<button class="btn btn-submit" style="background:#ff9500;margin-bottom:12px;width:100%" onclick="event.stopPropagation();confirmarPagoProfesional(\'' + person.id + '\')">💰 Pagar Comisiones</button>';
+        }
     } else {
         const totalAvances = calcularTotalAvances(person.id);
         const avances = appData.avances.filter(a => a.personalId === person.id).slice(0, 5);
@@ -2956,9 +3021,58 @@ function openPersonalDetail(id) {
     openModal('modalPersonalDetail');
 }
 
+function confirmarPagoSalarioFijo(person) {
+    const avances = calcularTotalAvances(person.id);
+    const base    = person.salarioFijo || 0;
+    const neto    = Math.max(0, base - avances);
+    const frec    = getFrecuenciaLabel(person.frecuenciaPago || 'mensual');
+    mostrarConfirmacion({
+        titulo: '💰 Pagar Salario',
+        mensaje: '<div style="background:var(--surface);border-radius:12px;padding:20px;margin-bottom:16px">'
+               + '<div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Neto a pagar &middot; ' + frec + '</div>'
+               + '<div style="font-size:32px;font-weight:300;color:#34c759">' + formatCurrency(neto) + '</div></div>'
+               + '<div style="font-size:14px;color:var(--mid)"><strong>' + person.nombre + '</strong> &middot; ' + getTipoLabel(person.tipo, person) + '</div>'
+               + (avances > 0 ? '<div style="font-size:13px;color:var(--mid);margin-top:4px">Base: ' + formatCurrency(base) + ' &minus; Avances: ' + formatCurrency(avances) + '</div>' : ''),
+        tipo: 'normal',
+        confirmText: 'Sí, Pagar Ahora',
+        onConfirm: async () => {
+            const fecha = new Date().toLocaleDateString(getLocale(), {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+            const hora  = new Date().toLocaleTimeString(getLocale());
+            let recibo  = '================================\n' + getNombreClinica() + '\n================================\n\n'
+                        + 'RECIBO DE PAGO DE SALARIO\n\n'
+                        + 'Fecha: ' + fecha + '\nHora: ' + hora + '\n'
+                        + 'Para: ' + person.nombre + '\nCargo: ' + getTipoLabel(person.tipo, person) + '\n\n'
+                        + '================================\n'
+                        + 'Salario base:  ' + formatCurrency(base) + '\n'
+                        + (avances > 0 ? 'Avances:      -' + formatCurrency(avances) + '\nNETO:          ' + formatCurrency(neto) + '\n' : '')
+                        + '================================\n\n'
+                        + 'Registrado por: ' + appData.currentUser + '\nFirma: _____________________\n';
+            const backupAvances = [...appData.avances];
+            appData.avances = appData.avances.filter(a => a.personalId !== person.id);
+            const idx = appData.personal.findIndex(p => p.id === person.id);
+            if (idx >= 0) appData.personal[idx].lastPaymentDate = new Date().toISOString();
+            currentReciboText = recibo;
+            document.getElementById('reciboContent').textContent = recibo;
+            try {
+                await saveData();
+                closeModal('modalPersonalDetail');
+                openModal('modalRecibo');
+                updatePersonalTab();
+            } catch(e) {
+                appData.avances = backupAvances;
+                showError('Error al registrar el pago.', e);
+            }
+        }
+    });
+}
+
 function confirmarPagoProfesional(id) {
     const person = appData.personal.find(p => p.id === id);
     if (!person) return;
+
+    if (person.tipoRemuneracion === 'salario') {
+        confirmarPagoSalarioFijo(person); return;
+    }
 
     const comisionesAcum = calcularComisionesAcumuladas(person);
     const avancesPendientes = calcularTotalAvances(person.id);
@@ -3074,10 +3188,10 @@ function confirmarPagoEmpleado(id) {
         titulo: '💰 Pagar Salario',
         mensaje: `
             <div style="background:var(--surface,#F5F2EE);border-radius:12px;padding:20px;margin-bottom:16px">
-                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Neto a pagar</div>
+                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Neto a pagar &middot; ${getFrecuenciaLabel(person.frecuenciaPago || 'mensual')}</div>
                 <div style="font-size:32px;font-weight:300;color:var(--green,#6B8F71)">${formatCurrency(neto)}</div>
             </div>
-            <div style="font-size:14px;color:var(--mid);margin-bottom:4px"><strong style="color:var(--dark)">${person.nombre}</strong> · ${getTipoLabel(person.tipo)}</div>
+            <div style="font-size:14px;color:var(--mid);margin-bottom:4px"><strong style="color:var(--dark)">${person.nombre}</strong> · ${getTipoLabel(person.tipo, person)}</div>
             <div style="font-size:13px;color:var(--mid)">Salario base: ${formatCurrency(person.sueldo)}${totalAvances > 0 ? ` · Avances descontados: -${formatCurrency(totalAvances)}` : ''}</div>
         `,
         tipo: 'normal',
@@ -3172,18 +3286,25 @@ function openEditPersonal(id) {
     // Password field always visible for admin
     document.getElementById('editPasswordGroup').classList.remove('hidden');
 
-    if (person.tipo === 'empleado') {
-        document.getElementById('editSueldoGroup').classList.remove('hidden');
+    const esEmpEdit = person.tipo === 'empleado';
+    _show('editSueldoGroup',           esEmpEdit);
+    _show('editTipoRemuneracionGroup', !esEmpEdit);
+    _show('editSalarioProGroup',       !esEmpEdit && person.tipoRemuneracion === 'salario');
+    _show('editFrecuenciaPagoGroup',   esEmpEdit || person.tipoRemuneracion === 'salario');
+    _show('editReceptionGroup',        esEmpEdit);
+    _show('editPayDateGroup',          esEmpEdit);
+    if (esEmpEdit) {
         document.getElementById('editSueldo').value = person.sueldo || '';
-        document.getElementById('editReceptionGroup').classList.remove('hidden');
         document.getElementById('editReceptionAccess').checked = person.canAccessReception || false;
-        document.getElementById('editPayDateGroup').classList.remove('hidden');
         document.getElementById('editPayDate').value = person.nextPayDate ? new Date(person.nextPayDate).toISOString().split('T')[0] : '';
     } else {
-        document.getElementById('editSueldoGroup').classList.add('hidden');
-        document.getElementById('editReceptionGroup').classList.add('hidden');
-        document.getElementById('editPayDateGroup').classList.add('hidden');
+        const rEl = document.getElementById('editTipoRemuneracion');
+        if (rEl) rEl.value = person.tipoRemuneracion || 'comision';
+        const sEl = document.getElementById('editSalarioPro');
+        if (sEl) sEl.value = person.salarioFijo || '';
     }
+    const fEl = document.getElementById('editFrecuenciaPago');
+    if (fEl) fEl.value = person.frecuenciaPago || 'mensual';
 
     closeModal('modalPersonalDetail');
     openModal('modalEditPersonal');
@@ -3210,9 +3331,22 @@ async function guardarEdicion() {
     if (currentPersonalToEdit.tipo === 'empleado') {
         const sueldo = sanitize.num(document.getElementById('editSueldo')?.value, 0);
         if (sueldo) currentPersonalToEdit.sueldo = sueldo;
+        currentPersonalToEdit.tipoRemuneracion = 'salario';
+        currentPersonalToEdit.frecuenciaPago = document.getElementById('editFrecuenciaPago')?.value || 'mensual';
         currentPersonalToEdit.canAccessReception = document.getElementById('editReceptionAccess')?.checked || false;
         const payDate = document.getElementById('editPayDate')?.value;
         if (payDate) currentPersonalToEdit.nextPayDate = new Date(payDate).toISOString();
+    } else {
+        const tipoRem = document.getElementById('editTipoRemuneracion')?.value || 'comision';
+        currentPersonalToEdit.tipoRemuneracion = tipoRem;
+        if (tipoRem === 'salario') {
+            const salFijo = sanitize.num(document.getElementById('editSalarioPro')?.value, 0);
+            if (salFijo > 0) currentPersonalToEdit.salarioFijo = salFijo;
+            currentPersonalToEdit.frecuenciaPago = document.getElementById('editFrecuenciaPago')?.value || 'mensual';
+        } else {
+            currentPersonalToEdit.salarioFijo    = null;
+            currentPersonalToEdit.frecuenciaPago = null;
+        }
     }
 
     try {
@@ -3440,6 +3574,11 @@ function poblarConfigClinica() {
     // Moneda
     const monedaSelect = document.getElementById('configMoneda');
     if (monedaSelect) monedaSelect.value = clinicConfig.moneda || 'RD$';
+    // Nómina defaults
+    const cfgRem = document.getElementById('configDefaultRemuneracion');
+    const cfgFrq = document.getElementById('configDefaultFrecuencia');
+    if (cfgRem) cfgRem.value = clinicConfig.defaultRemuneracion || 'comision';
+    if (cfgFrq) cfgFrq.value = clinicConfig.defaultFrecuenciaPago || 'mensual';
 
     // SEGURIDAD — no pre-llenar contraseña
     const pwdInput = document.getElementById('configNewPassword');
@@ -3582,6 +3721,20 @@ async function guardarTasasComision() {
         showToast('❌ Error al guardar tasas.', 4000, '#c0392b');
         console.error('[Config] Error guardando comisiones:', e);
     }
+}
+
+async function guardarConfigNomina() {
+    const defRem = document.getElementById('configDefaultRemuneracion')?.value || 'comision';
+    const defFrq = document.getElementById('configDefaultFrecuencia')?.value || 'mensual';
+    if (!canWriteToFirebase('guardarConfigNomina')) return;
+    try {
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings')
+            .set({ defaultRemuneracion: defRem, defaultFrecuenciaPago: defFrq }, { merge: true });
+        clinicConfig.defaultRemuneracion   = defRem;
+        clinicConfig.defaultFrecuenciaPago = defFrq;
+        showToast('✓ Modelo de nómina guardado');
+    } catch(e) { showToast('❌ Error al guardar', 4000, '#c0392b'); }
 }
 
 async function guardarConfigAgenda() {
@@ -3986,9 +4139,9 @@ function updatePacientesTab() {
         const searchText = [p.nombre, p.cedula, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
 
         return `
-            <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor: pointer; padding: 20px; margin-bottom: 16px;">
+            <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor:pointer;padding:16px 20px;margin-bottom:12px;border-left:3px solid var(--clinic-color,#C4856A);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A);">${p.nombre}</div>
+                    <div style="font-size: 17px; font-weight: 600; color: var(--dark, #1E1C1A); letter-spacing: -0.2px;">${p.nombre}</div>
                     <div>
                         ${balance > 0 ? `<span class="badge badge-warning">${formatCurrency(balance)}</span>` :
                           balance === 0 && facturasPaciente.length > 0 ? `<span class="badge badge-success">Al día</span>` : ''}

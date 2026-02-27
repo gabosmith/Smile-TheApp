@@ -1584,6 +1584,30 @@
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
 
+                    <!-- NÓMINA DEFAULTS -->
+                    <div style="margin-bottom: 28px;">
+                        <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Modelo de Nómina</div>
+                        <div class="form-group">
+                            <label>Remuneración por defecto (dentistas)</label>
+                            <select id="configDefaultRemuneracion" style="width:100%;padding:12px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:14px;font-family:inherit;background:var(--surface);color:var(--dark);appearance:none;">
+                                <option value="comision">Comisión por producción</option>
+                                <option value="salario">Salario fijo mensual</option>
+                            </select>
+                            <div style="font-size:11px;color:#999;margin-top:6px;line-height:1.5">Puedes configurarlo diferente para cada profesional individualmente.</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Frecuencia de pago por defecto</label>
+                            <select id="configDefaultFrecuencia" style="width:100%;padding:12px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:14px;font-family:inherit;background:var(--surface);color:var(--dark);appearance:none;">
+                                <option value="mensual">Mensual</option>
+                                <option value="quincenal">Quincenal (cada 15 días)</option>
+                                <option value="semanal">Semanal</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarConfigNomina()">Guardar Modelo de Nómina</button>
+                    </div>
+
+                    <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
+
                     <!-- AGENDA -->
                     <div>
                         <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Configuración de Agenda</div>
@@ -1698,10 +1722,44 @@
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Agregar Personal</div><button class="close-modal" onclick="closeModal('modalAddPersonal')">×</button></div>
             <div class="form-group"><label>Nombre</label><input type="text" id="personalNombre"></div>
-            <div class="form-group"><label>Tipo</label><select id="personalTipo" onchange="toggleSueldo()"><option value="regular">Odontólogo Regular (60%)</option><option value="especialista">Especialista (50%)</option><option value="empleado">Empleado</option></select></div>
+            <div class="form-group"><label>Tipo</label><select id="personalTipo" onchange="toggleSueldo()">
+                <option value="regular">Odontólogo Regular</option>
+                <option value="especialista">Especialista</option>
+                <option value="empleado">Empleado / Administrativo</option>
+            </select></div>
             <div class="form-group" id="exequaturGroup"><label>Exequatur (Registro Médico)</label><input type="text" id="personalExequatur" placeholder="Número de exequatur"></div>
-            <div class="form-group hidden" id="sueldoGroup"><label>Sueldo Mensual</label><input type="number" id="personalSueldo" step="0.01"></div>
-            <div class="form-group" id="passwordGroup"><label>Contraseña (Opcional)</label><input type="password" id="personalPassword"></div>
+
+            <!-- REMUNERACIÓN — visible para profesionales (regular/especialista) -->
+            <div class="form-group hidden" id="tipoRemuneracionGroup">
+                <label>Tipo de remuneración</label>
+                <select id="personalTipoRemuneracion" onchange="toggleTipoRemuneracion()">
+                    <option value="comision">Comisión por producción</option>
+                    <option value="salario">Salario fijo mensual</option>
+                </select>
+            </div>
+            <!-- salario fijo para profesional -->
+            <div class="form-group hidden" id="salarioProGroup">
+                <label>Salario fijo mensual</label>
+                <input type="number" id="personalSalarioPro" min="0" step="0.01" placeholder="0.00">
+            </div>
+
+            <!-- SUELDO — visible solo para empleados -->
+            <div class="form-group hidden" id="sueldoGroup">
+                <label>Sueldo base</label>
+                <input type="number" id="personalSueldo" min="0" step="0.01" placeholder="0.00">
+            </div>
+
+            <!-- FRECUENCIA DE PAGO — visible para empleados y profesionales con salario fijo -->
+            <div class="form-group hidden" id="frecuenciaPagoGroup">
+                <label>Frecuencia de pago</label>
+                <select id="personalFrecuenciaPago">
+                    <option value="mensual">Mensual</option>
+                    <option value="quincenal">Quincenal (cada 15 días)</option>
+                    <option value="semanal">Semanal</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="passwordGroup"><label>Contraseña (Opcional)</label><input type="password" id="personalPassword" placeholder="Mínimo 4 caracteres"></div>
             <button class="btn btn-submit" onclick="agregarPersonal()">Agregar Personal</button>
         </div>
     </div>
@@ -1750,10 +1808,39 @@
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Editar Personal</div><button class="close-modal" onclick="closeModal('modalEditPersonal')">×</button></div>
             <div class="form-group"><label>Nombre</label><input type="text" id="editNombre"></div>
-            <div class="form-group" id="editSueldoGroup"><label>Sueldo Mensual</label><input type="number" id="editSueldo" step="0.01"></div>
+
+            <!-- Remuneración — profesionales -->
+            <div class="form-group hidden" id="editTipoRemuneracionGroup">
+                <label>Tipo de remuneración</label>
+                <select id="editTipoRemuneracion" onchange="toggleEditTipoRemuneracion()">
+                    <option value="comision">Comisión por producción</option>
+                    <option value="salario">Salario fijo mensual</option>
+                </select>
+            </div>
+            <div class="form-group hidden" id="editSalarioProGroup">
+                <label>Salario fijo mensual</label>
+                <input type="number" id="editSalarioPro" min="0" step="0.01" placeholder="0.00">
+            </div>
+
+            <!-- Sueldo — empleados -->
+            <div class="form-group hidden" id="editSueldoGroup">
+                <label>Sueldo base</label>
+                <input type="number" id="editSueldo" step="0.01">
+            </div>
+
+            <!-- Frecuencia de pago -->
+            <div class="form-group hidden" id="editFrecuenciaPagoGroup">
+                <label>Frecuencia de pago</label>
+                <select id="editFrecuenciaPago">
+                    <option value="mensual">Mensual</option>
+                    <option value="quincenal">Quincenal (cada 15 días)</option>
+                    <option value="semanal">Semanal</option>
+                </select>
+            </div>
+
             <div class="form-group" id="editPasswordGroup"><label>Nueva Contraseña</label><input type="password" id="editPassword" placeholder="Dejar vacío para no cambiar"></div>
-            <div class="form-group" id="editReceptionGroup"><label>Acceso a Recepción</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Permitir acceso al módulo de Recepción</span></label></div>
-            <div class="form-group" id="editPayDateGroup"><label>Próxima Fecha de Pago</label><input type="date" id="editPayDate"></div>
+            <div class="form-group hidden" id="editReceptionGroup"><label>Acceso a Recepción</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Permitir acceso al módulo de Recepción</span></label></div>
+            <div class="form-group hidden" id="editPayDateGroup"><label>Próxima Fecha de Pago</label><input type="date" id="editPayDate"></div>
             <button class="btn btn-submit" onclick="guardarEdicion()">Guardar Cambios</button>
         </div>
     </div>
@@ -1823,13 +1910,14 @@
     <!-- Ver Paciente -->
     <div id="modalVerPaciente" class="modal">
         <div class="modal-content" style="max-width: 1100px; max-height: 90vh; display: flex; flex-direction: column;">
-            <div class="modal-header" style="background: linear-gradient(135deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%); color: white; padding: 24px; border-radius: 12px 12px 0 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                    <div style="flex: 1;"><div class="modal-title" id="verPacienteNombre" style="color: white; font-size: 24px; margin-bottom: 4px;"></div><div id="verPacienteSubtitulo" style="font-size: 14px; opacity: 0.9;"></div></div>
+            <div class="modal-header" style="background: linear-gradient(135deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%); color: white; padding: 24px; border-radius: 12px 12px 0 0; position: relative; overflow: hidden;">
+                <div style="position:absolute;inset:0;background:rgba(0,0,0,0.32);border-radius:12px 12px 0 0;pointer-events:none;"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; position:relative; z-index:1;">
+                    <div style="flex: 1;"><div class="modal-title" id="verPacienteNombre" style="color: #fff; font-size: 24px; margin-bottom: 4px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); font-weight:600;"></div><div id="verPacienteSubtitulo" style="font-size: 14px; opacity: 0.92; text-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div></div>
                     <div style="display: flex; gap: 12px; align-items: center;">
-                        <button onclick="editarPacienteActual()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 400;">✏️ Editar</button>
-                        <button id="btnEliminarPaciente" onclick="eliminarPacienteActual()" style="background: rgba(220,53,69,0.7); border: 1px solid rgba(220,53,69,0.9); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 400; display: none;">🗑️ Eliminar</button>
-                        <button onclick="closeModal('modalVerPaciente')" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center;">✕</button>
+                        <button onclick="editarPacienteActual()" style="background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✏️ Editar</button>
+                        <button id="btnEliminarPaciente" onclick="eliminarPacienteActual()" style="background: rgba(200,40,50,0.85); border: 1px solid rgba(220,53,69,0.9); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; display: none;">🗑️ Eliminar</button>
+                        <button onclick="closeModal('modalVerPaciente')" style="background: rgba(255,255,255,0.25); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center;">✕</button>
                     </div>
                 </div>
             </div>
