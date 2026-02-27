@@ -92,6 +92,9 @@ let clinicConfig = {
     activa: true,
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
+    moneda:   'RD$',     // símbolo de moneda — configurable por país
+    locale:   getLocale(),   // locale para fechas y números
+    pais:     'República Dominicana',
 };
 
 async function loadClinicBranding() {
@@ -124,6 +127,9 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
+        clinicConfig.moneda        = cfg.moneda  || 'RD$';
+        clinicConfig.locale        = cfg.locale  || getLocale();
+        clinicConfig.pais          = cfg.pais    || '';
 
         // enTrial: trialHasta es la fuente de verdad
         clinicConfig.enTrial = clinicConfig.trialHasta
@@ -1587,7 +1593,16 @@ function showTab(tabName) {
 
 // Currency format
 function formatCurrency(amount) {
-    return 'RD$ ' + parseFloat(amount || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
+    const locale  = (typeof clinicConfig !== 'undefined' && clinicConfig.locale)  ? clinicConfig.locale  : getLocale();
+    return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+// ── Locale helper ───────────────────────────────────────
+// Usa el locale de la clínica para formatear fechas y números.
+// Fallback a getLocale() si clinicConfig no está listo todavía.
+function getLocale() {
+    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : getLocale();
 }
 
 // Procedimientos
@@ -2061,8 +2076,8 @@ async function confirmarPago() {
     closeModal('modalPagarFactura');
 }
 function generarFacturaCliente(factura, montoPagado, metodoPago) {
-    const fecha = new Date().toLocaleDateString('es-DO', {year: 'numeric', month: 'long', day: 'numeric'});
-    const hora = new Date().toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'});
+    const fecha = new Date().toLocaleDateString(getLocale(), {year: 'numeric', month: 'long', day: 'numeric'});
+    const hora = new Date().toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
     const balance = factura.total - factura.pagos.reduce((sum, p) => sum + p.monto, 0);
     const esPagoTotal = balance <= 0;
 
@@ -2354,7 +2369,7 @@ function verComprobantesFactura(facturaId) {
 // Cuadre Tab
 function updateCuadreTab() {
     const todayKey = getTodayKey();
-    const todayDate = new Date().toLocaleDateString('es-DO', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+    const todayDate = new Date().toLocaleDateString(getLocale(), {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
     document.getElementById('fechaCuadre').textContent = todayDate;
 
     const pagosHoy = appData.facturas
@@ -2428,7 +2443,7 @@ function updateCuadreTab() {
         let htmlIngresos = '';
         facturasConPagosHoy.forEach(f => {
             f.pagosDeHoy.forEach(p => {
-                const hora = new Date(p.fecha).toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'});
+                const hora = new Date(p.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
                 const icono = p.metodo === 'efectivo' ? '💵' : p.metodo === 'tarjeta' ? '💳' : '🔄';
                 htmlIngresos += `
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
@@ -2452,7 +2467,7 @@ function updateCuadreTab() {
         const gastosDeHoy = appData.gastos.filter(g => isSameDayTZ(g.fecha, todayKey));
         let htmlGastos = '';
         gastosDeHoy.forEach(g => {
-            const hora = new Date(g.fecha).toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'});
+            const hora = new Date(g.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
             const icono = g.metodo === 'efectivo' ? '💵' : g.metodo === 'tarjeta' ? '💳' : '🔄';
             htmlGastos += `
                 <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
@@ -2517,7 +2532,7 @@ function mostrarHistorialCuadres() {
     const list = cuadres.map(([key, cuadre]) => {
         // key is 'YYYY-MM-DD', parse as local date
         const fecha = new Date(key + 'T12:00:00');
-        const fechaStr = fecha.toLocaleDateString('es-DO', {weekday: 'short', day: 'numeric', month: 'short'});
+        const fechaStr = fecha.toLocaleDateString(getLocale(), {weekday: 'short', day: 'numeric', month: 'short'});
 
         return `
             <li>
@@ -2608,7 +2623,7 @@ function updateGastosTab() {
                     <div class="item-amount" style="color: var(--red, #C47070);">${formatCurrency(g.monto)}</div>
                 </div>
                 <div class="item-meta">
-                    ${g.proveedor || ''} • ${g.metodo ? g.metodo.charAt(0).toUpperCase() + g.metodo.slice(1) : 'N/A'} • ${new Date(g.fecha).toLocaleDateString('es-DO')}
+                    ${g.proveedor || ''} • ${g.metodo ? g.metodo.charAt(0).toUpperCase() + g.metodo.slice(1) : 'N/A'} • ${new Date(g.fecha).toLocaleDateString(getLocale())}
                 </div>
                 ${g.facturaData ? `
                     <button class="btn btn-secondary" style="margin-top: 10px; padding: 8px 16px; font-size: 13px;" onclick="verComprobante('${g.facturaData}')">
@@ -2854,7 +2869,7 @@ function openPersonalDetail(id) {
     } else {
         const totalAvances = calcularTotalAvances(person.id);
         const avances = appData.avances.filter(a => a.personalId === person.id).slice(0, 5);
-        const nextPayDate = person.nextPayDate ? new Date(person.nextPayDate).toLocaleDateString('es-DO') : 'No establecida';
+        const nextPayDate = person.nextPayDate ? new Date(person.nextPayDate).toLocaleDateString(getLocale()) : 'No establecida';
 
         content += `
             <div style="margin-bottom: 20px;">
@@ -2880,7 +2895,7 @@ function openPersonalDetail(id) {
                         <div style="padding: 10px; background: #f8f8f8; border-radius: 8px; margin-bottom: 8px;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                                 <strong>${formatCurrency(a.monto)}</strong>
-                                <span style="color: #8e8e93; font-size: 13px;">${new Date(a.fecha).toLocaleDateString('es-DO')}</span>
+                                <span style="color: #8e8e93; font-size: 13px;">${new Date(a.fecha).toLocaleDateString(getLocale())}</span>
                             </div>
                             ${a.notas ? `<div style="font-size: 13px; color: #666;">${a.notas}</div>` : ''}
                         </div>
@@ -2994,8 +3009,8 @@ function confirmarPagoProfesional(id) {
         confirmText: 'Sí, Pagar Ahora',
         onConfirm: () => {
             // Generar recibo
-            const fecha = new Date().toLocaleDateString('es-DO', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
-            const hora = new Date().toLocaleTimeString('es-DO');
+            const fecha = new Date().toLocaleDateString(getLocale(), {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+            const hora = new Date().toLocaleTimeString(getLocale());
 
             let recibo = `
 ================================
@@ -3071,8 +3086,8 @@ function confirmarPagoEmpleado(id) {
         onConfirm: async () => {
 
     // Generar recibo
-    const fecha = new Date().toLocaleDateString('es-DO', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
-    const hora = new Date().toLocaleTimeString('es-DO');
+    const fecha = new Date().toLocaleDateString(getLocale(), {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+    const hora = new Date().toLocaleTimeString(getLocale());
 
     let recibo = `
 ================================
@@ -3423,6 +3438,10 @@ function poblarConfigClinica() {
         logoInput.oninput = () => actualizarPreviewLogo(logoInput.value);
     }
 
+    // Moneda
+    const monedaSelect = document.getElementById('configMoneda');
+    if (monedaSelect) monedaSelect.value = clinicConfig.moneda || 'RD$';
+
     // SEGURIDAD — no pre-llenar contraseña
     const pwdInput = document.getElementById('configNewPassword');
     const pwdConfirm = document.getElementById('configConfirmPassword');
@@ -3467,6 +3486,15 @@ async function guardarIdentidadClinica() {
     if (!canWriteToFirebase('guardarIdentidadClinica')) return;
 
     try {
+        const monedaVal = document.getElementById('configMoneda')?.value || clinicConfig.moneda || 'RD$';
+        const LOCALES_MONEDA = {
+            '$': 'es-MX', 'RD$': 'es-DO', 'R$': 'pt-BR', 'S/': 'es-PE',
+            'Q': 'es-GT', 'L': 'es-HN', 'C$': 'es-NI', 'B/.': 'es-PA',
+            '₡': 'es-CR', 'Bs': 'es-BO', '₲': 'es-PY', 'Bs.': 'es-VE',
+            '€': 'es-ES', '£': 'en-GB',
+        };
+        const localeVal = LOCALES_MONEDA[monedaVal] || 'es-419';
+
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings')
             .set({
@@ -3474,6 +3502,8 @@ async function guardarIdentidadClinica() {
                 color,
                 logoPositivo: logo || null,
                 logoNegativo: logo || null,
+                moneda: monedaVal,
+                locale: localeVal,
             }, { merge: true });
 
         // Update local state immediately
@@ -3482,6 +3512,8 @@ async function guardarIdentidadClinica() {
         clinicConfig.logoPositivo = logo || null;
         clinicConfig.logoNegativo = logo || null;
         clinicConfig._logoSrc     = logo || null;
+        clinicConfig.moneda       = monedaVal;
+        clinicConfig.locale       = localeVal;
 
         // Re-apply branding live without waiting for Firebase round-trip
         applyLogoEverywhere(logo || null, nombre);
@@ -3881,7 +3913,7 @@ async function confirmarReversion() {
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-DO', {year: 'numeric', month: 'long', day: 'numeric'});
+    return date.toLocaleDateString(getLocale(), {year: 'numeric', month: 'long', day: 'numeric'});
 }
 
 // Returns 'YYYY-MM-DD' in the clinic's configured timezone — stable key for cuadresDiarios
@@ -4261,7 +4293,7 @@ function _renderResumenOdonto(odonto) {
                     ${dato.nota ? `<div style="font-size:11px;color:#999;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${dato.nota}</div>` : ''}
                 </div>
                 <div style="font-size:10px;color:#bbb;text-align:right;flex-shrink:0;">
-                    ${dato.fecha ? new Date(dato.fecha).toLocaleDateString('es-DO',{day:'2-digit',month:'short'}) : ''}
+                    ${dato.fecha ? new Date(dato.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'}) : ''}
                     ${dato.profesional ? `<br>${dato.profesional.split(' ')[0]}` : ''}
                 </div>
             </div>`;
@@ -4389,7 +4421,7 @@ function _odontoAbrirModal(num, readOnly = false) {
         histEl.innerHTML = `
             <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Último registro</div>
             <div style="font-size:12px;color:#666;">
-                ${new Date(dato.fecha).toLocaleDateString('es-DO',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}
+                ${new Date(dato.fecha).toLocaleDateString(getLocale(),{weekday:'short',day:'numeric',month:'short',year:'numeric'})}
                 ${dato.profesional ? ` · ${dato.profesional}` : ''}
             </div>`;
     } else if (histEl) {
@@ -4697,7 +4729,7 @@ function renderTabHistorial(paciente) {
                                     ${p.metodo || 'Efectivo'}
                                 </span>
                                 <span style="font-size:11px;color:#999;">
-                                    ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-DO',{day:'2-digit',month:'short',year:'2-digit'}) : ''}
+                                    ${p.fecha ? new Date(p.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}) : ''}
                                 </span>
                             </div>
                             <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(p.monto)}</span>
@@ -6225,7 +6257,7 @@ function _pdfFooter(doc, pageWidth, pageHeight) {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
     doc.text(
-        `Generado por SMILE · ${getNombreClinica()} · ${new Date().toLocaleDateString('es-DO')}`,
+        `Generado por SMILE · ${getNombreClinica()} · ${new Date().toLocaleDateString(getLocale())}`,
         pageWidth / 2, pageHeight - 10, { align: 'center' }
     );
 }
@@ -6340,13 +6372,13 @@ satisfactoriamente. Firmo este documento de forma libre y voluntaria.`;
     // ============================================
 
     const fechaFirma = new Date(paciente.consentimiento.fecha);
-    const fechaFormateada = fechaFirma.toLocaleDateString('es-DO', {
+    const fechaFormateada = fechaFirma.toLocaleDateString(getLocale(), {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric'
     });
-    const horaFormateada = fechaFirma.toLocaleTimeString('es-DO', {
+    const horaFormateada = fechaFirma.toLocaleTimeString(getLocale(), {
         hour: '2-digit',
         minute: '2-digit'
     });
@@ -7216,7 +7248,7 @@ function renderizarAuditoria() {
     // Agrupar por día
     const logsPorDia = {};
     logsOrdenados.forEach(log => {
-        const dia = new Date(log.fecha).toLocaleDateString('es-DO', {year: 'numeric', month: 'long', day: 'numeric'});
+        const dia = new Date(log.fecha).toLocaleDateString(getLocale(), {year: 'numeric', month: 'long', day: 'numeric'});
         if (!logsPorDia[dia]) {
             logsPorDia[dia] = [];
         }
@@ -7248,7 +7280,7 @@ function renderizarAuditoria() {
                                 ${icono} ${log.accion.toUpperCase()} ${log.tipo}
                             </div>
                             <div style="font-size: 12px; color: #999;">
-                                ${new Date(log.fecha).toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'})}
+                                ${new Date(log.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'})}
                             </div>
                         </div>
                         <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
@@ -7524,7 +7556,7 @@ function exportarPacientesExcel() {
         'Contacto Emergencia':   p.emergenciaNombre    || '',
         'Tel. Emergencia':       p.emergenciaTelefono  || '',
         'Fecha Registro':        p.fechaCreacion
-            ? new Date(p.fechaCreacion).toLocaleDateString('es-DO') : '',
+            ? new Date(p.fechaCreacion).toLocaleDateString(getLocale()) : '',
     }));
 
     const ws = XLSX.utils.json_to_sheet(datos);
@@ -7675,7 +7707,7 @@ function formatDateWithTimezone(dateString) {
         const date = new Date(dateString);
         const timezone = getTimezone();
 
-        return date.toLocaleDateString('es-DO', {
+        return date.toLocaleDateString(getLocale(), {
             timeZone: timezone,
             year: 'numeric',
             month: 'long',
@@ -7693,7 +7725,7 @@ function formatDateTimeWithTimezone(dateString) {
         const date = new Date(dateString);
         const timezone = getTimezone();
 
-        return date.toLocaleString('es-DO', {
+        return date.toLocaleString(getLocale(), {
             timeZone: timezone,
             year: 'numeric',
             month: 'long',
@@ -7785,7 +7817,7 @@ function updateDashboardTab() {
     const yesterdayKey = getYesterdayKey();
 
     // Fecha + saludo + frase motivacional
-    const fechaStr = new Date().toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long' });
+    const fechaStr = new Date().toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
     const nombre = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
     const nombreCorto = nombre ? nombre.split(' ')[0] : '';
     const fraseDia = getFrase();
@@ -7972,7 +8004,7 @@ function updateDashboardTab() {
                (c.estado === 'Pendiente' || c.estado === 'Confirmada');
     });
     if (citaProxima) {
-        const hora = new Date(citaProxima.fecha).toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'});
+        const hora = new Date(citaProxima.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
         alertas.push(`Próxima cita ${hora}: ${citaProxima.paciente} (${citaProxima.estado})`);
     }
 
@@ -7995,7 +8027,7 @@ function updateDashboardTab() {
             '<div style="text-align: center; padding: 40px; color: #999;">No hay citas programadas para hoy</div>';
     } else {
         document.getElementById('dashAgendaHoy').innerHTML = agendaHoy.map(c => {
-            const hora = new Date(c.fecha).toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'});
+            const hora = new Date(c.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
             const color = getColorEstadoCita(c.estado);
             const icono = getIconoEstadoCita(c.estado);
 
@@ -8228,7 +8260,7 @@ function buscarGlobal() {
                         </div>
                     </div>
                     <div style="font-size: 12px; color: #666;">
-                        ${formatCurrency(f.total)} • ${new Date(f.fecha).toLocaleDateString('es-DO')}
+                        ${formatCurrency(f.total)} • ${new Date(f.fecha).toLocaleDateString(getLocale())}
                     </div>
                 </div>
             `;
@@ -8261,7 +8293,7 @@ function buscarGlobal() {
                 <div onclick="irACita('${c.id}')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s; ${esPasada ? 'opacity: 0.6;' : ''}" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                         <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">
-                            ${fechaCita.toLocaleDateString('es-DO')} ${fechaCita.toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'})}
+                            ${fechaCita.toLocaleDateString(getLocale())} ${fechaCita.toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'})}
                         </div>
                         <div style="background: ${color}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
                             ${c.estado}
@@ -9007,7 +9039,7 @@ function renderMiPlanTab() {
                 <div style="font-size:12px;color:var(--light)">${modulo.desc}</div>
             </div>
             <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
-                <div style="font-size:13px;color:var(--mid)">RD$${modulo.precio.toLocaleString()}<span style="font-size:10px;color:var(--light)">/mes</span></div>
+                <div style="font-size:13px;color:var(--mid)">${formatCurrency(modulo.precio).replace(' ', '')}<span style="font-size:10px;color:var(--light)">/mes</span></div>
                 <div style="
                     width:44px;height:24px;border-radius:100px;
                     background:${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.15)'};
@@ -9041,7 +9073,7 @@ function renderMiPlanTab() {
                     <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
                 </div>
                 <div style="text-align:right">
-                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">RD$${basePrice.toLocaleString()}</div>
+                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">${clinicConfig.moneda || "RD$"}${basePrice.toLocaleString()}</div>
                     <div style="font-size:10px;color:var(--light)">/mes</div>
                 </div>
             </div>
@@ -9059,7 +9091,7 @@ function renderMiPlanTab() {
         <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
-                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">RD$${calcTotal().toLocaleString()}</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${clinicConfig.moneda || "RD$"}${calcTotal().toLocaleString()}</div>
             </div>
             <button onclick="guardarCambiosPlan()" style="
                 width:100%;padding:14px;background:var(--clinic-color);color:white;
@@ -9416,7 +9448,7 @@ function renderCatalogoTab() {
                 ` : items.map((item, i) => `
                     <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
                         <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
-                        <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">RD$${(item.precio||0).toLocaleString()}</div>
+                        <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">${formatCurrency(item.precio||0)}</div>
                         <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#666;cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
                         <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#999;cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
                     </div>
@@ -9463,7 +9495,7 @@ function abrirModalProcedimiento(idx) {
                     onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'">
             </div>
             <div style="margin-bottom:28px">
-                <label style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:8px">Precio base (RD$)</label>
+                <label style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:8px">Precio base</label>
                 <input type="number" id="proc-modal-precio" value="${item ? item.precio : ''}" placeholder="0"
                     style="width:100%;padding:12px 16px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
                     onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'"
@@ -10355,7 +10387,7 @@ function _renderUltimosMovimientos(item) {
                 const esAjuste  = m.tipo === 'ajuste';
                 const color = esAjuste ? 'var(--azul,#7B8FA1)' : esEntrada ? 'var(--green,#6B8F71)' : 'var(--red,#C47070)';
                 const signo = esAjuste ? '⟳' : esEntrada ? '+' : '−';
-                const fecha = m.fecha ? new Date(m.fecha).toLocaleDateString('es-DO', {day:'numeric',month:'short'}) : '';
+                const fecha = m.fecha ? new Date(m.fecha).toLocaleDateString(getLocale(), {day:'numeric',month:'short'}) : '';
                 return `
                     <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(30,28,26,0.05)">
                         <span style="font-size:13px;font-weight:600;color:${color};width:28px;flex-shrink:0">${signo}${m.cantidad}</span>
@@ -10856,6 +10888,244 @@ async function crearSede() {
 
     } catch(e) {
         showError('Error al crear la sede.', e);
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// FUNCIONES FALTANTES — referenciadas en HTML pero no definidas
+// ═══════════════════════════════════════════════════════════
+
+// ── 1. Cancelar Factura ──────────────────────────────────
+// El modal #modalCancelarFactura tiene un textarea #razonCancelacion
+// y un botón que llama confirmarCancelacionFactura().
+// Necesita saber qué factura cancelar — se guarda en _facturaACancelarId.
+
+let _facturaACancelarId = null;
+
+function abrirCancelarFactura(facturaId) {
+    if (appData.currentRole !== 'admin') {
+        showToast('⛔ Solo el administrador puede cancelar facturas', 3000, '#c0392b');
+        return;
+    }
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) return;
+    _facturaACancelarId = facturaId;
+    const razon = document.getElementById('razonCancelacion');
+    if (razon) razon.value = '';
+    openModal('modalCancelarFactura');
+}
+
+async function confirmarCancelacionFactura() {
+    const razon = document.getElementById('razonCancelacion')?.value.trim();
+    if (!razon) {
+        showToast('⚠️ Ingresa la razón de cancelación', 3000, '#e65100');
+        return;
+    }
+    if (!_facturaACancelarId) return;
+
+    const factura = appData.facturas.find(f => f.id === _facturaACancelarId);
+    if (!factura) return;
+
+    const backup = [...appData.facturas];
+    factura.estado         = 'cancelada';
+    factura.razonCancelacion = razon;
+    factura.canceladaEn    = new Date().toISOString();
+    factura.canceladaPor   = appData.currentUser;
+
+    registrarAuditoria('cancelar', 'factura',
+        `Factura ${factura.numero} — ${factura.paciente} — Razón: ${razon}`);
+
+    try {
+        await saveData('confirmarCancelacionFactura');
+        closeModal('modalCancelarFactura');
+        _facturaACancelarId = null;
+        updateCobrarTab();
+        showToast('✓ Factura cancelada');
+    } catch(e) {
+        appData.facturas = backup;
+        showError('Error al cancelar la factura.', e);
+    }
+}
+
+// ── 2. Eliminar Paciente (desde modal de detalle) ────────
+// El botón #btnEliminarPaciente llama eliminarPacienteActual().
+// La variable global _pacienteDetalleId guarda el ID del paciente abierto.
+
+async function eliminarPacienteActual() {
+    if (appData.currentRole !== 'admin') {
+        showToast('⛔ Solo el administrador puede eliminar pacientes', 3000, '#c0392b');
+        return;
+    }
+    // Buscar qué paciente está abierto actualmente
+    const idEl = document.getElementById('detallePacienteId') ||
+                 document.getElementById('pacienteDetalleId');
+    const pacienteId = idEl?.value || window._pacienteDetalleId;
+    if (!pacienteId) {
+        showToast('⚠️ No se identificó el paciente', 3000, '#e65100');
+        return;
+    }
+
+    const paciente = appData.pacientes.find(p => p.id === pacienteId);
+    if (!paciente) return;
+
+    mostrarConfirmacion({
+        titulo: '⚠️ Eliminar Paciente',
+        mensaje: `
+            <div style="background:#f8f9fa;padding:14px;border-radius:8px;margin-bottom:12px">
+                <div style="font-weight:500;font-size:16px;margin-bottom:6px">${paciente.nombre}</div>
+                ${paciente.cedula ? `<div style="font-size:13px;color:#666">Cédula: ${paciente.cedula}</div>` : ''}
+            </div>
+            <div style="background:#fff3cd;padding:10px;border-radius:6px;font-size:13px">
+                ⚠️ Se eliminarán el expediente y todos sus datos. Esta acción no se puede deshacer.
+            </div>`,
+        tipo: 'peligro',
+        confirmText: 'Sí, Eliminar Paciente',
+        onConfirm: async () => {
+            const backupPacientes = [...appData.pacientes];
+            appData.pacientes = appData.pacientes.filter(p => p.id !== pacienteId);
+            registrarAuditoria('eliminar', 'paciente',
+                `${paciente.nombre}${paciente.cedula ? ' · Cédula: ' + paciente.cedula : ''}`);
+            try {
+                // Eliminar de subcollección
+                await db.collection('clinicas').doc(CLINIC_PATH)
+                    .collection('pacientes').doc(pacienteId).delete().catch(() => {});
+                await saveData('eliminarPacienteActual');
+                // Cerrar cualquier modal de detalle abierto
+                ['modalDetallePaciente','modalPacienteDetalle','modalVerPaciente'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && el.classList.contains('active')) closeModal(id);
+                });
+                updatePacientesTab();
+                showToast('✓ Paciente eliminado');
+            } catch(e) {
+                appData.pacientes = backupPacientes;
+                showError('Error al eliminar el paciente.', e);
+            }
+        }
+    });
+}
+
+// ── 3. Editar Orden de Laboratorio ───────────────────────
+// El modal #modalEditarOrden tiene campos: descripcion, laboratorio, precio.
+// window.currentOrdenLabId guarda la orden actualmente abierta en el detalle.
+
+function abrirEditarOrden(ordenId) {
+    const id = ordenId || window.currentOrdenLabId;
+    if (!id) return;
+    const orden = appData.laboratorios?.find(o => o.id === id);
+    if (!orden) return;
+
+    window._ordenEditandoId = id;
+    const descEl  = document.getElementById('editOrdenDescripcion');
+    const labEl   = document.getElementById('editOrdenLaboratorio');
+    const precioEl = document.getElementById('editOrdenPrecio');
+    if (descEl)   descEl.value   = orden.descripcion || '';
+    if (labEl)    labEl.value    = orden.laboratorio  || '';
+    if (precioEl) precioEl.value = orden.precio       || '';
+    openModal('modalEditarOrden');
+}
+
+async function guardarEdicionOrden() {
+    const id = window._ordenEditandoId || window.currentOrdenLabId;
+    if (!id) return;
+
+    const descripcion = document.getElementById('editOrdenDescripcion')?.value.trim();
+    const laboratorio = document.getElementById('editOrdenLaboratorio')?.value.trim();
+    const precio      = parseFloat(document.getElementById('editOrdenPrecio')?.value) || 0;
+
+    if (!descripcion) { showToast('⚠️ La descripción es obligatoria', 3000, '#e65100'); return; }
+    if (!laboratorio) { showToast('⚠️ El laboratorio es obligatorio', 3000, '#e65100'); return; }
+
+    const idx = appData.laboratorios?.findIndex(o => o.id === id);
+    if (idx === undefined || idx < 0) return;
+
+    const backup = { ...appData.laboratorios[idx] };
+    appData.laboratorios[idx].descripcion = descripcion;
+    appData.laboratorios[idx].laboratorio = laboratorio;
+    appData.laboratorios[idx].precio      = precio;
+    appData.laboratorios[idx].margen      = precio - (appData.laboratorios[idx].costo || 0);
+
+    try {
+        await saveData('guardarEdicionOrden');
+        closeModal('modalEditarOrden');
+        updateLaboratorioTab();
+        showToast('✓ Orden actualizada');
+    } catch(e) {
+        appData.laboratorios[idx] = backup;
+        showError('Error al guardar la edición.', e);
+    }
+}
+
+// ── 4. Abono a Orden de Laboratorio ─────────────────────
+// El modal #modalAbonoLab muestra info de la orden y permite registrar un abono.
+// Los campos: abonoMonto, abonoFecha, abonoNotas.
+
+function abrirAbonoLab(ordenId) {
+    const id = ordenId || window.currentOrdenLabId;
+    if (!id) return;
+    const orden = appData.laboratorios?.find(o => o.id === id);
+    if (!orden) return;
+
+    window._ordenAbonoId = id;
+
+    const infoEl   = document.getElementById('abonoOrdenInfo');
+    const saldoEl  = document.getElementById('abonoSaldoActual');
+    const montoEl  = document.getElementById('abonoMonto');
+    const fechaEl  = document.getElementById('abonoFecha');
+    const notasEl  = document.getElementById('abonoNotas');
+
+    const totalAbonado = (orden.abonos || []).reduce((s, a) => s + (a.monto || 0), 0);
+    const saldoPendiente = Math.max(0, (orden.costo || 0) - totalAbonado);
+
+    if (infoEl)  infoEl.textContent  = `${orden.tipo || 'Orden'} — ${orden.laboratorio}`;
+    if (saldoEl) saldoEl.textContent = `Costo: ${formatCurrency(orden.costo || 0)} · Abonado: ${formatCurrency(totalAbonado)} · Pendiente: ${formatCurrency(saldoPendiente)}`;
+    if (montoEl) montoEl.value = '';
+    if (fechaEl) fechaEl.value = new Date().toISOString().split('T')[0];
+    if (notasEl) notasEl.value = '';
+
+    openModal('modalAbonoLab');
+}
+
+async function guardarAbonoLab() {
+    const id = window._ordenAbonoId;
+    if (!id) return;
+
+    const monto = parseFloat(document.getElementById('abonoMonto')?.value) || 0;
+    const fecha = document.getElementById('abonoFecha')?.value || new Date().toISOString().split('T')[0];
+    const notas = document.getElementById('abonoNotas')?.value.trim() || '';
+
+    if (!monto || monto <= 0) {
+        showToast('⚠️ Ingresa un monto válido', 3000, '#e65100');
+        return;
+    }
+
+    const idx = appData.laboratorios?.findIndex(o => o.id === id);
+    if (idx === undefined || idx < 0) return;
+
+    const abono = {
+        id:     generateId('ABONO-'),
+        monto,
+        fecha,
+        notas,
+        registradoPor: appData.currentUser,
+        fechaRegistro: new Date().toISOString(),
+    };
+
+    if (!appData.laboratorios[idx].abonos) {
+        appData.laboratorios[idx].abonos = [];
+    }
+    const backupAbonos = [...appData.laboratorios[idx].abonos];
+    appData.laboratorios[idx].abonos.push(abono);
+
+    try {
+        await saveData('guardarAbonoLab');
+        closeModal('modalAbonoLab');
+        updateLaboratorioTab();
+        showToast(`✓ Abono de ${formatCurrency(monto)} registrado`);
+    } catch(e) {
+        appData.laboratorios[idx].abonos = backupAbonos;
+        showError('Error al registrar el abono.', e);
     }
 }
 

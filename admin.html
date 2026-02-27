@@ -766,7 +766,6 @@ let currentSection = 'overview';
 
 // ── INIT ──────────────────────────────────────────────
 async function initApp() {
-  // Establish Firebase anonymous auth session so Firestore Security Rules pass
   try {
     const auth = firebase.auth();
     if (!auth.currentUser) await auth.signInAnonymously();
@@ -1281,7 +1280,7 @@ function openEditModal(id) {
       <div class="modal-field">
         <label>Plan</label>
         <select id="edit-plan">
-          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — RD$990</option>
+          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — $990</option>
           <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — RD$1,200</option>
         </select>
       </div>
@@ -1380,7 +1379,7 @@ function renderNuevaClinica(main) {
             <label>Plan</label>
             <select id="new-plan">
               <option value="clinica">Clínica — RD$1,200</option>
-              <option value="solo">Solo — RD$990</option>
+              <option value="solo">Solo — $990</option>
             </select>
           </div>
         </div>
@@ -1402,7 +1401,7 @@ function renderNuevaClinica(main) {
               <label class="module-check-item">
                 <input type="checkbox" value="${m.key}"
                   onchange="this.closest('.module-check-item').classList.toggle('checked', this.checked)">
-                ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+RD$${m.price}</span>
+                ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+$${m.price}</span>
               </label>
             `).join('')}
           </div>

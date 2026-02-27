@@ -979,22 +979,67 @@
 
       <div class="field-row">
         <div class="field">
-          <label>Ciudad</label>
-          <select id="ciudad">
-            <option value="">Selecciona...</option>
-            <option>Santo Domingo</option>
-            <option>Santiago</option>
-            <option>La Romana</option>
-            <option>San Pedro de Macorís</option>
-            <option>Puerto Plata</option>
-            <option>San Francisco de Macorís</option>
-            <option>Higüey</option>
-            <option>Otra</option>
+          <label>País</label>
+          <select id="pais" onchange="onPaisChange(this.value)">
+            <option value="">Selecciona tu país...</option>
+            <option value="República Dominicana">🇩🇴 República Dominicana</option>
+            <option value="México">🇲🇽 México</option>
+            <option value="Colombia">🇨🇴 Colombia</option>
+            <option value="Argentina">🇦🇷 Argentina</option>
+            <option value="Chile">🇨🇱 Chile</option>
+            <option value="Perú">🇵🇪 Perú</option>
+            <option value="Venezuela">🇻🇪 Venezuela</option>
+            <option value="Ecuador">🇪🇨 Ecuador</option>
+            <option value="Guatemala">🇬🇹 Guatemala</option>
+            <option value="Cuba">🇨🇺 Cuba</option>
+            <option value="Bolivia">🇧🇴 Bolivia</option>
+            <option value="Honduras">🇭🇳 Honduras</option>
+            <option value="Paraguay">🇵🇾 Paraguay</option>
+            <option value="El Salvador">🇸🇻 El Salvador</option>
+            <option value="Nicaragua">🇳🇮 Nicaragua</option>
+            <option value="Costa Rica">🇨🇷 Costa Rica</option>
+            <option value="Panamá">🇵🇦 Panamá</option>
+            <option value="Uruguay">🇺🇾 Uruguay</option>
+            <option value="Puerto Rico">🇵🇷 Puerto Rico</option>
+            <option value="Brasil">🇧🇷 Brasil</option>
+            <option value="España">🇪🇸 España</option>
+            <option value="Otro">🌎 Otro</option>
           </select>
         </div>
         <div class="field">
+          <label>Ciudad</label>
+          <input type="text" id="ciudad" placeholder="Ej: Bogotá, Ciudad de México..." oninput="state.ciudad=this.value.trim()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
           <label>Teléfono</label>
-          <input type="tel" id="telefono" placeholder="809-000-0000">
+          <input type="tel" id="telefono" placeholder="+1 809 000 0000">
+        </div>
+        <div class="field" id="monedaField" style="display:none">
+          <label>Moneda <span style="font-size:11px;color:#aaa">(auto-detectada)</span></label>
+          <select id="moneda" onchange="state.moneda=this.value">
+            <option value="RD$">RD$ — Peso dominicano</option>
+            <option value="MX$">MX$ — Peso mexicano</option>
+            <option value="COP$">COP$ — Peso colombiano</option>
+            <option value="ARS$">ARS$ — Peso argentino</option>
+            <option value="CLP$">CLP$ — Peso chileno</option>
+            <option value="S/">S/ — Sol peruano</option>
+            <option value="Bs.">Bs. — Bolívar venezolano</option>
+            <option value="$">$ — Dólar (Ecuador, El Salvador)</option>
+            <option value="Q">Q — Quetzal guatemalteco</option>
+            <option value="CUP$">CUP$ — Peso cubano</option>
+            <option value="Bs">Bs — Boliviano</option>
+            <option value="L">L — Lempira hondureño</option>
+            <option value="₲">₲ — Guaraní paraguayo</option>
+            <option value="C$">C$ — Córdoba nicaragüense</option>
+            <option value="₡">₡ — Colón costarricense</option>
+            <option value="B/.">B/. — Balboa panameño</option>
+            <option value="UYU$">UYU$ — Peso uruguayo</option>
+            <option value="USD">USD — Dólar estadounidense</option>
+            <option value="R$">R$ — Real brasileño</option>
+            <option value="€">€ — Euro</option>
+          </select>
         </div>
       </div>
 
@@ -1331,6 +1376,9 @@ const state = {
   clinicName: '',
   subdomain: '',
   ciudad: '',
+  pais: '',
+  moneda: 'RD$',
+  locale: 'es-DO',
   adminName: '',
   adminEmail: '',
   color: '#C4856A',
@@ -1425,6 +1473,7 @@ function validateStep(n) {
   }
   if (n === 1) {
     // Read fresh values from DOM into state
+    state.pais       = document.getElementById('pais')?.value || state.pais || '';
     state.clinicName  = document.getElementById('clinicName').value.trim();
     state.adminName   = document.getElementById('adminName').value.trim();
     state.adminEmail  = document.getElementById('adminEmail').value.trim();
@@ -1621,15 +1670,16 @@ function updateStep4Totals() {
 
   // Update extra users row
   document.getElementById('extra-users-count').textContent = extraUsers;
-  document.getElementById('extra-users-price').textContent = 'RD$' + extraUsersCost.toLocaleString();
+  const M = state.moneda || 'RD$';
+  document.getElementById('extra-users-price').textContent = M + extraUsersCost.toLocaleString();
 
   // Update module rows
   const rows = state.modules.map(m =>
-    `<div class="summary-row"><span>${m.name}</span><span>+RD$${m.price.toLocaleString()}</span></div>`
+    `<div class="summary-row"><span>${m.name}</span><span>+${M}${m.price.toLocaleString()}</span></div>`
   ).join('');
   document.getElementById('module-summary-rows').innerHTML = rows;
 
-  document.getElementById('step4-total').textContent = 'RD$' + total.toLocaleString();
+  document.getElementById('step4-total').textContent = M + total.toLocaleString();
 }
 
 // ─── STEP 5: FINAL SUMMARY ────────────────────────────
@@ -1655,9 +1705,10 @@ function buildFinalSummary() {
   const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
   const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
   const total = BASE + modulesTotal + extraUsersCost;
+  const M = state.moneda || 'RD$';
 
   const moduleRows = state.modules.map(m =>
-    `<div class="summary-row"><span>+ ${m.name}</span><span>RD$${m.price.toLocaleString()}</span></div>`
+    `<div class="summary-row"><span>+ ${m.name}</span><span>${M}${m.price.toLocaleString()}</span></div>`
   ).join('');
 
   document.getElementById('final-summary').innerHTML = `
@@ -1683,13 +1734,13 @@ function buildFinalSummary() {
     </div>
     <div class="summary-row">
       <span>Plan base</span>
-      <span>RD$1,200</span>
+      <span>${M}1,200</span>
     </div>
     ${moduleRows}
-    ${extraUsers > 0 ? `<div class="summary-row"><span>Usuarios adicionales (${extraUsers})</span><span>RD$${extraUsersCost.toLocaleString()}</span></div>` : ''}
+    ${extraUsers > 0 ? `<div class="summary-row"><span>Usuarios adicionales (${extraUsers})</span><span>${M}${extraUsersCost.toLocaleString()}</span></div>` : ''}
     <div class="summary-total">
       <span>Total mensual</span>
-      <span style="color:var(--terracota)">RD$${total.toLocaleString()}</span>
+      <span style="color:var(--terracota)">${M}${total.toLocaleString()}</span>
     </div>
     <div class="summary-row">
       <span>💊 Precios</span>
@@ -1820,6 +1871,9 @@ async function activateClinic() {
       .collection('config').doc('settings').set({
         nombre: state.clinicName,
         ciudad: state.ciudad || '',
+        pais: state.pais || '',
+        moneda: state.moneda || 'RD$',
+        locale: state.locale || 'es-DO',
         color: state.color || '#C4856A',
         logoPositivo: state.logoPositivo || null,
         logoNegativo: state.logoNegativo || null,
@@ -1846,18 +1900,7 @@ async function activateClinic() {
         // Flat fields for quick access
         waName:  state.waName || state.adminName || '',
         waCargo: state.waCargo || '',
-        waPhone: state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : '',
-
-        // Campos de configuración que app.js lee y necesita desde el día 1
-        moneda:        'DOP',
-        horaApertura:  8,
-        horaCierre:    20,
-        duracionCita:  30,
-        comisionRegular:      60,
-        comisionEspecialista: 50,
-
-        // procItems siempre presente (vacío si procMode = 'libre')
-        procItems: state.procMode === 'lista' ? (state.procItems || []) : [],
+        waPhone: state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : ''
       });
 
     // ── Show success screen ──────────────────────────
@@ -1913,7 +1956,7 @@ async function activateClinic() {
 
       <div class="success-detail-card">
         <div class="sd-label">💳 Plan mensual</div>
-        <div class="sd-val" style="color:var(--terracota)">RD\$${total.toLocaleString()}</div>
+        <div class="sd-val" style="color:var(--terracota)">${state.moneda || 'RD$'}${total.toLocaleString()}</div>
       </div>
 
       <div class="success-detail-card" style="grid-column:1/-1;background:var(--surface);border:none">
@@ -1929,33 +1972,63 @@ async function activateClinic() {
 
   } catch(err) {
     console.error('Error creando clínica:', err);
-    // Mensaje específico según el tipo de error
-    let msg = '❌ Error — intenta de nuevo';
-    if (err.code === 'permission-denied') {
-        msg = '❌ Sin permisos. Recarga e intenta de nuevo';
-    } else if (err.code === 'unavailable' || err.message?.includes('network')) {
-        msg = '❌ Sin conexión. Verifica tu internet';
-    } else if (err.code === 'already-exists') {
-        msg = '❌ Ya existe una clínica con ese ID';
-    }
-    btn.textContent = msg;
+    btn.textContent = '❌ Error — intenta de nuevo';
     btn.disabled = false;
-    // Mostrar detalle del error debajo del botón
-    const errDiv = document.getElementById('activateError') || (() => {
-        const d = document.createElement('div');
-        d.id = 'activateError';
-        d.style.cssText = 'margin-top:12px;font-size:12px;color:#c0392b;text-align:center;opacity:0.8';
-        btn.parentNode.appendChild(d);
-        return d;
-    })();
-    errDiv.textContent = err.message || 'Error desconocido';
   }
+}
+
+// ─── PAÍS → MONEDA / LOCALE AUTO-DETECT ──────────────────
+const PAIS_CONFIG = {
+  'República Dominicana': { moneda: 'RD$',   locale: 'es-DO' },
+  'México':               { moneda: 'MX$',   locale: 'es-MX' },
+  'Colombia':             { moneda: 'COP$',  locale: 'es-CO' },
+  'Argentina':            { moneda: 'ARS$',  locale: 'es-AR' },
+  'Chile':                { moneda: 'CLP$',  locale: 'es-CL' },
+  'Perú':                 { moneda: 'S/',    locale: 'es-PE' },
+  'Venezuela':            { moneda: 'Bs.',   locale: 'es-VE' },
+  'Ecuador':              { moneda: '$',     locale: 'es-EC' },
+  'Guatemala':            { moneda: 'Q',     locale: 'es-GT' },
+  'Cuba':                 { moneda: 'CUP$',  locale: 'es-CU' },
+  'Bolivia':              { moneda: 'Bs',    locale: 'es-BO' },
+  'Honduras':             { moneda: 'L',     locale: 'es-HN' },
+  'Paraguay':             { moneda: '₲',     locale: 'es-PY' },
+  'El Salvador':          { moneda: '$',     locale: 'es-SV' },
+  'Nicaragua':            { moneda: 'C$',    locale: 'es-NI' },
+  'Costa Rica':           { moneda: '₡',     locale: 'es-CR' },
+  'Panamá':               { moneda: 'B/.',   locale: 'es-PA' },
+  'Uruguay':              { moneda: 'UYU$',  locale: 'es-UY' },
+  'Puerto Rico':          { moneda: 'USD',   locale: 'es-PR' },
+  'Brasil':               { moneda: 'R$',    locale: 'pt-BR' },
+  'España':               { moneda: '€',     locale: 'es-ES' },
+  'Otro':                 { moneda: '$',     locale: 'es-419' },
+};
+
+function onPaisChange(pais) {
+  state.pais = pais;
+  const cfg = PAIS_CONFIG[pais];
+  if (!cfg) return;
+
+  // Actualizar state
+  state.moneda = cfg.moneda;
+  state.locale = cfg.locale;
+
+  // Auto-seleccionar moneda en el select
+  const monedaEl = document.getElementById('moneda');
+  if (monedaEl) {
+    monedaEl.value = cfg.moneda;
+    // Mostrar el campo de moneda para que el usuario pueda editarlo si quiere
+    const monedaField = document.getElementById('monedaField');
+    if (monedaField) monedaField.style.display = 'block';
+  }
+
+  // Actualizar los totales si ya están calculados
+  updateStep4Totals();
 }
 
 function getFreeTrialDate() {
   const d = new Date();
   d.setDate(d.getDate() + 14);
-  return d.toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(state.locale || 'es-419', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function irAClinica() {
