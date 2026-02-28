@@ -3,9 +3,10 @@
 // Auto-injected on all SMILE pages except the clinic app
 
 (function() {
-  // Don't show inside the clinic app
+  // Don't show inside the clinic app — unless SMILE_NAV_FORCE is set
+  // (app.html sets this flag to show the nav on the login screen)
   const params = new URLSearchParams(window.location.search);
-  if (params.get('clinica')) return;
+  if (params.get('clinica') && !window.SMILE_NAV_FORCE) return;
 
   // Detect current page for active states
   const path = window.location.pathname;

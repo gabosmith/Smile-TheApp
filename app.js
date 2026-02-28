@@ -376,6 +376,17 @@ const sanitize = {
         if (val === null || val === undefined) return '';
         return String(val).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().slice(0, max);
     },
+    // HTML-escape user strings before injecting into innerHTML
+    // Prevents XSS from names/descriptions stored in Firestore
+    html(val) {
+        if (val === null || val === undefined) return '';
+        return String(val)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    },
     // Numeric — returns float or 0; never NaN/Infinity
     num(val, min = 0, max = 99999999) {
         const n = parseFloat(String(val).replace(/[^0-9.\-]/g, ''));
@@ -981,7 +992,7 @@ window.addEventListener('load', async function() {
         return;
     }
 
-    console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
+    // [debug] console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
@@ -1200,7 +1211,7 @@ async function migratePasswordIfNeeded(person, plaintext) {
         person.password    = hashed;
         person._pwHashed   = true;
         await saveData('saveData-init');
-        console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
+        // migration logged to audit instead of console
     } catch(e) {
         console.warn('[Auth] No se pudo migrar contraseña:', e);
     }
@@ -1363,7 +1374,7 @@ async function ensureFirebaseAuth() {
         try {
             const cred = await intentarAuth();
             _firebaseAuthUid = cred.user.uid;
-            console.log(`[Auth] Firebase auth OK (intento ${intento}):`, _firebaseAuthUid);
+            // [debug] auth OK
             return;
         } catch(e) {
             console.warn(`[Auth] Intento ${intento}/3 fallido:`, e.message);
@@ -1611,7 +1622,7 @@ function showTab(tabName) {
                     const select = document.getElementById('profesionalQueAtendio');
                     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
                     select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                        profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+                        profesionales.map(p => `<option value="${sanitize.html(p.nombre)}">${sanitize.html(p.nombre)}</option>`).join('');
                 } else {
                     container.style.display = 'none';
                 }
@@ -1944,7 +1955,7 @@ function updateIngresosTab() {
                 <div class="item-header">
                     <div>
                         <div style="font-size: 12px; color: #8e8e93;">${f.numero}</div>
-                        <div class="item-title">${f.paciente}</div>
+                        <div class="item-title">${sanitize.html(f.paciente)}</div>
                     </div>
                     <span class="badge badge-${f.estado === 'pagada' ? 'paid' : (f.estado === 'parcial' || f.estado === 'partial') ? 'partial' : 'pending'}">
                         ${f.estado === 'pagada' ? 'Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? 'Con Abono' : 'Pendiente'}
@@ -2505,7 +2516,7 @@ function updateCuadreTab() {
                 htmlIngresos += `
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                         <div>
-                            <span style="font-weight: 600;">${icono} ${f.paciente}</span>
+                            <span style="font-weight: 600;">${icono} ${sanitize.html(f.paciente)}</span>
                             <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
                             <div style="font-size: 12px; color: #999;">Factura ${f.numero} - ${p.metodo}</div>
                         </div>
@@ -2562,6 +2573,13 @@ function guardarCuadreDiario(fechaKey, cuadre) {
         return; // Sin cambios, no guardar
     }
     appData.cuadresDiarios[fechaKey] = cuadre;
+
+    // Trim cuadresDiarios to last 365 days — prevents unbounded growth in main doc
+    const _allKeys = Object.keys(appData.cuadresDiarios).sort();
+    if (_allKeys.length > 365) {
+        const _toDelete = _allKeys.slice(0, _allKeys.length - 365);
+        _toDelete.forEach(k => delete appData.cuadresDiarios[k]);
+    }
     saveData();
 }
 
@@ -4209,7 +4227,7 @@ function updatePacientesTab() {
         return `
             <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor:pointer;padding:16px 20px;margin-bottom:12px;border-left:3px solid var(--clinic-color,#C4856A);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-size: 17px; font-weight: 600; color: var(--dark, #1E1C1A); letter-spacing: -0.2px;">${p.nombre}</div>
+                    <div style="font-size: 17px; font-weight: 600; color: var(--dark, #1E1C1A); letter-spacing: -0.2px;">${sanitize.html(p.nombre)}</div>
                     <div>
                         ${balance > 0 ? `<span class="badge badge-warning">${formatCurrency(balance)}</span>` :
                           balance === 0 && facturasPaciente.length > 0 ? `<span class="badge badge-success">Al día</span>` : ''}
@@ -5381,7 +5399,7 @@ function updateAgendaTab() {
                     return `
                     <div onclick="verDetalleCita('${c.id}')" style="background: ${colores[c.consultorio]}; color: white; padding: 8px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; transition: transform 0.2s; border-left: 4px solid ${colorEstado};" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                         <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">${c.hora}</div>
-                        <div style="font-size: 11px; opacity: 0.95; margin-bottom: 2px;">${c.paciente}</div>
+                        <div style="font-size: 11px; opacity: 0.95; margin-bottom: 2px;">${sanitize.html(c.paciente)}</div>
                         <div style="font-size: 10px; opacity: 0.9;">${c.profesional}</div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                             <div style="font-size: 10px; opacity: 0.85;">C${c.consultorio}</div>
@@ -5502,7 +5520,7 @@ function abrirModalNuevaCita() {
     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
     const selectProf = document.getElementById('citaProfesional');
     selectProf.innerHTML = '<option value="">Seleccione profesional</option>' +
-        profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+        profesionales.map(p => `<option value="${sanitize.html(p.nombre)}">${sanitize.html(p.nombre)}</option>`).join('');
 
     // Fecha de hoy (nunca pasado) — set min to today at browser level too
     const todayStr = new Date().toISOString().split('T')[0];
@@ -5910,7 +5928,7 @@ function updateLaboratorioTab() {
                             ${orden.tipo}${orden.dientes ? ` - ${orden.dientes}` : ''}
                         </div>
                         <div style="font-size: 14px; color: #666; margin-bottom: 2px;">
-                            👤 ${orden.paciente}
+                            👤 ${sanitize.html(orden.paciente)}
                         </div>
                         <div style="font-size: 13px; color: #666;">
                             👨‍⚕️ ${orden.profesional} • 🏥 ${orden.laboratorio}
@@ -5957,7 +5975,7 @@ function verDetalleOrdenLab(ordenId) {
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Paciente</div>
-                    <div style="font-size: 14px; font-weight: 500;">${orden.paciente}</div>
+                    <div style="font-size: 14px; font-weight: 500;">${sanitize.html(orden.paciente)}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Profesional</div>
@@ -6155,7 +6173,7 @@ async function avanzarEstadoLab(nuevoEstado) {
         if (balancePendiente > 0) {
             mostrarConfirmacion({
                 titulo: 'Balance pendiente',
-                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
+                mensaje: `<strong>${sanitize.html(orden.paciente)}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
                 tipo: 'advertencia',
                 confirmText: 'Sí, entregar',
                 onConfirm: ejecutarAvance
@@ -7636,7 +7654,7 @@ function aplicarFiltrosFacturas() {
                     <div class="item-header">
                         <div>
                             <div style="font-size: 12px; color: #8e8e93;">${f.numero} - ${formatDate(f.fecha)}</div>
-                            <div class="item-title">${f.paciente}</div>
+                            <div class="item-title">${sanitize.html(f.paciente)}</div>
                             <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff' : '#ff3b30'}; font-weight: 600;">
                                 ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
                             </div>
@@ -7717,7 +7735,7 @@ function inicializarFiltrosProfesionales() {
 
     select.innerHTML = '<option value="todos">Todos</option>';
     profesionales.forEach(p => {
-        select.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+        select.innerHTML += `<option value="${sanitize.html(p.nombre)}">${sanitize.html(p.nombre)}</option>`;
     });
 }
 
@@ -8341,7 +8359,7 @@ function updateDashboardTab() {
                     onmouseenter="this.style.background='var(--bg)'"
                     onmouseleave="this.style.background='var(--surface)'">
                     <div style="flex:1;">
-                        <div style="font-weight:500;font-size:14px;color:var(--dark)">${hora} · ${c.paciente}</div>
+                        <div style="font-weight:500;font-size:14px;color:var(--dark)">${hora} · ${sanitize.html(c.paciente)}</div>
                         <div style="font-size:12px;color:var(--mid);margin-top:3px">${c.motivo || 'Sin motivo'} · ${c.profesional}</div>
                     </div>
                     <div style="background:${color};color:white;padding:5px 11px;border-radius:100px;font-size:11px;font-weight:600;flex-shrink:0">
@@ -8960,11 +8978,7 @@ function generarVistaPrevia() {
     const totalDespuesFiltro = window.pacientesAImportar.length;
     const filtrados = totalAntesFiltro - totalDespuesFiltro;
 
-    console.log(`📊 Procesamiento CSV:
-    - Total filas: ${csvData.length}
-    - Pacientes creados: ${totalAntesFiltro}
-    - Con nombre y teléfono: ${totalDespuesFiltro}
-    - Filtrados (sin datos): ${filtrados}`);
+    // [removed CSV debug log]
 
     // Mostrar vista previa
     document.getElementById('paso3-preview').style.display = 'block';
@@ -9035,18 +9049,17 @@ function ejecutarImportacion() {
         tipo: 'normal',
         confirmText: 'Sí, Importar Ahora',
         onConfirm: async () => {
-            console.log(`🚀 Iniciando importación de ${window.pacientesAImportar.length} pacientes...`);
+            // import started
 
             // Agregar pacientes
             const cantidadAntes = appData.pacientes.length;
             appData.pacientes.push(...window.pacientesAImportar);
             const cantidadDespues = appData.pacientes.length;
 
-            console.log(`📥 Importación: ${cantidadAntes} → ${cantidadDespues} pacientes`);
-            console.log(`💾 Llamando a saveData()...`);
+            // import complete
 
             await saveData();
-            console.log(`🔄 Actualizando tab de pacientes...`);
+
 
             // Actualizar tab de pacientes para reflejar los nuevos
             updatePacientesTab();
@@ -9224,12 +9237,11 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
-    console.log('📊 Debug abrirAbonoBalance:');
-    console.log('Paciente:', paciente.nombre);
+    // [removed debug logs]
     
     const todasFacturas = getFacturasDePaciente(paciente);
-    console.log('Total facturas del paciente:', todasFacturas.length);
-    console.log('Estados de facturas:', todasFacturas.map(f => ({ numero: f.numero, estado: f.estado })));
+
+
     
     // Encontrar factura más antigua pendiente (filtro robusto - ambos idiomas)
     const facturasPendientes = todasFacturas
@@ -9242,7 +9254,7 @@ function abrirAbonoBalance(pacienteId) {
         })
         .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
-    console.log('Facturas pendientes encontradas:', facturasPendientes.length);
+
     
     if (facturasPendientes.length === 0) {
         showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
@@ -9250,7 +9262,7 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
-    console.log('Abriendo pago de factura:', facturasPendientes[0].numero);
+
     
     // Abrir pago de la factura más antigua
     closeModal('modalVerPaciente');
@@ -9586,7 +9598,7 @@ function renderCobrosContent(key) {
             if (select) {
                 const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
                 select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                    profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+                    profesionales.map(p => `<option value="${sanitize.html(p.nombre)}">${sanitize.html(p.nombre)}</option>`).join('');
             }
         }
 
