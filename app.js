@@ -1879,9 +1879,24 @@ function updateIngresosTab() {
         .reduce((sum, f) => sum + (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)), 0);
 
     document.getElementById('ingresosHoy').textContent = formatCurrency(ingresosHoy);
-    document.getElementById('comisionesHoy').textContent = formatCurrency(comisionesHoy);
-    document.getElementById('comisionesAcum').textContent = formatCurrency(comisionesAcum);
     document.getElementById('porCobrar').textContent = formatCurrency(porCobrar);
+
+    // Comisiones: solo mostrar si el profesional no tiene salario fijo
+    const esSalarioFijo = prof && prof.tipoRemuneracion === 'salario';
+    const cardComisionHoy  = document.getElementById('comisionesHoy')?.closest('.stat-card');
+    const cardComisionAcum = document.getElementById('comisionesAcum')?.closest('.stat-card');
+
+    if (esSalarioFijo) {
+        // Ocultar tarjetas de comisiones — no aplica para este perfil
+        if (cardComisionHoy)  cardComisionHoy.style.display  = 'none';
+        if (cardComisionAcum) cardComisionAcum.style.display = 'none';
+    } else {
+        // Mostrar y actualizar
+        if (cardComisionHoy)  cardComisionHoy.style.display  = '';
+        if (cardComisionAcum) cardComisionAcum.style.display = '';
+        document.getElementById('comisionesHoy').textContent  = formatCurrency(comisionesHoy);
+        document.getElementById('comisionesAcum').textContent = formatCurrency(comisionesAcum);
+    }
 
     const list = document.getElementById('facturasPersonal');
     if (misFacturas.length === 0) {
@@ -3841,14 +3856,18 @@ function updatePerfilTab() {
         importarCard.style.display = appData.currentRole === 'admin' ? 'block' : 'none';
     }
     const exportarCard = document.getElementById('exportarCard');
-    if (exportarCard && appData.currentRole === 'admin') {
-        exportarCard.style.display = 'block';
-        const stats = document.getElementById('exportarPacientesStats');
-        if (stats) {
-            const total = (appData.pacientes || []).length;
-            const conTel = appData.pacientes.filter(p => p.telefono).length;
-            const conEmail = appData.pacientes.filter(p => p.email).length;
-            stats.textContent = `${total} pacientes · ${conTel} con teléfono · ${conEmail} con email`;
+    if (exportarCard) {
+        if (appData.currentRole === 'admin') {
+            exportarCard.style.display = 'block';
+            const stats = document.getElementById('exportarPacientesStats');
+            if (stats) {
+                const total = (appData.pacientes || []).length;
+                const conTel = appData.pacientes.filter(p => p.telefono).length;
+                const conEmail = appData.pacientes.filter(p => p.email).length;
+                stats.textContent = `${total} pacientes · ${conTel} con teléfono · ${conEmail} con email`;
+            }
+        } else {
+            exportarCard.style.display = 'none';
         }
     }
 
@@ -4268,6 +4287,12 @@ function verPaciente(pacienteId) {
         } else {
             tabBalanceBtn.style.display = 'block';
         }
+    }
+
+    // Botón Eliminar — solo visible para admin
+    const btnElim = document.getElementById('btnEliminarPaciente');
+    if (btnElim) {
+        btnElim.style.display = appData.currentRole === 'admin' ? 'inline-flex' : 'none';
     }
 
     // Activar primer tab — cambiarTabPaciente renderizará solo ese tab
