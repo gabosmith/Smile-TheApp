@@ -369,7 +369,6 @@ function initConnectionMonitor() {
 
 // ── ESCAPE HTML — previene XSS al insertar datos de usuario en el DOM ──
 // Usar siempre que se inserte texto de usuario vía innerHTML.
-// Ejemplo: innerHTML = `<div>${esc(paciente.nombre)}</div>`
 function esc(val) {
     if (val === null || val === undefined) return '';
     return String(val)
@@ -993,7 +992,6 @@ window.addEventListener('load', async function() {
         return;
     }
 
-
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
@@ -1101,6 +1099,15 @@ let currentPersonalToEdit = null;
 let currentReciboText = '';
 let currentFacturaToReverse = null;
 
+// ── Estado de modales — reemplaza variables window._ ──────────────
+// Estas variables guardan el ID del registro actualmente abierto en cada modal.
+let _ordenLabActualId    = null;  // orden de lab abierta en modal detalle/editar/abono
+let _ordenEditandoId     = null;  // orden en modo edición
+let _ordenAbonoId        = null;  // orden en modal de abono
+let _pacienteDetalleId   = null;  // paciente abierto en modal detalle
+let _pacienteRetornoId   = null;  // paciente al que volver tras cobro desde su ficha
+let _pacientesAImportar  = [];    // lista temporal durante importación CSV
+
 // Role selector
 document.querySelectorAll('.role-btn').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -1174,7 +1181,6 @@ async function migratePasswordIfNeeded(person, plaintext) {
         person.password    = hashed;
         person._pwHashed   = true;
         await saveData('saveData-init');
-
     } catch(e) {
         console.warn('[Auth] No se pudo migrar contraseña:', e);
     }
@@ -1337,7 +1343,6 @@ async function ensureFirebaseAuth() {
         try {
             const cred = await intentarAuth();
             _firebaseAuthUid = cred.user.uid;
-
             return;
         } catch(e) {
             console.warn(`[Auth] Intento ${intento}/3 fallido:`, e.message);
@@ -2262,9 +2267,9 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     openModal('modalFacturaCliente');
 
     // Si el pago vino desde la ficha del paciente, volver a ella al cerrar el recibo
-    if (window.tempPacienteIdRetorno) {
-        const pacienteIdRetorno = window.tempPacienteIdRetorno;
-        window.tempPacienteIdRetorno = null;
+    if (_pacienteRetornoId) {
+        const pacienteIdRetorno = _pacienteRetornoId;
+        _pacienteRetornoId = null;
         const modalEl = document.getElementById('modalFacturaCliente');
         const handler = function(e) {
             if (e.target === modalEl) {
@@ -5914,7 +5919,7 @@ function verDetalleOrdenLab(ordenId) {
         `;
     }).join('');
 
-    window.currentOrdenLabId = ordenId;
+    _ordenLabActualId = ordenId;
 
     const botonesHTML = renderizarBotonesAvance(orden);
     document.getElementById('botonesAvanceLab').innerHTML = `
@@ -5996,13 +6001,13 @@ async function avanzarEstadoLab(nuevoEstado) {
         return;
     }
 
-    if (!window.currentOrdenLabId) {
+    if (!_ordenLabActualId) {
         showToast('⚠️ No hay orden seleccionada', 3000, '#e65100');
         console.error('[Lab] actualizarEstadoLab llamado sin orden activa.');
         return;
     }
 
-    const orden = appData.laboratorios.find(o => o.id === window.currentOrdenLabId);
+    const orden = appData.laboratorios.find(o => o.id === _ordenLabActualId);
 
     if (!orden) {
         showToast('⚠️ Orden no encontrada', 3000, '#e65100');
@@ -8818,10 +8823,9 @@ function generarVistaPrevia() {
 
     // Filtrar solo pacientes con nombre y teléfono
     const totalAntesFiltro = pacientes.length;
-    window.pacientesAImportar = pacientes.filter(p => p.nombre && p.telefono);
-    const totalDespuesFiltro = window.pacientesAImportar.length;
+    _pacientesAImportar = pacientes.filter(p => p.nombre && p.telefono);
+    const totalDespuesFiltro = _pacientesAImportar.length;
     const filtrados = totalAntesFiltro - totalDespuesFiltro;
-
 
 
     // Mostrar vista previa
@@ -8831,7 +8835,7 @@ function generarVistaPrevia() {
     let html = `
         <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="font-weight: 600; color: #0d47a1; margin-bottom: 8px;">
-                ✅ Se importarán ${window.pacientesAImportar.length} pacientes
+                ✅ Se importarán ${_pacientesAImportar.length} pacientes
             </div>
             <div style="font-size: 13px; color: #1565c0;">
                 Los primeros 5 se muestran a continuación para revisión
@@ -8851,7 +8855,7 @@ function generarVistaPrevia() {
                 <tbody>
     `;
 
-    window.pacientesAImportar.slice(0, 5).forEach(p => {
+    _pacientesAImportar.slice(0, 5).forEach(p => {
         html += `
             <tr>
                 <td style="padding: 10px; border: 1px solid #e5e5e7;">${p.nombre}</td>
@@ -8864,15 +8868,15 @@ function generarVistaPrevia() {
 
     html += '</tbody></table></div>';
 
-    if (window.pacientesAImportar.length > 5) {
-        html += `<div style="text-align: center; padding: 10px; color: #666; font-size: 13px;">... y ${window.pacientesAImportar.length - 5} más</div>`;
+    if (_pacientesAImportar.length > 5) {
+        html += `<div style="text-align: center; padding: 10px; color: #666; font-size: 13px;">... y ${_pacientesAImportar.length - 5} más</div>`;
     }
 
     document.getElementById('vistaPrevia').innerHTML = html;
 }
 
 function ejecutarImportacion() {
-    if (!window.pacientesAImportar || window.pacientesAImportar.length === 0) {
+    if (!_pacientesAImportar || _pacientesAImportar.length === 0) {
         showToast('⚠️ No hay pacientes para importar', 3000, '#e65100');
         return;
     }
@@ -8883,7 +8887,7 @@ function ejecutarImportacion() {
             <div style="text-align: center; padding: 20px;">
                 <div style="font-size: 48px; margin-bottom: 15px;">📥</div>
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
-                    ¿Confirmar importación de ${window.pacientesAImportar.length} pacientes?
+                    ¿Confirmar importación de ${_pacientesAImportar.length} pacientes?
                 </div>
                 <div style="font-size: 14px; color: #666;">
                     Los pacientes se agregarán a la base de datos actual
@@ -8894,7 +8898,7 @@ function ejecutarImportacion() {
         confirmText: 'Sí, Importar Ahora',
         onConfirm: async () => {
             // Agregar pacientes
-            appData.pacientes.push(...window.pacientesAImportar);
+            appData.pacientes.push(..._pacientesAImportar);
 
             await saveData();
 
@@ -8910,7 +8914,7 @@ function ejecutarImportacion() {
                         ¡Importación Exitosa!
                     </div>
                     <div style="font-size: 16px; color: #155724; margin-bottom: 15px;">
-                        ${window.pacientesAImportar.length} pacientes importados correctamente
+                        ${_pacientesAImportar.length} pacientes importados correctamente
                     </div>
                     <div style="font-size: 14px; color: #155724; margin-bottom: 15px;">
                         Total de pacientes en sistema: ${cantidadDespues}
@@ -8926,7 +8930,7 @@ function ejecutarImportacion() {
             document.getElementById('paso2-mapeo').style.display = 'none';
             document.getElementById('paso3-preview').style.display = 'none';
             document.getElementById('paso4-importar').style.display = 'none';
-            window.pacientesAImportar = null;
+            _pacientesAImportar = null;
 
             updatePacientesTab();
         }
@@ -9076,7 +9080,6 @@ function abrirAbonoBalance(pacienteId) {
     
     
     const todasFacturas = getFacturasDePaciente(paciente);
-    
     // Encontrar factura más antigua pendiente (filtro robusto - ambos idiomas)
     const facturasPendientes = todasFacturas
         .filter(f => {
@@ -9088,13 +9091,11 @@ function abrirAbonoBalance(pacienteId) {
         })
         .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
-    
     if (facturasPendientes.length === 0) {
         showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
         console.warn('[Cobros] No hay facturas pendientes para paciente de cita:', currentCitaIdDetalle);
         return;
     }
-    
     
     // Abrir pago de la factura más antigua
     closeModal('modalVerPaciente');
@@ -9113,7 +9114,7 @@ function abrirPagoFactura(facturaId, pacienteId) {
     openPagarFactura(facturaId);
     
     // Guardar pacienteId para volver a la ficha después
-    window.tempPacienteIdRetorno = pacienteId;
+    _pacienteRetornoId = pacienteId;
 }
 
 
@@ -11108,7 +11109,7 @@ async function eliminarPacienteActual() {
     // Buscar qué paciente está abierto actualmente
     const idEl = document.getElementById('detallePacienteId') ||
                  document.getElementById('pacienteDetalleId');
-    const pacienteId = idEl?.value || window._pacienteDetalleId;
+    const pacienteId = idEl?.value || _pacienteDetalleId;
     if (!pacienteId) {
         showToast('⚠️ No se identificó el paciente', 3000, '#e65100');
         return;
@@ -11156,15 +11157,15 @@ async function eliminarPacienteActual() {
 
 // ── 3. Editar Orden de Laboratorio ───────────────────────
 // El modal #modalEditarOrden tiene campos: descripcion, laboratorio, precio.
-// window.currentOrdenLabId guarda la orden actualmente abierta en el detalle.
+// _ordenLabActualId guarda la orden actualmente abierta en el detalle.
 
 function abrirEditarOrden(ordenId) {
-    const id = ordenId || window.currentOrdenLabId;
+    const id = ordenId || _ordenLabActualId;
     if (!id) return;
     const orden = appData.laboratorios?.find(o => o.id === id);
     if (!orden) return;
 
-    window._ordenEditandoId = id;
+    _ordenEditandoId = id;
     const descEl  = document.getElementById('editOrdenDescripcion');
     const labEl   = document.getElementById('editOrdenLaboratorio');
     const precioEl = document.getElementById('editOrdenPrecio');
@@ -11175,7 +11176,7 @@ function abrirEditarOrden(ordenId) {
 }
 
 async function guardarEdicionOrden() {
-    const id = window._ordenEditandoId || window.currentOrdenLabId;
+    const id = _ordenEditandoId || _ordenLabActualId;
     if (!id) return;
 
     const descripcion = document.getElementById('editOrdenDescripcion')?.value.trim();
@@ -11210,12 +11211,12 @@ async function guardarEdicionOrden() {
 // Los campos: abonoMonto, abonoFecha, abonoNotas.
 
 function abrirAbonoLab(ordenId) {
-    const id = ordenId || window.currentOrdenLabId;
+    const id = ordenId || _ordenLabActualId;
     if (!id) return;
     const orden = appData.laboratorios?.find(o => o.id === id);
     if (!orden) return;
 
-    window._ordenAbonoId = id;
+    _ordenAbonoId = id;
 
     const infoEl   = document.getElementById('abonoOrdenInfo');
     const saldoEl  = document.getElementById('abonoSaldoActual');
@@ -11236,7 +11237,7 @@ function abrirAbonoLab(ordenId) {
 }
 
 async function guardarAbonoLab() {
-    const id = window._ordenAbonoId;
+    const id = _ordenAbonoId;
     if (!id) return;
 
     const monto = parseFloat(document.getElementById('abonoMonto')?.value) || 0;
