@@ -925,62 +925,51 @@
 </head>
 <body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
 
-    <!-- ── OVERLAY DE ACCESO POR ID ────────────────────────────────
-         Mostrado por app.js cuando app.html se abre sin ?clinica=
-    ─────────────────────────────────────────────────────────── -->
+    <!-- OVERLAY DE ACCESO — aparece cuando no hay ?clinica= en la URL -->
     <div id="clinicAccessOverlay" style="
         display:none; position:fixed; inset:0; z-index:9999;
         background:linear-gradient(160deg,#1E1C1A 0%,#2D2A27 100%);
         align-items:center; justify-content:center; flex-direction:column; padding:24px;">
-
         <div style="text-align:center; margin-bottom:36px;">
-            <div style="font-size:13px; font-weight:500; letter-spacing:7px; color:white; opacity:0.9; margin-bottom:6px;">SMILE</div>
-            <div style="font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#C4856A;">Acceso clínica</div>
+            <div style="font-size:13px;font-weight:500;letter-spacing:7px;color:white;opacity:0.9;margin-bottom:6px;">SMILE</div>
+            <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#C4856A;">Acceso clínica</div>
         </div>
-
-        <div style="background:#FDFCFB; border-radius:20px; padding:36px 32px; width:100%; max-width:380px;
-                    box-shadow:0 32px 80px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.2);">
-
-            <div style="font-size:18px; font-weight:300; color:#1E1C1A; margin-bottom:6px; letter-spacing:-0.3px;">Acceder a tu clínica</div>
-            <div style="font-size:13px; color:#9C9189; margin-bottom:28px; line-height:1.6;">Ingresa el ID y contraseña de administrador.</div>
-
+        <div style="background:#FDFCFB;border-radius:20px;padding:36px 32px;width:100%;max-width:380px;
+                    box-shadow:0 32px 80px rgba(0,0,0,0.5),0 8px 24px rgba(0,0,0,0.2);">
+            <div style="font-size:18px;font-weight:300;color:#1E1C1A;margin-bottom:6px;">Acceder a tu clínica</div>
+            <div style="font-size:13px;color:#9C9189;margin-bottom:28px;line-height:1.6;">Ingresa el ID y contraseña de administrador.</div>
             <div style="margin-bottom:16px;">
-                <label style="display:block; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#9C9189; margin-bottom:8px;">ID de clínica</label>
+                <label style="display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#9C9189;margin-bottom:8px;">ID de clínica</label>
                 <input id="clinicIdInput" type="text" placeholder="mi-clinica"
                     autocomplete="off" autocapitalize="none" spellcheck="false"
                     onkeydown="if(event.key==='Enter') document.getElementById('clinicAccessPass').focus()"
-                    style="width:100%; padding:14px 16px; border:1.5px solid rgba(30,28,26,0.12); border-radius:12px;
-                           font-size:15px; font-family:inherit; font-weight:300; color:#1E1C1A; background:#F5F2EE;
-                           outline:none; box-sizing:border-box; transition:border-color 0.2s;"
+                    style="width:100%;padding:14px 16px;border:1.5px solid rgba(30,28,26,0.12);border-radius:12px;
+                           font-size:15px;font-family:inherit;font-weight:300;color:#1E1C1A;background:#F5F2EE;
+                           outline:none;box-sizing:border-box;transition:border-color 0.2s;"
                     onfocus="this.style.borderColor='#C4856A'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
             </div>
-
             <div style="margin-bottom:24px;">
-                <label style="display:block; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#9C9189; margin-bottom:8px;">Contraseña admin</label>
+                <label style="display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#9C9189;margin-bottom:8px;">Contraseña admin</label>
                 <input id="clinicAccessPass" type="password" placeholder="••••••••"
                     autocomplete="current-password"
                     onkeydown="if(event.key==='Enter') accederPorId()"
-                    style="width:100%; padding:14px 16px; border:1.5px solid rgba(30,28,26,0.12); border-radius:12px;
-                           font-size:15px; font-family:inherit; font-weight:300; color:#1E1C1A; background:#F5F2EE;
-                           outline:none; box-sizing:border-box; transition:border-color 0.2s;"
+                    style="width:100%;padding:14px 16px;border:1.5px solid rgba(30,28,26,0.12);border-radius:12px;
+                           font-size:15px;font-family:inherit;font-weight:300;color:#1E1C1A;background:#F5F2EE;
+                           outline:none;box-sizing:border-box;transition:border-color 0.2s;"
                     onfocus="this.style.borderColor='#C4856A'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
             </div>
-
-            <div id="clinicAccessErr" style="display:none; font-size:13px; color:#C47070; margin-bottom:16px;
-                padding:10px 14px; background:rgba(196,112,112,0.08); border-radius:8px; border-left:3px solid #C47070;"></div>
-
+            <div id="clinicAccessErr" style="display:none;font-size:13px;color:#C47070;margin-bottom:16px;
+                padding:10px 14px;background:rgba(196,112,112,0.08);border-radius:8px;border-left:3px solid #C47070;"></div>
             <button id="clinicAccessBtn" onclick="accederPorId()" style="
-                width:100%; padding:16px; background:#1E1C1A; color:white; border:none; border-radius:12px;
-                font-size:12px; font-family:inherit; letter-spacing:2px; text-transform:uppercase;
-                cursor:pointer; transition:background 0.2s;"
+                width:100%;padding:16px;background:#1E1C1A;color:white;border:none;border-radius:12px;
+                font-size:12px;font-family:inherit;letter-spacing:2px;text-transform:uppercase;
+                cursor:pointer;transition:background 0.2s;"
                 onmouseover="this.style.background='#C4856A'"
                 onmouseout="this.style.background='#1E1C1A'">
                 Entrar →
             </button>
-
-            <div style="text-align:center; margin-top:20px; font-size:12px; color:#CEC8C0;">
-                ¿Eres nuevo?
-                <a href="smile-onboarding.html" style="color:#C4856A; text-decoration:none;">Crear clínica →</a>
+            <div style="text-align:center;margin-top:20px;font-size:12px;color:#CEC8C0;">
+                ¿Eres nuevo? <a href="smile-onboarding.html" style="color:#C4856A;text-decoration:none;">Crear clínica →</a>
             </div>
         </div>
     </div>
@@ -2254,21 +2243,23 @@
     }
 
     async function aplicarBranding() {
-        // REGLA: solo cargar branding si ?clinica= está explícitamente en la URL.
-        // NO usar localStorage como fallback — puede contener IDs de clínicas borradas
-        // lo que causa fondo negro y loginScreen sin colores.
-        // Si no hay ?clinica= en la URL → app.js mostrará el overlay de acceso por ID.
+        // Solo carga branding si hay ?clinica= en la URL.
+        // Sin ese parámetro, app.js muestra el overlay de acceso por ID.
+        // Esto evita el fondo negro por IDs viejos en localStorage.
         const clinicaId = new URLSearchParams(window.location.search).get('clinica');
 
         if (!clinicaId) {
-            // Sin clínica en URL: ocultar spinner, app.js toma el control
-            document.getElementById('clinicLoading').style.display = 'none';
-            // Limpiar localStorage para evitar IDs viejos que causen problemas
             localStorage.removeItem('smile_clinica');
+            document.getElementById('clinicLoading').style.display = 'none';
+            // app.js detectará que no hay clínica y mostrará el overlay
             return;
         }
 
         try {
+            // Auth anónima REQUERIDA antes de leer Firestore (Security Rules)
+            const auth = firebase.auth();
+            if (!auth.currentUser) await auth.signInAnonymously();
+
             const cfgDoc = await db.collection('clinicas').doc(clinicaId)
                 .collection('config').doc('settings').get();
 
@@ -2289,13 +2280,11 @@
                     if (img) { img.src = cfg.logo; img.style.display = 'block'; }
                 }
 
-                // Guardar solo IDs confirmados en localStorage
                 localStorage.setItem('smile_clinica', clinicaId);
                 document.getElementById('clinicLoading').style.display = 'none';
                 document.getElementById('loginScreen').style.display = 'flex';
 
             } else {
-                // ID en URL pero no existe en Firebase
                 localStorage.removeItem('smile_clinica');
                 document.getElementById('clinicLoading').style.display = 'none';
                 document.getElementById('loginScreen').style.display = 'flex';

@@ -2,6 +2,13 @@
 // MULTI-TENANT CONFIG
 // ========================================
 
+// getLocale must be defined BEFORE clinicConfig because clinicConfig
+// calls getLocale() in its initializer (line ~96). Safari (WebKit) throws
+// a TDZ error if a function references a `let` variable before its declaration.
+function getLocale() {
+    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
+}
+
 let CLINIC_PATH = null;
 
 function detectClinica() {
@@ -991,13 +998,10 @@ window.addEventListener('load', async function() {
 
 // ── PANTALLA DE ACCESO POR ID DE CLÍNICA ──────────────────────
 function mostrarPantallaAcceso() {
-    // Ocultar spinner de carga
     const loading = document.getElementById('clinicLoading');
     if (loading) loading.style.display = 'none';
-    // Mostrar overlay de acceso por ID
     const overlay = document.getElementById('clinicAccessOverlay');
     if (overlay) overlay.style.display = 'flex';
-    // Focus automático en el campo de ID
     setTimeout(() => {
         const input = document.getElementById('clinicIdInput');
         if (input) input.focus();
@@ -1608,12 +1612,7 @@ function formatCurrency(amount) {
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
-// ── Locale helper ───────────────────────────────────────
-// Usa el locale de la clínica para formatear fechas y números.
-// Fallback a getLocale() si clinicConfig no está listo todavía.
-function getLocale() {
-    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
-}
+// ── Locale helper — defined at top of file (before clinicConfig) ─────────────
 
 // Procedimientos
 // Helper: always find factura form elements in the visible cobros-content clone,
