@@ -1034,7 +1034,7 @@
       </div>
     </div>
     <div class="solo-right">
-      <div class="solo-price">$19</div>
+      <div class="solo-price">$19 <span style="font-size:16px;font-weight:300;color:#9C9189;letter-spacing:1px">USD</span></div>
       <div class="solo-period">/ mes · todo incluido</div>
       <button class="btn-primary magnetic" data-strength="25" style="margin-top:8px" onclick="window.location.href='smile-onboarding.html'">Empezar gratis</button>
     </div>
@@ -1050,7 +1050,7 @@
     </div>
     <div class="total-display reveal reveal-delay-2">
       <div class="total-label">Tu plan desde · expediente incluido</div>
-      <div class="total-price" id="totalPrice">$23</div>
+      <div class="total-price" id="totalPrice">$23 <span style="font-size:14px;font-weight:300;opacity:0.5;letter-spacing:1px">USD</span></div>
       <div class="total-base" id="totalBase">base · sin módulos</div>
     </div>
   </div>
@@ -1283,7 +1283,7 @@ function updateTotal() {
 
   const el = document.getElementById('totalPrice');
   el.style.transform = 'scale(1.05)';
-  el.textContent = '$' + (Number.isInteger(total) ? total.toLocaleString() : total.toFixed(2));
+  el.innerHTML = '<span>$' + (Number.isInteger(total) ? total.toLocaleString() : total.toFixed(2)) + '</span> <span style="font-size:14px;font-weight:300;opacity:0.5;letter-spacing:1px">USD</span>';
   setTimeout(() => el.style.transform = '', 200);
 
   const base = document.getElementById('totalBase');
