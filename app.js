@@ -368,7 +368,6 @@ function initConnectionMonitor() {
 // ═══════════════════════════════════════════════════════════
 
 // ── ESCAPE HTML — previene XSS al insertar datos de usuario en el DOM ──
-// Usar siempre que se inserte texto de usuario vía innerHTML.
 function esc(val) {
     if (val === null || val === undefined) return '';
     return String(val)
@@ -994,6 +993,7 @@ window.addEventListener('load', async function() {
 
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
+    await loadPreciosGlobales(); // ← Precios desde Firebase antes de renderizar
     await loadClinicBranding();
     await loadData();
     updateProfessionalPicker();
@@ -1098,15 +1098,13 @@ let appData = {
 let currentPersonalToEdit = null;
 let currentReciboText = '';
 let currentFacturaToReverse = null;
-
 // ── Estado de modales — reemplaza variables window._ ──────────────
-// Estas variables guardan el ID del registro actualmente abierto en cada modal.
-let _ordenLabActualId    = null;  // orden de lab abierta en modal detalle/editar/abono
-let _ordenEditandoId     = null;  // orden en modo edición
-let _ordenAbonoId        = null;  // orden en modal de abono
-let _pacienteDetalleId   = null;  // paciente abierto en modal detalle
-let _pacienteRetornoId   = null;  // paciente al que volver tras cobro desde su ficha
-let _pacientesAImportar  = [];    // lista temporal durante importación CSV
+let _ordenLabActualId    = null;
+let _ordenEditandoId     = null;
+let _ordenAbonoId        = null;
+let _pacienteDetalleId   = null;
+let _pacienteRetornoId   = null;
+let _pacientesAImportar  = [];
 
 // Role selector
 document.querySelectorAll('.role-btn').forEach(btn => {
@@ -8827,6 +8825,10 @@ function generarVistaPrevia() {
     const totalDespuesFiltro = _pacientesAImportar.length;
     const filtrados = totalAntesFiltro - totalDespuesFiltro;
 
+    - Total filas: ${csvData.length}
+    - Pacientes creados: ${totalAntesFiltro}
+    - Con nombre y teléfono: ${totalDespuesFiltro}
+    - Filtrados (sin datos): ${filtrados}`);
 
     // Mostrar vista previa
     document.getElementById('paso3-preview').style.display = 'block';
@@ -8897,8 +8899,12 @@ function ejecutarImportacion() {
         tipo: 'normal',
         confirmText: 'Sí, Importar Ahora',
         onConfirm: async () => {
+
             // Agregar pacientes
+            const cantidadAntes = appData.pacientes.length;
             appData.pacientes.push(..._pacientesAImportar);
+            const cantidadDespues = appData.pacientes.length;
+
 
             await saveData();
 
@@ -9080,6 +9086,7 @@ function abrirAbonoBalance(pacienteId) {
     
     
     const todasFacturas = getFacturasDePaciente(paciente);
+    
     // Encontrar factura más antigua pendiente (filtro robusto - ambos idiomas)
     const facturasPendientes = todasFacturas
         .filter(f => {
@@ -9091,11 +9098,13 @@ function abrirAbonoBalance(pacienteId) {
         })
         .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
+    
     if (facturasPendientes.length === 0) {
         showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
         console.warn('[Cobros] No hay facturas pendientes para paciente de cita:', currentCitaIdDetalle);
         return;
     }
+    
     
     // Abrir pago de la factura más antigua
     closeModal('modalVerPaciente');
@@ -9127,14 +9136,52 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // MI PLAN TAB
 // ═══════════════════════════════════════════════
 
+// ── PRECIOS GLOBALES ─────────────────────────────────────────────────
+// Los precios se cargan desde Firebase (smile_config/precios) al iniciar.
+// Estos valores son el respaldo en caso de que Firebase no responda.
+// Para editarlos ve al panel admin de SMILE → Precios.
+let _preciosGlobales = {
+    base_clinica:  1200,
+    base_solo:      990,
+    modulos: {
+        laboratorio:   300,
+        nomina:        300,
+        inventario:    300,
+        reportes:      300,
+        multisucursal: 800,
+        expediente:    300,
+    }
+};
+
+// Carga los precios desde Firebase y actualiza _preciosGlobales.
+// Se llama una sola vez al arrancar la app.
+async function loadPreciosGlobales() {
+    try {
+        const snap = await db.collection('smile_config').doc('precios').get();
+        if (snap.exists) {
+            const data = snap.data();
+            _preciosGlobales.base_clinica  = data.base_clinica  ?? _preciosGlobales.base_clinica;
+            _preciosGlobales.base_solo     = data.base_solo     ?? _preciosGlobales.base_solo;
+            if (data.modulos && typeof data.modulos === 'object') {
+                Object.assign(_preciosGlobales.modulos, data.modulos);
+            }
+        }
+    } catch(e) {
+        console.warn('[Precios] No se pudieron cargar desde Firebase, usando defaults.', e.message);
+    }
+}
+
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',              precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',          precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',         get precio() { return _preciosGlobales.modulos.laboratorio   ?? 300; }, soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',              get precio() { return _preciosGlobales.modulos.nomina        ?? 300; }, soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',          get precio() { return _preciosGlobales.modulos.inventario    ?? 300; }, soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados',  get precio() { return _preciosGlobales.modulos.reportes      ?? 300; }, soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional',  get precio() { return _preciosGlobales.modulos.multisucursal ?? 800; }, soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
-const BASE_PRECIOS = { clinica: 1200, solo: 990 };
+const BASE_PRECIOS = {
+    get clinica() { return _preciosGlobales.base_clinica ?? 1200; },
+    get solo()    { return _preciosGlobales.base_solo    ?? 990;  },
+};
 
 function renderMiPlanTab() {
     // Deactivate other tabs, activate miplan
