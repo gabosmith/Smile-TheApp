@@ -987,6 +987,7 @@ window.addEventListener('load', async function() {
     await loadClinicBranding();
     await loadData();
     updateProfessionalPicker();
+    populateLoginUserPicker();
     inicializarEstadosCitas();
 });
 
@@ -1094,6 +1095,49 @@ let currentFacturaToReverse = null;
 
 // ── UNIFIED LOGIN helpers ────────────────────────────────────────
 // Single username+password — role determined automatically from personal[]
+
+// ── Populate login user picker ────────────────────────────────
+function populateLoginUserPicker() {
+    const sel = document.getElementById('loginUsername');
+    if (!sel) return;
+
+    const prev = sel.value; // preserve selection on refresh
+    sel.innerHTML = '<option value="">— Selecciona tu usuario —</option>';
+
+    // Admin always first
+    const admin = appData.personal.find(p => p.isAdmin);
+    if (admin && admin.nombre) {
+        const opt = document.createElement('option');
+        opt.value = admin.nombre;
+        opt.textContent = admin.nombre + '  (Admin)';
+        sel.appendChild(opt);
+    }
+
+    // Separator
+    if (appData.personal.filter(p => !p.isAdmin && p.password).length > 0) {
+        const sep = document.createElement('option');
+        sep.disabled = true;
+        sep.textContent = '──────────────';
+        sel.appendChild(sep);
+    }
+
+    // Everyone else with a password set (sorted by name)
+    appData.personal
+        .filter(p => !p.isAdmin && p.password)
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
+        .forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.nombre;
+            const label = p.tipo === 'empleado' ? ' (Recepción)' :
+                          p.tipo === 'especialista' ? ' (Especialista)' : '';
+            opt.textContent = p.nombre + label;
+            sel.appendChild(opt);
+        });
+
+    // Restore previous selection if still valid
+    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
 function updateProfessionalPicker() { /* legacy no-op */ }
 function updateReceptionPicker()   { /* legacy no-op */ }
 
@@ -1347,7 +1391,7 @@ function updateReceptionPicker() {
 // Login — async to support SHA-256 password verification
 async function login() {
     _loginClearError();
-    const usernameRaw = (document.getElementById('loginUsername')?.value || '').trim();
+    const usernameRaw = (document.getElementById('loginUsername')?.value || '');
     const password    = (document.getElementById('loginPassword')?.value || '');
 
     if (!usernameRaw) { _loginShowError('Ingresa tu usuario'); return; }
@@ -1419,6 +1463,8 @@ async function login() {
     startSession(username);
     registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
     initRealtimeListener();
+    // Hide SMILE nav widget — not needed inside the app
+    if (typeof window._hideSmileNav === 'function') window._hideSmileNav();
     await showApp();
 }
 
@@ -1443,7 +1489,7 @@ function logout() {
         document.getElementById('appContainer').style.display = 'none';
         const _lu = document.getElementById('loginUsername');
         const _lp = document.getElementById('loginPassword');
-        if (_lu) _lu.value = '';
+        if (_lu) _lu.selectedIndex = 0; // reset to placeholder
         if (_lp) _lp.value = '';
         _loginClearError();
         // legacy fields

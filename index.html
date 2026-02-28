@@ -1323,21 +1323,12 @@ document.addEventListener('click', e => {
 
 // ─── ACCESO A CLÍNICA ────────────────────────────────
 function abrirAcceso() {
-  const overlay = document.getElementById('accesoOverlay');
-  overlay.style.display = 'flex';
-  setTimeout(() => document.getElementById('accesoInput')?.focus(), 100);
+  // Go directly to app.html login — no ID needed upfront
+  const base = window.location.origin + window.location.pathname.replace('index.html','');
+  window.location.href = base + 'app.html';
 }
 
-function cerrarAcceso(e) {
-  if (!e || e.target === document.getElementById('accesoOverlay')) {
-    document.getElementById('accesoOverlay').style.display = 'none';
-    document.getElementById('accesoInput').value = '';
-    document.getElementById('accesoHint').textContent = '';
-    const btn = document.getElementById('accesoBtn');
-    btn.style.opacity = '0.4';
-    btn.style.pointerEvents = 'none';
-  }
-}
+
 
 function onAccesoInput(val) {
   const clean = val.toLowerCase()
@@ -1367,60 +1358,9 @@ function irClinica() {
   window.location.href = base + 'app.html?clinica=' + id;
 }
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') cerrarAcceso();
-});
+
 </script>
 
-<!-- MODAL: ACCEDER A CLÍNICA -->
-<div id="accesoOverlay" onclick="cerrarAcceso(event)" style="
-  display:none;position:fixed;inset:0;
-  background:rgba(30,28,26,0.5);backdrop-filter:blur(8px);
-  z-index:1000;align-items:center;justify-content:center;">
-  <div onclick="event.stopPropagation()" style="
-    background:var(--white);border-radius:24px;
-    padding:40px 36px;width:90%;max-width:400px;
-    box-shadow:0 24px 80px rgba(0,0,0,0.15),inset 0 1px 0 rgba(255,255,255,0.9)">
-    <div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;
-                color:var(--terracota);margin-bottom:16px">Acceso</div>
-    <div style="font-size:26px;font-weight:200;color:var(--dark);
-                letter-spacing:-0.5px;margin-bottom:8px">Tu clínica,<br>en un clic.</div>
-    <div style="font-size:14px;color:var(--mid);margin-bottom:32px;line-height:1.7">
-      Escribe el ID de tu clínica tal como la registraste.
-    </div>
-    <div style="position:relative;margin-bottom:12px">
-      <div style="position:absolute;left:16px;top:50%;transform:translateY(-50%);
-                  font-size:13px;color:var(--light);pointer-events:none;user-select:none">
-        smile.app /
-      </div>
-      <input id="accesoInput" type="text" placeholder="mi-clinica"
-        oninput="onAccesoInput(this.value)"
-        onkeydown="if(event.key==='Enter')irClinica()"
-        style="width:100%;padding:16px 16px 16px 90px;
-               border:1.5px solid rgba(30,28,26,0.12);border-radius:14px;
-               font-size:15px;font-family:inherit;font-weight:300;
-               color:var(--dark);background:var(--surface);outline:none;
-               box-sizing:border-box;transition:border-color 0.2s"
-        onfocus="this.style.borderColor='var(--terracota)'"
-        onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
-    </div>
-    <div id="accesoHint" style="font-size:12px;color:var(--light);
-                                 margin-bottom:24px;min-height:18px;padding-left:4px"></div>
-    <button onclick="irClinica()" id="accesoBtn" style="
-      width:100%;padding:16px;background:var(--dark);color:var(--white);
-      border:none;border-radius:14px;font-size:13px;letter-spacing:2px;
-      text-transform:uppercase;font-family:inherit;cursor:pointer;
-      transition:opacity 0.2s;opacity:0.4;pointer-events:none">
-      Ir a mi clínica →
-    </button>
-    <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--light)">
-      ¿No recuerdas tu ID?
-      <a href="/cdn-cgi/l/email-protection#50383f3c3110233d393c357e312020" style="color:var(--terracota);text-decoration:none">
-        Escríbenos →
-      </a>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>

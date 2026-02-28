@@ -260,7 +260,8 @@
         color: var(--mid);
         margin-bottom: 8px;
     }
-    .lf-field input {
+    .lf-field input,
+    .lf-field select {
         width: 100%;
         padding: 14px 16px;
         border: 1.5px solid rgba(30,28,26,0.09);
@@ -273,8 +274,16 @@
         transition: border-color 0.2s, box-shadow 0.2s;
         -webkit-appearance: none;
         box-sizing: border-box;
+        cursor: pointer;
     }
-    .lf-field input:focus {
+    .lf-field select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239C9189' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 16px center;
+        padding-right: 40px;
+    }
+    .lf-field input:focus,
+    .lf-field select:focus {
         outline: none;
         border-color: var(--clinic-color);
         box-shadow: 0 0 0 3px rgba(196,133,106,0.10);
@@ -1111,10 +1120,9 @@
 
                 <div class="lf-field">
                     <label>Usuario</label>
-                    <input type="text" id="loginUsername"
-                        placeholder="Tu nombre"
-                        autocomplete="username"
-                        onkeydown="if(event.key==='Enter') document.getElementById('loginPassword').focus()">
+                    <select id="loginUsername" onchange="document.getElementById('loginPassword').focus()">
+                        <option value="">— Selecciona tu usuario —</option>
+                    </select>
                 </div>
 
                 <div class="lf-field">
@@ -2369,6 +2377,27 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="firebase-config.js"></script>
+    <!-- SMILE Nav — shown on login screen, hidden after login by app.js -->
+    <script>
+      // Allow smile-nav to render even with ?clinica= param (login screen context)
+      (function() {
+        const _orig = URLSearchParams.prototype.get;
+        URLSearchParams.prototype.get = function(key) {
+          if (key === 'clinica' && window._smileNavOverride) return null;
+          return _orig.call(this, key);
+        };
+        window._smileNavOverride = true;
+      })();
+    </script>
+    <script src="smile-nav.js"></script>
+    <script>
+      window._smileNavOverride = false; // restore after nav loads
+      // Hide smile-nav after user logs in (app calls this)
+      window._hideSmileNav = function() {
+        const root = document.getElementById('snav-root');
+        if (root) root.style.display = 'none';
+      };
+    </script>
 
     <!-- Aplicar branding desde Firebase config -->
     <script>
