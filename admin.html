@@ -851,15 +851,14 @@ async function loadClinicas() {
 }
 
 function calcMRR(plan, modulos = [], personalCount = 0) {
-  const BASE = plan === 'solo' ? 990 : 1200;
+  const BASE = plan === 'solo' ? 19 : 23;
   const MODULE_PRICES = {
-    laboratorio: 300, nomina: 300, inventario: 300,
-    reportes: 300, multisucursal: 800,
-    // ncf y expediente: incluidos en el plan base
+    laboratorio: 5, nomina: 5, inventario: 5,
+    reportes: 5, multisucursal: 15,
   };
   const extraUsers = Math.max(0, personalCount - 1);
   const modulesTotal = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
-  return BASE + modulesTotal + (extraUsers * 150);
+  return BASE + modulesTotal + (extraUsers * 2.5);
 }
 
 // ── SECTIONS ──────────────────────────────────────────
@@ -936,7 +935,7 @@ function renderContactos(main) {
         </div>
         <div style="display:flex;gap:16px;font-size:11px;color:var(--mid)">
           <span>📦 ${c.plan === 'solo' ? 'Solo' : 'Clínica'}</span>
-          <span>💰 RD$${c.mrr.toLocaleString()}/mes</span>
+          <span>💰 $${Number.isInteger(c.mrr) ? c.mrr.toLocaleString() : c.mrr.toFixed(2)} USD/mes</span>
           <span>🧩 ${modulosStr}</span>
           <span>🕐 ${lastLoginStr}</span>
         </div>
@@ -1007,7 +1006,7 @@ function renderOverview(main) {
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--terracota)"></div>
           <div class="stat-label">MRR</div>
-          <div class="stat-val">RD$${mrr.toLocaleString()}</div>
+          <div class="stat-val">$${Number.isInteger(mrr) ? mrr.toLocaleString() : mrr.toFixed(2)} USD</div>
           <div class="stat-sub">${activas.length} clínica${activas.length !== 1 ? 's' : ''} activa${activas.length !== 1 ? 's' : ''}</div>
         </div>
         <div class="stat-card">
@@ -1025,7 +1024,7 @@ function renderOverview(main) {
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--rosa)"></div>
           <div class="stat-label">ARR proyectado</div>
-          <div class="stat-val">RD$${(mrr * 12).toLocaleString()}</div>
+          <div class="stat-val">$${Number.isInteger(mrr*12) ? (mrr*12).toLocaleString() : (mrr*12).toFixed(2)} USD</div>
           <div class="stat-sub">Si todas renuevan</div>
         </div>
       </div>
@@ -1099,7 +1098,7 @@ function renderClinicsTable(list) {
         <div>${statusBadge}</div>
         <div><span class="plan-tag">${planLabel}</span></div>
         <div>
-          <div class="amount">RD$${c.mrr.toLocaleString()}</div>
+          <div class="amount">$${Number.isInteger(c.mrr) ? c.mrr.toLocaleString() : c.mrr.toFixed(2)} USD</div>
           <div class="amount-sub">/ mes</div>
         </div>
         <div style="font-size:13px;color:var(--mid)">${c.pacientes.toLocaleString()} pac · ${c.ciudad}</div>
@@ -1144,7 +1143,7 @@ function openClinicDetail(id) {
       </div>
       <div class="detail-card">
         <div class="detail-label">MRR</div>
-        <div class="detail-val" style="color:var(--terracota)">RD$${c.mrr.toLocaleString()}</div>
+        <div class="detail-val" style="color:var(--terracota)">$${Number.isInteger(c.mrr) ? c.mrr.toLocaleString() : c.mrr.toFixed(2)} USD/mes</div>
     ${c.clinicaPadre ? `
     <div class="detail-label" style="margin-top:12px">Sede de</div>
     <div class="detail-val"><code style="font-size:12px">${c.clinicaPadre}</code></div>
@@ -1265,12 +1264,12 @@ function openEditModal(id) {
   if (!c) return;
 
   const allModulos = [
-    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
-    { key: 'nomina',        label: 'Nómina',              price: 300 },
-    { key: 'inventario',    label: 'Inventario',          price: 300 },
-    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
-    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
-    { key: 'expediente', label: 'Expediente clínico', price: 300 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 5 },
+    { key: 'nomina',        label: 'Nómina',              price: 5 },
+    { key: 'inventario',    label: 'Inventario',          price: 5 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 5 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 15 },
+    { key: 'expediente', label: 'Expediente clínico', price: 5 },
   ];
 
   document.getElementById('modalTitle').textContent = 'Editar — ' + c.nombre;
@@ -1287,8 +1286,8 @@ function openEditModal(id) {
       <div class="modal-field">
         <label>Plan</label>
         <select id="edit-plan">
-          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — $990</option>
-          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — RD$1,200</option>
+          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — $19 USD</option>
+          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — $23 USD</option>
         </select>
       </div>
     </div>
@@ -1307,7 +1306,7 @@ function openEditModal(id) {
           <label class="module-check-item ${c.modulos.includes(m.key) ? 'checked' : ''}">
             <input type="checkbox" value="${m.key}" ${c.modulos.includes(m.key) ? 'checked' : ''}
               onchange="this.closest('.module-check-item').classList.toggle('checked', this.checked)">
-            ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+${m.price}</span>
+            ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+$${m.price} USD</span>
           </label>
         `).join('')}
       </div>
@@ -1348,12 +1347,12 @@ async function saveClinicEdit(id) {
 // ── NUEVA CLÍNICA ─────────────────────────────────────
 function renderNuevaClinica(main) {
   const allModulos = [
-    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
-    { key: 'nomina',        label: 'Nómina',              price: 300 },
-    { key: 'inventario',    label: 'Inventario',          price: 300 },
-    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
-    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
-    { key: 'expediente', label: 'Expediente clínico', price: 300 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 5 },
+    { key: 'nomina',        label: 'Nómina',              price: 5 },
+    { key: 'inventario',    label: 'Inventario',          price: 5 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 5 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 15 },
+    { key: 'expediente', label: 'Expediente clínico', price: 5 },
   ];
 
   main.innerHTML = `
@@ -1385,8 +1384,8 @@ function renderNuevaClinica(main) {
           <div class="modal-field">
             <label>Plan</label>
             <select id="new-plan">
-              <option value="clinica">Clínica — RD$1,200</option>
-              <option value="solo">Solo — $990</option>
+              <option value="clinica">Clínica — $23 USD</option>
+              <option value="solo">Solo — $19 USD</option>
             </select>
           </div>
         </div>
@@ -1408,7 +1407,7 @@ function renderNuevaClinica(main) {
               <label class="module-check-item">
                 <input type="checkbox" value="${m.key}"
                   onchange="this.closest('.module-check-item').classList.toggle('checked', this.checked)">
-                ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+$${m.price}</span>
+                ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+$${m.price} USD</span>
               </label>
             `).join('')}
           </div>
@@ -1416,7 +1415,7 @@ function renderNuevaClinica(main) {
 
         <div style="background:var(--white);border-radius:16px;padding:20px 24px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,0.05)">
           <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:8px">MRR estimado</div>
-          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terracota)" id="new-mrr-preview">RD$1,200</div>
+          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terracota)" id="new-mrr-preview">$23 USD</div>
           <div style="font-size:12px;color:var(--light);margin-top:4px">/ mes</div>
         </div>
 
@@ -1438,7 +1437,7 @@ function updateMRRPreview() {
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
   const mrr = calcMRR(plan, modulos, 1);
   const el = document.getElementById('new-mrr-preview');
-  if (el) el.textContent = 'RD$' + mrr.toLocaleString();
+  if (el) el.textContent = '$' + (Number.isInteger(mrr) ? mrr.toLocaleString() : mrr.toFixed(2)) + ' USD';
 }
 
 function autoSlug(val) {
