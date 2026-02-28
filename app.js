@@ -3598,12 +3598,14 @@ function poblarConfigClinica() {
     if (comisionEspecialista) comisionEspecialista.value = settings.comisionEspecialista ?? 50;
 
     // AGENDA
-    const apertura   = document.getElementById('configHoraApertura');
-    const cierre     = document.getElementById('configHoraCierre');
-    const duracion   = document.getElementById('configDuracionCita');
-    if (apertura) apertura.value  = settings.horaApertura ?? 8;
-    if (cierre)   cierre.value    = settings.horaCierre   ?? 20;
-    if (duracion) duracion.value  = settings.duracionCita ?? 30;
+    const apertura        = document.getElementById('configHoraApertura');
+    const cierre          = document.getElementById('configHoraCierre');
+    const duracion        = document.getElementById('configDuracionCita');
+    const numConsultorios = document.getElementById('configNumConsultorios');
+    if (apertura)        apertura.value        = settings.horaApertura    ?? 8;
+    if (cierre)          cierre.value          = settings.horaCierre      ?? 20;
+    if (duracion)        duracion.value        = settings.duracionCita    ?? 30;
+    if (numConsultorios) numConsultorios.value = settings.numConsultorios ?? 4;
 }
 
 function actualizarPreviewLogo(url) {
@@ -3742,19 +3744,25 @@ async function guardarConfigNomina() {
 }
 
 async function guardarConfigAgenda() {
-    const apertura = parseInt(document.getElementById('configHoraApertura').value);
-    const cierre   = parseInt(document.getElementById('configHoraCierre').value);
-    const duracion = parseInt(document.getElementById('configDuracionCita').value);
+    const apertura        = parseInt(document.getElementById('configHoraApertura').value);
+    const cierre          = parseInt(document.getElementById('configHoraCierre').value);
+    const duracion        = parseInt(document.getElementById('configDuracionCita').value);
+    const numConsultorios = parseInt(document.getElementById('configNumConsultorios')?.value) || 4;
 
     if (apertura >= cierre) {
         showToast('⚠️ La hora de apertura debe ser antes del cierre', 3000, '#e65100');
         return;
     }
+    if (numConsultorios < 1 || numConsultorios > 20) {
+        showToast('⚠️ El número de consultorios debe estar entre 1 y 20', 3000, '#e65100');
+        return;
+    }
 
     if (!appData.settings) appData.settings = {};
-    appData.settings.horaApertura = apertura;
-    appData.settings.horaCierre   = cierre;
-    appData.settings.duracionCita = duracion;
+    appData.settings.horaApertura    = apertura;
+    appData.settings.horaCierre      = cierre;
+    appData.settings.duracionCita    = duracion;
+    appData.settings.numConsultorios = numConsultorios;
 
     try {
         await saveData();
@@ -5408,23 +5416,50 @@ function verDetalleCita(citaId) {
     openModal('modalDetalleCita');
 }
 
+function actualizarHoraFin() {
+    const horaInicio = document.getElementById('citaHora').value;
+    const duracion   = (appData.settings && appData.settings.duracionCita) || 30;
+    if (!horaInicio) return;
+    const [h, m] = horaInicio.split(':').map(Number);
+    const totalMin = h * 60 + m + duracion;
+    const hFin = String(Math.floor(totalMin / 60) % 24).padStart(2, '0');
+    const mFin = String(totalMin % 60).padStart(2, '0');
+    document.getElementById('citaHoraFin').value = hFin + ':' + mFin;
+}
+
 function abrirModalNuevaCita() {
-    // Autocomplete input en lugar de select
-    document.getElementById('citaPacienteInput').value = '';
+    // Reset autocomplete
+    const pacInput = document.getElementById('citaPacienteInput');
+    pacInput.value = '';
+    pacInput.dataset.pacienteSeleccionado = '';
+    pacInput.dataset.pacienteId = '';
     document.getElementById('citaPacienteSuggestions').innerHTML = '';
     document.getElementById('citaPacienteSuggestions').style.display = 'none';
 
+    // Profesionales
     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
-
     const selectProf = document.getElementById('citaProfesional');
     selectProf.innerHTML = '<option value="">Seleccione profesional</option>' +
         profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
 
-    document.getElementById('citaFecha').value = new Date().toISOString().split('T')[0];
-    document.getElementById('citaHora').value = '09:00';
-    document.getElementById('citaConsultorio').value = '1';
-    document.getElementById('citaMotivo').value = '';
+    // Fecha de hoy (nunca pasado) — set min to today at browser level too
+    const todayStr = new Date().toISOString().split('T')[0];
+    const fechaEl = document.getElementById('citaFecha');
+    fechaEl.value = todayStr;
+    fechaEl.min   = todayStr;
 
+    // Hora inicio y fin automático
+    document.getElementById('citaHora').value = '09:00';
+    actualizarHoraFin();
+
+    // Consultorios dinámicos desde settings
+    const nConsultorios = (appData.settings && appData.settings.numConsultorios) || 4;
+    const selectCons = document.getElementById('citaConsultorio');
+    selectCons.innerHTML = Array.from({length: nConsultorios}, (_, i) =>
+        `<option value="${i+1}">Consultorio ${i+1}</option>`
+    ).join('');
+
+    document.getElementById('citaMotivo').value = '';
     openModal('modalNuevaCita');
 }
 
@@ -5486,8 +5521,15 @@ async function guardarCita() {
     const consultorio = parseInt(document.getElementById('citaConsultorio').value);
     const motivo = document.getElementById('citaMotivo').value.trim();
 
-    if (!paciente || !profesional || !fecha || !hora || !consultorio || !motivo) {
-        showToast('⚠️ Completa todos los campos', 3000, '#e65100');
+    // citaHoraFin is auto-calculated — not required from user
+    if (!paciente || !profesional || !fecha || !hora || isNaN(consultorio) || !motivo) {
+        // Identify which field is missing for a clear message
+        if (!paciente)           showToast('⚠️ Selecciona el paciente', 3000, '#e65100');
+        else if (!profesional)   showToast('⚠️ Selecciona el profesional', 3000, '#e65100');
+        else if (!fecha)         showToast('⚠️ Selecciona la fecha', 3000, '#e65100');
+        else if (!hora)          showToast('⚠️ Selecciona la hora de inicio', 3000, '#e65100');
+        else if (isNaN(consultorio)) showToast('⚠️ Selecciona el consultorio', 3000, '#e65100');
+        else                     showToast('⚠️ Escribe el motivo de la cita', 3000, '#e65100');
         return;
     }
 
@@ -5519,28 +5561,38 @@ async function guardarCita() {
     }
 
     // VALIDAR SOLAPAMIENTO
-    const duracionMin = (appData.settings && appData.settings.duracionCita) || 30;
+    const duracionMin    = (appData.settings && appData.settings.duracionCita) || 30;
     const fechaHoraNueva = new Date(fecha + 'T' + hora);
-    const finNueva = new Date(fechaHoraNueva.getTime() + duracionMin * 60000);
+    // Use horaFin field if available, otherwise calculate from duration
+    const horaFinVal = document.getElementById('citaHoraFin')?.value;
+    const finNueva   = horaFinVal
+        ? new Date(fecha + 'T' + horaFinVal)
+        : new Date(fechaHoraNueva.getTime() + duracionMin * 60000);
 
-    // Buscar citas que se solapen en el mismo consultorio
-    // Una cita se solapa si su inicio está antes del fin de la nueva, y su fin está después del inicio de la nueva
+    if (isNaN(fechaHoraNueva.getTime())) {
+        showToast('⚠️ Fecha u hora inválida', 3000, '#e65100');
+        return;
+    }
+
     const estadosIgnorar = ['Cancelada', 'Inasistencia', 'Completada'];
     const citasSolapadas = appData.citas.filter(c => {
         if (c.consultorio !== consultorio) return false;
         if (estadosIgnorar.includes(c.estado)) return false;
+        // Skip the cita being edited (if any)
+        if (c.id && c.id === document.getElementById('citaEditandoId')?.value) return false;
 
         const inicioCita = new Date(c.fecha);
+        if (isNaN(inicioCita.getTime())) return false;
         const durCita = (c.duracionMin) || duracionMin;
         const finCita = new Date(inicioCita.getTime() + durCita * 60000);
 
-        // Solapamiento real: las dos se superponen en el tiempo
         return fechaHoraNueva < finCita && finNueva > inicioCita;
     });
 
     if (citasSolapadas.length > 0) {
-        const citaSolapada = citasSolapadas[0];
-        showToast(`⚠️ Consultorio ${consultorio} ocupado a las ${citaSolapada.hora} — elige otra hora`, 5000, '#e65100');
+        const cs = citasSolapadas[0];
+        const fmt12 = t => { if (!t) return ''; const [h,m] = t.split(':'); const hh=+h; return `${hh%12||12}:${m} ${hh<12?'AM':'PM'}`; };
+        showToast(`⚠️ Consultorio ${consultorio} ya tiene una cita a las ${fmt12(cs.hora)} con ${cs.paciente} — elige otra hora o consultorio`, 6000, '#e65100');
         return;
     }
 

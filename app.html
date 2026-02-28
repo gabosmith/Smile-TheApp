@@ -1693,6 +1693,22 @@
                                 <option value="120">2 horas</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>Número de consultorios / sillas</label>
+                            <select id="configNumConsultorios">
+                                <option value="1">1 consultorio</option>
+                                <option value="2">2 consultorios</option>
+                                <option value="3">3 consultorios</option>
+                                <option value="4" selected>4 consultorios</option>
+                                <option value="5">5 consultorios</option>
+                                <option value="6">6 consultorios</option>
+                                <option value="8">8 consultorios</option>
+                                <option value="10">10 consultorios</option>
+                                <option value="12">12 consultorios</option>
+                                <option value="15">15 consultorios</option>
+                                <option value="20">20 consultorios</option>
+                            </select>
+                        </div>
                         <button class="btn btn-submit" style="width: 100%;" onclick="guardarConfigAgenda()">Guardar Agenda</button>
                     </div>
                 </div>
@@ -2057,15 +2073,16 @@
     </div>
 
     <!-- Nueva Cita -->
+    <input type="hidden" id="citaEditandoId" value="">
     <div id="modalNuevaCita" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Nueva Cita</div></div>
             <div class="form-group"><label>Paciente *</label><input type="text" id="citaPacienteInput" placeholder="Escribe para buscar..." oninput="buscarPaciente()" autocomplete="off"><div id="citaPacienteSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1.5px solid rgba(30,28,26,0.1); border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);"></div></div>
             <div class="form-group"><label>Profesional *</label><select id="citaProfesional"></select></div>
-            <div class="form-group"><label>Fecha *</label><input type="date" id="citaFecha"></div>
+            <div class="form-group"><label>Fecha *</label><input type="date" id="citaFecha" min=""></div>
             <div class="form-group"><label>Hora Inicio *</label><input type="time" id="citaHora" onchange="actualizarHoraFin()"></div>
-            <div class="form-group"><label>Hora Fin *</label><input type="time" id="citaHoraFin"></div>
-            <div class="form-group"><label>Consultorio *</label><select id="citaConsultorio"><option value="1">Consultorio 1</option><option value="2">Consultorio 2</option><option value="3">Consultorio 3</option><option value="4">Consultorio 4</option></select></div>
+            <div class="form-group"><label>Hora fin <span style="font-size:11px;color:var(--mid);font-weight:300">(calculada automáticamente)</span></label><input type="time" id="citaHoraFin" style="color:var(--mid)"></div>
+            <div class="form-group"><label>Consultorio *</label><select id="citaConsultorio"></select></div>
             <div class="form-group"><label>Motivo *</label><input type="text" id="citaMotivo" placeholder="Ej: Limpieza, Revisión"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevaCita')">Cancelar</button><button class="btn btn-save" onclick="guardarCita()">Guardar</button></div>
         </div>
