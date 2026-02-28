@@ -1036,7 +1036,7 @@
       </div>
     </div>
     <div class="solo-right">
-      <div class="solo-price">$19</div>
+      <div class="solo-price">RD$990</div>
       <div class="solo-period">/ mes · todo incluido</div>
       <button class="btn-primary magnetic" data-strength="25" style="margin-top:8px" onclick="window.location.href='smile-onboarding.html'">Empezar gratis</button>
     </div>
@@ -1052,54 +1052,54 @@
     </div>
     <div class="total-display reveal reveal-delay-2">
       <div class="total-label">Tu plan desde · NCF y expediente incluidos</div>
-      <div class="total-price" id="totalPrice">$23</div>
+      <div class="total-price" id="totalPrice">RD$1,200</div>
       <div class="total-base" id="totalBase">base · sin módulos</div>
     </div>
   </div>
 
   <div class="modules-grid" id="modulesGrid">
-    <div class="module-card float-sm reveal reveal-delay-1" data-price="5" onclick="toggleModule(this)">
+    <div class="module-card float-sm reveal reveal-delay-1" data-price="300" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--terracota)"></div>
       <div class="m-name">Laboratorio</div>
       <div class="m-desc">Gestión de órdenes, estados y seguimiento.</div>
-      <div class="m-price">$5 <span>/ mes</span></div>
+      <div class="m-price">RD$300 <span>/ mes</span></div>
     </div>
-    <div class="module-card float-sm reveal reveal-delay-2" data-price="5" onclick="toggleModule(this)">
+    <div class="module-card float-sm reveal reveal-delay-2" data-price="300" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--azul)"></div>
       <div class="m-name">Nómina</div>
       <div class="m-desc">Comisiones, avances y recibos de profesionales.</div>
-      <div class="m-price">$5 <span>/ mes</span></div>
+      <div class="m-price">RD$300 <span>/ mes</span></div>
     </div>
-    <div class="module-card float-sm reveal reveal-delay-3" data-price="5" onclick="toggleModule(this)">
+    <div class="module-card float-sm reveal reveal-delay-3" data-price="300" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--rosa)"></div>
       <div class="m-name">Inventario</div>
       <div class="m-desc">Control de materiales con alertas de stock.</div>
-      <div class="m-price">$5 <span>/ mes</span></div>
+      <div class="m-price">RD$300 <span>/ mes</span></div>
     </div>
-    <div class="module-card float-sm reveal reveal-delay-4" data-price="5" onclick="toggleModule(this)">
+    <div class="module-card float-sm reveal reveal-delay-4" data-price="300" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--light)"></div>
       <div class="m-name">Reportes avanzados</div>
       <div class="m-desc">Rentabilidad por médico, tendencias, exportación a Excel.</div>
-      <div class="m-price">$5 <span>/ mes</span></div>
+      <div class="m-price">RD$300 <span>/ mes</span></div>
     </div>
 
-    <div class="module-card float-sm reveal reveal-delay-2" data-price="15" onclick="toggleModule(this)">
+    <div class="module-card float-sm reveal reveal-delay-2" data-price="800" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--azul)"></div>
       <div class="m-name">Sucursal adicional</div>
       <div class="m-desc">Cada sede con gestión completamente independiente.</div>
-      <div class="m-price">$15 <span>/ mes</span></div>
+      <div class="m-price">RD$800 <span>/ mes</span></div>
     </div>
-    <div class="module-card float-sm reveal reveal-delay-3" data-price="2.5" onclick="toggleModule(this)">
+    <div class="module-card float-sm reveal reveal-delay-3" data-price="150" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--rosa)"></div>
       <div class="m-name">Usuario adicional</div>
       <div class="m-desc">Cada dentista, recepcionista o asistente con su propio acceso.</div>
-      <div class="m-price">$2.50 <span>/ mes</span></div>
+      <div class="m-price">RD$150 <span>/ mes</span></div>
     </div>
 
   </div>
@@ -1226,7 +1226,7 @@ document.querySelectorAll('.magnetic').forEach(btn => {
 });
 
 // ─── MODULE BUILDER ───────────────────────────────────
-const BASE = 23;
+const BASE = 1200;
 let selectedModules = new Set();
 
 function toggleModule(card) {
@@ -1255,7 +1255,7 @@ function updateTotal() {
 
   const el = document.getElementById('totalPrice');
   el.style.transform = 'scale(1.05)';
-  el.textContent = '$' + (Number.isInteger(total) ? total.toLocaleString() : total.toFixed(2));
+  el.textContent = 'RD$' + total.toLocaleString();
   setTimeout(() => el.style.transform = '', 200);
 
   const base = document.getElementById('totalBase');
@@ -1316,7 +1316,8 @@ function onAccesoInput(val) {
     .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
     .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
     .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
-    .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-|-$/g,'');
+    .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-/g,'');
+    // ↑ Solo eliminamos guion al INICIO — el del final se deja mientras escribe
   document.getElementById('accesoInput').value = clean;
   const hint = document.getElementById('accesoHint');
   const btn  = document.getElementById('accesoBtn');
@@ -1333,7 +1334,9 @@ function onAccesoInput(val) {
 }
 
 function irClinica() {
-  const id = document.getElementById('accesoInput').value.trim();
+  const raw = document.getElementById('accesoInput').value.trim();
+  // Final cleanup: strip trailing dash before navigating
+  const id = raw.replace(/-$/g, '');
   if (!id) return;
   const base = window.location.origin + window.location.pathname.replace('index.html','');
   window.location.href = base + 'app.html?clinica=' + id;
