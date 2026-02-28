@@ -367,17 +367,6 @@ function initConnectionMonitor() {
 // SANITIZACIÓN CENTRALIZADA DE DATOS
 // ═══════════════════════════════════════════════════════════
 
-// ── ESCAPE HTML — previene XSS al insertar datos de usuario en el DOM ──
-function esc(val) {
-    if (val === null || val === undefined) return '';
-    return String(val)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
 // Cleans a value before it goes to Firebase.
 // Returns the sanitized value, or throws if invalid and required.
 const sanitize = {
@@ -991,6 +980,7 @@ window.addEventListener('load', async function() {
         return;
     }
 
+    console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadPreciosGlobales(); // ← Precios desde Firebase antes de renderizar
@@ -1098,13 +1088,6 @@ let appData = {
 let currentPersonalToEdit = null;
 let currentReciboText = '';
 let currentFacturaToReverse = null;
-// ── Estado de modales — reemplaza variables window._ ──────────────
-let _ordenLabActualId    = null;
-let _ordenEditandoId     = null;
-let _ordenAbonoId        = null;
-let _pacienteDetalleId   = null;
-let _pacienteRetornoId   = null;
-let _pacientesAImportar  = [];
 
 // Role selector
 document.querySelectorAll('.role-btn').forEach(btn => {
@@ -1179,6 +1162,7 @@ async function migratePasswordIfNeeded(person, plaintext) {
         person.password    = hashed;
         person._pwHashed   = true;
         await saveData('saveData-init');
+        console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
     } catch(e) {
         console.warn('[Auth] No se pudo migrar contraseña:', e);
     }
@@ -1341,6 +1325,7 @@ async function ensureFirebaseAuth() {
         try {
             const cred = await intentarAuth();
             _firebaseAuthUid = cred.user.uid;
+            console.log(`[Auth] Firebase auth OK (intento ${intento}):`, _firebaseAuthUid);
             return;
         } catch(e) {
             console.warn(`[Auth] Intento ${intento}/3 fallido:`, e.message);
@@ -1903,8 +1888,8 @@ function updateIngresosTab() {
             <li>
                 <div class="item-header">
                     <div>
-                        <div style="font-size: 12px; color: #8e8e93;">${esc(f.numero)}</div>
-                        <div class="item-title">${esc(f.paciente)}</div>
+                        <div style="font-size: 12px; color: #8e8e93;">${f.numero}</div>
+                        <div class="item-title">${f.paciente}</div>
                     </div>
                     <span class="badge badge-${f.estado === 'pagada' ? 'paid' : (f.estado === 'parcial' || f.estado === 'partial') ? 'partial' : 'pending'}">
                         ${f.estado === 'pagada' ? 'Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? 'Con Abono' : 'Pendiente'}
@@ -2163,7 +2148,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         factura.ordenesLab.forEach(orden => {
             facturaHTML += `
                     <tr style="border-bottom: 1px solid #e0e0e0; background: #f0f8ff;">
-                        <td style="padding: 8px;">🔬 ${esc(orden.tipo)}${orden.dientes ? ` (Dientes: ${orden.dientes})` : ''}</td>
+                        <td style="padding: 8px;">🔬 ${orden.tipo}${orden.dientes ? ` (Dientes: ${orden.dientes})` : ''}</td>
                         <td style="padding: 8px; text-align: center;">1</td>
                         <td style="padding: 8px; text-align: right;">${formatCurrency(orden.precio)}</td>
                         <td style="padding: 8px; text-align: right; font-weight: 600;">${formatCurrency(orden.precio)}</td>
@@ -2265,9 +2250,9 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     openModal('modalFacturaCliente');
 
     // Si el pago vino desde la ficha del paciente, volver a ella al cerrar el recibo
-    if (_pacienteRetornoId) {
-        const pacienteIdRetorno = _pacienteRetornoId;
-        _pacienteRetornoId = null;
+    if (window.tempPacienteIdRetorno) {
+        const pacienteIdRetorno = window.tempPacienteIdRetorno;
+        window.tempPacienteIdRetorno = null;
         const modalEl = document.getElementById('modalFacturaCliente');
         const handler = function(e) {
             if (e.target === modalEl) {
@@ -2465,9 +2450,9 @@ function updateCuadreTab() {
                 htmlIngresos += `
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                         <div>
-                            <span style="font-weight: 600;">${icono} ${esc(f.paciente)}</span>
+                            <span style="font-weight: 600;">${icono} ${f.paciente}</span>
                             <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
-                            <div style="font-size: 12px; color: #999;">Factura ${esc(f.numero)} - ${p.metodo}</div>
+                            <div style="font-size: 12px; color: #999;">Factura ${f.numero} - ${p.metodo}</div>
                         </div>
                         <div style="font-weight: 500; color: var(--green,#6B8F71);">${formatCurrency(p.monto)}</div>
                     </div>
@@ -2977,7 +2962,7 @@ function openPersonalDetail(id) {
                                 <strong>${formatCurrency(a.monto)}</strong>
                                 <span style="color: #8e8e93; font-size: 13px;">${new Date(a.fecha).toLocaleDateString(getLocale())}</span>
                             </div>
-                            ${a.notas ? `<div style="font-size: 13px; color: #666;">${esc(a.notas)}</div>` : ''}
+                            ${a.notas ? `<div style="font-size: 13px; color: #666;">${a.notas}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -3111,7 +3096,7 @@ function confirmarPagoProfesional(id) {
             </div>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
-                    ${esc(person.nombre)}
+                    ${person.nombre}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
                     <strong>Cargo:</strong> ${getTipoLabel(person.tipo)}
@@ -3151,7 +3136,7 @@ RECIBO DE PAGO DE COMISIONES
 
 Fecha: ${fecha}
 Hora: ${hora}
-Para: ${esc(person.nombre)}
+Para: ${person.nombre}
 Cargo: ${getTipoLabel(person.tipo)}
 Comisión: ${getComisionRate(person.tipo, person)}%
 
@@ -3207,7 +3192,7 @@ function confirmarPagoEmpleado(id) {
                 <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Neto a pagar &middot; ${getFrecuenciaLabel(person.frecuenciaPago || 'mensual')}</div>
                 <div style="font-size:32px;font-weight:300;color:var(--green,#6B8F71)">${formatCurrency(neto)}</div>
             </div>
-            <div style="font-size:14px;color:var(--mid);margin-bottom:4px"><strong style="color:var(--dark)">${esc(person.nombre)}</strong> · ${getTipoLabel(person.tipo, person)}</div>
+            <div style="font-size:14px;color:var(--mid);margin-bottom:4px"><strong style="color:var(--dark)">${person.nombre}</strong> · ${getTipoLabel(person.tipo, person)}</div>
             <div style="font-size:13px;color:var(--mid)">Salario base: ${formatCurrency(person.sueldo)}${totalAvances > 0 ? ` · Avances descontados: -${formatCurrency(totalAvances)}` : ''}</div>
         `,
         tipo: 'normal',
@@ -3228,7 +3213,7 @@ RECIBO DE PAGO DE SALARIO
 
 Fecha: ${fecha}
 Hora: ${hora}
-Para: ${esc(person.nombre)}
+Para: ${person.nombre}
 Cargo: ${getTipoLabel(person.tipo)}
 
 ================================
@@ -3445,7 +3430,7 @@ function togglePermiso(personId, key, valorActual) {
     }
 
     saveData();
-    registrarAuditoria('editar', 'permiso', `${key}: ${nuevoValor ? 'activado' : 'desactivado'} para ${esc(person.nombre)}`);
+    registrarAuditoria('editar', 'permiso', `${key}: ${nuevoValor ? 'activado' : 'desactivado'} para ${person.nombre}`);
 }
 
 function guardarComisionPersonal(personId) {
@@ -3463,7 +3448,7 @@ function guardarComisionPersonal(personId) {
 
     person.comisionPct = val;
     saveData();
-    showToast(`✓ Comisión de ${esc(person.nombre)} actualizada a ${val}%`);
+    showToast(`✓ Comisión de ${person.nombre} actualizada a ${val}%`);
 
     // Refresh the modal to show the individual badge
     openPersonalDetail(personId);
@@ -3526,7 +3511,7 @@ function eliminarPersonal(id) {
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
-                    ${esc(person.nombre)}
+                    ${person.nombre}
                 </div>
                 <div style="font-size: 14px; color: #666;">
                     <strong>Tipo:</strong> ${getTipoLabel(person.tipo)}
@@ -4260,7 +4245,7 @@ function verPaciente(pacienteId) {
 
     // Subtítulo con info rápida
     let subtitulo = paciente.cedula || '';
-    if (paciente.telefono) subtitulo += subtitulo ? ` • ${esc(paciente.telefono)}` : paciente.telefono;
+    if (paciente.telefono) subtitulo += subtitulo ? ` • ${paciente.telefono}` : paciente.telefono;
     document.getElementById('verPacienteSubtitulo').textContent = subtitulo;
 
     // Solo ocultar/mostrar Balance por rol — renderizado lazy al cambiar tab
@@ -4458,7 +4443,7 @@ function _renderResumenOdonto(odonto) {
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:13px;font-weight:500;color:${cfg.text};">${cfg.label}</div>
-                    ${dato.nota ? `<div style="font-size:11px;color:#999;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(dato.nota)}</div>` : ''}
+                    ${dato.nota ? `<div style="font-size:11px;color:#999;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${dato.nota}</div>` : ''}
                 </div>
                 <div style="font-size:10px;color:#bbb;text-align:right;flex-shrink:0;">
                     ${dato.fecha ? new Date(dato.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'}) : ''}
@@ -4918,8 +4903,8 @@ function renderTabHistorial(paciente) {
                 <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;
                             display:flex;justify-content:space-between;align-items:center;">
                     <div>
-                        <div style="font-size:12px;color:#999;margin-bottom:2px;">${esc(f.numero)} · ${formatDate(f.fecha)}</div>
-                        <div style="font-size:13px;color:#555;">${esc(f.profesional)}</div>
+                        <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
+                        <div style="font-size:13px;color:#555;">${f.profesional}</div>
                     </div>
                     <div style="text-align:right;">
                         <div style="font-size:11px;font-weight:600;color:${estadoColor};background:${estadoColor}18;
@@ -5183,8 +5168,8 @@ function renderTabBalance(paciente) {
                     <div style="background: #fff; border: 2px solid #e5e5e7; border-radius: 8px; padding: 16px;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                             <div>
-                                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${esc(f.numero)}</div>
-                                <div style="font-size: 13px; color: #666; margin-top: 4px;">${formatDate(f.fecha)} • ${esc(f.profesional)}</div>
+                                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
+                                <div style="font-size: 13px; color: #666; margin-top: 4px;">${formatDate(f.fecha)} • ${f.profesional}</div>
                             </div>
                             <div style="text-align: right;">
                                 <div style="font-size: 18px; font-weight: 700; color: #ff3b30;">${formatCurrency(pendiente)}</div>
@@ -5213,7 +5198,7 @@ function renderTabBalance(paciente) {
                     <div style="background: #f8f9fa; border: 2px solid #28a745; border-radius: 8px; padding: 16px; opacity: 0.8;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${esc(f.numero)}</div>
+                                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
                                 <div style="font-size: 12px; color: #666;">${formatDate(f.fecha)}</div>
                             </div>
                             <div style="text-align: right;">
@@ -5383,11 +5368,11 @@ function verDetalleCita(citaId) {
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 16px;">
             <div style="background: #f8f9fa; padding: 14px; border-radius: 8px;">
                 <div style="font-size: 10px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Paciente</div>
-                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${esc(cita.paciente)}</div>
+                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${cita.paciente}</div>
             </div>
             <div style="background: #f8f9fa; padding: 14px; border-radius: 8px;">
                 <div style="font-size: 10px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Profesional</div>
-                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${esc(cita.profesional)}</div>
+                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${cita.profesional}</div>
             </div>
         </div>
 
@@ -5398,7 +5383,7 @@ function verDetalleCita(citaId) {
 
         <div style="background: #e7f3ff; padding: 14px; border-radius: 8px;">
             <div style="font-size: 10px; color: #004085; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Motivo</div>
-            <div style="font-size: 15px; font-weight: 500; color: #1d1d1f;">${esc(cita.motivo)}</div>
+            <div style="font-size: 15px; font-weight: 500; color: #1d1d1f;">${cita.motivo}</div>
         </div>
 
         ${cita.procedimientosRealizados ? `
@@ -5667,13 +5652,13 @@ function updateListaOrdenesLabTemp() {
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="flex: 1;">
                     <div style="font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
-                        ${esc(orden.tipo)}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
+                        ${orden.tipo}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
                     </div>
                     <div style="font-size: 13px; color: #666; margin-bottom: 2px;">
-                        ${esc(orden.descripcion)}
+                        ${orden.descripcion}
                     </div>
                     <div style="font-size: 12px; color: #666;">
-                        Lab: ${esc(orden.laboratorio)}
+                        Lab: ${orden.laboratorio}
                     </div>
                     <div style="font-size: 13px; margin-top: 4px;">
                         <span style="color: #28a745; font-weight: 600;">Precio: ${formatCurrency(orden.precio)}</span>
@@ -5805,13 +5790,13 @@ function updateLaboratorioTab() {
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
                     <div style="flex: 1;">
                         <div style="font-size: 16px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
-                            ${esc(orden.tipo)}${orden.dientes ? ` - ${orden.dientes}` : ''}
+                            ${orden.tipo}${orden.dientes ? ` - ${orden.dientes}` : ''}
                         </div>
                         <div style="font-size: 14px; color: #666; margin-bottom: 2px;">
-                            👤 ${esc(orden.paciente)}
+                            👤 ${orden.paciente}
                         </div>
                         <div style="font-size: 13px; color: #666;">
-                            👨‍⚕️ ${esc(orden.profesional)} • 🏥 ${esc(orden.laboratorio)}
+                            👨‍⚕️ ${orden.profesional} • 🏥 ${orden.laboratorio}
                         </div>
                     </div>
                     <div style="text-align: right;">
@@ -5850,20 +5835,20 @@ function verDetalleOrdenLab(ordenId) {
     document.getElementById('detalleLabInfo').innerHTML = `
         <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
-                ${esc(orden.tipo)}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
+                ${orden.tipo}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
             </div>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Paciente</div>
-                    <div style="font-size: 14px; font-weight: 500;">${esc(orden.paciente)}</div>
+                    <div style="font-size: 14px; font-weight: 500;">${orden.paciente}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Profesional</div>
-                    <div style="font-size: 14px; font-weight: 500;">${esc(orden.profesional)}</div>
+                    <div style="font-size: 14px; font-weight: 500;">${orden.profesional}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Laboratorio</div>
-                    <div style="font-size: 14px; font-weight: 500;">${esc(orden.laboratorio)}</div>
+                    <div style="font-size: 14px; font-weight: 500;">${orden.laboratorio}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Factura</div>
@@ -5872,7 +5857,7 @@ function verDetalleOrdenLab(ordenId) {
             </div>
             <div style="margin-top: 10px;">
                 <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Descripción</div>
-                <div style="font-size: 14px;">${esc(orden.descripcion)}</div>
+                <div style="font-size: 14px;">${orden.descripcion}</div>
             </div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
                 <div>
@@ -5917,7 +5902,7 @@ function verDetalleOrdenLab(ordenId) {
         `;
     }).join('');
 
-    _ordenLabActualId = ordenId;
+    window.currentOrdenLabId = ordenId;
 
     const botonesHTML = renderizarBotonesAvance(orden);
     document.getElementById('botonesAvanceLab').innerHTML = `
@@ -5999,13 +5984,13 @@ async function avanzarEstadoLab(nuevoEstado) {
         return;
     }
 
-    if (!_ordenLabActualId) {
+    if (!window.currentOrdenLabId) {
         showToast('⚠️ No hay orden seleccionada', 3000, '#e65100');
         console.error('[Lab] actualizarEstadoLab llamado sin orden activa.');
         return;
     }
 
-    const orden = appData.laboratorios.find(o => o.id === _ordenLabActualId);
+    const orden = appData.laboratorios.find(o => o.id === window.currentOrdenLabId);
 
     if (!orden) {
         showToast('⚠️ Orden no encontrada', 3000, '#e65100');
@@ -6053,7 +6038,7 @@ async function avanzarEstadoLab(nuevoEstado) {
         if (balancePendiente > 0) {
             mostrarConfirmacion({
                 titulo: 'Balance pendiente',
-                mensaje: `<strong>${esc(orden.paciente)}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
+                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
                 tipo: 'advertencia',
                 confirmText: 'Sí, entregar',
                 onConfirm: ejecutarAvance
@@ -6467,7 +6452,7 @@ function generarPDFConsentimiento(paciente) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(11);
 
-    doc.text(`Nombre completo: ${esc(paciente.nombre)}`, margin + 5, y + 16);
+    doc.text(`Nombre completo: ${paciente.nombre}`, margin + 5, y + 16);
     doc.text(`Cédula: ${paciente.cedula || 'No registrada'}`, margin + 5, y + 23);
     doc.text(`Teléfono: ${paciente.telefono || 'No registrado'}`, margin + 5, y + 30);
 
@@ -7516,8 +7501,8 @@ function aplicarFiltrosFacturas() {
                 <li style="cursor: default;">
                     <div class="item-header">
                         <div>
-                            <div style="font-size: 12px; color: #8e8e93;">${esc(f.numero)} - ${formatDate(f.fecha)}</div>
-                            <div class="item-title">${esc(f.paciente)}</div>
+                            <div style="font-size: 12px; color: #8e8e93;">${f.numero} - ${formatDate(f.fecha)}</div>
+                            <div class="item-title">${f.paciente}</div>
                             <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff' : '#ff3b30'}; font-weight: 600;">
                                 ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
                             </div>
@@ -8421,7 +8406,7 @@ function buscarGlobal() {
                 <div onclick="irAFactura('${f.id}')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                         <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">
-                            ${esc(f.numero)} • ${esc(f.paciente)}
+                            ${f.numero} • ${f.paciente}
                         </div>
                         <div style="background: ${color}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
                             ${estadoLabel}
@@ -8821,10 +8806,11 @@ function generarVistaPrevia() {
 
     // Filtrar solo pacientes con nombre y teléfono
     const totalAntesFiltro = pacientes.length;
-    _pacientesAImportar = pacientes.filter(p => p.nombre && p.telefono);
-    const totalDespuesFiltro = _pacientesAImportar.length;
+    window.pacientesAImportar = pacientes.filter(p => p.nombre && p.telefono);
+    const totalDespuesFiltro = window.pacientesAImportar.length;
     const filtrados = totalAntesFiltro - totalDespuesFiltro;
 
+    console.log(`📊 Procesamiento CSV:
     - Total filas: ${csvData.length}
     - Pacientes creados: ${totalAntesFiltro}
     - Con nombre y teléfono: ${totalDespuesFiltro}
@@ -8837,7 +8823,7 @@ function generarVistaPrevia() {
     let html = `
         <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="font-weight: 600; color: #0d47a1; margin-bottom: 8px;">
-                ✅ Se importarán ${_pacientesAImportar.length} pacientes
+                ✅ Se importarán ${window.pacientesAImportar.length} pacientes
             </div>
             <div style="font-size: 13px; color: #1565c0;">
                 Los primeros 5 se muestran a continuación para revisión
@@ -8857,7 +8843,7 @@ function generarVistaPrevia() {
                 <tbody>
     `;
 
-    _pacientesAImportar.slice(0, 5).forEach(p => {
+    window.pacientesAImportar.slice(0, 5).forEach(p => {
         html += `
             <tr>
                 <td style="padding: 10px; border: 1px solid #e5e5e7;">${p.nombre}</td>
@@ -8870,15 +8856,15 @@ function generarVistaPrevia() {
 
     html += '</tbody></table></div>';
 
-    if (_pacientesAImportar.length > 5) {
-        html += `<div style="text-align: center; padding: 10px; color: #666; font-size: 13px;">... y ${_pacientesAImportar.length - 5} más</div>`;
+    if (window.pacientesAImportar.length > 5) {
+        html += `<div style="text-align: center; padding: 10px; color: #666; font-size: 13px;">... y ${window.pacientesAImportar.length - 5} más</div>`;
     }
 
     document.getElementById('vistaPrevia').innerHTML = html;
 }
 
 function ejecutarImportacion() {
-    if (!_pacientesAImportar || _pacientesAImportar.length === 0) {
+    if (!window.pacientesAImportar || window.pacientesAImportar.length === 0) {
         showToast('⚠️ No hay pacientes para importar', 3000, '#e65100');
         return;
     }
@@ -8889,7 +8875,7 @@ function ejecutarImportacion() {
             <div style="text-align: center; padding: 20px;">
                 <div style="font-size: 48px; margin-bottom: 15px;">📥</div>
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
-                    ¿Confirmar importación de ${_pacientesAImportar.length} pacientes?
+                    ¿Confirmar importación de ${window.pacientesAImportar.length} pacientes?
                 </div>
                 <div style="font-size: 14px; color: #666;">
                     Los pacientes se agregarán a la base de datos actual
@@ -8899,14 +8885,18 @@ function ejecutarImportacion() {
         tipo: 'normal',
         confirmText: 'Sí, Importar Ahora',
         onConfirm: async () => {
+            console.log(`🚀 Iniciando importación de ${window.pacientesAImportar.length} pacientes...`);
 
             // Agregar pacientes
             const cantidadAntes = appData.pacientes.length;
-            appData.pacientes.push(..._pacientesAImportar);
+            appData.pacientes.push(...window.pacientesAImportar);
             const cantidadDespues = appData.pacientes.length;
 
+            console.log(`📥 Importación: ${cantidadAntes} → ${cantidadDespues} pacientes`);
+            console.log(`💾 Llamando a saveData()...`);
 
             await saveData();
+            console.log(`🔄 Actualizando tab de pacientes...`);
 
             // Actualizar tab de pacientes para reflejar los nuevos
             updatePacientesTab();
@@ -8920,7 +8910,7 @@ function ejecutarImportacion() {
                         ¡Importación Exitosa!
                     </div>
                     <div style="font-size: 16px; color: #155724; margin-bottom: 15px;">
-                        ${_pacientesAImportar.length} pacientes importados correctamente
+                        ${window.pacientesAImportar.length} pacientes importados correctamente
                     </div>
                     <div style="font-size: 14px; color: #155724; margin-bottom: 15px;">
                         Total de pacientes en sistema: ${cantidadDespues}
@@ -8936,7 +8926,7 @@ function ejecutarImportacion() {
             document.getElementById('paso2-mapeo').style.display = 'none';
             document.getElementById('paso3-preview').style.display = 'none';
             document.getElementById('paso4-importar').style.display = 'none';
-            _pacientesAImportar = null;
+            window.pacientesAImportar = null;
 
             updatePacientesTab();
         }
@@ -9031,16 +9021,16 @@ function cancelarCita() {
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
-                    ${esc(cita.paciente)}
+                    ${cita.paciente}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
                     <strong>Fecha:</strong> ${formatDate(cita.fecha)} ${cita.hora}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
-                    <strong>Profesional:</strong> ${esc(cita.profesional)}
+                    <strong>Profesional:</strong> ${cita.profesional}
                 </div>
                 <div style="font-size: 14px; color: #666;">
-                    <strong>Motivo:</strong> ${esc(cita.motivo)}
+                    <strong>Motivo:</strong> ${cita.motivo}
                 </div>
             </div>
             <div style="background: #fff3cd; padding: 12px; border-radius: 6px; border-left: 3px solid #ffc107;">
@@ -9084,8 +9074,12 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
+    console.log('📊 Debug abrirAbonoBalance:');
+    console.log('Paciente:', paciente.nombre);
     
     const todasFacturas = getFacturasDePaciente(paciente);
+    console.log('Total facturas del paciente:', todasFacturas.length);
+    console.log('Estados de facturas:', todasFacturas.map(f => ({ numero: f.numero, estado: f.estado })));
     
     // Encontrar factura más antigua pendiente (filtro robusto - ambos idiomas)
     const facturasPendientes = todasFacturas
@@ -9098,6 +9092,7 @@ function abrirAbonoBalance(pacienteId) {
         })
         .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
+    console.log('Facturas pendientes encontradas:', facturasPendientes.length);
     
     if (facturasPendientes.length === 0) {
         showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
@@ -9105,6 +9100,7 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
+    console.log('Abriendo pago de factura:', facturasPendientes[0].numero);
     
     // Abrir pago de la factura más antigua
     closeModal('modalVerPaciente');
@@ -9123,7 +9119,7 @@ function abrirPagoFactura(facturaId, pacienteId) {
     openPagarFactura(facturaId);
     
     // Guardar pacienteId para volver a la ficha después
-    _pacienteRetornoId = pacienteId;
+    window.tempPacienteIdRetorno = pacienteId;
 }
 
 
@@ -9137,50 +9133,49 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // ═══════════════════════════════════════════════
 
 // ── PRECIOS GLOBALES ─────────────────────────────────────────────────
-// Los precios se cargan desde Firebase (smile_config/precios) al iniciar.
-// Estos valores son el respaldo en caso de que Firebase no responda.
-// Para editarlos ve al panel admin de SMILE → Precios.
+// Se cargan desde Firebase (smile_config/precios) al iniciar.
+// Valores aquí son el respaldo. Para editarlos: Admin SMILE → Precios.
 let _preciosGlobales = {
-    base_clinica:  1200,
-    base_solo:      990,
+    base_clinica:       23,    // USD/mes
+    base_solo:          19,    // USD/mes
     modulos: {
-        laboratorio:   300,
-        nomina:        300,
-        inventario:    300,
-        reportes:      300,
-        multisucursal: 800,
-        expediente:    300,
-    }
+        laboratorio:     5,
+        nomina:          5,
+        inventario:      5,
+        reportes:        5,
+        multisucursal:  15,    // sucursal adicional
+        expediente:      5,
+    },
+    usuario_adicional:  2.5,   // USD/mes por usuario (admin gratis)
 };
 
-// Carga los precios desde Firebase y actualiza _preciosGlobales.
-// Se llama una sola vez al arrancar la app.
 async function loadPreciosGlobales() {
     try {
         const snap = await db.collection('smile_config').doc('precios').get();
         if (snap.exists) {
-            const data = snap.data();
-            _preciosGlobales.base_clinica  = data.base_clinica  ?? _preciosGlobales.base_clinica;
-            _preciosGlobales.base_solo     = data.base_solo     ?? _preciosGlobales.base_solo;
-            if (data.modulos && typeof data.modulos === 'object') {
-                Object.assign(_preciosGlobales.modulos, data.modulos);
+            const d = snap.data();
+            _preciosGlobales.base_clinica       = d.base_clinica       ?? _preciosGlobales.base_clinica;
+            _preciosGlobales.base_solo          = d.base_solo          ?? _preciosGlobales.base_solo;
+            _preciosGlobales.usuario_adicional  = d.usuario_adicional  ?? _preciosGlobales.usuario_adicional;
+            if (d.modulos && typeof d.modulos === 'object') {
+                Object.assign(_preciosGlobales.modulos, d.modulos);
             }
         }
     } catch(e) {
-        console.warn('[Precios] No se pudieron cargar desde Firebase, usando defaults.', e.message);
+        console.warn('[Precios] Usando defaults.', e.message);
     }
 }
 
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',         get precio() { return _preciosGlobales.modulos.laboratorio   ?? 300; }, soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',              get precio() { return _preciosGlobales.modulos.nomina        ?? 300; }, soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',          get precio() { return _preciosGlobales.modulos.inventario    ?? 300; }, soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados',  get precio() { return _preciosGlobales.modulos.reportes      ?? 300; }, soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional',  get precio() { return _preciosGlobales.modulos.multisucursal ?? 800; }, soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',         get precio() { return _preciosGlobales.modulos.laboratorio   ?? 5;  }, soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',              get precio() { return _preciosGlobales.modulos.nomina        ?? 5;  }, soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',          get precio() { return _preciosGlobales.modulos.inventario    ?? 5;  }, soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados',  get precio() { return _preciosGlobales.modulos.reportes      ?? 5;  }, soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional',  get precio() { return _preciosGlobales.modulos.multisucursal ?? 15; }, soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
 const BASE_PRECIOS = {
-    get clinica() { return _preciosGlobales.base_clinica ?? 1200; },
-    get solo()    { return _preciosGlobales.base_solo    ?? 990;  },
+    get clinica() { return _preciosGlobales.base_clinica ?? 23; },
+    get solo()    { return _preciosGlobales.base_solo    ?? 19; },
 };
 
 function renderMiPlanTab() {
@@ -11156,7 +11151,7 @@ async function eliminarPacienteActual() {
     // Buscar qué paciente está abierto actualmente
     const idEl = document.getElementById('detallePacienteId') ||
                  document.getElementById('pacienteDetalleId');
-    const pacienteId = idEl?.value || _pacienteDetalleId;
+    const pacienteId = idEl?.value || window._pacienteDetalleId;
     if (!pacienteId) {
         showToast('⚠️ No se identificó el paciente', 3000, '#e65100');
         return;
@@ -11169,8 +11164,8 @@ async function eliminarPacienteActual() {
         titulo: '⚠️ Eliminar Paciente',
         mensaje: `
             <div style="background:#f8f9fa;padding:14px;border-radius:8px;margin-bottom:12px">
-                <div style="font-weight:500;font-size:16px;margin-bottom:6px">${esc(paciente.nombre)}</div>
-                ${paciente.cedula ? `<div style="font-size:13px;color:#666">Cédula: ${esc(paciente.cedula)}</div>` : ''}
+                <div style="font-weight:500;font-size:16px;margin-bottom:6px">${paciente.nombre}</div>
+                ${paciente.cedula ? `<div style="font-size:13px;color:#666">Cédula: ${paciente.cedula}</div>` : ''}
             </div>
             <div style="background:#fff3cd;padding:10px;border-radius:6px;font-size:13px">
                 ⚠️ Se eliminarán el expediente y todos sus datos. Esta acción no se puede deshacer.
@@ -11181,7 +11176,7 @@ async function eliminarPacienteActual() {
             const backupPacientes = [...appData.pacientes];
             appData.pacientes = appData.pacientes.filter(p => p.id !== pacienteId);
             registrarAuditoria('eliminar', 'paciente',
-                `${esc(paciente.nombre)}${paciente.cedula ? ' · Cédula: ' + paciente.cedula : ''}`);
+                `${paciente.nombre}${paciente.cedula ? ' · Cédula: ' + paciente.cedula : ''}`);
             try {
                 // Eliminar de subcollección
                 await db.collection('clinicas').doc(CLINIC_PATH)
@@ -11204,15 +11199,15 @@ async function eliminarPacienteActual() {
 
 // ── 3. Editar Orden de Laboratorio ───────────────────────
 // El modal #modalEditarOrden tiene campos: descripcion, laboratorio, precio.
-// _ordenLabActualId guarda la orden actualmente abierta en el detalle.
+// window.currentOrdenLabId guarda la orden actualmente abierta en el detalle.
 
 function abrirEditarOrden(ordenId) {
-    const id = ordenId || _ordenLabActualId;
+    const id = ordenId || window.currentOrdenLabId;
     if (!id) return;
     const orden = appData.laboratorios?.find(o => o.id === id);
     if (!orden) return;
 
-    _ordenEditandoId = id;
+    window._ordenEditandoId = id;
     const descEl  = document.getElementById('editOrdenDescripcion');
     const labEl   = document.getElementById('editOrdenLaboratorio');
     const precioEl = document.getElementById('editOrdenPrecio');
@@ -11223,7 +11218,7 @@ function abrirEditarOrden(ordenId) {
 }
 
 async function guardarEdicionOrden() {
-    const id = _ordenEditandoId || _ordenLabActualId;
+    const id = window._ordenEditandoId || window.currentOrdenLabId;
     if (!id) return;
 
     const descripcion = document.getElementById('editOrdenDescripcion')?.value.trim();
@@ -11258,12 +11253,12 @@ async function guardarEdicionOrden() {
 // Los campos: abonoMonto, abonoFecha, abonoNotas.
 
 function abrirAbonoLab(ordenId) {
-    const id = ordenId || _ordenLabActualId;
+    const id = ordenId || window.currentOrdenLabId;
     if (!id) return;
     const orden = appData.laboratorios?.find(o => o.id === id);
     if (!orden) return;
 
-    _ordenAbonoId = id;
+    window._ordenAbonoId = id;
 
     const infoEl   = document.getElementById('abonoOrdenInfo');
     const saldoEl  = document.getElementById('abonoSaldoActual');
@@ -11274,7 +11269,7 @@ function abrirAbonoLab(ordenId) {
     const totalAbonado = (orden.abonos || []).reduce((s, a) => s + (a.monto || 0), 0);
     const saldoPendiente = Math.max(0, (orden.costo || 0) - totalAbonado);
 
-    if (infoEl)  infoEl.textContent  = `${orden.tipo || 'Orden'} — ${esc(orden.laboratorio)}`;
+    if (infoEl)  infoEl.textContent  = `${orden.tipo || 'Orden'} — ${orden.laboratorio}`;
     if (saldoEl) saldoEl.textContent = `Costo: ${formatCurrency(orden.costo || 0)} · Abonado: ${formatCurrency(totalAbonado)} · Pendiente: ${formatCurrency(saldoPendiente)}`;
     if (montoEl) montoEl.value = '';
     if (fechaEl) fechaEl.value = new Date().toISOString().split('T')[0];
@@ -11284,7 +11279,7 @@ function abrirAbonoLab(ordenId) {
 }
 
 async function guardarAbonoLab() {
-    const id = _ordenAbonoId;
+    const id = window._ordenAbonoId;
     if (!id) return;
 
     const monto = parseFloat(document.getElementById('abonoMonto')?.value) || 0;
