@@ -8051,7 +8051,23 @@ function updateDashboardTab() {
 
     // Fecha + saludo + frase motivacional
     const fechaStr = new Date().toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
-    const nombre = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
+
+    // Obtener nombre real del usuario — con múltiples fuentes de fallback
+    let nombre = appData.currentUser || '';
+    if (!nombre || nombre === 'admin') {
+        // Fallback 1: buscar en personal por rol admin
+        const adminPerson = appData.personal.find(p => p.isAdmin);
+        nombre = adminPerson?.nombre || '';
+    }
+    if (!nombre) {
+        // Fallback 2: buscar en personal por nombre de usuario actual
+        const person = appData.personal.find(p => p.nombre === appData.currentUser);
+        nombre = person?.nombre || '';
+    }
+    if (!nombre) {
+        // Fallback 3: getNombreAdmin como último recurso
+        nombre = getNombreAdmin();
+    }
     const nombreCorto = nombre ? nombre.split(' ')[0] : '';
     const fraseDia = getFrase();
     const saludoDia = getSaludo();
