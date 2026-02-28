@@ -1092,39 +1092,31 @@ let currentPersonalToEdit = null;
 let currentReciboText = '';
 let currentFacturaToReverse = null;
 
-// Role selector
-document.querySelectorAll('.role-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
+// ── UNIFIED LOGIN helpers ────────────────────────────────────────
+// Single username+password — role determined automatically from personal[]
+function updateProfessionalPicker() { /* legacy no-op */ }
+function updateReceptionPicker()   { /* legacy no-op */ }
 
-        const role = this.dataset.role;
-
-        // Hide all first
-        document.getElementById('professionalSelect').classList.add('hidden');
-        document.getElementById('receptionSelect').classList.add('hidden');
-        document.getElementById('usernameInput').classList.add('hidden');
-
-        // Show correct one
-        if (role === 'professional') {
-            document.getElementById('professionalSelect').classList.remove('hidden');
-        } else if (role === 'reception') {
-            document.getElementById('receptionSelect').classList.remove('hidden');
-            updateReceptionPicker();
-        } else {
-            document.getElementById('usernameInput').classList.remove('hidden');
-        }
-    });
-});
-
-// Update professional picker
-function updateProfessionalPicker() {
-    const picker = document.getElementById('professionalPicker');
-    if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
-    appData.personal.filter(p => p.tipo !== 'empleado').forEach(p => {
-        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
-    });
+function _loginSetLoading(on) {
+    const btn = document.getElementById('loginBtn');
+    if (!btn) return;
+    btn.disabled = on;
+    btn.textContent = on ? 'Verificando...' : 'Entrar';
+}
+function _loginShowError(msg) {
+    _loginSetLoading(false);
+    const el = document.getElementById('loginError');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+    // Shake animation
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = 'loginShake 0.35s ease';
+}
+function _loginClearError() {
+    const el = document.getElementById('loginError');
+    if (el) { el.style.display = 'none'; el.textContent = ''; }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1354,81 +1346,78 @@ function updateReceptionPicker() {
 
 // Login — async to support SHA-256 password verification
 async function login() {
-    const roleBtn = document.querySelector('.role-btn.active');
-    const role    = roleBtn?.dataset.role;
-    const password = document.getElementById('password').value;
+    _loginClearError();
+    const usernameRaw = (document.getElementById('loginUsername')?.value || '').trim();
+    const password    = (document.getElementById('loginPassword')?.value || '');
 
-    if (!password) { showToast('⚠️ Ingresa tu contraseña'); return; }
+    if (!usernameRaw) { _loginShowError('Ingresa tu usuario'); return; }
+    if (!password)    { _loginShowError('Ingresa tu contraseña'); return; }
 
-    let username = '';
-    let person   = null;
+    _loginSetLoading(true);
 
-    if (role === 'professional') {
-        username = document.getElementById('professionalPicker').value;
-        if (!username) { showToast('⚠️ Selecciona un profesional'); return; }
-        person = appData.personal.find(p => p.nombre === username);
-        if (!person)           { showToast('⚠️ Profesional no encontrado. Recarga la página.', 4000, '#c0392b'); return; }
-        if (!person.password)  { showToast('⚠️ Este profesional no tiene contraseña configurada', 4000, '#e65100'); return; }
-
-        if (!checkRateLimit(username)) return;
-        const ok = await verifyPassword(person, password);
-        if (!ok) {
-            recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
-            return;
-        }
-        appData.currentRole = 'professional';
-
-    } else if (role === 'reception') {
-        username = document.getElementById('receptionPicker').value;
-        if (!username) { showToast('⚠️ Selecciona un usuario'); return; }
-        person = appData.personal.find(p => p.nombre === username);
-        if (!person || !person.canAccessReception) { showToast('⚠️ Usuario sin acceso a recepción', 3000, '#c0392b'); return; }
-        if (!person.password) { showToast('⚠️ Sin contraseña configurada. Contacta al administrador.', 4000, '#e65100'); return; }
-
-        if (!checkRateLimit(username)) return;
-        const ok = await verifyPassword(person, password);
-        if (!ok) {
-            recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
-            return;
-        }
-        appData.currentRole = 'reception';
-
-    } else {
-        // Admin
-        username = document.getElementById('username').value || 'admin';
-        const admin = appData.personal.find(p => p.isAdmin);
-        if (!admin) { showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b'); return; }
-
-        if (!checkRateLimit('admin')) return;
-        const ok = await verifyPassword(admin, password);
-        if (!ok) {
-            recordFailedAttempt('admin');
-            showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b');
-            return;
-        }
-        username = admin.nombre;
-        appData.currentRole = 'admin';
-        person = admin;
+    if (!checkRateLimit(usernameRaw)) {
+        _loginShowError('Demasiados intentos. Espera unos minutos e intenta de nuevo.');
+        return;
     }
 
-    // Successful login
+    let person   = null;
+    let role     = null;
+    let username = usernameRaw;
+
+    // ── 1. Check if matches admin ──────────────────────────────────
+    const adminPerson = appData.personal.find(p => p.isAdmin);
+    if (adminPerson) {
+        const isAdminMatch =
+            (adminPerson.nombre && adminPerson.nombre.toLowerCase() === usernameRaw.toLowerCase()) ||
+            usernameRaw.toLowerCase() === 'admin';
+        if (isAdminMatch) {
+            if (!adminPerson.password) {
+                _loginShowError('El administrador no tiene contraseña configurada.');
+                return;
+            }
+            const ok = await verifyPassword(adminPerson, password);
+            if (ok) { person = adminPerson; username = adminPerson.nombre; role = 'admin'; }
+        }
+    }
+
+    // ── 2. Search all personal by name (case-insensitive) ─────────
+    if (!person) {
+        const found = appData.personal.find(p =>
+            p.nombre && p.nombre.toLowerCase() === usernameRaw.toLowerCase()
+        );
+        if (found) {
+            if (!found.password) {
+                _loginShowError('Tu usuario no tiene contraseña configurada. Contacta al administrador.');
+                return;
+            }
+            const ok = await verifyPassword(found, password);
+            if (ok) {
+                person   = found;
+                username = found.nombre;
+                role = found.isAdmin ? 'admin'
+                     : found.tipo === 'empleado' ? 'reception'
+                     : 'professional';
+            }
+        }
+    }
+
+    // ── 3. Not found or wrong password ────────────────────────────
+    if (!person) {
+        recordFailedAttempt(usernameRaw);
+        _loginShowError('Usuario o contraseña incorrectos.');
+        return;
+    }
+
+    // ── Successful login ──────────────────────────────────────────
+    _loginSetLoading(false);
+    appData.currentRole = role;
     clearLoginAttempts(username);
     appData.currentUser = username;
 
-    // Establish Firebase anonymous auth session (enables Security Rules)
     await ensureFirebaseAuth();
-
-    // Vaciar cola de errores que no pudieron enviarse antes del login
     _flushErrorQueue().catch(e => console.warn('[ErrorLog] flush failed:', e));
-
-    // Start session + inactivity tracking
     startSession(username);
-
-    // Register audit
     registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
-
     initRealtimeListener();
     await showApp();
 }
@@ -1452,8 +1441,16 @@ function logout() {
 
         document.getElementById('loginScreen').style.display = 'flex';
         document.getElementById('appContainer').style.display = 'none';
-        document.getElementById('password').value = '';
-        document.getElementById('username').value = '';
+        const _lu = document.getElementById('loginUsername');
+        const _lp = document.getElementById('loginPassword');
+        if (_lu) _lu.value = '';
+        if (_lp) _lp.value = '';
+        _loginClearError();
+        // legacy fields
+        const _u = document.getElementById('username');
+        const _p = document.getElementById('password');
+        if (_u) _u.value = '';
+        if (_p) _p.value = '';
     }
 }
 

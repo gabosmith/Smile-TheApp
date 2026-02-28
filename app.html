@@ -109,150 +109,245 @@
     .sync-indicator.sync-pulse { animation: syncPulse 1s ease-in-out infinite; }
 
     /* ── LOGIN SCREEN ───────────────────────────── */
+    /* ── LOGIN SCREEN — SMILE ──────────────────────────────── */
     .login-screen {
         min-height: 100vh;
-        background: linear-gradient(160deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        position: relative;
+        overflow: hidden;
+    }
+    @media (max-width: 700px) {
+        .login-screen { grid-template-columns: 1fr; }
+        .login-panel-left { display: none !important; }
+        .login-panel-right { padding: 48px 28px; justify-content: center; }
+    }
+
+    /* ── LEFT: brand panel ── */
+    .login-panel-left {
+        background: var(--clinic-color);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 52px 48px;
+        position: relative;
+        overflow: hidden;
+    }
+    .login-panel-left::before {
+        content: '';
+        position: absolute;
+        top: -100px; right: -100px;
+        width: 380px; height: 380px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.07);
+        pointer-events: none;
+    }
+    .login-panel-left::after {
+        content: '';
+        position: absolute;
+        bottom: -80px; left: -80px;
+        width: 300px; height: 300px;
+        border-radius: 50%;
+        background: rgba(0,0,0,0.08);
+        pointer-events: none;
+    }
+    .lp-logo {
+        position: relative; z-index: 1;
+        display: flex; flex-direction: column; gap: 0;
+    }
+    .lp-logo img {
+        max-width: 150px; height: auto;
+        filter: brightness(0) invert(1);
+        opacity: 0.95;
+        display: none;
+        margin-bottom: 16px;
+    }
+    .lp-logo img.lp-loaded { display: block; }
+    .lp-wordmark {
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 5px;
+        color: rgba(255,255,255,0.45);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+    .lp-clinic-name {
+        font-size: 34px;
+        font-weight: 200;
+        color: white;
+        letter-spacing: -1px;
+        line-height: 1.1;
+        max-width: 280px;
+    }
+    .lp-bottom {
+        position: relative; z-index: 1;
+    }
+    .lp-tagline {
+        font-size: 12px;
+        color: rgba(255,255,255,0.38);
+        font-weight: 300;
+        letter-spacing: 0.5px;
+    }
+    .lp-decorative {
+        position: absolute;
+        bottom: 120px; right: 40px;
+        z-index: 1;
+        opacity: 0.06;
+        font-size: 180px;
+        font-weight: 700;
+        color: white;
+        letter-spacing: -10px;
+        pointer-events: none;
+        user-select: none;
+        line-height: 1;
+    }
+
+    /* ── RIGHT: form panel ── */
+    .login-panel-right {
+        background: #FDFCFB;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 24px;
+        padding: 60px 56px;
         position: relative;
-        overflow: hidden;
     }
-    .login-screen::before {
+    .login-panel-right::before {
         content: '';
         position: absolute;
-        top: -30%;
-        right: -20%;
-        width: 60vw;
-        height: 60vw;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.03);
-        pointer-events: none;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--clinic-color);
+        opacity: 0.5;
     }
-    .login-screen::after {
-        content: '';
-        position: absolute;
-        bottom: -20%;
-        left: -15%;
-        width: 50vw;
-        height: 50vw;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.025);
-        pointer-events: none;
+    .lf-inner {
+        width: 100%;
+        max-width: 320px;
+    }
+    .lf-eyebrow {
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--clinic-color);
+        margin-bottom: 12px;
+    }
+    .lf-title {
+        font-size: 26px;
+        font-weight: 300;
+        color: var(--dark);
+        letter-spacing: -0.5px;
+        margin-bottom: 4px;
+        line-height: 1.2;
+    }
+    .lf-sub {
+        font-size: 13px;
+        color: var(--mid);
+        margin-bottom: 40px;
+        font-weight: 300;
+        line-height: 1.6;
     }
 
-    .logo-container {
-        margin-bottom: 36px;
-        text-align: center;
-        position: relative;
-        z-index: 1;
+    .lf-field {
+        margin-bottom: 14px;
     }
-    .logo-container img {
-        max-width: 180px;
-        width: 55%;
-        height: auto;
-        filter: brightness(0) invert(1);
-        opacity: 0.95;
-        display: none; /* shown by JS when logo exists */
-    }
-    .logo-container img.loaded {
+    .lf-field label {
         display: block;
-        margin: 0 auto 12px;
-    }
-    .clinic-name-login {
-        color: rgba(255,255,255,0.9);
-        font-size: 22px;
-        font-weight: 200;
-        text-align: center;
-        margin-top: 10px;
-        letter-spacing: -0.3px;
-        transition: font-size 0.2s;
-    }
-    .clinic-name-login.logo-visible {
-        font-size: 13px;
-        opacity: 0.7;
-        font-weight: 300;
+        font-size: 10px;
+        font-weight: 500;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-        margin-top: 8px;
-    }
-
-    .login-card {
-        background: var(--white);
-        border-radius: var(--radius-lg);
-        padding: 32px 28px;
-        max-width: 380px;
-        width: 100%;
-        box-shadow: 0 32px 80px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.12);
-        position: relative;
-        z-index: 1;
-    }
-
-    .role-selector {
-        display: flex;
-        gap: 6px;
-        margin-bottom: 28px;
-        background: var(--bg);
-        padding: 4px;
-        border-radius: var(--radius-sm);
-    }
-    .role-btn {
-        flex: 1;
-        padding: 10px 8px;
-        border: none;
-        background: transparent;
-        color: var(--light);
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 400;
-        font-size: 12px;
-        font-family: inherit;
-        letter-spacing: 0.3px;
-        transition: all 0.2s;
-    }
-    .role-btn.active {
-        background: var(--white);
-        color: var(--dark);
-        font-weight: 500;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .input-group {
-        margin-bottom: 18px;
-    }
-    .input-group label {
-        display: block;
-        margin-bottom: 7px;
         color: var(--mid);
-        font-size: 11px;
-        font-weight: 400;
-        letter-spacing: 0.8px;
-        text-transform: uppercase;
+        margin-bottom: 8px;
     }
-    .input-group input,
-    .input-group select {
+    .lf-field input {
         width: 100%;
-        padding: 13px 16px;
-        border: 1.5px solid rgba(30,28,26,0.1);
-        border-radius: var(--radius-sm);
+        padding: 14px 16px;
+        border: 1.5px solid rgba(30,28,26,0.09);
+        border-radius: 10px;
         font-size: 15px;
         font-family: inherit;
         font-weight: 300;
-        background: var(--surface);
+        background: white;
         color: var(--dark);
         transition: border-color 0.2s, box-shadow 0.2s;
         -webkit-appearance: none;
+        box-sizing: border-box;
     }
-    .input-group input:focus,
-    .input-group select:focus {
+    .lf-field input:focus {
         outline: none;
         border-color: var(--clinic-color);
-        box-shadow: 0 0 0 3px rgba(30,28,26,0.06);
-        background: var(--white);
+        box-shadow: 0 0 0 3px rgba(196,133,106,0.10);
+    }
+    .lf-field input::placeholder {
+        color: rgba(156,145,137,0.45);
+        font-weight: 300;
     }
 
+    .lf-error {
+        display: none;
+        font-size: 13px;
+        color: #b84a4a;
+        background: rgba(184,74,74,0.07);
+        border-left: 2px solid #b84a4a;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+        line-height: 1.5;
+        font-weight: 300;
+    }
+
+    .lf-submit {
+        width: 100%;
+        padding: 15px;
+        background: var(--dark);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 11px;
+        font-family: inherit;
+        font-weight: 500;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    }
+    .lf-submit:hover {
+        background: var(--clinic-color);
+        box-shadow: 0 8px 24px rgba(196,133,106,0.30);
+    }
+    .lf-submit:active { transform: scale(0.99); }
+    .lf-submit:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .lf-footer {
+        margin-top: 36px;
+        font-size: 10px;
+        color: rgba(156,145,137,0.4);
+        text-align: center;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }
+
+    /* Legacy — kept for non-login form-group usage elsewhere */
+    .input-group { margin-bottom: 18px; }
+    .input-group label {
+        display: block; margin-bottom: 7px;
+        color: var(--mid); font-size: 11px;
+        font-weight: 400; letter-spacing: 0.8px; text-transform: uppercase;
+    }
+    .input-group input, .input-group select {
+        width: 100%; padding: 13px 16px;
+        border: 1.5px solid rgba(30,28,26,0.1);
+        border-radius: var(--radius-sm); font-size: 15px;
+        font-family: inherit; font-weight: 300;
+        background: var(--surface); color: var(--dark);
+        transition: border-color 0.2s, box-shadow 0.2s; -webkit-appearance: none;
+    }
+    .input-group input:focus, .input-group select:focus {
+        outline: none; border-color: var(--clinic-color);
+        box-shadow: 0 0 0 3px rgba(30,28,26,0.06); background: var(--white);
+    }
     .btn-primary {
         width: 100%;
         padding: 15px;
@@ -275,6 +370,14 @@
     }
     .btn-primary:active { transform: scale(0.98); }
 
+
+    @keyframes loginShake {
+        0%,100% { transform: translateX(0); }
+        20%      { transform: translateX(-6px); }
+        40%      { transform: translateX(6px); }
+        60%      { transform: translateX(-4px); }
+        80%      { transform: translateX(4px); }
+    }
     /* ── APP CONTAINER ──────────────────────────── */
     .app-container {
         display: none;
@@ -985,43 +1088,62 @@
 
     <!-- Login Screen -->
     <div id="loginScreen" class="login-screen" style="display:none">
-        <div class="logo-container">
-            <img src="logo.png" alt="Clínica" id="logoImg" onerror="this.style.display='none'">
-            <div class="clinic-name-login" id="clinicNameLogin">Clínica Dental</div>
+
+        <!-- LEFT: Brand panel -->
+        <div class="login-panel-left">
+            <div class="lp-logo">
+                <img id="logoImg" src="" alt="" onerror="this.style.display='none'">
+                <div class="lp-wordmark" id="lpWordmark">SMILE</div>
+                <div class="lp-clinic-name" id="clinicNameLogin">Clínica Dental</div>
+            </div>
+            <div class="lp-decorative">+</div>
+            <div class="lp-bottom">
+                <div class="lp-tagline">Software dental · Gestión clínica inteligente</div>
+            </div>
         </div>
 
-        <div class="login-card">
-            <div class="role-selector">
-                <button class="role-btn active" data-role="professional">Profesional</button>
-                <button class="role-btn" data-role="reception">Recepción</button>
-                <button class="role-btn" data-role="admin">Admin</button>
-            </div>
+        <!-- RIGHT: Form panel -->
+        <div class="login-panel-right">
+            <div class="lf-inner">
+                <div class="lf-eyebrow">Acceso</div>
+                <div class="lf-title">Bienvenido de vuelta.</div>
+                <div class="lf-sub">Ingresa tu usuario y contraseña para continuar.</div>
 
-            <div class="input-group" id="professionalSelect">
-                <label>Seleccionar Profesional</label>
-                <select id="professionalPicker">
-                    <option value="">-- Seleccionar --</option>
-                </select>
-            </div>
+                <div class="lf-field">
+                    <label>Usuario</label>
+                    <input type="text" id="loginUsername"
+                        placeholder="Tu nombre"
+                        autocomplete="username"
+                        onkeydown="if(event.key==='Enter') document.getElementById('loginPassword').focus()">
+                </div>
 
-            <div class="input-group hidden" id="receptionSelect">
-                <label>Seleccionar Usuario</label>
-                <select id="receptionPicker">
-                    <option value="">-- Seleccionar --</option>
-                </select>
-            </div>
+                <div class="lf-field">
+                    <label>Contraseña</label>
+                    <input type="password" id="loginPassword"
+                        placeholder="••••••••"
+                        autocomplete="current-password"
+                        onkeydown="if(event.key==='Enter') login()">
+                </div>
 
-            <div class="input-group hidden" id="usernameInput">
-                <label>Usuario</label>
-                <input type="text" id="username" autocomplete="username">
-            </div>
+                <div class="lf-error" id="loginError"></div>
 
-            <div class="input-group">
-                <label>Contraseña</label>
-                <input type="password" id="password" autocomplete="current-password">
-            </div>
+                <button class="lf-submit" id="loginBtn" onclick="login()">
+                    Entrar
+                </button>
 
-            <button class="btn-primary" onclick="login()">Acceder</button>
+                <div class="lf-footer">SMILE · Software Dental</div>
+            </div>
+        </div>
+
+        <!-- Legacy inputs (hidden — kept for JS backward compat) -->
+        <div style="display:none" aria-hidden="true">
+            <select id="professionalPicker"></select>
+            <select id="receptionPicker"></select>
+            <input type="text"     id="username">
+            <input type="password" id="password">
+            <div id="professionalSelect"></div>
+            <div id="receptionSelect"></div>
+            <div id="usernameInput"></div>
         </div>
     </div>
 
@@ -2278,26 +2400,34 @@
                 document.documentElement.style.setProperty('--clinic-color', color);
                 document.documentElement.style.setProperty('--clinic-color-light', colorDark);
                 const nombre = cfg.nombre || 'Clínica Dental';
-                document.getElementById('clinicNameLogin').textContent = nombre;
+                const nameEl = document.getElementById('clinicNameLogin');
+                if (nameEl) nameEl.textContent = nombre;
                 document.title = nombre + ' — SMILE';
                 if (cfg.logo) {
                     const img = document.getElementById('logoImg');
-                    if (img) { img.src = cfg.logo; img.style.display = 'block'; }
+                    if (img) {
+                        img.src = cfg.logo;
+                        img.onload  = () => img.classList.add('lp-loaded');
+                        img.onerror = () => { img.style.display='none'; };
+                        // Hide wordmark when logo loads
+                        const wm = document.getElementById('lpWordmark');
+                        if (wm) wm.style.display = 'none';
+                    }
                 }
                 localStorage.setItem('smile_clinica', clinicaId);
                 document.getElementById('clinicLoading').style.display = 'none';
-                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('loginScreen').style.display = 'grid';
             } else {
                 localStorage.removeItem('smile_clinica');
                 document.getElementById('clinicLoading').style.display = 'none';
-                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('loginScreen').style.display = 'grid';
                 const nameEl = document.getElementById('clinicNameLogin');
                 if (nameEl) nameEl.innerHTML = `<div style="font-size:13px;color:#c0392b;line-height:1.6;font-weight:300">⚠️ Clínica no encontrada.<br><span style="font-size:11px;opacity:0.7">ID: <code>${clinicaId}</code></span></div>`;
             }
         } catch(e) {
             console.error('Error cargando clínica:', e);
             document.getElementById('clinicLoading').style.display = 'none';
-            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('loginScreen').style.display = 'grid';
         }
     }
     aplicarBranding();
