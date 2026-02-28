@@ -412,7 +412,7 @@
   }
   .btn-large:hover { background: var(--terracota); box-shadow: 0 8px 32px rgba(196,133,106,0.3); }
 
-  .pricing-sub-label { margin-top: 16px; font-size: 12px; color: var(--light); letter-spacing: 1px; }
+  .pricing-sub-label { margin-top: 16px; font-size: 12px; color: var(--mid); letter-spacing: 1px; }
 
   /* SOLO CARD */
   .solo-card { padding: 48px; display: flex; justify-content: space-between; align-items: center; }
@@ -421,9 +421,9 @@
   .solo-desc { font-size: 14px; color: var(--mid); line-height: 1.7; max-width: 360px; }
   .solo-right { text-align: right; flex-shrink: 0; }
   .solo-price { font-size: 48px; font-weight: 200; letter-spacing: -2px; color: var(--dark); }
-  .solo-period { font-size: 12px; color: var(--light); margin-bottom: 20px; }
+  .solo-period { font-size: 12px; color: var(--mid); margin-bottom: 20px; }
   .solo-features { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 20px; }
-  .solo-tag-item { background: var(--bg); border-radius: 100px; padding: 6px 14px; font-size: 11px; color: var(--mid); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+  .solo-tag-item { background: var(--bg); border-radius: 100px; padding: 6px 14px; font-size: 11px; color: var(--dark); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
 
   /* MODULES - INTERACTIVE BUILDER */
   .modules-section { padding: 80px 60px; }
@@ -449,7 +449,7 @@
     transition: all 0.3s;
   }
 
-  .total-base { font-size: 12px; color: var(--light); margin-top: 4px; }
+  .total-base { font-size: 12px; color: var(--mid); margin-top: 4px; }
 
   .modules-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 
@@ -965,7 +965,6 @@
     <div class="tag">👥 Multi-usuario</div>
     <div class="tag">🧪 Laboratorio</div>
     <div class="tag">📊 Reportes</div>
-    <div class="tag">📱 100% móvil</div>
     <div class="tag">☁️ En la nube</div>
     <div class="tag">Sin contratos</div>
     <div class="tag">Activo en minutos</div>
@@ -1001,12 +1000,12 @@
     <div class="feature-card float reveal reveal-delay-1 tilt-card">
       <div class="f-icon" style="background:rgba(196,133,106,0.08)">☁️</div>
       <div class="f-title">En la nube</div>
-      <div class="f-desc">Tus datos siempre seguros, siempre disponibles. Accede desde tu celular, tablet o computadora — desde donde estés.</div>
+      <div class="f-desc">Tus datos siempre disponibles, respaldados en tiempo real. Accede desde cualquier dispositivo — donde estés.</div>
     </div>
     <div class="feature-card float reveal reveal-delay-2 tilt-card">
-      <div class="f-icon" style="background:rgba(123,143,161,0.08)">📱</div>
-      <div class="f-title">100% móvil</div>
-      <div class="f-desc">Diseñada para el celular. Rápida, intuitiva, sin instalar nada. Tu clínica siempre en tu bolsillo.</div>
+      <div class="f-icon" style="background:rgba(107,143,113,0.1)">🔒</div>
+      <div class="f-title">Seguridad de nivel bancario</div>
+      <div class="f-desc">La información de tus pacientes protegida con los más altos estándares de seguridad, en servidores estables de Google Cloud. Encriptada, respaldada y siempre disponible.</div>
     </div>
   </div>
 </section>
@@ -1026,13 +1025,12 @@
     <div class="solo-left">
       <div class="solo-tag">Para el dentista independiente</div>
       <div class="solo-name">Plan Solo</div>
-      <div class="solo-desc">Un dentista, cero complicaciones. Todo lo que necesitas para manejar tu consulta desde el celular.</div>
+      <div class="solo-desc">Para el dentista que trabaja solo. Agenda, pacientes, cobros y expediente clínico — todo en una sola herramienta simple.</div>
       <div class="solo-features">
         <div class="solo-tag-item">1 usuario</div>
         <div class="solo-tag-item">Pacientes ilimitados</div>
         <div class="solo-tag-item">Agenda</div>
         <div class="solo-tag-item">Cobros</div>
-        <div class="solo-tag-item">NCF incluido</div>
       </div>
     </div>
     <div class="solo-right">
@@ -1051,7 +1049,7 @@
       <div class="section-title reveal reveal-delay-1" style="margin-bottom:0">Flexible.<br>Solo lo que necesitas.</div>
     </div>
     <div class="total-display reveal reveal-delay-2">
-      <div class="total-label">Tu plan desde · NCF y expediente incluidos</div>
+      <div class="total-label">Tu plan desde · expediente incluido</div>
       <div class="total-price" id="totalPrice">RD$1,200</div>
       <div class="total-base" id="totalBase">base · sin módulos</div>
     </div>
@@ -1112,6 +1110,36 @@
     <button class="btn-primary magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Crear mi clínica →</button>
   </div>
 </section>
+
+
+<!-- SECURITY TRUST BAR -->
+<div style="background:var(--dark);padding:32px 60px;text-align:center">
+  <div style="display:flex;align-items:center;justify-content:center;gap:32px;flex-wrap:wrap;max-width:800px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">🔒</span>
+      <div style="text-align:left">
+        <div style="font-size:12px;font-weight:500;color:white;letter-spacing:0.5px">Seguridad de nivel bancario</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Datos encriptados en tránsito y en reposo</div>
+      </div>
+    </div>
+    <div style="width:1px;height:32px;background:rgba(255,255,255,0.1);flex-shrink:0"></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">☁️</span>
+      <div style="text-align:left">
+        <div style="font-size:12px;font-weight:500;color:white;letter-spacing:0.5px">Google Cloud</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Infraestructura estable con 99.9% uptime</div>
+      </div>
+    </div>
+    <div style="width:1px;height:32px;background:rgba(255,255,255,0.1);flex-shrink:0"></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">💾</span>
+      <div style="text-align:left">
+        <div style="font-size:12px;font-weight:500;color:white;letter-spacing:0.5px">Respaldo automático</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Tu información nunca se pierde</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- FOOTER -->
 <footer class="brand-footer">
@@ -1316,8 +1344,7 @@ function onAccesoInput(val) {
     .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
     .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
     .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
-    .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-/g,'');
-    // ↑ Solo eliminamos guion al INICIO — el del final se deja mientras escribe
+    .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-|-$/g,'');
   document.getElementById('accesoInput').value = clean;
   const hint = document.getElementById('accesoHint');
   const btn  = document.getElementById('accesoBtn');
@@ -1334,9 +1361,7 @@ function onAccesoInput(val) {
 }
 
 function irClinica() {
-  const raw = document.getElementById('accesoInput').value.trim();
-  // Final cleanup: strip trailing dash before navigating
-  const id = raw.replace(/-$/g, '');
+  const id = document.getElementById('accesoInput').value.trim();
   if (!id) return;
   const base = window.location.origin + window.location.pathname.replace('index.html','');
   window.location.href = base + 'app.html?clinica=' + id;

@@ -983,7 +983,6 @@ window.addEventListener('load', async function() {
     console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
-    await loadPreciosGlobales(); // ← Precios desde Firebase antes de renderizar
     await loadClinicBranding();
     await loadData();
     updateProfessionalPicker();
@@ -992,6 +991,9 @@ window.addEventListener('load', async function() {
 
 // ── PANTALLA DE ACCESO POR ID DE CLÍNICA ──────────────────────
 function mostrarPantallaAcceso() {
+    // Ocultar spinner de carga antes de mostrar el overlay
+    const loading = document.getElementById('clinicLoading');
+    if (loading) loading.style.display = 'none';
     const overlay = document.getElementById('clinicAccessOverlay');
     if (overlay) overlay.style.display = 'flex';
 }
@@ -9132,51 +9134,14 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // MI PLAN TAB
 // ═══════════════════════════════════════════════
 
-// ── PRECIOS GLOBALES ─────────────────────────────────────────────────
-// Se cargan desde Firebase (smile_config/precios) al iniciar.
-// Valores aquí son el respaldo. Para editarlos: Admin SMILE → Precios.
-let _preciosGlobales = {
-    base_clinica:       23,    // USD/mes
-    base_solo:          19,    // USD/mes
-    modulos: {
-        laboratorio:     5,
-        nomina:          5,
-        inventario:      5,
-        reportes:        5,
-        multisucursal:  15,    // sucursal adicional
-        expediente:      5,
-    },
-    usuario_adicional:  2.5,   // USD/mes por usuario (admin gratis)
-};
-
-async function loadPreciosGlobales() {
-    try {
-        const snap = await db.collection('smile_config').doc('precios').get();
-        if (snap.exists) {
-            const d = snap.data();
-            _preciosGlobales.base_clinica       = d.base_clinica       ?? _preciosGlobales.base_clinica;
-            _preciosGlobales.base_solo          = d.base_solo          ?? _preciosGlobales.base_solo;
-            _preciosGlobales.usuario_adicional  = d.usuario_adicional  ?? _preciosGlobales.usuario_adicional;
-            if (d.modulos && typeof d.modulos === 'object') {
-                Object.assign(_preciosGlobales.modulos, d.modulos);
-            }
-        }
-    } catch(e) {
-        console.warn('[Precios] Usando defaults.', e.message);
-    }
-}
-
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',         get precio() { return _preciosGlobales.modulos.laboratorio   ?? 5;  }, soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',              get precio() { return _preciosGlobales.modulos.nomina        ?? 5;  }, soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',          get precio() { return _preciosGlobales.modulos.inventario    ?? 5;  }, soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados',  get precio() { return _preciosGlobales.modulos.reportes      ?? 5;  }, soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional',  get precio() { return _preciosGlobales.modulos.multisucursal ?? 15; }, soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',              precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',          precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
-const BASE_PRECIOS = {
-    get clinica() { return _preciosGlobales.base_clinica ?? 23; },
-    get solo()    { return _preciosGlobales.base_solo    ?? 19; },
-};
+const BASE_PRECIOS = { clinica: 1200, solo: 990 };
 
 function renderMiPlanTab() {
     // Deactivate other tabs, activate miplan
