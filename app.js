@@ -991,11 +991,17 @@ window.addEventListener('load', async function() {
 
 // ── PANTALLA DE ACCESO POR ID DE CLÍNICA ──────────────────────
 function mostrarPantallaAcceso() {
-    // Ocultar spinner de carga antes de mostrar el overlay
+    // Ocultar spinner de carga
     const loading = document.getElementById('clinicLoading');
     if (loading) loading.style.display = 'none';
+    // Mostrar overlay de acceso por ID
     const overlay = document.getElementById('clinicAccessOverlay');
     if (overlay) overlay.style.display = 'flex';
+    // Focus automático en el campo de ID
+    setTimeout(() => {
+        const input = document.getElementById('clinicIdInput');
+        if (input) input.focus();
+    }, 100);
 }
 
 async function accederPorId() {
