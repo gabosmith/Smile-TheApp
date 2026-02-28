@@ -83,122 +83,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── PANTALLA ENTRADA DE CLÍNICA ─────────────────── */
-    #clinicEntryScreen {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: var(--bg);
-        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-        align-items: center;
-        justify-content: center;
-        z-index: 9998;
-        padding: 24px;
-    }
-    .clinic-entry-card {
-        background: white;
-        border-radius: 20px;
-        padding: 40px 36px;
-        width: 100%;
-        max-width: 380px;
-        box-shadow: 0 24px 80px rgba(0,0,0,0.10);
-    }
-    .clinic-entry-eyebrow {
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: var(--terracota);
-        margin-bottom: 10px;
-    }
-    .clinic-entry-title {
-        font-size: 24px;
-        font-weight: 200;
-        color: var(--dark);
-        letter-spacing: -0.5px;
-        margin-bottom: 6px;
-        line-height: 1.2;
-    }
-    .clinic-entry-sub {
-        font-size: 13px;
-        color: var(--mid);
-        margin-bottom: 28px;
-        font-weight: 300;
-        line-height: 1.6;
-    }
-    .clinic-entry-input-wrap {
-        display: flex;
-        align-items: center;
-        border: 1.5px solid rgba(30,28,26,0.10);
-        border-radius: 12px;
-        background: var(--surface);
-        overflow: hidden;
-        margin-bottom: 10px;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .clinic-entry-input-wrap:focus-within {
-        border-color: var(--terracota);
-        box-shadow: 0 0 0 3px rgba(196,133,106,0.10);
-        background: white;
-    }
-    .clinic-entry-prefix {
-        padding: 14px 0 14px 16px;
-        font-size: 13px;
-        color: var(--light);
-        white-space: nowrap;
-        user-select: none;
-        flex-shrink: 0;
-    }
-    #clinicEntryInput {
-        flex: 1;
-        border: none;
-        background: transparent;
-        padding: 14px 16px 14px 4px;
-        font-size: 14px;
-        font-family: inherit;
-        font-weight: 300;
-        color: var(--dark);
-        outline: none;
-        min-width: 0;
-    }
-    #clinicEntryInput::placeholder { color: rgba(156,145,137,0.45); }
-    .clinic-entry-btn {
-        width: 100%;
-        padding: 15px;
-        background: var(--dark);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        font-size: 11px;
-        font-family: inherit;
-        font-weight: 500;
-        letter-spacing: 2.5px;
-        text-transform: uppercase;
-        cursor: pointer;
-        margin-top: 4px;
-        transition: background 0.2s;
-    }
-    .clinic-entry-btn:hover { background: var(--terracota); }
-    .clinic-entry-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .clinic-entry-error {
-        display: none;
-        font-size: 12px;
-        color: #b84a4a;
-        margin-top: 8px;
-        padding: 8px 12px;
-        background: rgba(184,74,74,0.07);
-        border-radius: 8px;
-        border-left: 2px solid #b84a4a;
-    }
-    .clinic-entry-footer {
-        margin-top: 24px;
-        text-align: center;
-        font-size: 11px;
-        color: rgba(156,145,137,0.5);
-        letter-spacing: 1px;
-    }
-
-
+    /* ── SYNC INDICATOR ─────────────────────────── */
     .sync-indicator {
         position: fixed;
         top: 68px;
@@ -1205,33 +1090,6 @@
     <div class="clinic-loading" id="clinicLoading">
         <div class="clinic-loading-logo">SMILE</div>
         <div class="clinic-loading-spinner"></div>
-    </div>
-
-    <!-- Pantalla de entrada de ID de clínica (cuando no hay ?clinica= en URL) -->
-    <div id="clinicEntryScreen">
-        <div class="clinic-entry-card">
-            <div class="clinic-entry-eyebrow">SMILE</div>
-            <div class="clinic-entry-title">Accede a<br>tu clínica.</div>
-            <div class="clinic-entry-sub">Ingresa el ID de tu clínica para continuar.</div>
-
-            <div class="clinic-entry-input-wrap">
-                <span class="clinic-entry-prefix">smile.app /</span>
-                <input
-                    id="clinicEntryInput"
-                    type="text"
-                    placeholder="mi-clinica"
-                    autocomplete="off"
-                    autocapitalize="none"
-                    spellcheck="false"
-                    oninput="onClinicEntryInput()"
-                    onkeydown="if(event.key==='Enter') irAClinica()">
-            </div>
-            <div class="clinic-entry-error" id="clinicEntryError"></div>
-            <button class="clinic-entry-btn" id="clinicEntryBtn" onclick="irAClinica()" disabled>
-                Entrar →
-            </button>
-            <div class="clinic-entry-footer">SMILE · Software Dental</div>
-        </div>
     </div>
 
     <!-- Indicador de Sincronización -->
@@ -2521,20 +2379,12 @@
     <script src="firebase-config.js"></script>
     <!-- SMILE Nav — shown on login screen, hidden after login by app.js -->
     <script>
-      // Allow smile-nav to render even with ?clinica= param (login screen context)
-      (function() {
-        const _orig = URLSearchParams.prototype.get;
-        URLSearchParams.prototype.get = function(key) {
-          if (key === 'clinica' && window._smileNavOverride) return null;
-          return _orig.call(this, key);
-        };
-        window._smileNavOverride = true;
-      })();
+      // Tell smile-nav to render on login screen despite ?clinica= param
+      window.SMILE_NAV_FORCE = true;
     </script>
     <script src="smile-nav.js"></script>
     <script>
-      window._smileNavOverride = false; // restore after nav loads
-      // Hide smile-nav after user logs in (app calls this)
+      // Hide smile-nav after user logs in
       window._hideSmileNav = function() {
         const root = document.getElementById('snav-root');
         if (root) root.style.display = 'none';
@@ -2552,43 +2402,11 @@
         return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
     }
 
-    function onClinicEntryInput() {
-        const val = document.getElementById('clinicEntryInput').value.trim();
-        const btn = document.getElementById('clinicEntryBtn');
-        const err = document.getElementById('clinicEntryError');
-        btn.disabled = val.length < 2;
-        err.style.display = 'none';
-    }
-
-    function irAClinica() {
-        const raw = document.getElementById('clinicEntryInput').value.trim();
-        if (!raw) return;
-        const id = raw.toLowerCase()
-            .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
-            .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
-            .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
-            .replace(/[^a-z0-9-]/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '');
-        if (!id) {
-            const err = document.getElementById('clinicEntryError');
-            err.textContent = 'ID inválido. Usa solo letras, números y guiones.';
-            err.style.display = 'block';
-            return;
-        }
-        const base = window.location.origin + window.location.pathname;
-        window.location.href = base + '?clinica=' + id;
-    }
-
     async function aplicarBranding() {
         const clinicaId = new URLSearchParams(window.location.search).get('clinica');
         if (!clinicaId) {
-            // No clinic ID in URL — show the entry screen instead of blank page
             localStorage.removeItem('smile_clinica');
             document.getElementById('clinicLoading').style.display = 'none';
-            const entryScreen = document.getElementById('clinicEntryScreen');
-            if (entryScreen) entryScreen.style.display = 'flex';
-            setTimeout(() => document.getElementById('clinicEntryInput')?.focus(), 100);
             return;
         }
         try {
