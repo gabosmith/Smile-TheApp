@@ -1377,8 +1377,8 @@ const state = {
   subdomain: '',
   ciudad: '',
   pais: '',
-  moneda: 'RD$',
-  locale: 'es-DO',
+  moneda: 'RD$', // moneda para facturas a pacientes (no es el precio de SMILE)
+  locale: 'es-419',
   adminName: '',
   adminEmail: '',
   color: '#C4856A',
@@ -1748,7 +1748,7 @@ function buildFinalSummary() {
     </div>
     <div class="summary-row">
       <span>💱 Moneda clínica</span>
-      <span>${state.moneda || 'RD$'}</span>
+      <span>${state.moneda || 'RD$'} (facturas a pacientes)</span>
     </div>
     <div style="font-size:12px;color:var(--light);margin-top:12px;text-align:center">
       14 días gratis · Sin tarjeta · Cancela cuando quieras
@@ -1835,7 +1835,7 @@ async function activateClinic() {
 
     // Calculate pricing
     const BASE = 23; // USD base price
-    const EXTRA_USER_PRICE = 150;
+    const EXTRA_USER_PRICE = 2.5; // USD per extra user
     const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
     const extraUsers = Math.max(0, totalUsers - 1);
     const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
@@ -1902,7 +1902,7 @@ async function activateClinic() {
         ciudad: state.ciudad || '',
         pais: state.pais || '',
         moneda: state.moneda || 'RD$',
-        locale: state.locale || 'es-DO',
+        locale: state.locale || 'es-419',
         color: state.color || '#C4856A',
         logoPositivo: state.logoPositivo || null,
         logoNegativo: state.logoNegativo || null,
