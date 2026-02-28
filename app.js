@@ -2,16 +2,6 @@
 // MULTI-TENANT CONFIG
 // ========================================
 
-// IMPORTANTE: getLocale debe estar definida ANTES de clinicConfig
-// porque clinicConfig la llama en su inicializador.
-// Safari/WebKit lanza TDZ error si aparece después.
-function getLocale() {
-    if (typeof clinicConfig !== 'undefined' && clinicConfig.locale) {
-        return clinicConfig.locale;
-    }
-    return 'es-419';
-}
-
 let CLINIC_PATH = null;
 
 function detectClinica() {
@@ -103,7 +93,7 @@ let clinicConfig = {
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
     moneda:   'RD$',     // símbolo de moneda — configurable por país
-    locale:   getLocale(),   // locale para fechas y números
+    locale:   'es-419',  // se actualiza en loadClinicBranding()
     pais:     'República Dominicana',
 };
 
@@ -1005,10 +995,7 @@ function mostrarPantallaAcceso() {
     if (loading) loading.style.display = 'none';
     const overlay = document.getElementById('clinicAccessOverlay');
     if (overlay) overlay.style.display = 'flex';
-    setTimeout(() => {
-        const input = document.getElementById('clinicIdInput');
-        if (input) input.focus();
-    }, 100);
+    setTimeout(() => { const i = document.getElementById('clinicIdInput'); if (i) i.focus(); }, 100);
 }
 
 async function accederPorId() {
@@ -1615,7 +1602,12 @@ function formatCurrency(amount) {
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
-// ── Locale helper — definida al inicio del archivo (antes de clinicConfig) ──
+// ── Locale helper ───────────────────────────────────────
+// Usa el locale de la clínica para formatear fechas y números.
+// Fallback a getLocale() si clinicConfig no está listo todavía.
+function getLocale() {
+    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
+}
 
 // Procedimientos
 // Helper: always find factura form elements in the visible cobros-content clone,

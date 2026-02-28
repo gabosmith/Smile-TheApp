@@ -2244,53 +2244,38 @@
 
     async function aplicarBranding() {
         const clinicaId = new URLSearchParams(window.location.search).get('clinica');
-
         if (!clinicaId) {
-            // Sin ?clinica= en URL — limpiar localStorage y dejar que app.js muestre el overlay
             localStorage.removeItem('smile_clinica');
             document.getElementById('clinicLoading').style.display = 'none';
             return;
         }
-
         try {
-            // Auth anónima requerida por Firestore Security Rules
             const auth = firebase.auth();
             if (!auth.currentUser) await auth.signInAnonymously();
-
             const cfgDoc = await db.collection('clinicas').doc(clinicaId)
                 .collection('config').doc('settings').get();
-
             if (cfgDoc.exists) {
                 const cfg = cfgDoc.data();
                 const color = cfg.color || '#C4856A';
                 const colorDark = darkenColor(color, 15);
-
                 document.documentElement.style.setProperty('--clinic-color', color);
                 document.documentElement.style.setProperty('--clinic-color-light', colorDark);
-
                 const nombre = cfg.nombre || 'Clínica Dental';
                 document.getElementById('clinicNameLogin').textContent = nombre;
                 document.title = nombre + ' — SMILE';
-
                 if (cfg.logo) {
                     const img = document.getElementById('logoImg');
                     if (img) { img.src = cfg.logo; img.style.display = 'block'; }
                 }
-
                 localStorage.setItem('smile_clinica', clinicaId);
                 document.getElementById('clinicLoading').style.display = 'none';
                 document.getElementById('loginScreen').style.display = 'flex';
-
             } else {
                 localStorage.removeItem('smile_clinica');
                 document.getElementById('clinicLoading').style.display = 'none';
                 document.getElementById('loginScreen').style.display = 'flex';
                 const nameEl = document.getElementById('clinicNameLogin');
-                if (nameEl) nameEl.innerHTML = `
-                    <div style="font-size:13px;color:#c0392b;line-height:1.6;font-weight:300">
-                        ⚠️ Clínica no encontrada.<br>
-                        <span style="font-size:11px;opacity:0.7">Verifica el ID: <code>${clinicaId}</code></span>
-                    </div>`;
+                if (nameEl) nameEl.innerHTML = `<div style="font-size:13px;color:#c0392b;line-height:1.6;font-weight:300">⚠️ Clínica no encontrada.<br><span style="font-size:11px;opacity:0.7">ID: <code>${clinicaId}</code></span></div>`;
             }
         } catch(e) {
             console.error('Error cargando clínica:', e);
