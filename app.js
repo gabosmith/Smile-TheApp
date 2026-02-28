@@ -2,11 +2,14 @@
 // MULTI-TENANT CONFIG
 // ========================================
 
-// getLocale must be defined BEFORE clinicConfig because clinicConfig
-// calls getLocale() in its initializer (line ~96). Safari (WebKit) throws
-// a TDZ error if a function references a `let` variable before its declaration.
+// IMPORTANTE: getLocale debe estar definida ANTES de clinicConfig
+// porque clinicConfig la llama en su inicializador.
+// Safari/WebKit lanza TDZ error si aparece después.
 function getLocale() {
-    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
+    if (typeof clinicConfig !== 'undefined' && clinicConfig.locale) {
+        return clinicConfig.locale;
+    }
+    return 'es-419';
 }
 
 let CLINIC_PATH = null;
@@ -1612,7 +1615,7 @@ function formatCurrency(amount) {
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
-// ── Locale helper — defined at top of file (before clinicConfig) ─────────────
+// ── Locale helper — definida al inicio del archivo (antes de clinicConfig) ──
 
 // Procedimientos
 // Helper: always find factura form elements in the visible cobros-content clone,

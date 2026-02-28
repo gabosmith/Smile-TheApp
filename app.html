@@ -2243,20 +2243,17 @@
     }
 
     async function aplicarBranding() {
-        // Solo carga branding si hay ?clinica= en la URL.
-        // Sin ese parámetro, app.js muestra el overlay de acceso por ID.
-        // Esto evita el fondo negro por IDs viejos en localStorage.
         const clinicaId = new URLSearchParams(window.location.search).get('clinica');
 
         if (!clinicaId) {
+            // Sin ?clinica= en URL — limpiar localStorage y dejar que app.js muestre el overlay
             localStorage.removeItem('smile_clinica');
             document.getElementById('clinicLoading').style.display = 'none';
-            // app.js detectará que no hay clínica y mostrará el overlay
             return;
         }
 
         try {
-            // Auth anónima REQUERIDA antes de leer Firestore (Security Rules)
+            // Auth anónima requerida por Firestore Security Rules
             const auth = firebase.auth();
             if (!auth.currentUser) await auth.signInAnonymously();
 
