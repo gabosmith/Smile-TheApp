@@ -367,6 +367,19 @@ function initConnectionMonitor() {
 // SANITIZACIÓN CENTRALIZADA DE DATOS
 // ═══════════════════════════════════════════════════════════
 
+// ── ESCAPE HTML — previene XSS al insertar datos de usuario en el DOM ──
+// Usar siempre que se inserte texto de usuario vía innerHTML.
+// Ejemplo: innerHTML = `<div>${esc(paciente.nombre)}</div>`
+function esc(val) {
+    if (val === null || val === undefined) return '';
+    return String(val)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // Cleans a value before it goes to Firebase.
 // Returns the sanitized value, or throws if invalid and required.
 const sanitize = {
@@ -980,7 +993,7 @@ window.addEventListener('load', async function() {
         return;
     }
 
-    console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
+
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
@@ -1161,7 +1174,7 @@ async function migratePasswordIfNeeded(person, plaintext) {
         person.password    = hashed;
         person._pwHashed   = true;
         await saveData('saveData-init');
-        console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
+
     } catch(e) {
         console.warn('[Auth] No se pudo migrar contraseña:', e);
     }
@@ -1324,7 +1337,7 @@ async function ensureFirebaseAuth() {
         try {
             const cred = await intentarAuth();
             _firebaseAuthUid = cred.user.uid;
-            console.log(`[Auth] Firebase auth OK (intento ${intento}):`, _firebaseAuthUid);
+
             return;
         } catch(e) {
             console.warn(`[Auth] Intento ${intento}/3 fallido:`, e.message);
@@ -1887,8 +1900,8 @@ function updateIngresosTab() {
             <li>
                 <div class="item-header">
                     <div>
-                        <div style="font-size: 12px; color: #8e8e93;">${f.numero}</div>
-                        <div class="item-title">${f.paciente}</div>
+                        <div style="font-size: 12px; color: #8e8e93;">${esc(f.numero)}</div>
+                        <div class="item-title">${esc(f.paciente)}</div>
                     </div>
                     <span class="badge badge-${f.estado === 'pagada' ? 'paid' : (f.estado === 'parcial' || f.estado === 'partial') ? 'partial' : 'pending'}">
                         ${f.estado === 'pagada' ? 'Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? 'Con Abono' : 'Pendiente'}
@@ -2147,7 +2160,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         factura.ordenesLab.forEach(orden => {
             facturaHTML += `
                     <tr style="border-bottom: 1px solid #e0e0e0; background: #f0f8ff;">
-                        <td style="padding: 8px;">🔬 ${orden.tipo}${orden.dientes ? ` (Dientes: ${orden.dientes})` : ''}</td>
+                        <td style="padding: 8px;">🔬 ${esc(orden.tipo)}${orden.dientes ? ` (Dientes: ${orden.dientes})` : ''}</td>
                         <td style="padding: 8px; text-align: center;">1</td>
                         <td style="padding: 8px; text-align: right;">${formatCurrency(orden.precio)}</td>
                         <td style="padding: 8px; text-align: right; font-weight: 600;">${formatCurrency(orden.precio)}</td>
@@ -2449,9 +2462,9 @@ function updateCuadreTab() {
                 htmlIngresos += `
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                         <div>
-                            <span style="font-weight: 600;">${icono} ${f.paciente}</span>
+                            <span style="font-weight: 600;">${icono} ${esc(f.paciente)}</span>
                             <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
-                            <div style="font-size: 12px; color: #999;">Factura ${f.numero} - ${p.metodo}</div>
+                            <div style="font-size: 12px; color: #999;">Factura ${esc(f.numero)} - ${p.metodo}</div>
                         </div>
                         <div style="font-weight: 500; color: var(--green,#6B8F71);">${formatCurrency(p.monto)}</div>
                     </div>
@@ -2961,7 +2974,7 @@ function openPersonalDetail(id) {
                                 <strong>${formatCurrency(a.monto)}</strong>
                                 <span style="color: #8e8e93; font-size: 13px;">${new Date(a.fecha).toLocaleDateString(getLocale())}</span>
                             </div>
-                            ${a.notas ? `<div style="font-size: 13px; color: #666;">${a.notas}</div>` : ''}
+                            ${a.notas ? `<div style="font-size: 13px; color: #666;">${esc(a.notas)}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -3095,7 +3108,7 @@ function confirmarPagoProfesional(id) {
             </div>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
-                    ${person.nombre}
+                    ${esc(person.nombre)}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
                     <strong>Cargo:</strong> ${getTipoLabel(person.tipo)}
@@ -3135,7 +3148,7 @@ RECIBO DE PAGO DE COMISIONES
 
 Fecha: ${fecha}
 Hora: ${hora}
-Para: ${person.nombre}
+Para: ${esc(person.nombre)}
 Cargo: ${getTipoLabel(person.tipo)}
 Comisión: ${getComisionRate(person.tipo, person)}%
 
@@ -3191,7 +3204,7 @@ function confirmarPagoEmpleado(id) {
                 <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Neto a pagar &middot; ${getFrecuenciaLabel(person.frecuenciaPago || 'mensual')}</div>
                 <div style="font-size:32px;font-weight:300;color:var(--green,#6B8F71)">${formatCurrency(neto)}</div>
             </div>
-            <div style="font-size:14px;color:var(--mid);margin-bottom:4px"><strong style="color:var(--dark)">${person.nombre}</strong> · ${getTipoLabel(person.tipo, person)}</div>
+            <div style="font-size:14px;color:var(--mid);margin-bottom:4px"><strong style="color:var(--dark)">${esc(person.nombre)}</strong> · ${getTipoLabel(person.tipo, person)}</div>
             <div style="font-size:13px;color:var(--mid)">Salario base: ${formatCurrency(person.sueldo)}${totalAvances > 0 ? ` · Avances descontados: -${formatCurrency(totalAvances)}` : ''}</div>
         `,
         tipo: 'normal',
@@ -3212,7 +3225,7 @@ RECIBO DE PAGO DE SALARIO
 
 Fecha: ${fecha}
 Hora: ${hora}
-Para: ${person.nombre}
+Para: ${esc(person.nombre)}
 Cargo: ${getTipoLabel(person.tipo)}
 
 ================================
@@ -3429,7 +3442,7 @@ function togglePermiso(personId, key, valorActual) {
     }
 
     saveData();
-    registrarAuditoria('editar', 'permiso', `${key}: ${nuevoValor ? 'activado' : 'desactivado'} para ${person.nombre}`);
+    registrarAuditoria('editar', 'permiso', `${key}: ${nuevoValor ? 'activado' : 'desactivado'} para ${esc(person.nombre)}`);
 }
 
 function guardarComisionPersonal(personId) {
@@ -3447,7 +3460,7 @@ function guardarComisionPersonal(personId) {
 
     person.comisionPct = val;
     saveData();
-    showToast(`✓ Comisión de ${person.nombre} actualizada a ${val}%`);
+    showToast(`✓ Comisión de ${esc(person.nombre)} actualizada a ${val}%`);
 
     // Refresh the modal to show the individual badge
     openPersonalDetail(personId);
@@ -3510,7 +3523,7 @@ function eliminarPersonal(id) {
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
-                    ${person.nombre}
+                    ${esc(person.nombre)}
                 </div>
                 <div style="font-size: 14px; color: #666;">
                     <strong>Tipo:</strong> ${getTipoLabel(person.tipo)}
@@ -4244,7 +4257,7 @@ function verPaciente(pacienteId) {
 
     // Subtítulo con info rápida
     let subtitulo = paciente.cedula || '';
-    if (paciente.telefono) subtitulo += subtitulo ? ` • ${paciente.telefono}` : paciente.telefono;
+    if (paciente.telefono) subtitulo += subtitulo ? ` • ${esc(paciente.telefono)}` : paciente.telefono;
     document.getElementById('verPacienteSubtitulo').textContent = subtitulo;
 
     // Solo ocultar/mostrar Balance por rol — renderizado lazy al cambiar tab
@@ -4442,7 +4455,7 @@ function _renderResumenOdonto(odonto) {
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:13px;font-weight:500;color:${cfg.text};">${cfg.label}</div>
-                    ${dato.nota ? `<div style="font-size:11px;color:#999;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${dato.nota}</div>` : ''}
+                    ${dato.nota ? `<div style="font-size:11px;color:#999;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(dato.nota)}</div>` : ''}
                 </div>
                 <div style="font-size:10px;color:#bbb;text-align:right;flex-shrink:0;">
                     ${dato.fecha ? new Date(dato.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'}) : ''}
@@ -4902,8 +4915,8 @@ function renderTabHistorial(paciente) {
                 <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;
                             display:flex;justify-content:space-between;align-items:center;">
                     <div>
-                        <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
-                        <div style="font-size:13px;color:#555;">${f.profesional}</div>
+                        <div style="font-size:12px;color:#999;margin-bottom:2px;">${esc(f.numero)} · ${formatDate(f.fecha)}</div>
+                        <div style="font-size:13px;color:#555;">${esc(f.profesional)}</div>
                     </div>
                     <div style="text-align:right;">
                         <div style="font-size:11px;font-weight:600;color:${estadoColor};background:${estadoColor}18;
@@ -5167,8 +5180,8 @@ function renderTabBalance(paciente) {
                     <div style="background: #fff; border: 2px solid #e5e5e7; border-radius: 8px; padding: 16px;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                             <div>
-                                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
-                                <div style="font-size: 13px; color: #666; margin-top: 4px;">${formatDate(f.fecha)} • ${f.profesional}</div>
+                                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${esc(f.numero)}</div>
+                                <div style="font-size: 13px; color: #666; margin-top: 4px;">${formatDate(f.fecha)} • ${esc(f.profesional)}</div>
                             </div>
                             <div style="text-align: right;">
                                 <div style="font-size: 18px; font-weight: 700; color: #ff3b30;">${formatCurrency(pendiente)}</div>
@@ -5197,7 +5210,7 @@ function renderTabBalance(paciente) {
                     <div style="background: #f8f9fa; border: 2px solid #28a745; border-radius: 8px; padding: 16px; opacity: 0.8;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
+                                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${esc(f.numero)}</div>
                                 <div style="font-size: 12px; color: #666;">${formatDate(f.fecha)}</div>
                             </div>
                             <div style="text-align: right;">
@@ -5367,11 +5380,11 @@ function verDetalleCita(citaId) {
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 16px;">
             <div style="background: #f8f9fa; padding: 14px; border-radius: 8px;">
                 <div style="font-size: 10px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Paciente</div>
-                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${cita.paciente}</div>
+                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${esc(cita.paciente)}</div>
             </div>
             <div style="background: #f8f9fa; padding: 14px; border-radius: 8px;">
                 <div style="font-size: 10px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Profesional</div>
-                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${cita.profesional}</div>
+                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${esc(cita.profesional)}</div>
             </div>
         </div>
 
@@ -5382,7 +5395,7 @@ function verDetalleCita(citaId) {
 
         <div style="background: #e7f3ff; padding: 14px; border-radius: 8px;">
             <div style="font-size: 10px; color: #004085; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Motivo</div>
-            <div style="font-size: 15px; font-weight: 500; color: #1d1d1f;">${cita.motivo}</div>
+            <div style="font-size: 15px; font-weight: 500; color: #1d1d1f;">${esc(cita.motivo)}</div>
         </div>
 
         ${cita.procedimientosRealizados ? `
@@ -5651,13 +5664,13 @@ function updateListaOrdenesLabTemp() {
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="flex: 1;">
                     <div style="font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
-                        ${orden.tipo}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
+                        ${esc(orden.tipo)}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
                     </div>
                     <div style="font-size: 13px; color: #666; margin-bottom: 2px;">
-                        ${orden.descripcion}
+                        ${esc(orden.descripcion)}
                     </div>
                     <div style="font-size: 12px; color: #666;">
-                        Lab: ${orden.laboratorio}
+                        Lab: ${esc(orden.laboratorio)}
                     </div>
                     <div style="font-size: 13px; margin-top: 4px;">
                         <span style="color: #28a745; font-weight: 600;">Precio: ${formatCurrency(orden.precio)}</span>
@@ -5789,13 +5802,13 @@ function updateLaboratorioTab() {
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
                     <div style="flex: 1;">
                         <div style="font-size: 16px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
-                            ${orden.tipo}${orden.dientes ? ` - ${orden.dientes}` : ''}
+                            ${esc(orden.tipo)}${orden.dientes ? ` - ${orden.dientes}` : ''}
                         </div>
                         <div style="font-size: 14px; color: #666; margin-bottom: 2px;">
-                            👤 ${orden.paciente}
+                            👤 ${esc(orden.paciente)}
                         </div>
                         <div style="font-size: 13px; color: #666;">
-                            👨‍⚕️ ${orden.profesional} • 🏥 ${orden.laboratorio}
+                            👨‍⚕️ ${esc(orden.profesional)} • 🏥 ${esc(orden.laboratorio)}
                         </div>
                     </div>
                     <div style="text-align: right;">
@@ -5834,20 +5847,20 @@ function verDetalleOrdenLab(ordenId) {
     document.getElementById('detalleLabInfo').innerHTML = `
         <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
-                ${orden.tipo}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
+                ${esc(orden.tipo)}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
             </div>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Paciente</div>
-                    <div style="font-size: 14px; font-weight: 500;">${orden.paciente}</div>
+                    <div style="font-size: 14px; font-weight: 500;">${esc(orden.paciente)}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Profesional</div>
-                    <div style="font-size: 14px; font-weight: 500;">${orden.profesional}</div>
+                    <div style="font-size: 14px; font-weight: 500;">${esc(orden.profesional)}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Laboratorio</div>
-                    <div style="font-size: 14px; font-weight: 500;">${orden.laboratorio}</div>
+                    <div style="font-size: 14px; font-weight: 500;">${esc(orden.laboratorio)}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Factura</div>
@@ -5856,7 +5869,7 @@ function verDetalleOrdenLab(ordenId) {
             </div>
             <div style="margin-top: 10px;">
                 <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Descripción</div>
-                <div style="font-size: 14px;">${orden.descripcion}</div>
+                <div style="font-size: 14px;">${esc(orden.descripcion)}</div>
             </div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
                 <div>
@@ -6037,7 +6050,7 @@ async function avanzarEstadoLab(nuevoEstado) {
         if (balancePendiente > 0) {
             mostrarConfirmacion({
                 titulo: 'Balance pendiente',
-                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
+                mensaje: `<strong>${esc(orden.paciente)}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
                 tipo: 'advertencia',
                 confirmText: 'Sí, entregar',
                 onConfirm: ejecutarAvance
@@ -6451,7 +6464,7 @@ function generarPDFConsentimiento(paciente) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(11);
 
-    doc.text(`Nombre completo: ${paciente.nombre}`, margin + 5, y + 16);
+    doc.text(`Nombre completo: ${esc(paciente.nombre)}`, margin + 5, y + 16);
     doc.text(`Cédula: ${paciente.cedula || 'No registrada'}`, margin + 5, y + 23);
     doc.text(`Teléfono: ${paciente.telefono || 'No registrado'}`, margin + 5, y + 30);
 
@@ -7500,8 +7513,8 @@ function aplicarFiltrosFacturas() {
                 <li style="cursor: default;">
                     <div class="item-header">
                         <div>
-                            <div style="font-size: 12px; color: #8e8e93;">${f.numero} - ${formatDate(f.fecha)}</div>
-                            <div class="item-title">${f.paciente}</div>
+                            <div style="font-size: 12px; color: #8e8e93;">${esc(f.numero)} - ${formatDate(f.fecha)}</div>
+                            <div class="item-title">${esc(f.paciente)}</div>
                             <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff' : '#ff3b30'}; font-weight: 600;">
                                 ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
                             </div>
@@ -8405,7 +8418,7 @@ function buscarGlobal() {
                 <div onclick="irAFactura('${f.id}')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                         <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">
-                            ${f.numero} • ${f.paciente}
+                            ${esc(f.numero)} • ${esc(f.paciente)}
                         </div>
                         <div style="background: ${color}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
                             ${estadoLabel}
@@ -8809,11 +8822,7 @@ function generarVistaPrevia() {
     const totalDespuesFiltro = window.pacientesAImportar.length;
     const filtrados = totalAntesFiltro - totalDespuesFiltro;
 
-    console.log(`📊 Procesamiento CSV:
-    - Total filas: ${csvData.length}
-    - Pacientes creados: ${totalAntesFiltro}
-    - Con nombre y teléfono: ${totalDespuesFiltro}
-    - Filtrados (sin datos): ${filtrados}`);
+
 
     // Mostrar vista previa
     document.getElementById('paso3-preview').style.display = 'block';
@@ -8884,18 +8893,10 @@ function ejecutarImportacion() {
         tipo: 'normal',
         confirmText: 'Sí, Importar Ahora',
         onConfirm: async () => {
-            console.log(`🚀 Iniciando importación de ${window.pacientesAImportar.length} pacientes...`);
-
             // Agregar pacientes
-            const cantidadAntes = appData.pacientes.length;
             appData.pacientes.push(...window.pacientesAImportar);
-            const cantidadDespues = appData.pacientes.length;
-
-            console.log(`📥 Importación: ${cantidadAntes} → ${cantidadDespues} pacientes`);
-            console.log(`💾 Llamando a saveData()...`);
 
             await saveData();
-            console.log(`🔄 Actualizando tab de pacientes...`);
 
             // Actualizar tab de pacientes para reflejar los nuevos
             updatePacientesTab();
@@ -9020,16 +9021,16 @@ function cancelarCita() {
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
-                    ${cita.paciente}
+                    ${esc(cita.paciente)}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
                     <strong>Fecha:</strong> ${formatDate(cita.fecha)} ${cita.hora}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
-                    <strong>Profesional:</strong> ${cita.profesional}
+                    <strong>Profesional:</strong> ${esc(cita.profesional)}
                 </div>
                 <div style="font-size: 14px; color: #666;">
-                    <strong>Motivo:</strong> ${cita.motivo}
+                    <strong>Motivo:</strong> ${esc(cita.motivo)}
                 </div>
             </div>
             <div style="background: #fff3cd; padding: 12px; border-radius: 6px; border-left: 3px solid #ffc107;">
@@ -9073,12 +9074,8 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
-    console.log('📊 Debug abrirAbonoBalance:');
-    console.log('Paciente:', paciente.nombre);
     
     const todasFacturas = getFacturasDePaciente(paciente);
-    console.log('Total facturas del paciente:', todasFacturas.length);
-    console.log('Estados de facturas:', todasFacturas.map(f => ({ numero: f.numero, estado: f.estado })));
     
     // Encontrar factura más antigua pendiente (filtro robusto - ambos idiomas)
     const facturasPendientes = todasFacturas
@@ -9091,7 +9088,6 @@ function abrirAbonoBalance(pacienteId) {
         })
         .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
-    console.log('Facturas pendientes encontradas:', facturasPendientes.length);
     
     if (facturasPendientes.length === 0) {
         showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
@@ -9099,7 +9095,6 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
-    console.log('Abriendo pago de factura:', facturasPendientes[0].numero);
     
     // Abrir pago de la factura más antigua
     closeModal('modalVerPaciente');
@@ -11126,8 +11121,8 @@ async function eliminarPacienteActual() {
         titulo: '⚠️ Eliminar Paciente',
         mensaje: `
             <div style="background:#f8f9fa;padding:14px;border-radius:8px;margin-bottom:12px">
-                <div style="font-weight:500;font-size:16px;margin-bottom:6px">${paciente.nombre}</div>
-                ${paciente.cedula ? `<div style="font-size:13px;color:#666">Cédula: ${paciente.cedula}</div>` : ''}
+                <div style="font-weight:500;font-size:16px;margin-bottom:6px">${esc(paciente.nombre)}</div>
+                ${paciente.cedula ? `<div style="font-size:13px;color:#666">Cédula: ${esc(paciente.cedula)}</div>` : ''}
             </div>
             <div style="background:#fff3cd;padding:10px;border-radius:6px;font-size:13px">
                 ⚠️ Se eliminarán el expediente y todos sus datos. Esta acción no se puede deshacer.
@@ -11138,7 +11133,7 @@ async function eliminarPacienteActual() {
             const backupPacientes = [...appData.pacientes];
             appData.pacientes = appData.pacientes.filter(p => p.id !== pacienteId);
             registrarAuditoria('eliminar', 'paciente',
-                `${paciente.nombre}${paciente.cedula ? ' · Cédula: ' + paciente.cedula : ''}`);
+                `${esc(paciente.nombre)}${paciente.cedula ? ' · Cédula: ' + paciente.cedula : ''}`);
             try {
                 // Eliminar de subcollección
                 await db.collection('clinicas').doc(CLINIC_PATH)
@@ -11231,7 +11226,7 @@ function abrirAbonoLab(ordenId) {
     const totalAbonado = (orden.abonos || []).reduce((s, a) => s + (a.monto || 0), 0);
     const saldoPendiente = Math.max(0, (orden.costo || 0) - totalAbonado);
 
-    if (infoEl)  infoEl.textContent  = `${orden.tipo || 'Orden'} — ${orden.laboratorio}`;
+    if (infoEl)  infoEl.textContent  = `${orden.tipo || 'Orden'} — ${esc(orden.laboratorio)}`;
     if (saldoEl) saldoEl.textContent = `Costo: ${formatCurrency(orden.costo || 0)} · Abonado: ${formatCurrency(totalAbonado)} · Pendiente: ${formatCurrency(saldoPendiente)}`;
     if (montoEl) montoEl.value = '';
     if (fechaEl) fechaEl.value = new Date().toISOString().split('T')[0];
