@@ -647,7 +647,7 @@ async function loadData() {
             appData.settings = data.settings || {};
             appData.laboratorios = data.laboratorios || [];
             appData.reversiones = data.reversiones || [];
-            appData.auditLogs = data.auditLogs || [];
+            appData.auditLogs = []; // loaded on-demand from subcollection 'auditoria'
             appData.inventario = (data.inventario || []).map(i => ({ movimientos: [], ...i }));
 
             // Cargar pacientes desde subcollection (siempre en SMILE multi-tenant)
@@ -703,7 +703,7 @@ async function loadData() {
                     appData.laboratorios   = data.laboratorios   || [];
                     appData.inventario     = (data.inventario    || []).map(i => ({ movimientos: [], ...i }));
                     appData.reversiones    = data.reversiones    || [];
-                    appData.auditLogs      = data.auditLogs      || [];
+                    appData.auditLogs      = []; // fetched on demand from subcollection
                     updateLocalCache();
                     showToast('✓ Conexión restablecida', 2500);
                     return; // éxito en el retry
@@ -757,7 +757,7 @@ function updateLocalCache() {
             citas: appData.citas,
             laboratorios: appData.laboratorios,
             reversiones: appData.reversiones,
-            auditLogs: appData.auditLogs,
+            // auditLogs not cached — live in subcollection 'auditoria'
             inventario: appData.inventario || [],
             // Guardar branding para restaurar offline sin Firebase
             clinicColor:  clinicConfig.color  || null,
@@ -836,7 +836,7 @@ async function saveData(context = '') {
             laboratorios: appData.laboratorios || [],
             inventario:   (appData.inventario || []).map(i => sanitize.item(i)).filter(Boolean),
             reversiones:  appData.reversiones  || [],
-            auditLogs:    appData.auditLogs    || [],
+            // auditLogs moved to subcollection 'auditoria' — not in main doc
             settings:     appData.settings     || {},
             lastUpdated:  new Date().toISOString(),
             usaSubcollectionPacientes: true
@@ -928,7 +928,7 @@ function initRealtimeListener() {
             appData.laboratorios   = data.laboratorios   || [];
             appData.inventario     = (data.inventario    || []).map(i => ({ movimientos: [], ...i }));
             appData.reversiones    = data.reversiones    || [];
-            appData.auditLogs      = data.auditLogs      || [];
+            appData.auditLogs      = []; // fetched on demand from subcollection
 
             // Pacientes viven en subcolleccion — no sobreescribir.
             // Solo usar como fallback si la subcolleccion aun no cargo nada.
@@ -986,7 +986,6 @@ window.addEventListener('load', async function() {
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
     await loadData();
-    updateProfessionalPicker();
     populateLoginUserPicker();
     inicializarEstadosCitas();
 });
@@ -1379,15 +1378,6 @@ async function ensureFirebaseAuth() {
 }
 
 // Update reception picker
-function updateReceptionPicker() {
-    const picker = document.getElementById('receptionPicker');
-    if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
-    appData.personal.filter(p => p.canAccessReception).forEach(p => {
-        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
-    });
-}
-
 // Login — async to support SHA-256 password verification
 async function login() {
     _loginClearError();
@@ -1851,8 +1841,8 @@ async function generarFactura() {
     };
 
     // Guardar estado anterior para rollback si Firebase falla
-    const backupFacturas = appData.facturas.length;
-    const backupCitaEstado = citaHoy ? citaHoy.estado : null;
+    const backupFacturas   = [...appData.facturas];
+    const backupCitaEstado = citaHoy ? { ...citaHoy } : null;
 
     appData.facturas.push(factura);
 
@@ -1870,8 +1860,12 @@ async function generarFactura() {
         await saveData();
     } catch(saveErr) {
         // Revertir mutaciones locales si Firebase rechazó la escritura
-        appData.facturas.splice(backupFacturas, 1);
-        if (citaHoy && backupCitaEstado) citaHoy.estado = backupCitaEstado;
+        appData.facturas = backupFacturas;
+        if (citaHoy && backupCitaEstado) {
+            citaHoy.estado = backupCitaEstado.estado;
+            citaHoy.fechaCompletada = backupCitaEstado.fechaCompletada;
+            citaHoy.procedimientosRealizados = backupCitaEstado.procedimientosRealizados;
+        }
         throw saveErr; // re-throw para que el catch externo lo maneje
     }
 
@@ -2662,10 +2656,10 @@ function registrarGasto() {
         aprobado:      true
     };
 
-    const backupGastos = appData.gastos.length;
+    const backupGastos = [...appData.gastos];
     appData.gastos.push(gasto);
     saveData().catch(() => {
-        appData.gastos.splice(backupGastos, 1); // revertir
+        appData.gastos = backupGastos; // revertir
         updateGastosTab();
         showToast('❌ No se pudo guardar el gasto. Intenta de nuevo.', 4000, '#c0392b');
     });
@@ -2822,17 +2816,17 @@ async function agregarPersonal() {
         nextPayDate:        null
     };
 
-    const backupPersonal = appData.personal.length;
+    const backupPersonal = [...appData.personal];
     appData.personal.push(person);
     try {
         await saveData();
     } catch(saveErr) {
-        appData.personal.splice(backupPersonal, 1); // revertir
+        appData.personal = backupPersonal; // revertir
         showError('Error al agregar personal. Intenta de nuevo.', saveErr);
         return;
     }
     updatePersonalTab();
-    updateProfessionalPicker();
+    populateLoginUserPicker();
     closeModal('modalAddPersonal');
     showToast('✓ Personal agregado exitosamente');
 }
@@ -3418,7 +3412,7 @@ async function guardarEdicion() {
         return;
     }
     updatePersonalTab();
-    updateProfessionalPicker();
+    populateLoginUserPicker();
     closeModal('modalEditPersonal');
     showToast('✓ Perfil actualizado');
 }
@@ -3461,14 +3455,14 @@ function registrarAvance() {
         registradoPor: appData.currentUser
     };
 
-    const backupAvances = appData.avances.length;
+    const backupAvances = [...appData.avances];
     appData.avances.push(avance);
     saveData().then(() => {
         closeModal('modalAvance');
         updatePersonalTab();
         showToast('✓ Avance registrado exitosamente');
     }).catch(e => {
-        appData.avances.splice(backupAvances, 1); // rollback
+        appData.avances = backupAvances; // rollback
         showError('Error al registrar el avance.', e);
     });
 }
@@ -3595,7 +3589,7 @@ function eliminarPersonal(id) {
                 closeModal('modalPersonalDetail');
                 closeModal('modalEditPersonal');
                 updatePersonalTab();
-                updateProfessionalPicker();
+                populateLoginUserPicker();
                 showToast('✓ Personal eliminado');
             } catch(e) {
                 appData.personal = backupPersonal; // rollback
@@ -4278,12 +4272,12 @@ async function guardarPaciente() {
         fechaRegistro: new Date().toISOString()
     };
 
-    const backupPacientes = appData.pacientes.length;
+    const backupPacientes = [...appData.pacientes];
     appData.pacientes.push(paciente);
     try {
         await saveData();
     } catch(saveErr) {
-        appData.pacientes.splice(backupPacientes, 1);
+        appData.pacientes = backupPacientes;
         showError('Error al guardar el paciente. Intenta de nuevo.', saveErr);
         return;
     }
@@ -5679,12 +5673,12 @@ async function guardarCita() {
         fechaCreacion: new Date().toISOString()
     };
 
-    const backupCitas = appData.citas.length;
+    const backupCitas = [...appData.citas];
     appData.citas.push(cita);
     try {
         await saveData();
     } catch(saveErr) {
-        appData.citas.splice(backupCitas, 1); // revertir
+        appData.citas = backupCitas; // revertir
         throw saveErr;
     }
     closeModal('modalNuevaCita');
@@ -6715,13 +6709,11 @@ async function limpiarDatosAntiguos() {
 
     if (cambios > 0) {
         await saveData('saveData-init'); // contexto permitido sin usuario logueado
-        updateProfessionalPicker();
-        updateReceptionPicker();
+        populateLoginUserPicker();
     }
 
     // Actualizar pickers siempre
-    updateProfessionalPicker();
-    updateReceptionPicker();
+    populateLoginUserPicker();
 }
 
 // ========================================
@@ -7472,8 +7464,8 @@ if (!appData.auditLogs) {
     appData.auditLogs = [];
 }
 
-// Audit logs are queued in memory and flushed on the next natural saveData() call.
-// This avoids one saveData() per user action (which is expensive and causes extra snapshots).
+// Audit logs go directly to subcollection 'auditoria' — never stored in main doc.
+// Also kept in a 200-entry in-memory buffer for the current session (modal de auditoría).
 function registrarAuditoria(accion, tipo, detalles) {
     const log = {
         id: generateId('LOG-'),
@@ -7484,19 +7476,38 @@ function registrarAuditoria(accion, tipo, detalles) {
         detalles: detalles
     };
 
-    if (!appData.auditLogs) {
-        appData.auditLogs = [];
-    }
-
+    // In-memory buffer for current session only
+    if (!appData.auditLogs) appData.auditLogs = [];
     appData.auditLogs.push(log);
-    // Limitar a 500 entradas — evita que el doc de Firebase crezca infinitamente
-    if (appData.auditLogs.length > 500) appData.auditLogs = appData.auditLogs.slice(-500);
+    if (appData.auditLogs.length > 200) appData.auditLogs = appData.auditLogs.slice(-200);
+
+    // Write to subcollection — fire-and-forget, never blocks the UI
+    if (CLINIC_PATH && typeof db !== 'undefined') {
+        db.collection('clinicas').doc(CLINIC_PATH)
+          .collection('auditoria').add(log)
+          .catch(e => console.warn('[Audit] write failed (non-critical):', e.message));
+    }
 }
 
-function verAuditoria() {
+async function verAuditoria() {
     if (appData.currentRole !== 'admin') {
         showToast('⛔ Solo administradores pueden ver la auditoría', 3000, '#c0392b');
         return;
+    }
+
+    // Fetch latest 200 audit entries from subcollection on demand
+    if (CLINIC_PATH && db) {
+        try {
+            const snap = await db.collection('clinicas').doc(CLINIC_PATH)
+                .collection('auditoria')
+                .orderBy('fecha', 'desc')
+                .limit(200)
+                .get();
+            appData.auditLogs = snap.docs.map(d => d.data()).reverse();
+        } catch(e) {
+            // Fallback to session buffer if Firestore unavailable
+            console.warn('[Audit] load from subcollection failed, using session buffer:', e.message);
+        }
     }
 
     renderizarAuditoria();
@@ -11119,7 +11130,7 @@ async function crearSede() {
     try {
         const defaultPersonal = [
             { id: '1', nombre: 'Administrador', tipo: 'regular',
-              password: 'admin123', isAdmin: true, canAccessReception: true }
+              password: null, isAdmin: true, canAccessReception: true }
         ];
 
         // Crear documento principal de la sede

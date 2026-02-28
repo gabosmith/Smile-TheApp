@@ -151,45 +151,7 @@
       margin: 6px 4px;
     }
 
-    /* Clinic login mini form */
-    #snav-clinica-form {
-      padding: 4px 4px 4px;
-      display: none;
-      flex-direction: column;
-      gap: 6px;
-    }
-    #snav-clinica-form.open { display: flex; }
-
-    .snav-input {
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px;
-      padding: 9px 12px;
-      font-size: 12px;
-      font-family: inherit;
-      color: white;
-      outline: none;
-      width: 100%;
-      transition: border-color 0.2s;
-    }
-    .snav-input::placeholder { color: rgba(255,255,255,0.22); }
-    .snav-input:focus { border-color: rgba(196,133,106,0.5); }
-
-    .snav-go-btn {
-      background: #C4856A;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      padding: 9px 12px;
-      font-size: 11px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      font-family: inherit;
-      cursor: pointer;
-      width: 100%;
-      transition: background 0.2s;
-    }
-    .snav-go-btn:hover { background: #B5745A; }
+    /* (clinic form removed — nav goes directly to app.html) */
 
     /* Bottom logo */
     .snav-bottom {
@@ -240,20 +202,10 @@
         <div class="snav-sep"></div>
         <div class="snav-section">Clínicas</div>
 
-        <button class="snav-item" onclick="snavToggleClinica()">
+        <a class="snav-item" href="${url('app.html')}">
           <div class="snav-item-icon">🦷</div>
           Entrar a clínica
-        </button>
-
-        <div id="snav-clinica-form">
-          <input
-            class="snav-input"
-            id="snav-clinica-input"
-            placeholder="ID de clínica (ej: clinica-garcia)"
-            onkeydown="if(event.key==='Enter') snavGoClinica()"
-          >
-          <button class="snav-go-btn" onclick="snavGoClinica()">Entrar →</button>
-        </div>
+        </a>
 
         <div class="snav-sep"></div>
         <div class="snav-bottom">
@@ -299,19 +251,6 @@
     toggle.classList.toggle('open');
   };
 
-  window.snavToggleClinica = function() {
-    const form = document.getElementById('snav-clinica-form');
-    form.classList.toggle('open');
-    if (form.classList.contains('open')) {
-      setTimeout(() => document.getElementById('snav-clinica-input')?.focus(), 80);
-    }
-  };
-
-  window.snavGoClinica = function() {
-    const val = document.getElementById('snav-clinica-input')?.value.trim()
-      .toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    if (!val) return;
-    window.location.href = url('app.html') + '?clinica=' + val;
-  };
+  // snavToggleClinica / snavGoClinica removed — nav goes directly to app.html
 
 })();
