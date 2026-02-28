@@ -1573,8 +1573,10 @@ async function confirmResetPassword(id, newPass) {
     const doc     = await db.collection('clinicas').doc(id).get();
     const pers    = doc.data()?.personal || [];
     const updated = pers.length
-      ? pers.map((p,i) => (p.isAdmin || i===0) ? {...p, password: newPass} : p)
-      : [{ id:'1', nombre:'Administrador', isAdmin:true, password:newPass, canAccessReception:true }];
+      ? pers.map((p,i) => (p.isAdmin || i===0)
+          ? { ...p, password: newPass, _pwHashed: false }  // clear hash flag so app.js accepts plaintext
+          : p)
+      : [{ id:'1', nombre:'Administrador', isAdmin:true, password:newPass, _pwHashed:false, canAccessReception:true }];
     await db.collection('clinicas').doc(id).update({ personal: updated });
     closeModal();
     showToast('✅ Contraseña cambiada: ' + newPass);
