@@ -683,11 +683,6 @@
       <div class="nav-item active" data-section="overview" onclick="showSection('overview')">
         <span class="nav-icon">📊</span> Overview
       </div>
-      <div class="nav-item" data-section="seguimiento" onclick="showSection('seguimiento')">
-        <span class="nav-icon">📋</span> Seguimiento
-        <span id="crmBadge" style="display:none;margin-left:auto;background:var(--terracota);color:white;
-          font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;min-width:18px;text-align:center"></span>
-      </div>
       <div class="nav-item" data-section="clinicas" onclick="showSection('clinicas')">
         <span class="nav-icon">🏥</span> Clínicas
       </div>
@@ -780,7 +775,6 @@ async function initApp() {
   await loadClinicas();
   showSection('overview');
   actualizarErrorBadge();
-  actualizarCrmBadge();
 }
 
 async function recargarAdmin() {
@@ -822,7 +816,6 @@ async function loadClinicas() {
         plan: config.plan || 'clinica',
         modulos: config.modulos || [],
         activa: config.activa !== false,
-        exonerada: config.exonerada === true,
         trial: config.trialHasta ? new Date(config.trialHasta) > new Date() : false,
         trialHasta: config.trialHasta || null,
         adminEmail: config.adminEmail || '—',
@@ -852,14 +845,15 @@ async function loadClinicas() {
 }
 
 function calcMRR(plan, modulos = [], personalCount = 0) {
-  const BASE = plan === 'solo' ? 19 : 23;
+  const BASE = plan === 'solo' ? 990 : 1200;
   const MODULE_PRICES = {
-    laboratorio: 5, nomina: 5, inventario: 5,
-    reportes: 5, multisucursal: 15,
+    laboratorio: 300, nomina: 300, inventario: 300,
+    reportes: 300, multisucursal: 800,
+    // ncf y expediente: incluidos en el plan base
   };
   const extraUsers = Math.max(0, personalCount - 1);
   const modulesTotal = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
-  return BASE + modulesTotal + (extraUsers * 2.5);
+  return BASE + modulesTotal + (extraUsers * 150);
 }
 
 // ── SECTIONS ──────────────────────────────────────────
@@ -871,7 +865,6 @@ async function showSection(section) {
 
   const main = document.getElementById('main');
   if (section === 'overview') renderOverview(main);
-  else if (section === 'seguimiento') await renderSeguimiento(main);
   else if (section === 'clinicas') renderClinicas(main);
   else if (section === 'nueva') renderNuevaClinica(main);
   else if (section === 'contactos') renderContactos(main);
@@ -936,7 +929,7 @@ function renderContactos(main) {
         </div>
         <div style="display:flex;gap:16px;font-size:11px;color:var(--mid)">
           <span>📦 ${c.plan === 'solo' ? 'Solo' : 'Clínica'}</span>
-          <span>💰 $${Number.isInteger(c.mrr) ? c.mrr.toLocaleString() : c.mrr.toFixed(2)} USD/mes</span>
+          <span>💰 RD$${c.mrr.toLocaleString()}/mes</span>
           <span>🧩 ${modulosStr}</span>
           <span>🕐 ${lastLoginStr}</span>
         </div>
@@ -1007,7 +1000,7 @@ function renderOverview(main) {
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--terracota)"></div>
           <div class="stat-label">MRR</div>
-          <div class="stat-val">$${Number.isInteger(mrr) ? mrr.toLocaleString() : mrr.toFixed(2)} USD</div>
+          <div class="stat-val">RD$${mrr.toLocaleString()}</div>
           <div class="stat-sub">${activas.length} clínica${activas.length !== 1 ? 's' : ''} activa${activas.length !== 1 ? 's' : ''}</div>
         </div>
         <div class="stat-card">
@@ -1025,7 +1018,7 @@ function renderOverview(main) {
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--rosa)"></div>
           <div class="stat-label">ARR proyectado</div>
-          <div class="stat-val">$${Number.isInteger(mrr*12) ? (mrr*12).toLocaleString() : (mrr*12).toFixed(2)} USD</div>
+          <div class="stat-val">RD$${(mrr * 12).toLocaleString()}</div>
           <div class="stat-sub">Si todas renuevan</div>
         </div>
       </div>
@@ -1099,7 +1092,7 @@ function renderClinicsTable(list) {
         <div>${statusBadge}</div>
         <div><span class="plan-tag">${planLabel}</span></div>
         <div>
-          <div class="amount">$${Number.isInteger(c.mrr) ? c.mrr.toLocaleString() : c.mrr.toFixed(2)} USD</div>
+          <div class="amount">RD$${c.mrr.toLocaleString()}</div>
           <div class="amount-sub">/ mes</div>
         </div>
         <div style="font-size:13px;color:var(--mid)">${c.pacientes.toLocaleString()} pac · ${c.ciudad}</div>
@@ -1144,7 +1137,7 @@ function openClinicDetail(id) {
       </div>
       <div class="detail-card">
         <div class="detail-label">MRR</div>
-        <div class="detail-val" style="color:var(--terracota)">$${Number.isInteger(c.mrr) ? c.mrr.toLocaleString() : c.mrr.toFixed(2)} USD/mes</div>
+        <div class="detail-val" style="color:var(--terracota)">RD$${c.mrr.toLocaleString()}</div>
     ${c.clinicaPadre ? `
     <div class="detail-label" style="margin-top:12px">Sede de</div>
     <div class="detail-val"><code style="font-size:12px">${c.clinicaPadre}</code></div>
@@ -1220,40 +1213,6 @@ function openClinicDetail(id) {
       ${c.modulos.length ? c.modulos.map(m => `<span style="background:var(--bg);padding:6px 14px;border-radius:8px;font-size:12px;color:var(--mid)">${m}</span>`).join('') : '<span style="font-size:13px;color:var(--light)">Sin módulos adicionales</span>'}
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid rgba(30,28,26,0.07);margin-bottom:20px">
-      <div>
-        <div style="font-size:14px;font-weight:400;color:var(--dark)">Exonerada de pago</div>
-        <div style="font-size:12px;color:var(--mid);margin-top:2px">No verá avisos de cobro en la app</div>
-      </div>
-      <button onclick="toggleExonerada('${c.id}', ${!c.raw?.config?.exonerada})" style="
-        padding:8px 18px;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;
-        transition:all 0.2s;white-space:nowrap;
-        border:1.5px solid ${c.raw?.config?.exonerada ? '#4a7a50' : 'rgba(30,28,26,0.15)'};
-        background:${c.raw?.config?.exonerada ? 'rgba(74,122,80,0.08)' : 'transparent'};
-        color:${c.raw?.config?.exonerada ? '#4a7a50' : 'var(--mid)'}">
-        ${c.raw?.config?.exonerada ? '✓ Exonerada' : 'Exonerar'}
-      </button>
-    </div>
-
-    ${(() => {
-      const pagos = (c.raw?.config?.pagosSuscripcion || []).slice().reverse();
-      return `
-        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Historial de pagos</div>
-        <div style="background:var(--bg);border-radius:12px;padding:${pagos.length ? '4px 16px' : '20px'};margin-bottom:24px;text-align:${pagos.length ? 'left' : 'center'}">
-          ${pagos.length ? pagos.map(p => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(30,28,26,0.07)">
-              <div>
-                <div style="font-size:13px;color:var(--dark)">${p.concepto || 'Suscripción mensual'}</div>
-                <div style="font-size:11px;color:var(--light)">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-size:14px;font-weight:400;color:var(--dark)">$${Number(p.monto||0).toFixed(2)} USD</div>
-                <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-top:2px;color:${p.estado==='pagado'?'#4a7a50':p.estado==='pendiente'?'var(--terracota)':'var(--light)'}">${p.estado||'registrado'}</div>
-              </div>
-            </div>`).join('') : '<div style="font-size:13px;color:var(--light)">Sin pagos registrados</div>'}
-        </div>`;
-    })()}
-
     <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Acceso directo</div>
     <div class="link-card" onclick="copyToClipboard('${appUrl}')">
       <div class="link-url">${appUrl}</div>
@@ -1268,7 +1227,7 @@ function openClinicDetail(id) {
         <span>🔗</span> Copiar link
       </button>
       <button class="modal-action-btn" onclick="openResetPassword('${c.id}')">
-        <span>🔑</span> Reset contraseña
+        <span>🔑</span> Reset PIN
       </button>
       <button class="modal-action-btn" onclick="extendTrial('${c.id}')">
         <span>📅</span> Extender trial
@@ -1299,12 +1258,12 @@ function openEditModal(id) {
   if (!c) return;
 
   const allModulos = [
-    { key: 'laboratorio',   label: 'Laboratorio',         price: 5 },
-    { key: 'nomina',        label: 'Nómina',              price: 5 },
-    { key: 'inventario',    label: 'Inventario',          price: 5 },
-    { key: 'reportes',      label: 'Reportes avanzados',  price: 5 },
-    { key: 'multisucursal', label: 'Sucursal adicional',  price: 15 },
-    { key: 'expediente', label: 'Expediente clínico', price: 5 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
+    { key: 'nomina',        label: 'Nómina',              price: 300 },
+    { key: 'inventario',    label: 'Inventario',          price: 300 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
+    { key: 'expediente', label: 'Expediente clínico', price: 300 },
   ];
 
   document.getElementById('modalTitle').textContent = 'Editar — ' + c.nombre;
@@ -1321,8 +1280,8 @@ function openEditModal(id) {
       <div class="modal-field">
         <label>Plan</label>
         <select id="edit-plan">
-          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — $19 USD</option>
-          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — $23 USD</option>
+          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — $990</option>
+          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — RD$1,200</option>
         </select>
       </div>
     </div>
@@ -1341,7 +1300,7 @@ function openEditModal(id) {
           <label class="module-check-item ${c.modulos.includes(m.key) ? 'checked' : ''}">
             <input type="checkbox" value="${m.key}" ${c.modulos.includes(m.key) ? 'checked' : ''}
               onchange="this.closest('.module-check-item').classList.toggle('checked', this.checked)">
-            ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+$${m.price} USD</span>
+            ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+${m.price}</span>
           </label>
         `).join('')}
       </div>
@@ -1382,12 +1341,12 @@ async function saveClinicEdit(id) {
 // ── NUEVA CLÍNICA ─────────────────────────────────────
 function renderNuevaClinica(main) {
   const allModulos = [
-    { key: 'laboratorio',   label: 'Laboratorio',         price: 5 },
-    { key: 'nomina',        label: 'Nómina',              price: 5 },
-    { key: 'inventario',    label: 'Inventario',          price: 5 },
-    { key: 'reportes',      label: 'Reportes avanzados',  price: 5 },
-    { key: 'multisucursal', label: 'Sucursal adicional',  price: 15 },
-    { key: 'expediente', label: 'Expediente clínico', price: 5 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
+    { key: 'nomina',        label: 'Nómina',              price: 300 },
+    { key: 'inventario',    label: 'Inventario',          price: 300 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
+    { key: 'expediente', label: 'Expediente clínico', price: 300 },
   ];
 
   main.innerHTML = `
@@ -1419,8 +1378,8 @@ function renderNuevaClinica(main) {
           <div class="modal-field">
             <label>Plan</label>
             <select id="new-plan">
-              <option value="clinica">Clínica — $23 USD</option>
-              <option value="solo">Solo — $19 USD</option>
+              <option value="clinica">Clínica — RD$1,200</option>
+              <option value="solo">Solo — $990</option>
             </select>
           </div>
         </div>
@@ -1442,7 +1401,7 @@ function renderNuevaClinica(main) {
               <label class="module-check-item">
                 <input type="checkbox" value="${m.key}"
                   onchange="this.closest('.module-check-item').classList.toggle('checked', this.checked)">
-                ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+$${m.price} USD</span>
+                ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--light)">+$${m.price}</span>
               </label>
             `).join('')}
           </div>
@@ -1450,7 +1409,7 @@ function renderNuevaClinica(main) {
 
         <div style="background:var(--white);border-radius:16px;padding:20px 24px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,0.05)">
           <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:8px">MRR estimado</div>
-          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terracota)" id="new-mrr-preview">$23 USD</div>
+          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terracota)" id="new-mrr-preview">RD$1,200</div>
           <div style="font-size:12px;color:var(--light);margin-top:4px">/ mes</div>
         </div>
 
@@ -1472,7 +1431,7 @@ function updateMRRPreview() {
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
   const mrr = calcMRR(plan, modulos, 1);
   const el = document.getElementById('new-mrr-preview');
-  if (el) el.textContent = '$' + (Number.isInteger(mrr) ? mrr.toLocaleString() : mrr.toFixed(2)) + ' USD';
+  if (el) el.textContent = 'RD$' + mrr.toLocaleString();
 }
 
 function autoSlug(val) {
@@ -1573,33 +1532,23 @@ async function toggleStatus(id) {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-async function toggleExonerada(id, value) {
-  try {
-    await db.collection('clinicas').doc(id)
-      .collection('config').doc('settings').set({ exonerada: value }, { merge: true });
-    showToast(value ? '✅ Clínica exonerada de pago' : '✅ Exoneración eliminada');
-    await loadClinicas();
-    openClinicDetail(id);
-  } catch(e) { showToast('❌ ' + e.message); }
-}
-
 // ── RESET CONTRASEÑA ─────────────────────────────────
 function openResetPassword(id) {
   const c = clinicas.find(x => x.id === id);
   if (!c) return;
-  const newPass      = Math.random().toString(36).slice(2,8).toUpperCase();
+  const newPass      = String(Math.floor(1000 + Math.random() * 9000)); // PIN de 4 dígitos
   const adminNombre  = c.raw?.personal?.find(p => p.isAdmin)?.nombre
                     || c.raw?.personal?.[0]?.nombre
                     || 'Administrador';
 
-  document.getElementById('modalTitle').textContent = '🔑 Reset contraseña — ' + c.nombre;
+  document.getElementById('modalTitle').textContent = '🔑 Reset PIN — ' + c.nombre;
   document.getElementById('modalBody').innerHTML = `
     <div style="text-align:center;padding:16px 0 24px">
       <div style="font-size:13px;color:var(--mid);margin-bottom:28px;line-height:1.7">
-        Se generará una nueva contraseña para el admin.<br>Compártela con el cliente por WhatsApp.
+        Se generará un PIN de 4 dígitos para el admin.<br>Compártelo con el cliente por WhatsApp.
       </div>
       <div style="background:var(--bg);border-radius:16px;padding:28px;margin-bottom:20px">
-        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:12px">Nueva contraseña</div>
+        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:12px">Nuevo PIN</div>
         <div style="font-family:monospace;font-size:36px;letter-spacing:8px;color:var(--terracota)">${newPass}</div>
         <div style="font-size:12px;color:var(--mid);margin-top:12px">Usuario: <strong>${adminNombre}</strong></div>
       </div>
@@ -1617,13 +1566,11 @@ async function confirmResetPassword(id, newPass) {
     const doc     = await db.collection('clinicas').doc(id).get();
     const pers    = doc.data()?.personal || [];
     const updated = pers.length
-      ? pers.map((p,i) => (p.isAdmin || i===0)
-          ? { ...p, password: newPass, _pwHashed: false }  // clear hash flag so app.js accepts plaintext
-          : p)
-      : [{ id:'1', nombre:'Administrador', isAdmin:true, password:newPass, _pwHashed:false, canAccessReception:true }];
+      ? pers.map((p,i) => (p.isAdmin || i===0) ? {...p, password: newPass} : p)
+      : [{ id:'1', nombre:'Administrador', isAdmin:true, password:newPass, canAccessReception:true }];
     await db.collection('clinicas').doc(id).update({ personal: updated });
     closeModal();
-    showToast('✅ Contraseña cambiada: ' + newPass);
+    showToast('✅ PIN cambiado: ' + newPass);
     await loadClinicas();
   } catch(e) { showToast('❌ ' + e.message); }
 }
@@ -2014,254 +1961,6 @@ async function actualizarErrorBadge() {
     }
   } catch(e) { /* colección no existe aún — normal */ }
 }
-
-// ══════════════════════════════════════════════════════════
-// CRM — SEGUIMIENTO
-// ══════════════════════════════════════════════════════════
-
-// Genera las alertas a partir de los datos de clinicas[]
-function generarAlertas() {
-  const ahora   = new Date();
-  const alertas = [];
-
-  for (const c of clinicas) {
-    // Ignorar clínicas pausadas
-    if (!c.activa) continue;
-
-    // ── 🔵 RECIÉN CREADA (menos de 3 días) ───────────────
-    if (c.creadaEn) {
-      const diasDesdeCreacion = (ahora - new Date(c.creadaEn)) / (1000*60*60*24);
-      if (diasDesdeCreacion <= 3) {
-        alertas.push({
-          tipo:      'nueva',
-          prioridad: 1,
-          clinica:   c,
-          titulo:    'Clínica recién creada',
-          detalle:   `Creada hace ${Math.floor(diasDesdeCreacion) === 0 ? 'hoy' : Math.floor(diasDesdeCreacion) + ' día' + (Math.floor(diasDesdeCreacion) !== 1 ? 's' : '')}`,
-          accion:    'Enviar bienvenida',
-          mensajeWA: `¡Hola${c.waName ? ' ' + c.waName.split(' ')[0] : ''}! 👋 Soy Gabo de SMILE. Ya tienes tu cuenta lista. ¿Tienes alguna pregunta o necesitas ayuda para empezar?`,
-          icono:     '🔵',
-          color:     '#7B8FA1',
-        });
-      }
-    }
-
-    // ── 🔴 TRIAL POR VENCER (menos de 5 días) ───────────
-    if (c.trial && c.trialHasta) {
-      const diasRestantes = Math.ceil((new Date(c.trialHasta) - ahora) / (1000*60*60*24));
-      if (diasRestantes <= 5 && diasRestantes >= 0) {
-        alertas.push({
-          tipo:      'trial',
-          prioridad: diasRestantes <= 2 ? 0 : 1,
-          clinica:   c,
-          titulo:    diasRestantes <= 2 ? '⚠️ Trial vence pronto' : 'Trial próximo a vencer',
-          detalle:   diasRestantes === 0 ? 'Vence hoy' : `Vence en ${diasRestantes} día${diasRestantes !== 1 ? 's' : ''}`,
-          accion:    'Hablar ahora',
-          mensajeWA: `¡Hola${c.waName ? ' ' + c.waName.split(' ')[0] : ''}! Tu período de prueba de SMILE vence en ${diasRestantes === 0 ? 'hoy' : diasRestantes + ' día' + (diasRestantes !== 1 ? 's' : '')}. ¿Te gustaría continuar? Cuéntame cómo te ha ido y coordinamos todo.`,
-          icono:     '🔴',
-          color:     '#C47070',
-        });
-      }
-    }
-
-    // ── 🟡 INACTIVA (sin login en +7 días) ──────────────
-    if (c.lastLogin) {
-      const diasSinLogin = (ahora - new Date(c.lastLogin)) / (1000*60*60*24);
-      if (diasSinLogin >= 7) {
-        alertas.push({
-          tipo:      'inactiva',
-          prioridad: diasSinLogin >= 14 ? 0 : 2,
-          clinica:   c,
-          titulo:    diasSinLogin >= 14 ? 'Clínica muy inactiva' : 'Clínica inactiva',
-          detalle:   `Sin actividad hace ${Math.floor(diasSinLogin)} día${Math.floor(diasSinLogin) !== 1 ? 's' : ''}`,
-          accion:    'Verificar',
-          mensajeWA: `¡Hola${c.waName ? ' ' + c.waName.split(' ')[0] : ''}! Te escribo de SMILE. Notamos que llevan unos días sin conectarse. ¿Todo bien? ¿Hay algo en lo que te podamos ayudar?`,
-          icono:     '🟡',
-          color:     '#B8860B',
-        });
-      }
-    }
-  }
-
-  // Ordenar: prioridad 0 primero, luego 1, luego 2
-  return alertas.sort((a, b) => a.prioridad - b.prioridad);
-}
-
-// Clave para localStorage — alertas descartadas por 24h
-const CRM_SNOOZED_KEY = 'smile_crm_snoozed';
-
-function getSnoozed() {
-  try {
-    const raw = localStorage.getItem(CRM_SNOOZED_KEY);
-    if (!raw) return {};
-    const data = JSON.parse(raw);
-    // Limpiar los que ya expiraron
-    const ahora = Date.now();
-    const clean = {};
-    for (const [k, v] of Object.entries(data)) {
-      if (v > ahora) clean[k] = v;
-    }
-    return clean;
-  } catch(e) { return {}; }
-}
-
-function snoozeAlerta(clinicaId, tipo) {
-  const snoozed = getSnoozed();
-  snoozed[`${clinicaId}_${tipo}`] = Date.now() + 24*60*60*1000;
-  localStorage.setItem(CRM_SNOOZED_KEY, JSON.stringify(snoozed));
-}
-
-function isAtendida(clinicaId, tipo) {
-  const snoozed = getSnoozed();
-  return !!snoozed[`${clinicaId}_${tipo}`];
-}
-
-async function actualizarCrmBadge() {
-  // Esperar a que clinicas esté cargada
-  if (!clinicas.length) return;
-  const alertas = generarAlertas().filter(a => !isAtendida(a.clinica.id, a.tipo));
-  const badge = document.getElementById('crmBadge');
-  if (!badge) return;
-  if (alertas.length > 0) {
-    badge.textContent = alertas.length > 9 ? '9+' : alertas.length;
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
-async function renderSeguimiento(main) {
-  main.innerHTML = `
-    <div style="max-width:680px;margin:0 auto;">
-      <div class="page-header" style="margin-bottom:28px">
-        <div>
-          <div class="page-title">Seguimiento</div>
-          <div class="page-sub" id="crmSubtitle">Analizando clínicas...</div>
-        </div>
-        <button class="header-btn" onclick="showSection('seguimiento')">↻ Actualizar</button>
-      </div>
-      <div id="crmLista">
-        <div style="text-align:center;padding:80px 20px;color:var(--mid)">
-          <div style="font-size:32px;margin-bottom:12px;opacity:0.3">📋</div>
-          <div style="font-size:14px">Cargando alertas...</div>
-        </div>
-      </div>
-    </div>`;
-
-  // Render alertas
-  _renderAlertasList();
-}
-
-function _renderAlertasList() {
-  const lista    = document.getElementById('crmLista');
-  const subtitle = document.getElementById('crmSubtitle');
-  if (!lista) return;
-
-  const todas    = generarAlertas();
-  const alertas  = todas.filter(a => !isAtendida(a.clinica.id, a.tipo));
-  const atendidas = todas.length - alertas.length;
-
-  if (subtitle) {
-    subtitle.textContent = alertas.length === 0
-      ? 'Todo al día ✓'
-      : `${alertas.length} alerta${alertas.length !== 1 ? 's' : ''} pendiente${alertas.length !== 1 ? 's' : ''}${atendidas ? ' · ' + atendidas + ' atendida' + (atendidas !== 1 ? 's' : '') : ''}`;
-  }
-
-  if (alertas.length === 0) {
-    lista.innerHTML = `
-      <div style="text-align:center;padding:80px 20px;">
-        <div style="font-size:48px;margin-bottom:16px">✅</div>
-        <div style="font-size:20px;font-weight:300;color:var(--dark);margin-bottom:8px">Todo al día</div>
-        <div style="font-size:14px;color:var(--mid)">No hay alertas pendientes por ahora.</div>
-        ${atendidas ? `<div style="font-size:12px;color:var(--light);margin-top:8px">${atendidas} alerta${atendidas !== 1 ? 's' : ''} marcada${atendidas !== 1 ? 's' : ''} como atendida${atendidas !== 1 ? 's' : ''} hoy</div>` : ''}
-      </div>`;
-    actualizarCrmBadge();
-    return;
-  }
-
-  lista.innerHTML = alertas.map(a => _renderAlertaCard(a)).join('');
-  actualizarCrmBadge();
-}
-
-function _renderAlertaCard(a) {
-  const c = a.clinica;
-  const waPhone = c.waPhone ? c.waPhone.replace(/[^0-9]/g, '') : null;
-  const waLink  = waPhone
-    ? `https://wa.me/1${waPhone}?text=${encodeURIComponent(a.mensajeWA)}`
-    : null;
-
-  return `
-    <div id="alerta_${c.id}_${a.tipo}" style="
-      background:var(--white);border-radius:20px;padding:24px 28px;
-      margin-bottom:12px;border:1.5px solid rgba(30,28,26,0.06);
-      border-left:4px solid ${a.color};
-      transition:opacity 0.3s,transform 0.3s;
-    ">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
-        <div style="flex:1;min-width:0">
-          <!-- Tipo de alerta -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <span style="font-size:14px">${a.icono}</span>
-            <span style="font-size:11px;font-weight:500;letter-spacing:1px;text-transform:uppercase;
-                         color:${a.color}">${a.titulo}</span>
-          </div>
-          <!-- Nombre clínica -->
-          <div style="font-size:18px;font-weight:300;color:var(--dark);margin-bottom:4px;
-                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            ${c.nombre}
-          </div>
-          <!-- Detalle -->
-          <div style="font-size:13px;color:var(--mid);margin-bottom:2px">${a.detalle}</div>
-          <!-- Info adicional -->
-          <div style="font-size:12px;color:var(--light);display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
-            <span>📦 ${c.plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</span>
-            ${c.trial && c.trialHasta ? `<span>⏱ Trial</span>` : ''}
-            ${c.waName ? `<span>👤 ${c.waName}</span>` : ''}
-            ${c.waPhone ? `<span>📱 ${c.waPhone}</span>` : ''}
-          </div>
-        </div>
-
-        <!-- Acciones -->
-        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;flex-shrink:0">
-          ${waLink ? `
-            <a href="${waLink}" target="_blank" style="
-              display:inline-flex;align-items:center;gap:6px;
-              padding:10px 18px;background:#25D366;color:white;
-              border-radius:100px;text-decoration:none;font-size:12px;
-              font-family:inherit;font-weight:500;white-space:nowrap;
-              transition:opacity 0.2s;" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">
-              <span style="font-size:14px">💬</span> ${a.accion}
-            </a>` : `
-            <span style="font-size:12px;color:var(--light);padding:10px 0">Sin WhatsApp</span>`}
-          <button onclick="_atenderAlerta('${c.id}', '${a.tipo}')" style="
-            padding:8px 18px;background:transparent;border:1.5px solid rgba(30,28,26,0.1);
-            border-radius:100px;font-size:12px;font-family:inherit;color:var(--mid);
-            cursor:pointer;transition:all 0.2s;white-space:nowrap;"
-            onmouseover="this.style.borderColor='var(--dark)';this.style.color='var(--dark)'"
-            onmouseout="this.style.borderColor='rgba(30,28,26,0.1)';this.style.color='var(--mid)'">
-            ✓ Atendida
-          </button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function _atenderAlerta(clinicaId, tipo) {
-  // Animación de salida
-  const el = document.getElementById(`alerta_${clinicaId}_${tipo}`);
-  if (el) {
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(20px)';
-    setTimeout(() => {
-      snoozeAlerta(clinicaId, tipo);
-      _renderAlertasList();
-    }, 280);
-  } else {
-    snoozeAlerta(clinicaId, tipo);
-    _renderAlertasList();
-  }
-}
-
 
 </script>
 </body>
