@@ -83,122 +83,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── PANTALLA ENTRADA DE CLÍNICA ─────────────────── */
-    #clinicEntryScreen {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: var(--bg);
-        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-        align-items: center;
-        justify-content: center;
-        z-index: 9998;
-        padding: 24px;
-    }
-    .clinic-entry-card {
-        background: white;
-        border-radius: 20px;
-        padding: 40px 36px;
-        width: 100%;
-        max-width: 380px;
-        box-shadow: 0 24px 80px rgba(0,0,0,0.10);
-    }
-    .clinic-entry-eyebrow {
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: var(--terracota);
-        margin-bottom: 10px;
-    }
-    .clinic-entry-title {
-        font-size: 24px;
-        font-weight: 200;
-        color: var(--dark);
-        letter-spacing: -0.5px;
-        margin-bottom: 6px;
-        line-height: 1.2;
-    }
-    .clinic-entry-sub {
-        font-size: 13px;
-        color: var(--mid);
-        margin-bottom: 28px;
-        font-weight: 300;
-        line-height: 1.6;
-    }
-    .clinic-entry-input-wrap {
-        display: flex;
-        align-items: center;
-        border: 1.5px solid rgba(30,28,26,0.10);
-        border-radius: 12px;
-        background: var(--surface);
-        overflow: hidden;
-        margin-bottom: 10px;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .clinic-entry-input-wrap:focus-within {
-        border-color: var(--terracota);
-        box-shadow: 0 0 0 3px rgba(196,133,106,0.10);
-        background: white;
-    }
-    .clinic-entry-prefix {
-        padding: 14px 0 14px 16px;
-        font-size: 13px;
-        color: var(--light);
-        white-space: nowrap;
-        user-select: none;
-        flex-shrink: 0;
-    }
-    #clinicEntryInput {
-        flex: 1;
-        border: none;
-        background: transparent;
-        padding: 14px 16px 14px 4px;
-        font-size: 14px;
-        font-family: inherit;
-        font-weight: 300;
-        color: var(--dark);
-        outline: none;
-        min-width: 0;
-    }
-    #clinicEntryInput::placeholder { color: rgba(156,145,137,0.45); }
-    .clinic-entry-btn {
-        width: 100%;
-        padding: 15px;
-        background: var(--dark);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        font-size: 11px;
-        font-family: inherit;
-        font-weight: 500;
-        letter-spacing: 2.5px;
-        text-transform: uppercase;
-        cursor: pointer;
-        margin-top: 4px;
-        transition: background 0.2s;
-    }
-    .clinic-entry-btn:hover { background: var(--terracota); }
-    .clinic-entry-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .clinic-entry-error {
-        display: none;
-        font-size: 12px;
-        color: #b84a4a;
-        margin-top: 8px;
-        padding: 8px 12px;
-        background: rgba(184,74,74,0.07);
-        border-radius: 8px;
-        border-left: 2px solid #b84a4a;
-    }
-    .clinic-entry-footer {
-        margin-top: 24px;
-        text-align: center;
-        font-size: 11px;
-        color: rgba(156,145,137,0.5);
-        letter-spacing: 1px;
-    }
-
-
+    /* ── SYNC INDICATOR ─────────────────────────── */
     .sync-indicator {
         position: fixed;
         top: 68px;
@@ -224,254 +109,150 @@
     .sync-indicator.sync-pulse { animation: syncPulse 1s ease-in-out infinite; }
 
     /* ── LOGIN SCREEN ───────────────────────────── */
-    /* ── LOGIN SCREEN — SMILE ──────────────────────────────── */
     .login-screen {
         min-height: 100vh;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        position: relative;
-        overflow: hidden;
-    }
-    @media (max-width: 700px) {
-        .login-screen { grid-template-columns: 1fr; }
-        .login-panel-left { display: none !important; }
-        .login-panel-right { padding: 48px 28px; justify-content: center; }
-    }
-
-    /* ── LEFT: brand panel ── */
-    .login-panel-left {
-        background: var(--clinic-color);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        padding: 52px 48px;
-        position: relative;
-        overflow: hidden;
-    }
-    .login-panel-left::before {
-        content: '';
-        position: absolute;
-        top: -100px; right: -100px;
-        width: 380px; height: 380px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.07);
-        pointer-events: none;
-    }
-    .login-panel-left::after {
-        content: '';
-        position: absolute;
-        bottom: -80px; left: -80px;
-        width: 300px; height: 300px;
-        border-radius: 50%;
-        background: rgba(0,0,0,0.08);
-        pointer-events: none;
-    }
-    .lp-logo {
-        position: relative; z-index: 1;
-        display: flex; flex-direction: column; gap: 0;
-    }
-    .lp-logo img {
-        max-width: 150px; height: auto;
-        filter: brightness(0) invert(1);
-        opacity: 0.95;
-        display: none;
-        margin-bottom: 16px;
-    }
-    .lp-logo img.lp-loaded { display: block; }
-    .lp-wordmark {
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 5px;
-        color: rgba(255,255,255,0.45);
-        text-transform: uppercase;
-        margin-bottom: 8px;
-    }
-    .lp-clinic-name {
-        font-size: 34px;
-        font-weight: 200;
-        color: white;
-        letter-spacing: -1px;
-        line-height: 1.1;
-        max-width: 280px;
-    }
-    .lp-bottom {
-        position: relative; z-index: 1;
-    }
-    .lp-tagline {
-        font-size: 12px;
-        color: rgba(255,255,255,0.38);
-        font-weight: 300;
-        letter-spacing: 0.5px;
-    }
-    .lp-decorative {
-        position: absolute;
-        bottom: 120px; right: 40px;
-        z-index: 1;
-        opacity: 0.06;
-        font-size: 180px;
-        font-weight: 700;
-        color: white;
-        letter-spacing: -10px;
-        pointer-events: none;
-        user-select: none;
-        line-height: 1;
-    }
-
-    /* ── RIGHT: form panel ── */
-    .login-panel-right {
-        background: #FDFCFB;
+        background: linear-gradient(160deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 60px 56px;
+        padding: 24px;
         position: relative;
+        overflow: hidden;
     }
-    .login-panel-right::before {
+    .login-screen::before {
         content: '';
         position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 3px;
-        background: var(--clinic-color);
-        opacity: 0.5;
+        top: -30%;
+        right: -20%;
+        width: 60vw;
+        height: 60vw;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.03);
+        pointer-events: none;
     }
-    .lf-inner {
-        width: 100%;
-        max-width: 320px;
-    }
-    .lf-eyebrow {
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: var(--clinic-color);
-        margin-bottom: 12px;
-    }
-    .lf-title {
-        font-size: 26px;
-        font-weight: 300;
-        color: var(--dark);
-        letter-spacing: -0.5px;
-        margin-bottom: 4px;
-        line-height: 1.2;
-    }
-    .lf-sub {
-        font-size: 13px;
-        color: var(--mid);
-        margin-bottom: 40px;
-        font-weight: 300;
-        line-height: 1.6;
+    .login-screen::after {
+        content: '';
+        position: absolute;
+        bottom: -20%;
+        left: -15%;
+        width: 50vw;
+        height: 50vw;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.025);
+        pointer-events: none;
     }
 
-    .lf-field {
-        margin-bottom: 14px;
+    .logo-container {
+        margin-bottom: 36px;
+        text-align: center;
+        position: relative;
+        z-index: 1;
     }
-    .lf-field label {
+    .logo-container img {
+        max-width: 180px;
+        width: 55%;
+        height: auto;
+        filter: brightness(0) invert(1);
+        opacity: 0.95;
+        display: none; /* shown by JS when logo exists */
+    }
+    .logo-container img.loaded {
         display: block;
-        font-size: 10px;
-        font-weight: 500;
+        margin: 0 auto 12px;
+    }
+    .clinic-name-login {
+        color: rgba(255,255,255,0.9);
+        font-size: 22px;
+        font-weight: 200;
+        text-align: center;
+        margin-top: 10px;
+        letter-spacing: -0.3px;
+        transition: font-size 0.2s;
+    }
+    .clinic-name-login.logo-visible {
+        font-size: 13px;
+        opacity: 0.7;
+        font-weight: 300;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-        color: var(--mid);
-        margin-bottom: 8px;
+        margin-top: 8px;
     }
-    .lf-field input,
-    .lf-field select {
+
+    .login-card {
+        background: var(--white);
+        border-radius: var(--radius-lg);
+        padding: 32px 28px;
+        max-width: 380px;
         width: 100%;
-        padding: 14px 16px;
-        border: 1.5px solid rgba(30,28,26,0.09);
-        border-radius: 10px;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.12);
+        position: relative;
+        z-index: 1;
+    }
+
+    .role-selector {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 28px;
+        background: var(--bg);
+        padding: 4px;
+        border-radius: var(--radius-sm);
+    }
+    .role-btn {
+        flex: 1;
+        padding: 10px 8px;
+        border: none;
+        background: transparent;
+        color: var(--light);
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 400;
+        font-size: 12px;
+        font-family: inherit;
+        letter-spacing: 0.3px;
+        transition: all 0.2s;
+    }
+    .role-btn.active {
+        background: var(--white);
+        color: var(--dark);
+        font-weight: 500;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .input-group {
+        margin-bottom: 18px;
+    }
+    .input-group label {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--mid);
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+    }
+    .input-group input,
+    .input-group select {
+        width: 100%;
+        padding: 13px 16px;
+        border: 1.5px solid rgba(30,28,26,0.1);
+        border-radius: var(--radius-sm);
         font-size: 15px;
         font-family: inherit;
         font-weight: 300;
-        background: white;
+        background: var(--surface);
         color: var(--dark);
         transition: border-color 0.2s, box-shadow 0.2s;
         -webkit-appearance: none;
-        box-sizing: border-box;
-        cursor: pointer;
     }
-    .lf-field select {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239C9189' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 16px center;
-        padding-right: 40px;
-    }
-    .lf-field input:focus,
-    .lf-field select:focus {
+    .input-group input:focus,
+    .input-group select:focus {
         outline: none;
         border-color: var(--clinic-color);
-        box-shadow: 0 0 0 3px rgba(196,133,106,0.10);
-    }
-    .lf-field input::placeholder {
-        color: rgba(156,145,137,0.45);
-        font-weight: 300;
+        box-shadow: 0 0 0 3px rgba(30,28,26,0.06);
+        background: var(--white);
     }
 
-    .lf-error {
-        display: none;
-        font-size: 13px;
-        color: #b84a4a;
-        background: rgba(184,74,74,0.07);
-        border-left: 2px solid #b84a4a;
-        border-radius: 8px;
-        padding: 10px 14px;
-        margin-bottom: 16px;
-        line-height: 1.5;
-        font-weight: 300;
-    }
-
-    .lf-submit {
-        width: 100%;
-        padding: 15px;
-        background: var(--dark);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        font-size: 11px;
-        font-family: inherit;
-        font-weight: 500;
-        letter-spacing: 2.5px;
-        text-transform: uppercase;
-        cursor: pointer;
-        margin-top: 10px;
-        transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-    }
-    .lf-submit:hover {
-        background: var(--clinic-color);
-        box-shadow: 0 8px 24px rgba(196,133,106,0.30);
-    }
-    .lf-submit:active { transform: scale(0.99); }
-    .lf-submit:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-
-    .lf-footer {
-        margin-top: 36px;
-        font-size: 10px;
-        color: rgba(156,145,137,0.4);
-        text-align: center;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-    }
-
-    /* Legacy — kept for non-login form-group usage elsewhere */
-    .input-group { margin-bottom: 18px; }
-    .input-group label {
-        display: block; margin-bottom: 7px;
-        color: var(--mid); font-size: 11px;
-        font-weight: 400; letter-spacing: 0.8px; text-transform: uppercase;
-    }
-    .input-group input, .input-group select {
-        width: 100%; padding: 13px 16px;
-        border: 1.5px solid rgba(30,28,26,0.1);
-        border-radius: var(--radius-sm); font-size: 15px;
-        font-family: inherit; font-weight: 300;
-        background: var(--surface); color: var(--dark);
-        transition: border-color 0.2s, box-shadow 0.2s; -webkit-appearance: none;
-    }
-    .input-group input:focus, .input-group select:focus {
-        outline: none; border-color: var(--clinic-color);
-        box-shadow: 0 0 0 3px rgba(30,28,26,0.06); background: var(--white);
-    }
     .btn-primary {
         width: 100%;
         padding: 15px;
@@ -494,14 +275,6 @@
     }
     .btn-primary:active { transform: scale(0.98); }
 
-
-    @keyframes loginShake {
-        0%,100% { transform: translateX(0); }
-        20%      { transform: translateX(-6px); }
-        40%      { transform: translateX(6px); }
-        60%      { transform: translateX(-4px); }
-        80%      { transform: translateX(4px); }
-    }
     /* ── APP CONTAINER ──────────────────────────── */
     .app-container {
         display: none;
@@ -1152,86 +925,10 @@
 </head>
 <body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
 
-    <!-- OVERLAY DE ACCESO — aparece cuando no hay ?clinica= en la URL -->
-    <div id="clinicAccessOverlay" style="
-        display:none; position:fixed; inset:0; z-index:9999;
-        background:linear-gradient(160deg,#1E1C1A 0%,#2D2A27 100%);
-        align-items:center; justify-content:center; flex-direction:column; padding:24px;">
-        <div style="text-align:center; margin-bottom:36px;">
-            <div style="font-size:13px;font-weight:500;letter-spacing:7px;color:white;opacity:0.9;margin-bottom:6px;">SMILE</div>
-            <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#C4856A;">Acceso clínica</div>
-        </div>
-        <div style="background:#FDFCFB;border-radius:20px;padding:36px 32px;width:100%;max-width:380px;
-                    box-shadow:0 32px 80px rgba(0,0,0,0.5),0 8px 24px rgba(0,0,0,0.2);">
-            <div style="font-size:18px;font-weight:300;color:#1E1C1A;margin-bottom:6px;">Acceder a tu clínica</div>
-            <div style="font-size:13px;color:#9C9189;margin-bottom:28px;line-height:1.6;">Ingresa el ID y contraseña de administrador.</div>
-            <div style="margin-bottom:16px;">
-                <label style="display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#9C9189;margin-bottom:8px;">ID de clínica</label>
-                <input id="clinicIdInput" type="text" placeholder="mi-clinica"
-                    autocomplete="off" autocapitalize="none" spellcheck="false"
-                    onkeydown="if(event.key==='Enter') document.getElementById('clinicAccessPass').focus()"
-                    style="width:100%;padding:14px 16px;border:1.5px solid rgba(30,28,26,0.12);border-radius:12px;
-                           font-size:15px;font-family:inherit;font-weight:300;color:#1E1C1A;background:#F5F2EE;
-                           outline:none;box-sizing:border-box;transition:border-color 0.2s;"
-                    onfocus="this.style.borderColor='#C4856A'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
-            </div>
-            <div style="margin-bottom:24px;">
-                <label style="display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#9C9189;margin-bottom:8px;">Contraseña admin</label>
-                <input id="clinicAccessPass" type="password" placeholder="••••••••"
-                    autocomplete="current-password"
-                    onkeydown="if(event.key==='Enter') accederPorId()"
-                    style="width:100%;padding:14px 16px;border:1.5px solid rgba(30,28,26,0.12);border-radius:12px;
-                           font-size:15px;font-family:inherit;font-weight:300;color:#1E1C1A;background:#F5F2EE;
-                           outline:none;box-sizing:border-box;transition:border-color 0.2s;"
-                    onfocus="this.style.borderColor='#C4856A'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
-            </div>
-            <div id="clinicAccessErr" style="display:none;font-size:13px;color:#C47070;margin-bottom:16px;
-                padding:10px 14px;background:rgba(196,112,112,0.08);border-radius:8px;border-left:3px solid #C47070;"></div>
-            <button id="clinicAccessBtn" onclick="accederPorId()" style="
-                width:100%;padding:16px;background:#1E1C1A;color:white;border:none;border-radius:12px;
-                font-size:12px;font-family:inherit;letter-spacing:2px;text-transform:uppercase;
-                cursor:pointer;transition:background 0.2s;"
-                onmouseover="this.style.background='#C4856A'"
-                onmouseout="this.style.background='#1E1C1A'">
-                Entrar →
-            </button>
-            <div style="text-align:center;margin-top:20px;font-size:12px;color:#CEC8C0;">
-                ¿Eres nuevo? <a href="smile-onboarding.html" style="color:#C4856A;text-decoration:none;">Crear clínica →</a>
-            </div>
-        </div>
-    </div>
-
     <!-- Pantalla de carga inicial -->
     <div class="clinic-loading" id="clinicLoading">
         <div class="clinic-loading-logo">SMILE</div>
         <div class="clinic-loading-spinner"></div>
-    </div>
-
-    <!-- Pantalla de entrada de ID de clínica (cuando no hay ?clinica= en URL) -->
-    <div id="clinicEntryScreen">
-        <div class="clinic-entry-card">
-            <div class="clinic-entry-eyebrow">SMILE</div>
-            <div class="clinic-entry-title">Accede a<br>tu clínica.</div>
-            <div class="clinic-entry-sub">Ingresa el ID de tu clínica para continuar.</div>
-
-            <div class="clinic-entry-input-wrap">
-                <span class="clinic-entry-prefix">smile.app /</span>
-                <input
-                    id="clinicEntryInput"
-                    type="text"
-                    placeholder="mi-clinica"
-                    autocomplete="off"
-                    autocapitalize="none"
-                    spellcheck="false"
-                    oninput="onClinicEntryInput()"
-                    onkeydown="if(event.key==='Enter') irAClinica()">
-            </div>
-            <div class="clinic-entry-error" id="clinicEntryError"></div>
-            <button class="clinic-entry-btn" id="clinicEntryBtn" onclick="irAClinica()" disabled>
-                Entrar →
-            </button>
-            <div class="clinic-entry-footer">SMILE · Software Dental</div>
-        </div>
     </div>
 
     <!-- Indicador de Sincronización -->
@@ -1239,61 +936,45 @@
 
     <!-- Login Screen -->
     <div id="loginScreen" class="login-screen" style="display:none">
-
-        <!-- LEFT: Brand panel -->
-        <div class="login-panel-left">
-            <div class="lp-logo">
-                <img id="logoImg" src="" alt="" onerror="this.style.display='none'">
-                <div class="lp-wordmark" id="lpWordmark">SMILE</div>
-                <div class="lp-clinic-name" id="clinicNameLogin">Clínica Dental</div>
-            </div>
-            <div class="lp-decorative">+</div>
-            <div class="lp-bottom">
-                <div class="lp-tagline">Software dental · Gestión clínica inteligente</div>
-            </div>
+        <div class="logo-container">
+            <img src="logo.png" alt="Clínica" id="logoImg" onerror="this.style.display='none'">
+            <div class="clinic-name-login" id="clinicNameLogin">Clínica Dental</div>
         </div>
 
-        <!-- RIGHT: Form panel -->
-        <div class="login-panel-right">
-            <div class="lf-inner">
-                <div class="lf-eyebrow">Acceso</div>
-                <div class="lf-title">Bienvenido de vuelta.</div>
-                <div class="lf-sub">Ingresa tu usuario y contraseña para continuar.</div>
+        <div class="login-card">
+            <div class="login-panel-left" style="display:flex;flex-direction:column;gap:0">
+                <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:28px">ACCESO</div>
+                <div style="font-size:32px;font-weight:200;color:white;letter-spacing:-0.5px;margin-bottom:8px">Bienvenido de vuelta.</div>
+                <div style="font-size:14px;color:rgba(255,255,255,0.6);font-weight:300">Ingresa tu usuario y PIN para continuar.</div>
+            </div>
 
-                <div class="lf-field">
-                    <label>Usuario</label>
-                    <select id="loginUsername" onchange="document.getElementById('loginPassword').focus()">
+            <div class="login-panel-right">
+                <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#A89F96;margin-bottom:28px">ACCESO</div>
+
+                <div style="margin-bottom:20px">
+                    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#A89F96;margin-bottom:8px">USUARIO</div>
+                    <select id="loginUsername" style="width:100%;padding:14px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:14px;font-family:inherit;background:#FDFCFB;color:#1E1C1A;font-weight:300;appearance:none;-webkit-appearance:none;cursor:pointer" onchange="document.getElementById('loginPassword').focus()">
                         <option value="">— Selecciona tu usuario —</option>
                     </select>
                 </div>
 
-                <div class="lf-field">
-                    <label>Contraseña</label>
-                    <input type="password" id="loginPassword"
-                        placeholder="••••••••"
-                        autocomplete="current-password"
-                        onkeydown="if(event.key==='Enter') login()">
+                <div style="margin-bottom:24px">
+                    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#A89F96;margin-bottom:8px">PIN</div>
+                    <input type="password" id="loginPassword" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="• • • •" autocomplete="off"
+                        style="width:100%;padding:14px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:22px;font-family:inherit;background:#FDFCFB;color:#1E1C1A;letter-spacing:8px;text-align:center"
+                        onkeydown="if(event.key==='Enter')login()"
+                        oninput="if(this.value.length===4)login()">
                 </div>
 
-                <div class="lf-error" id="loginError"></div>
+                <div id="loginError" style="display:none;color:#E57373;font-size:13px;margin-bottom:16px;padding:10px 14px;background:rgba(229,115,115,0.08);border-radius:8px;border-left:3px solid #E57373"></div>
 
-                <button class="lf-submit" id="loginBtn" onclick="login()">
-                    Entrar
+                <button id="loginBtn" onclick="login()" style="width:100%;padding:15px;background:#1E1C1A;color:white;border:none;border-radius:12px;font-size:12px;font-weight:500;letter-spacing:2px;text-transform:uppercase;font-family:inherit;cursor:pointer;transition:background 0.2s" onmouseover="this.style.background='#C4856A'" onmouseout="this.style.background='#1E1C1A'">
+                    ENTRAR
                 </button>
 
-                <div class="lf-footer">SMILE · Software Dental</div>
+                <div style="font-size:11px;color:#C4AFA8;text-align:center;margin-top:16px">¿Olvidaste tu PIN? Contacta al administrador.</div>
+                <div style="font-size:10px;color:#D4CFC9;text-align:center;margin-top:20px;letter-spacing:2px">SMILE · SOFTWARE DENTAL</div>
             </div>
-        </div>
-
-        <!-- Legacy inputs (hidden — kept for JS backward compat) -->
-        <div style="display:none" aria-hidden="true">
-            <select id="professionalPicker"></select>
-            <select id="receptionPicker"></select>
-            <input type="text"     id="username">
-            <input type="password" id="password">
-            <div id="professionalSelect"></div>
-            <div id="receptionSelect"></div>
-            <div id="usernameInput"></div>
         </div>
     </div>
 
@@ -1965,22 +1646,6 @@
                                 <option value="120">2 horas</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label>Número de consultorios / sillas</label>
-                            <select id="configNumConsultorios">
-                                <option value="1">1 consultorio</option>
-                                <option value="2">2 consultorios</option>
-                                <option value="3">3 consultorios</option>
-                                <option value="4" selected>4 consultorios</option>
-                                <option value="5">5 consultorios</option>
-                                <option value="6">6 consultorios</option>
-                                <option value="8">8 consultorios</option>
-                                <option value="10">10 consultorios</option>
-                                <option value="12">12 consultorios</option>
-                                <option value="15">15 consultorios</option>
-                                <option value="20">20 consultorios</option>
-                            </select>
-                        </div>
                         <button class="btn btn-submit" style="width: 100%;" onclick="guardarConfigAgenda()">Guardar Agenda</button>
                     </div>
                 </div>
@@ -2176,7 +1841,7 @@
             </div>
 
             <div class="form-group" id="editPasswordGroup"><label>Nueva Contraseña</label><input type="password" id="editPassword" placeholder="Dejar vacío para no cambiar"></div>
-            <div class="form-group hidden" id="editReceptionGroup"><label>Permisos de módulo</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Puede ver módulo de Cobros y Facturas</span></label></div>
+            <div class="form-group hidden" id="editReceptionGroup"><label>Acceso a Recepción</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Permitir acceso al módulo de Recepción</span></label></div>
             <div class="form-group hidden" id="editPayDateGroup"><label>Próxima Fecha de Pago</label><input type="date" id="editPayDate"></div>
             <button class="btn btn-submit" onclick="guardarEdicion()">Guardar Cambios</button>
         </div>
@@ -2345,16 +2010,15 @@
     </div>
 
     <!-- Nueva Cita -->
-    <input type="hidden" id="citaEditandoId" value="">
     <div id="modalNuevaCita" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Nueva Cita</div></div>
             <div class="form-group"><label>Paciente *</label><input type="text" id="citaPacienteInput" placeholder="Escribe para buscar..." oninput="buscarPaciente()" autocomplete="off"><div id="citaPacienteSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1.5px solid rgba(30,28,26,0.1); border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);"></div></div>
             <div class="form-group"><label>Profesional *</label><select id="citaProfesional"></select></div>
-            <div class="form-group"><label>Fecha *</label><input type="date" id="citaFecha" min=""></div>
+            <div class="form-group"><label>Fecha *</label><input type="date" id="citaFecha"></div>
             <div class="form-group"><label>Hora Inicio *</label><input type="time" id="citaHora" onchange="actualizarHoraFin()"></div>
-            <div class="form-group"><label>Hora fin <span style="font-size:11px;color:var(--mid);font-weight:300">(calculada automáticamente)</span></label><input type="time" id="citaHoraFin" style="color:var(--mid)"></div>
-            <div class="form-group"><label>Consultorio *</label><select id="citaConsultorio"></select></div>
+            <div class="form-group"><label>Hora Fin *</label><input type="time" id="citaHoraFin"></div>
+            <div class="form-group"><label>Consultorio *</label><select id="citaConsultorio"><option value="1">Consultorio 1</option><option value="2">Consultorio 2</option><option value="3">Consultorio 3</option><option value="4">Consultorio 4</option></select></div>
             <div class="form-group"><label>Motivo *</label><input type="text" id="citaMotivo" placeholder="Ej: Limpieza, Revisión"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevaCita')">Cancelar</button><button class="btn btn-save" onclick="guardarCita()">Guardar</button></div>
         </div>
@@ -2519,27 +2183,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="firebase-config.js"></script>
-    <!-- SMILE Nav — shown on login screen, hidden after login by app.js -->
-    <script>
-      // Allow smile-nav to render even with ?clinica= param (login screen context)
-      (function() {
-        const _orig = URLSearchParams.prototype.get;
-        URLSearchParams.prototype.get = function(key) {
-          if (key === 'clinica' && window._smileNavOverride) return null;
-          return _orig.call(this, key);
-        };
-        window._smileNavOverride = true;
-      })();
-    </script>
-    <script src="smile-nav.js"></script>
-    <script>
-      window._smileNavOverride = false; // restore after nav loads
-      // Hide smile-nav after user logs in (app calls this)
-      window._hideSmileNav = function() {
-        const root = document.getElementById('snav-root');
-        if (root) root.style.display = 'none';
-      };
-    </script>
 
     <!-- Aplicar branding desde Firebase config -->
     <script>
@@ -2552,85 +2195,53 @@
         return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
     }
 
-    function onClinicEntryInput() {
-        const val = document.getElementById('clinicEntryInput').value.trim();
-        const btn = document.getElementById('clinicEntryBtn');
-        const err = document.getElementById('clinicEntryError');
-        btn.disabled = val.length < 2;
-        err.style.display = 'none';
-    }
-
-    function irAClinica() {
-        const raw = document.getElementById('clinicEntryInput').value.trim();
-        if (!raw) return;
-        const id = raw.toLowerCase()
-            .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
-            .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
-            .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
-            .replace(/[^a-z0-9-]/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '');
-        if (!id) {
-            const err = document.getElementById('clinicEntryError');
-            err.textContent = 'ID inválido. Usa solo letras, números y guiones.';
-            err.style.display = 'block';
-            return;
-        }
-        const base = window.location.origin + window.location.pathname;
-        window.location.href = base + '?clinica=' + id;
-    }
-
     async function aplicarBranding() {
-        const clinicaId = new URLSearchParams(window.location.search).get('clinica');
-        if (!clinicaId) {
-            // No clinic ID in URL — show the entry screen instead of blank page
-            localStorage.removeItem('smile_clinica');
-            document.getElementById('clinicLoading').style.display = 'none';
-            const entryScreen = document.getElementById('clinicEntryScreen');
-            if (entryScreen) entryScreen.style.display = 'flex';
-            setTimeout(() => document.getElementById('clinicEntryInput')?.focus(), 100);
-            return;
-        }
         try {
-            const auth = firebase.auth();
-            if (!auth.currentUser) await auth.signInAnonymously();
+            const clinicaId = (() => {
+                const url = new URLSearchParams(window.location.search).get('clinica');
+                if (url) { localStorage.setItem('smile_clinica', url); return url; }
+                return localStorage.getItem('smile_clinica') || 'clinica-demo';
+            })();
+
             const cfgDoc = await db.collection('clinicas').doc(clinicaId)
                 .collection('config').doc('settings').get();
+
             if (cfgDoc.exists) {
                 const cfg = cfgDoc.data();
                 const color = cfg.color || '#C4856A';
                 const colorDark = darkenColor(color, 15);
+
                 document.documentElement.style.setProperty('--clinic-color', color);
                 document.documentElement.style.setProperty('--clinic-color-light', colorDark);
+
                 const nombre = cfg.nombre || 'Clínica Dental';
-                const nameEl = document.getElementById('clinicNameLogin');
-                if (nameEl) nameEl.textContent = nombre;
+                document.getElementById('clinicNameLogin').textContent = nombre;
                 document.title = nombre + ' — SMILE';
+
                 if (cfg.logo) {
                     const img = document.getElementById('logoImg');
-                    if (img) {
-                        img.src = cfg.logo;
-                        img.onload  = () => img.classList.add('lp-loaded');
-                        img.onerror = () => { img.style.display='none'; };
-                        // Hide wordmark when logo loads
-                        const wm = document.getElementById('lpWordmark');
-                        if (wm) wm.style.display = 'none';
-                    }
+                    if (img) { img.src = cfg.logo; img.style.display = 'block'; }
                 }
-                localStorage.setItem('smile_clinica', clinicaId);
+
+                // Mark clinic as valid
                 document.getElementById('clinicLoading').style.display = 'none';
-                document.getElementById('loginScreen').style.display = 'grid';
+                document.getElementById('loginScreen').style.display = 'flex';
+
             } else {
-                localStorage.removeItem('smile_clinica');
+                // Clinic ID not found in Firebase — show clear error
                 document.getElementById('clinicLoading').style.display = 'none';
-                document.getElementById('loginScreen').style.display = 'grid';
+                document.getElementById('loginScreen').style.display = 'flex';
                 const nameEl = document.getElementById('clinicNameLogin');
-                if (nameEl) nameEl.innerHTML = `<div style="font-size:13px;color:#c0392b;line-height:1.6;font-weight:300">⚠️ Clínica no encontrada.<br><span style="font-size:11px;opacity:0.7">ID: <code>${clinicaId}</code></span></div>`;
+                if (nameEl) nameEl.innerHTML = `
+                    <div style="font-size:13px;color:#c0392b;line-height:1.6;font-weight:300">
+                        ⚠️ Clínica no encontrada.<br>
+                        <span style="font-size:11px;opacity:0.7">ID: <code>${clinicaId}</code></span>
+                    </div>`;
             }
         } catch(e) {
             console.error('Error cargando clínica:', e);
             document.getElementById('clinicLoading').style.display = 'none';
-            document.getElementById('loginScreen').style.display = 'grid';
+            document.getElementById('loginScreen').style.display = 'flex';
         }
     }
     aplicarBranding();
