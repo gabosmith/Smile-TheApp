@@ -982,6 +982,7 @@ window.addEventListener('load', async function() {
     await loadClinicBranding();
     await loadData();
     updateProfessionalPicker();
+    populateLoginUsers();
     inicializarEstadosCitas();
 });
 
@@ -1084,31 +1085,6 @@ let currentPersonalToEdit = null;
 let currentReciboText = '';
 let currentFacturaToReverse = null;
 
-// Role selector
-document.querySelectorAll('.role-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-
-        const role = this.dataset.role;
-
-        // Hide all first
-        document.getElementById('professionalSelect').classList.add('hidden');
-        document.getElementById('receptionSelect').classList.add('hidden');
-        document.getElementById('usernameInput').classList.add('hidden');
-
-        // Show correct one
-        if (role === 'professional') {
-            document.getElementById('professionalSelect').classList.remove('hidden');
-        } else if (role === 'reception') {
-            document.getElementById('receptionSelect').classList.remove('hidden');
-            updateReceptionPicker();
-        } else {
-            document.getElementById('usernameInput').classList.remove('hidden');
-        }
-    });
-});
-
 // Update professional picker
 function updateProfessionalPicker() {
     const picker = document.getElementById('professionalPicker');
@@ -1116,6 +1092,16 @@ function updateProfessionalPicker() {
     picker.innerHTML = '<option value="">-- Seleccionar --</option>' +
         appData.personal.filter(p => p.tipo !== 'empleado')
             .map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+}
+
+function populateLoginUsers() {
+    const sel = document.getElementById('loginUsername');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Selecciona tu usuario</option>' +
+        appData.personal
+            .filter(p => p.password || p.isAdmin)
+            .map(p => `<option value="${p.id}">${p.nombre}${p.isAdmin ? ' (Admin)' : ''}</option>`)
+            .join('');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1342,70 +1328,50 @@ function updateReceptionPicker() {
             .map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
 }
 
-// Login — async to support SHA-256 password verification
+// Login — async to support SHA-256 PIN verification
 async function login() {
-    const roleBtn = document.querySelector('.role-btn.active');
-    const role    = roleBtn?.dataset.role;
-    const password = document.getElementById('password').value;
+    const errEl = document.getElementById('loginError');
+    const showLoginError = msg => {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+    };
+    if (errEl) errEl.style.display = 'none';
 
-    if (!password) { showToast('⚠️ Ingresa tu contraseña'); return; }
+    const personId = document.getElementById('loginUsername').value;
+    const pin      = document.getElementById('loginPassword').value;
 
-    let username = '';
-    let person   = null;
+    if (!personId) { showLoginError('Selecciona un usuario'); return; }
+    if (!pin)      { showLoginError('Ingresa tu PIN'); return; }
 
-    if (role === 'professional') {
-        username = document.getElementById('professionalPicker').value;
-        if (!username) { showToast('⚠️ Selecciona un profesional'); return; }
-        person = appData.personal.find(p => p.nombre === username);
-        if (!person)           { showToast('⚠️ Profesional no encontrado. Recarga la página.', 4000, '#c0392b'); return; }
-        if (!person.password)  { showToast('⚠️ Este profesional no tiene contraseña configurada', 4000, '#e65100'); return; }
+    const person = appData.personal.find(p => p.id === personId);
+    if (!person) { showLoginError('Usuario no encontrado. Recarga la página.'); return; }
 
-        if (!checkRateLimit(username)) return;
-        const ok = await verifyPassword(person, password);
-        if (!ok) {
-            recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
-            return;
-        }
-        appData.currentRole = 'professional';
-
-    } else if (role === 'reception') {
-        username = document.getElementById('receptionPicker').value;
-        if (!username) { showToast('⚠️ Selecciona un usuario'); return; }
-        person = appData.personal.find(p => p.nombre === username);
-        if (!person || !person.canAccessReception) { showToast('⚠️ Usuario sin acceso a recepción', 3000, '#c0392b'); return; }
-        if (!person.password) { showToast('⚠️ Sin contraseña configurada. Contacta al administrador.', 4000, '#e65100'); return; }
-
-        if (!checkRateLimit(username)) return;
-        const ok = await verifyPassword(person, password);
-        if (!ok) {
-            recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
-            return;
-        }
-        appData.currentRole = 'reception';
-
-    } else {
-        // Admin
-        username = document.getElementById('username').value || 'admin';
-        const admin = appData.personal.find(p => p.isAdmin);
-        if (!admin) { showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b'); return; }
-
-        if (!checkRateLimit('admin')) return;
-        const ok = await verifyPassword(admin, password);
-        if (!ok) {
-            recordFailedAttempt('admin');
-            showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b');
-            return;
-        }
-        username = admin.nombre;
-        appData.currentRole = 'admin';
-        person = admin;
+    if (!person.password) {
+        showLoginError('Este usuario no tiene PIN configurado. Contacta al administrador.');
+        return;
     }
 
-    // Successful login
-    clearLoginAttempts(username);
-    appData.currentUser = username;
+    const rateKey = person.nombre;
+    if (!checkRateLimit(rateKey)) return;
+
+    await migratePasswordIfNeeded(person);
+    const ok = await verifyPassword(person, pin);
+    if (!ok) {
+        recordFailedAttempt(rateKey);
+        showLoginError('PIN incorrecto');
+        return;
+    }
+
+    clearLoginAttempts(rateKey);
+
+    // Derive role from person flags
+    let role;
+    if (person.isAdmin)               role = 'admin';
+    else if (person.canAccessReception) role = 'reception';
+    else                               role = 'professional';
+
+    appData.currentUser = person.nombre;
+    appData.currentRole = role;
 
     // Establish Firebase anonymous auth session (enables Security Rules)
     await ensureFirebaseAuth();
@@ -1414,10 +1380,10 @@ async function login() {
     _flushErrorQueue().catch(e => console.warn('[ErrorLog] flush failed:', e));
 
     // Start session + inactivity tracking
-    startSession(username);
+    startSession(person.nombre);
 
     // Register audit
-    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
+    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${person.nombre} (${role})`);
 
     initRealtimeListener();
     await showApp();
@@ -1442,8 +1408,8 @@ function logout() {
 
         document.getElementById('loginScreen').style.display = 'flex';
         document.getElementById('appContainer').style.display = 'none';
-        document.getElementById('password').value = '';
-        document.getElementById('username').value = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('loginUsername').selectedIndex = 0;
     }
 }
 
@@ -2777,6 +2743,7 @@ async function agregarPersonal() {
 
     updatePersonalTab();
     updateProfessionalPicker();
+    populateLoginUsers();
     closeModal('modalAddPersonal');
 
     if (!esPrimero) {
@@ -3333,10 +3300,10 @@ async function guardarEdicion() {
 
     // Hash new password before saving — never store plaintext
     if (password) {
-        if (password.length < 4) { showToast('⚠️ La contraseña debe tener al menos 4 caracteres'); return; }
+        if (!/^\d{4}$/.test(password)) { showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return; }
         currentPersonalToEdit.password  = await hashPassword(password);
         currentPersonalToEdit._pwHashed = true;
-        registrarAuditoria('seguridad', 'cambio_contrasena', `Contraseña actualizada para ${nombre}`);
+        registrarAuditoria('seguridad', 'cambio_pin', `PIN actualizado para ${nombre}`);
     }
 
     if (currentPersonalToEdit.tipo === 'empleado') {
@@ -3368,6 +3335,7 @@ async function guardarEdicion() {
     }
     updatePersonalTab();
     updateProfessionalPicker();
+    populateLoginUsers();
     closeModal('modalEditPersonal');
     showToast('✓ Perfil actualizado');
 }
@@ -3545,6 +3513,7 @@ function eliminarPersonal(id) {
                 closeModal('modalEditPersonal');
                 updatePersonalTab();
                 updateProfessionalPicker();
+                populateLoginUsers();
                 showToast('✓ Personal eliminado');
             } catch(e) {
                 appData.personal = backupPersonal; // rollback
@@ -3680,11 +3649,11 @@ async function guardarContrasenaAdmin() {
     const nueva    = document.getElementById('configNewPassword').value;
     const confirma = document.getElementById('configConfirmPassword').value;
 
-    if (!nueva || nueva.length < 6) {
-        showToast('⚠️ La contraseña debe tener al menos 6 caracteres'); return;
+    if (!nueva || !/^\d{4}$/.test(nueva)) {
+        showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return;
     }
     if (nueva !== confirma) {
-        showToast('⚠️ Las contraseñas no coinciden'); return;
+        showToast('⚠️ Los PINs no coinciden'); return;
     }
 
     const admin = appData.personal.find(p => p.isAdmin);
@@ -3702,8 +3671,8 @@ async function guardarContrasenaAdmin() {
         await saveData();
         document.getElementById('configNewPassword').value  = '';
         document.getElementById('configConfirmPassword').value = '';
-        showToast('✓ Contraseña actualizada');
-        registrarAuditoria('seguridad', 'cambio_contrasena', 'Contraseña de administrador actualizada');
+        showToast('✓ PIN actualizado');
+        registrarAuditoria('seguridad', 'cambio_pin', 'PIN de administrador actualizado');
     } catch(e) {
         admin.password  = pwAnterior;    // rollback
         admin._pwHashed = pwHashedAntes;
@@ -6608,6 +6577,7 @@ async function limpiarDatosAntiguos() {
 
     // Actualizar pickers siempre
     updateProfessionalPicker();
+    populateLoginUsers();
     updateReceptionPicker();
 }
 
