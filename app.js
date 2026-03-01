@@ -82,190 +82,6 @@ function _limpiarEstadoApp() {
     sessionStorage.removeItem('smile_session');
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// STRIPE SUBSCRIPTION SYSTEM
-// ════════════════════════════════════════════════════════════════════════════
-
-const FUNCTIONS_URL = 'https://us-central1-smile-theapp.cloudfunctions.net';
-
-let subscriptionState = {
-    status: 'unknown',
-    diasRestantes: null,
-    mensaje: '',
-    puedeUsar: true,
-};
-
-function loadSubscriptionState(cfg) {
-    const ahora = new Date();
-    if (cfg.subscripcionActiva && !cfg.pagoPendiente) {
-        subscriptionState = { status: 'active', diasRestantes: null, mensaje: '', puedeUsar: true };
-        return;
-    }
-    const trialHasta = cfg.trialHasta ? new Date(cfg.trialHasta) : null;
-    if (trialHasta && ahora < trialHasta) {
-        const dias = Math.max(1, Math.ceil((trialHasta - ahora) / (1000*60*60*24)));
-        subscriptionState = {
-            status: 'trial', diasRestantes: dias, puedeUsar: true,
-            mensaje: dias <= 3
-                ? `Tu trial termina en ${dias} día${dias!==1?'s':''}. Agrega tu método de pago para continuar.`
-                : `${dias} días restantes en tu período de prueba.`,
-        };
-        return;
-    }
-    const gracePeriodHasta = cfg.gracePeriodHasta ? new Date(cfg.gracePeriodHasta) : null;
-    if (gracePeriodHasta && ahora < gracePeriodHasta) {
-        const dias = Math.max(1, Math.ceil((gracePeriodHasta - ahora) / (1000*60*60*24)));
-        subscriptionState = {
-            status: 'grace', diasRestantes: dias, puedeUsar: true,
-            mensaje: cfg.pagoPendiente
-                ? `Hubo un problema con tu pago. Tienes ${dias} día${dias!==1?'s':''} para actualizar tu método de pago.`
-                : `Tu período de prueba terminó. Tienes ${dias} día${dias!==1?'s':''} para suscribirte.`,
-        };
-        return;
-    }
-    subscriptionState = {
-        status: 'blocked', diasRestantes: null, puedeUsar: false,
-        mensaje: cfg.pagoPendiente
-            ? 'Tu pago falló. Actualiza tu método de pago para continuar.'
-            : 'Tu período de prueba terminó. Suscríbete para continuar.',
-    };
-}
-
-function mostrarBannerSuscripcion() {
-    const existing = document.getElementById('smile-sub-banner');
-    if (existing) existing.remove();
-    const { status, mensaje, diasRestantes } = subscriptionState;
-    if (status === 'active' || status === 'unknown') return;
-    const esUrgente = status === 'grace' && diasRestantes <= 3;
-    const bg = status === 'blocked' ? '#1E1C1A' : esUrgente ? '#A06448' : 'rgba(30,28,26,0.88)';
-    const banner = document.createElement('div');
-    banner.id = 'smile-sub-banner';
-    banner.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:9999;background:${bg};color:white;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:inherit;font-size:13px;font-weight:300;box-shadow:0 2px 16px rgba(0,0,0,0.25);`;
-    banner.innerHTML = `
-        <span style="flex:1">${mensaje}</span>
-        <button onclick="abrirCheckout()" style="background:#C4856A;color:white;border:none;border-radius:100px;padding:6px 16px;font-size:11px;font-weight:500;letter-spacing:1px;text-transform:uppercase;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-            ${status === 'trial' ? 'Agregar pago →' : 'Suscribirme →'}
-        </button>
-        ${status !== 'blocked' ? `<button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;">×</button>` : ''}
-    `;
-    document.body.insertBefore(banner, document.body.firstChild);
-    const app = document.getElementById('appContainer');
-    if (app) app.style.paddingTop = '44px';
-}
-
-function mostrarModalSuscripcion() {
-    const { status, diasRestantes, mensaje } = subscriptionState;
-    if (status !== 'grace' || diasRestantes > 3) return;
-    if (sessionStorage.getItem('smile_modal_sub_shown')) return;
-    sessionStorage.setItem('smile_modal_sub_shown', '1');
-    const overlay = document.createElement('div');
-    overlay.id = 'smile-sub-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(30,28,26,0.6);display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);';
-    overlay.innerHTML = `
-        <div style="background:#FDFCFB;border-radius:24px;padding:40px 36px;max-width:420px;width:100%;box-shadow:0 24px 80px rgba(30,28,26,0.2);text-align:center;">
-            <div style="font-size:40px;margin-bottom:16px;">⏳</div>
-            <div style="font-size:22px;font-weight:200;color:#1E1C1A;margin-bottom:8px;">${diasRestantes === 1 ? 'Último día' : `${diasRestantes} días restantes`}</div>
-            <div style="font-size:14px;color:#6B635C;line-height:1.7;margin-bottom:28px;">${mensaje}<br>Tus datos están seguros y no se borran.</div>
-            <button onclick="abrirCheckout()" style="width:100%;padding:14px;background:#C4856A;color:white;border:none;border-radius:12px;font-size:13px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;cursor:pointer;margin-bottom:12px;">Suscribirme ahora →</button>
-            <button onclick="document.getElementById('smile-sub-modal').remove()" style="width:100%;padding:12px;background:transparent;color:#A89F96;border:none;font-size:12px;font-family:inherit;cursor:pointer;">Continuar por ahora</button>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-}
-
-function mostrarPantallaBloqueo() {
-    if (subscriptionState.status !== 'blocked') return;
-    const app = document.getElementById('appContainer');
-    if (app) app.style.display = 'none';
-    const login = document.getElementById('loginScreen');
-    if (login) login.style.display = 'none';
-    const bloqueado = document.createElement('div');
-    bloqueado.id = 'smile-sub-blocked';
-    bloqueado.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#EEEAE4;display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit;';
-    bloqueado.innerHTML = `
-        <div style="background:#FDFCFB;border-radius:24px;padding:48px 40px;max-width:440px;width:100%;box-shadow:0 24px 80px rgba(30,28,26,0.12);text-align:center;">
-            <div style="font-size:11px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#A89F96;margin-bottom:28px;">SMILE · Software Dental</div>
-            <div style="font-size:36px;margin-bottom:20px;">🔒</div>
-            <div style="font-size:26px;font-weight:200;color:#1E1C1A;letter-spacing:-0.8px;margin-bottom:12px;">${clinicConfig.nombre || 'Tu clínica'}</div>
-            <div style="font-size:14px;color:#6B635C;line-height:1.8;margin-bottom:32px;">${subscriptionState.mensaje}<br><span style="color:#A89F96;font-size:12px;">Tus datos están seguros.</span></div>
-            <button onclick="abrirCheckout()" style="width:100%;padding:16px;background:#1E1C1A;color:white;border:none;border-radius:12px;font-size:12px;font-weight:500;letter-spacing:2px;text-transform:uppercase;font-family:inherit;cursor:pointer;margin-bottom:12px;">Reactivar mi clínica →</button>
-            <div style="font-size:11px;color:#A89F96;">¿Necesitas ayuda? <a href="https://wa.me/18294040809" style="color:#C4856A;text-decoration:none;">WhatsApp</a></div>
-        </div>
-    `;
-    document.body.appendChild(bloqueado);
-}
-
-async function abrirCheckout() {
-    if (!CLINIC_PATH) { showToast('Error: clínica no identificada', 3000, '#e65100'); return; }
-    document.querySelectorAll('button[onclick="abrirCheckout()"]').forEach(btn => {
-        btn.textContent = 'Conectando...'; btn.disabled = true;
-    });
-    try {
-        const res = await fetch(`${FUNCTIONS_URL}/createCheckoutSession`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clinicId: CLINIC_PATH }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.url) throw new Error(data.error || 'Error');
-        window.location.href = data.url;
-    } catch (err) {
-        console.error('[abrirCheckout]', err.message);
-        showToast('Error al conectar con Stripe. Intenta de nuevo.', 4000, '#e65100');
-        document.querySelectorAll('button[onclick="abrirCheckout()"]').forEach(btn => {
-            btn.textContent = 'Suscribirme →'; btn.disabled = false;
-        });
-    }
-}
-
-async function abrirPortalStripe() {
-    if (!CLINIC_PATH) return;
-    const btn = document.getElementById('btn-portal-stripe');
-    if (btn) { btn.textContent = 'Abriendo...'; btn.disabled = true; }
-    try {
-        const res = await fetch(`${FUNCTIONS_URL}/createPortalSession`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clinicId: CLINIC_PATH }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.url) throw new Error(data.error || 'Error');
-        window.location.href = data.url;
-    } catch (err) {
-        console.error('[abrirPortalStripe]', err.message);
-        showToast('Error al abrir el portal de Stripe.', 3000, '#e65100');
-        if (btn) { btn.textContent = 'Gestionar suscripción'; btn.disabled = false; }
-    }
-}
-
-function manejarRetornoStripe() {
-    const params = new URLSearchParams(window.location.search);
-    const result = params.get('stripe');
-    if (!result) return;
-    params.delete('stripe');
-    const newUrl = (window.location.pathname + '?' + params.toString()).replace(/\?$/, '');
-    window.history.replaceState({}, '', newUrl);
-    if (result === 'success') {
-        showToast('🎉 ¡Suscripción activada! Bienvenido a SMILE.', 6000, '#6B8F71');
-        setTimeout(() => loadClinicBranding(), 2000);
-    } else if (result === 'cancelled') {
-        showToast('Pago cancelado. Puedes suscribirte desde Mi Plan.', 5000, '#A89F96');
-    }
-}
-
-function initSubscription(cfg) {
-    loadSubscriptionState(cfg);
-    const { status } = subscriptionState;
-    if (status === 'blocked') { mostrarPantallaBloqueo(); return; }
-    if (status === 'trial' || status === 'grace') {
-        mostrarBannerSuscripcion();
-        if (subscriptionState.diasRestantes <= 3) setTimeout(mostrarModalSuscripcion, 800);
-    }
-    manejarRetornoStripe();
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-
 // Cargar branding dinámico desde Firebase config
 // Clinic config stored globally so buildNavigation() can read it
 let clinicConfig = {
@@ -276,9 +92,8 @@ let clinicConfig = {
     activa: true,
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
-    moneda:   '$',       // símbolo de moneda — '$' para USD por defecto
-    locale:   'es-419',  // se actualiza en loadClinicBranding()
-    pais:     '',
+    moneda:   'RD$',     // símbolo de moneda — configurable por país
+    locale:   getLocale(),   // locale para fechas y números
     pais:     'República Dominicana',
 };
 
@@ -312,7 +127,7 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda              = cfg.moneda              || '$';
+        clinicConfig.moneda              = cfg.moneda              || 'RD$';
         clinicConfig.locale              = cfg.locale              || getLocale();
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
@@ -385,9 +200,6 @@ async function loadClinicBranding() {
             const card = document.querySelector('.login-card');
             if (card) card.innerHTML = '<div style="text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:16px">🔒</div><div style="font-weight:600;font-size:18px;margin-bottom:8px">Cuenta pausada</div><div style="color:#666;font-size:14px">Contacta a SMILE para reactivar tu clínica.</div></div>';
         }
-
-        // ── Subscription system ──
-        initSubscription(cfg);
 
     } catch(e) {
         console.error('[Branding] Error cargando config de clínica:', e.code, e.message);
@@ -562,17 +374,6 @@ const sanitize = {
     str(val, max = 500) {
         if (val === null || val === undefined) return '';
         return String(val).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().slice(0, max);
-    },
-    // HTML-escape user strings before injecting into innerHTML
-    // Prevents XSS from names/descriptions stored in Firestore
-    html(val) {
-        if (val === null || val === undefined) return '';
-        return String(val)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#x27;');
     },
     // Numeric — returns float or 0; never NaN/Infinity
     num(val, min = 0, max = 99999999) {
@@ -845,7 +646,7 @@ async function loadData() {
             appData.settings = data.settings || {};
             appData.laboratorios = data.laboratorios || [];
             appData.reversiones = data.reversiones || [];
-            appData.auditLogs = []; // loaded on-demand from subcollection 'auditoria'
+            appData.auditLogs = data.auditLogs || [];
             appData.inventario = (data.inventario || []).map(i => ({ movimientos: [], ...i }));
 
             // Cargar pacientes desde subcollection (siempre en SMILE multi-tenant)
@@ -901,7 +702,7 @@ async function loadData() {
                     appData.laboratorios   = data.laboratorios   || [];
                     appData.inventario     = (data.inventario    || []).map(i => ({ movimientos: [], ...i }));
                     appData.reversiones    = data.reversiones    || [];
-                    appData.auditLogs      = []; // fetched on demand from subcollection
+                    appData.auditLogs      = data.auditLogs      || [];
                     updateLocalCache();
                     showToast('✓ Conexión restablecida', 2500);
                     return; // éxito en el retry
@@ -955,7 +756,7 @@ function updateLocalCache() {
             citas: appData.citas,
             laboratorios: appData.laboratorios,
             reversiones: appData.reversiones,
-            // auditLogs not cached — live in subcollection 'auditoria'
+            auditLogs: appData.auditLogs,
             inventario: appData.inventario || [],
             // Guardar branding para restaurar offline sin Firebase
             clinicColor:  clinicConfig.color  || null,
@@ -1034,7 +835,7 @@ async function saveData(context = '') {
             laboratorios: appData.laboratorios || [],
             inventario:   (appData.inventario || []).map(i => sanitize.item(i)).filter(Boolean),
             reversiones:  appData.reversiones  || [],
-            // auditLogs moved to subcollection 'auditoria' — not in main doc
+            auditLogs:    appData.auditLogs    || [],
             settings:     appData.settings     || {},
             lastUpdated:  new Date().toISOString(),
             usaSubcollectionPacientes: true
@@ -1086,8 +887,9 @@ async function savePaciente(paciente) {
 
 // Default personnel data — generic for any new SMILE clinic
 function getDefaultPersonal() {
+    // Returns a generic admin user — password should be set during clinic creation
     return [
-        {id: '1', nombre: 'Administrador', username: 'admin', tipo: 'regular', pin: DEFAULT_PIN, isAdmin: true, canAccessReception: true}
+        {id: '1', nombre: 'Administrador', tipo: 'regular', password: null, isAdmin: true, canAccessReception: true}
     ];
 }
 
@@ -1125,7 +927,7 @@ function initRealtimeListener() {
             appData.laboratorios   = data.laboratorios   || [];
             appData.inventario     = (data.inventario    || []).map(i => ({ movimientos: [], ...i }));
             appData.reversiones    = data.reversiones    || [];
-            appData.auditLogs      = []; // fetched on demand from subcollection
+            appData.auditLogs      = data.auditLogs      || [];
 
             // Pacientes viven en subcolleccion — no sobreescribir.
             // Solo usar como fallback si la subcolleccion aun no cargo nada.
@@ -1178,48 +980,47 @@ window.addEventListener('load', async function() {
         return;
     }
 
-    // [debug] console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
+    console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
     await loadData();
-    populateLoginUserPicker();
+    updateProfessionalPicker();
     inicializarEstadosCitas();
 });
 
 // ── PANTALLA DE ACCESO POR ID DE CLÍNICA ──────────────────────
 function mostrarPantallaAcceso() {
-    const loading = document.getElementById('clinicLoading');
-    if (loading) loading.style.display = 'none';
     const overlay = document.getElementById('clinicAccessOverlay');
     if (overlay) overlay.style.display = 'flex';
-    setTimeout(() => { const i = document.getElementById('clinicIdInput'); if (i) i.focus(); }, 100);
 }
 
 async function accederPorId() {
-    const idInput  = document.getElementById('clinicIdInput');
+    const idInput = document.getElementById('clinicIdInput');
     const passInput = document.getElementById('clinicAccessPass');
-    const errEl    = document.getElementById('clinicAccessErr');
-    const btn      = document.getElementById('clinicAccessBtn');
+    const errEl = document.getElementById('clinicAccessErr');
+    const btn = document.getElementById('clinicAccessBtn');
 
     const clinicId = (idInput.value || '').toLowerCase()
         .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
         .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
         .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
         .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-|-$/g,'');
-    const pin = passInput.value.trim();
+    const password = passInput.value.trim();
 
     if (!clinicId) { errEl.textContent = 'Escribe el ID de tu clínica.'; errEl.style.display='block'; return; }
-    if (!pin)      { errEl.textContent = 'Escribe tu PIN.'; errEl.style.display='block'; return; }
+    if (!password) { errEl.textContent = 'Escribe tu contraseña.'; errEl.style.display='block'; return; }
 
     btn.disabled = true;
     btn.textContent = 'Verificando...';
     errEl.style.display = 'none';
 
     try {
+        // Ensure Firebase auth for Firestore rules
         const auth = firebase.auth();
         if (!auth.currentUser) await auth.signInAnonymously();
 
+        // Check clinic exists
         const doc = await db.collection('clinicas').doc(clinicId).get();
         if (!doc.exists) {
             errEl.textContent = 'No encontramos una clínica con ese ID.';
@@ -1228,9 +1029,10 @@ async function accederPorId() {
             return;
         }
 
-        const data     = doc.data() || {};
+        // Find admin user in personal array and verify password
+        const data = doc.data() || {};
         const personal = data.personal || [];
-        const admin    = personal.find(p => p.isAdmin);
+        const admin = personal.find(p => p.isAdmin);
 
         if (!admin) {
             errEl.textContent = 'Esta clínica no tiene administrador configurado.';
@@ -1239,18 +1041,20 @@ async function accederPorId() {
             return;
         }
 
+        // Set CLINIC_PATH so hashPassword uses the correct salt
         CLINIC_PATH = clinicId;
-        const valid = verifyPin(admin, pin);
 
+        // Verify password (handles both hashed and plaintext legacy)
+        const valid = await verifyPassword(admin, password);
         if (!valid) {
-            CLINIC_PATH = null;
-            errEl.textContent = 'PIN incorrecto.';
+            CLINIC_PATH = null; // reset on failure
+            errEl.textContent = 'Contraseña incorrecta.';
             errEl.style.display = 'block';
             btn.disabled = false; btn.textContent = 'Entrar →';
             return;
         }
 
-        // ✅ Redirigir a la clínica
+        // ✅ Correct — redirect to clinic URL
         const base = window.location.origin + window.location.pathname;
         window.location.href = base + '?clinica=' + clinicId;
 
@@ -1284,70 +1088,39 @@ let currentPersonalToEdit = null;
 let currentReciboText = '';
 let currentFacturaToReverse = null;
 
-// ── UNIFIED LOGIN helpers ────────────────────────────────────────
-// Single username+password — role determined automatically from personal[]
+// Role selector
+document.querySelectorAll('.role-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
 
-// ── Populate login user picker ────────────────────────────────
-function populateLoginUserPicker() {
-    const sel = document.getElementById('loginUsername');
-    if (!sel) return;
+        const role = this.dataset.role;
 
-    sel.innerHTML = '<option value="">— Selecciona tu usuario —</option>';
+        // Hide all first
+        document.getElementById('professionalSelect').classList.add('hidden');
+        document.getElementById('receptionSelect').classList.add('hidden');
+        document.getElementById('usernameInput').classList.add('hidden');
 
-    // Admin always first
-    const admin = appData.personal.find(p => p.isAdmin);
-    if (admin) {
-        const opt = document.createElement('option');
-        opt.value = admin.username || admin.nombre;
-        opt.textContent = (admin.username || 'admin') + '  (Admin)';
-        sel.appendChild(opt);
-    }
+        // Show correct one
+        if (role === 'professional') {
+            document.getElementById('professionalSelect').classList.remove('hidden');
+        } else if (role === 'reception') {
+            document.getElementById('receptionSelect').classList.remove('hidden');
+            updateReceptionPicker();
+        } else {
+            document.getElementById('usernameInput').classList.remove('hidden');
+        }
+    });
+});
 
-    // Separator
-    const resto = appData.personal.filter(p => !p.isAdmin);
-    if (resto.length > 0) {
-        const sep = document.createElement('option');
-        sep.disabled = true;
-        sep.textContent = '──────────────';
-        sel.appendChild(sep);
-    }
-
-    // Everyone else sorted by name
-    resto
-        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
-        .forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.username || p.nombre;
-            const label = p.tipo === 'empleado' ? ' · Recepción' :
-                          p.tipo === 'especialista' ? ' · Especialista' : '';
-            opt.textContent = (p.username || p.nombre) + label;
-            sel.appendChild(opt);
-        });
-}
-
-function updateProfessionalPicker() { /* legacy no-op */ }
-function updateReceptionPicker()   { /* legacy no-op */ }
-
-function _loginSetLoading(on) {
-    const btn = document.getElementById('loginBtn');
-    if (!btn) return;
-    btn.disabled = on;
-    btn.textContent = on ? 'Verificando...' : 'Entrar';
-}
-function _loginShowError(msg) {
-    _loginSetLoading(false);
-    const el = document.getElementById('loginError');
-    if (!el) return;
-    el.textContent = msg;
-    el.style.display = 'block';
-    // Shake animation
-    el.style.animation = 'none';
-    el.offsetHeight; // reflow
-    el.style.animation = 'loginShake 0.35s ease';
-}
-function _loginClearError() {
-    const el = document.getElementById('loginError');
-    if (el) { el.style.display = 'none'; el.textContent = ''; }
+// Update professional picker
+function updateProfessionalPicker() {
+    const picker = document.getElementById('professionalPicker');
+    if (!picker) return;
+    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
+    appData.personal.filter(p => p.tipo !== 'empleado').forEach(p => {
+        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+    });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1374,35 +1147,39 @@ async function sha256(message) {
 
 // Hash a password with a clinic-specific salt.
 // Salt = CLINIC_PATH so hashes are unique per clinic even if password is the same.
-// ── PIN SYSTEM ────────────────────────────────────────────────────
-// PINs are 4-digit numbers stored as plain strings.
-// Simple, admin-visible, resettable. No hashing needed.
-
-const DEFAULT_PIN = '1234';
-
-function generateUsername(nombre) {
-    // Generates a username from a full name: "Juan Pérez" → "jperez"
-    const clean = nombre.toLowerCase()
-        .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
-        .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
-        .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
-        .replace(/[^a-z0-9\s]/g,'').trim();
-    const parts = clean.split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 10);
-    return (parts[0][0] + parts[parts.length - 1]).slice(0, 12);
+async function hashPassword(plaintext) {
+    const salt = CLINIC_PATH || 'smile-default-salt';
+    return sha256(salt + ':' + plaintext);
 }
 
-function verifyPin(person, enteredPin) {
-    if (!person) return false;
-    const stored = person.pin || DEFAULT_PIN;
-    return stored === String(enteredPin).trim();
+// Migrate a plaintext password to hash on first successful login.
+// Silent — user never notices.
+async function migratePasswordIfNeeded(person, plaintext) {
+    if (!person || person._pwHashed) return; // already migrated
+    try {
+        const hashed = await hashPassword(plaintext);
+        person.password    = hashed;
+        person._pwHashed   = true;
+        await saveData('saveData-init');
+        console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
+    } catch(e) {
+        console.warn('[Auth] No se pudo migrar contraseña:', e);
+    }
 }
 
-// Legacy: keep hashPassword/verifyPassword as no-ops for backwards compat
-async function hashPassword(plaintext) { return plaintext; }
+// Compare entered password against stored hash (or plaintext for legacy accounts)
 async function verifyPassword(person, entered) {
-    // Support old hashed passwords during migration — just use PIN now
-    return verifyPin(person, entered);
+    if (!person?.password) return false;
+    if (person._pwHashed) {
+        // Already hashed — compare hash
+        const enteredHash = await hashPassword(entered);
+        return person.password === enteredHash;
+    } else {
+        // Legacy plaintext — compare directly, then migrate silently
+        const match = person.password === entered;
+        if (match) migratePasswordIfNeeded(person, entered); // async, non-blocking
+        return match;
+    }
 }
 
 // ── RATE LIMITING ─────────────────────────────────────────
@@ -1547,7 +1324,7 @@ async function ensureFirebaseAuth() {
         try {
             const cred = await intentarAuth();
             _firebaseAuthUid = cred.user.uid;
-            // [debug] auth OK
+            console.log(`[Auth] Firebase auth OK (intento ${intento}):`, _firebaseAuthUid);
             return;
         } catch(e) {
             console.warn(`[Auth] Intento ${intento}/3 fallido:`, e.message);
@@ -1562,61 +1339,93 @@ async function ensureFirebaseAuth() {
 }
 
 // Update reception picker
+function updateReceptionPicker() {
+    const picker = document.getElementById('receptionPicker');
+    if (!picker) return;
+    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
+    appData.personal.filter(p => p.canAccessReception).forEach(p => {
+        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+    });
+}
+
 // Login — async to support SHA-256 password verification
 async function login() {
-    _loginClearError();
-    const usernameRaw = (document.getElementById('loginUsername')?.value || '').trim();
-    const pin         = (document.getElementById('loginPassword')?.value || '').trim();
+    const roleBtn = document.querySelector('.role-btn.active');
+    const role    = roleBtn?.dataset.role;
+    const password = document.getElementById('password').value;
 
-    if (!usernameRaw) { _loginShowError('Selecciona tu usuario.'); return; }
-    if (!pin)         { _loginShowError('Ingresa tu PIN.'); return; }
-    if (!/^\d{4}$/.test(pin)) { _loginShowError('El PIN debe ser 4 dígitos.'); return; }
+    if (!password) { showToast('⚠️ Ingresa tu contraseña'); return; }
 
-    _loginSetLoading(true);
+    let username = '';
+    let person   = null;
 
-    if (!checkRateLimit(usernameRaw)) {
-        _loginShowError('Demasiados intentos. Espera unos minutos.');
-        _loginSetLoading(false);
-        return;
+    if (role === 'professional') {
+        username = document.getElementById('professionalPicker').value;
+        if (!username) { showToast('⚠️ Selecciona un profesional'); return; }
+        person = appData.personal.find(p => p.nombre === username);
+        if (!person)           { showToast('⚠️ Profesional no encontrado. Recarga la página.', 4000, '#c0392b'); return; }
+        if (!person.password)  { showToast('⚠️ Este profesional no tiene contraseña configurada', 4000, '#e65100'); return; }
+
+        if (!checkRateLimit(username)) return;
+        const ok = await verifyPassword(person, password);
+        if (!ok) {
+            recordFailedAttempt(username);
+            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
+            return;
+        }
+        appData.currentRole = 'professional';
+
+    } else if (role === 'reception') {
+        username = document.getElementById('receptionPicker').value;
+        if (!username) { showToast('⚠️ Selecciona un usuario'); return; }
+        person = appData.personal.find(p => p.nombre === username);
+        if (!person || !person.canAccessReception) { showToast('⚠️ Usuario sin acceso a recepción', 3000, '#c0392b'); return; }
+        if (!person.password) { showToast('⚠️ Sin contraseña configurada. Contacta al administrador.', 4000, '#e65100'); return; }
+
+        if (!checkRateLimit(username)) return;
+        const ok = await verifyPassword(person, password);
+        if (!ok) {
+            recordFailedAttempt(username);
+            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
+            return;
+        }
+        appData.currentRole = 'reception';
+
+    } else {
+        // Admin
+        username = document.getElementById('username').value || 'admin';
+        const admin = appData.personal.find(p => p.isAdmin);
+        if (!admin) { showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b'); return; }
+
+        if (!checkRateLimit('admin')) return;
+        const ok = await verifyPassword(admin, password);
+        if (!ok) {
+            recordFailedAttempt('admin');
+            showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b');
+            return;
+        }
+        username = admin.nombre;
+        appData.currentRole = 'admin';
+        person = admin;
     }
 
-    // Find person by username or nombre
-    const found = appData.personal.find(p =>
-        (p.username && p.username.toLowerCase() === usernameRaw.toLowerCase()) ||
-        (p.nombre   && p.nombre.toLowerCase()   === usernameRaw.toLowerCase()) ||
-        (p.isAdmin  && usernameRaw.toLowerCase() === 'admin')
-    );
+    // Successful login
+    clearLoginAttempts(username);
+    appData.currentUser = username;
 
-    if (!found) {
-        recordFailedAttempt(usernameRaw);
-        _loginShowError('Usuario no encontrado.');
-        _loginSetLoading(false);
-        return;
-    }
-
-    if (!verifyPin(found, pin)) {
-        recordFailedAttempt(usernameRaw);
-        _loginShowError('PIN incorrecto.');
-        _loginSetLoading(false);
-        return;
-    }
-
-    // ✅ Login exitoso
-    const role = found.isAdmin ? 'admin'
-               : found.tipo === 'empleado' ? 'reception'
-               : 'professional';
-
-    _loginSetLoading(false);
-    appData.currentRole = role;
-    appData.currentUser = found.nombre;
-    clearLoginAttempts(usernameRaw);
-
+    // Establish Firebase anonymous auth session (enables Security Rules)
     await ensureFirebaseAuth();
+
+    // Vaciar cola de errores que no pudieron enviarse antes del login
     _flushErrorQueue().catch(e => console.warn('[ErrorLog] flush failed:', e));
-    startSession(found.nombre);
-    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${found.nombre} (${role})`);
+
+    // Start session + inactivity tracking
+    startSession(username);
+
+    // Register audit
+    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
+
     initRealtimeListener();
-    if (typeof window._hideSmileNav === 'function') window._hideSmileNav();
     await showApp();
 }
 
@@ -1639,16 +1448,8 @@ function logout() {
 
         document.getElementById('loginScreen').style.display = 'flex';
         document.getElementById('appContainer').style.display = 'none';
-        const _lu = document.getElementById('loginUsername');
-        const _lp = document.getElementById('loginPassword');
-        if (_lu) _lu.selectedIndex = 0; // reset to placeholder
-        if (_lp) _lp.value = '';
-        _loginClearError();
-        // legacy fields
-        const _u = document.getElementById('username');
-        const _p = document.getElementById('password');
-        if (_u) _u.value = '';
-        if (_p) _p.value = '';
+        document.getElementById('password').value = '';
+        document.getElementById('username').value = '';
     }
 }
 
@@ -1773,7 +1574,7 @@ function showTab(tabName) {
                     const select = document.getElementById('profesionalQueAtendio');
                     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
                     select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                        profesionales.map(p => `<option value="${sanitize.html(p.nombre)}">${sanitize.html(p.nombre)}</option>`).join('');
+                        profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
                 } else {
                     container.style.display = 'none';
                 }
@@ -1793,7 +1594,7 @@ function showTab(tabName) {
 
 // Currency format
 function formatCurrency(amount) {
-    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : '$';
+    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
     const locale  = (typeof clinicConfig !== 'undefined' && clinicConfig.locale)  ? clinicConfig.locale  : getLocale();
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
@@ -2003,8 +1804,8 @@ async function generarFactura() {
     };
 
     // Guardar estado anterior para rollback si Firebase falla
-    const backupFacturas   = [...appData.facturas];
-    const backupCitaEstado = citaHoy ? { ...citaHoy } : null;
+    const backupFacturas = appData.facturas.length;
+    const backupCitaEstado = citaHoy ? citaHoy.estado : null;
 
     appData.facturas.push(factura);
 
@@ -2022,12 +1823,8 @@ async function generarFactura() {
         await saveData();
     } catch(saveErr) {
         // Revertir mutaciones locales si Firebase rechazó la escritura
-        appData.facturas = backupFacturas;
-        if (citaHoy && backupCitaEstado) {
-            citaHoy.estado = backupCitaEstado.estado;
-            citaHoy.fechaCompletada = backupCitaEstado.fechaCompletada;
-            citaHoy.procedimientosRealizados = backupCitaEstado.procedimientosRealizados;
-        }
+        appData.facturas.splice(backupFacturas, 1);
+        if (citaHoy && backupCitaEstado) citaHoy.estado = backupCitaEstado;
         throw saveErr; // re-throw para que el catch externo lo maneje
     }
 
@@ -2078,24 +1875,9 @@ function updateIngresosTab() {
         .reduce((sum, f) => sum + (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)), 0);
 
     document.getElementById('ingresosHoy').textContent = formatCurrency(ingresosHoy);
+    document.getElementById('comisionesHoy').textContent = formatCurrency(comisionesHoy);
+    document.getElementById('comisionesAcum').textContent = formatCurrency(comisionesAcum);
     document.getElementById('porCobrar').textContent = formatCurrency(porCobrar);
-
-    // Comisiones: solo mostrar si el profesional no tiene salario fijo
-    const esSalarioFijo = prof && prof.tipoRemuneracion === 'salario';
-    const cardComisionHoy  = document.getElementById('comisionesHoy')?.closest('.stat-card');
-    const cardComisionAcum = document.getElementById('comisionesAcum')?.closest('.stat-card');
-
-    if (esSalarioFijo) {
-        // Ocultar tarjetas de comisiones — no aplica para este perfil
-        if (cardComisionHoy)  cardComisionHoy.style.display  = 'none';
-        if (cardComisionAcum) cardComisionAcum.style.display = 'none';
-    } else {
-        // Mostrar y actualizar
-        if (cardComisionHoy)  cardComisionHoy.style.display  = '';
-        if (cardComisionAcum) cardComisionAcum.style.display = '';
-        document.getElementById('comisionesHoy').textContent  = formatCurrency(comisionesHoy);
-        document.getElementById('comisionesAcum').textContent = formatCurrency(comisionesAcum);
-    }
 
     const list = document.getElementById('facturasPersonal');
     if (misFacturas.length === 0) {
@@ -2106,7 +1888,7 @@ function updateIngresosTab() {
                 <div class="item-header">
                     <div>
                         <div style="font-size: 12px; color: #8e8e93;">${f.numero}</div>
-                        <div class="item-title">${sanitize.html(f.paciente)}</div>
+                        <div class="item-title">${f.paciente}</div>
                     </div>
                     <span class="badge badge-${f.estado === 'pagada' ? 'paid' : (f.estado === 'parcial' || f.estado === 'partial') ? 'partial' : 'pending'}">
                         ${f.estado === 'pagada' ? 'Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? 'Con Abono' : 'Pendiente'}
@@ -2667,7 +2449,7 @@ function updateCuadreTab() {
                 htmlIngresos += `
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                         <div>
-                            <span style="font-weight: 600;">${icono} ${sanitize.html(f.paciente)}</span>
+                            <span style="font-weight: 600;">${icono} ${f.paciente}</span>
                             <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
                             <div style="font-size: 12px; color: #999;">Factura ${f.numero} - ${p.metodo}</div>
                         </div>
@@ -2724,13 +2506,6 @@ function guardarCuadreDiario(fechaKey, cuadre) {
         return; // Sin cambios, no guardar
     }
     appData.cuadresDiarios[fechaKey] = cuadre;
-
-    // Trim cuadresDiarios to last 365 days — prevents unbounded growth in main doc
-    const _allKeys = Object.keys(appData.cuadresDiarios).sort();
-    if (_allKeys.length > 365) {
-        const _toDelete = _allKeys.slice(0, _allKeys.length - 365);
-        _toDelete.forEach(k => delete appData.cuadresDiarios[k]);
-    }
     saveData();
 }
 
@@ -2825,10 +2600,10 @@ function registrarGasto() {
         aprobado:      true
     };
 
-    const backupGastos = [...appData.gastos];
+    const backupGastos = appData.gastos.length;
     appData.gastos.push(gasto);
     saveData().catch(() => {
-        appData.gastos = backupGastos; // revertir
+        appData.gastos.splice(backupGastos, 1); // revertir
         updateGastosTab();
         showToast('❌ No se pudo guardar el gasto. Intenta de nuevo.', 4000, '#c0392b');
     });
@@ -2945,19 +2720,9 @@ async function agregarPersonal() {
     const sueldo    = sanitize.num(sueldoRaw, 0);
     const exequatur = sanitize.str(document.getElementById('personalExequatur')?.value, 20);
 
-    if (!nombre) {
-        showToast('⚠️ El nombre es obligatorio'); return;
-    }
+    if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
     if (tipo === 'empleado' && sueldo <= 0) {
         showToast('⚠️ Ingresa el sueldo del empleado'); return;
-    }
-
-    // Generate unique username
-    let baseUsername = generateUsername(nombre);
-    let username = baseUsername;
-    let counter = 2;
-    while (appData.personal.some(p => p.username === username)) {
-        username = baseUsername + counter++;
     }
 
     const esEmp = tipo === 'empleado';
@@ -2972,17 +2737,34 @@ async function agregarPersonal() {
         showToast('⚠️ Ingresa el salario fijo del profesional'); return;
     }
 
+    // Generar username único (igual que en onboarding)
+    function _genUsername(nombre) {
+        const clean = nombre.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z\s]/g, '').trim();
+        const parts = clean.split(/\s+/).filter(Boolean);
+        if (!parts.length) return 'usuario';
+        if (parts.length === 1) return parts[0].slice(0, 12);
+        return parts[0][0] + parts[parts.length - 1].slice(0, 10);
+    }
+    let baseUsername = _genUsername(nombre);
+    let username = baseUsername;
+    let counter = 2;
+    while (appData.personal.some(p => p.username === username)) {
+        username = baseUsername + counter++;
+    }
+
     const person = {
         id: generateId(),
         nombre,
         username,
+        pin: '1234',
         tipo,
         exequatur:          !esEmp ? exequatur : null,
         sueldo:              esEmp ? sueldo    : null,
         tipoRemuneracion:   tipoRem,
         salarioFijo:        salFijo,
         frecuenciaPago:     frecPago,
-        pin:                DEFAULT_PIN,
         canAccessReception: false,
         nextPayDate:        null
     };
@@ -2996,10 +2778,20 @@ async function agregarPersonal() {
         showError('Error al agregar personal. Intenta de nuevo.', saveErr);
         return;
     }
+
+    // Avisar si el usuario nuevo afecta el precio mensual
+    const usuariosNoAdmin = appData.personal.filter(p => !p.isAdmin).length;
+    const esPrimero = usuariosNoAdmin === 1;
+
     updatePersonalTab();
-    populateLoginUserPicker();
+    updateProfessionalPicker();
     closeModal('modalAddPersonal');
-    showToast(`✓ ${nombre} agregado · Usuario: ${username} · PIN: ${DEFAULT_PIN}`);
+
+    if (!esPrimero) {
+        showToast(`✓ ${nombre} agregado · usuario: ${username} · PIN: 1234 · +$2.50 USD/mes`);
+    } else {
+        showToast(`✓ ${nombre} agregado · usuario: ${username} · PIN inicial: 1234`);
+    }
 }
 
 function updatePersonalTab() {
@@ -3236,23 +3028,7 @@ function openPersonalDetail(id) {
     }
 
         content += `
-        <div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:16px;margin-top:8px">
-            <div style="font-size:11px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Acceso a la app</div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div>
-                    <div style="font-size:11px;color:var(--light)">Usuario</div>
-                    <div style="font-size:15px;font-weight:500;color:var(--dark);font-family:monospace">${person.username || person.nombre}</div>
-                </div>
-                <div style="text-align:right">
-                    <div style="font-size:11px;color:var(--light)">PIN actual</div>
-                    <div style="font-size:15px;font-weight:500;color:var(--dark);font-family:monospace">${person.pin || DEFAULT_PIN}</div>
-                </div>
-            </div>
-            <button onclick="event.stopPropagation(); resetearPin('${person.id}')" style="width:100%;padding:9px;background:transparent;border:1.5px solid rgba(30,28,26,0.12);border-radius:8px;font-size:12px;color:var(--mid);font-family:inherit;cursor:pointer;letter-spacing:0.5px">
-                🔄 Resetear PIN a ${DEFAULT_PIN}
-            </button>
-        </div>
-        <button class="btn btn-secondary" style="width: 100%; margin-top: 8px;" onclick="event.stopPropagation(); openEditPersonal('${person.id}')">
+        <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;" onclick="event.stopPropagation(); openEditPersonal('${person.id}')">
             ✏️ Editar Perfil
         </button>
         <button class="btn btn-danger" style="width: 100%; margin-top: 10px;" onclick="event.stopPropagation(); eliminarPersonal('${person.id}')">
@@ -3556,18 +3332,19 @@ function openEditPersonal(id) {
 async function guardarEdicion() {
     if (!currentPersonalToEdit) return;
 
-    const nombre = sanitize.str(document.getElementById('editNombre')?.value, 120);
-    const pinVal = (document.getElementById('editPassword')?.value || '').trim();
+    const nombre   = sanitize.str(document.getElementById('editNombre')?.value, 120);
+    const password = document.getElementById('editPassword')?.value || '';
 
     if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
 
     currentPersonalToEdit.nombre = nombre;
 
-    // Update PIN if provided
-    if (pinVal) {
-        if (!/^\d{4}$/.test(pinVal)) { showToast('⚠️ El PIN debe ser exactamente 4 dígitos'); return; }
-        currentPersonalToEdit.pin = pinVal;
-        registrarAuditoria('seguridad', 'cambio_pin', `PIN actualizado para ${nombre}`);
+    // Hash new password before saving — never store plaintext
+    if (password) {
+        if (password.length < 4) { showToast('⚠️ La contraseña debe tener al menos 4 caracteres'); return; }
+        currentPersonalToEdit.password  = await hashPassword(password);
+        currentPersonalToEdit._pwHashed = true;
+        registrarAuditoria('seguridad', 'cambio_contrasena', `Contraseña actualizada para ${nombre}`);
     }
 
     if (currentPersonalToEdit.tipo === 'empleado') {
@@ -3598,7 +3375,7 @@ async function guardarEdicion() {
         return;
     }
     updatePersonalTab();
-    populateLoginUserPicker();
+    updateProfessionalPicker();
     closeModal('modalEditPersonal');
     showToast('✓ Perfil actualizado');
 }
@@ -3641,14 +3418,14 @@ function registrarAvance() {
         registradoPor: appData.currentUser
     };
 
-    const backupAvances = [...appData.avances];
+    const backupAvances = appData.avances.length;
     appData.avances.push(avance);
     saveData().then(() => {
         closeModal('modalAvance');
         updatePersonalTab();
         showToast('✓ Avance registrado exitosamente');
     }).catch(e => {
-        appData.avances = backupAvances; // rollback
+        appData.avances.splice(backupAvances, 1); // rollback
         showError('Error al registrar el avance.', e);
     });
 }
@@ -3775,7 +3552,7 @@ function eliminarPersonal(id) {
                 closeModal('modalPersonalDetail');
                 closeModal('modalEditPersonal');
                 updatePersonalTab();
-                populateLoginUserPicker();
+                updateProfessionalPicker();
                 showToast('✓ Personal eliminado');
             } catch(e) {
                 appData.personal = backupPersonal; // rollback
@@ -3815,7 +3592,7 @@ function poblarConfigClinica() {
 
     // Moneda
     const monedaSelect = document.getElementById('configMoneda');
-    if (monedaSelect) monedaSelect.value = clinicConfig.moneda || '$';
+    if (monedaSelect) monedaSelect.value = clinicConfig.moneda || 'RD$';
     // Nómina defaults
     const cfgRem = document.getElementById('configDefaultRemuneracion');
     const cfgFrq = document.getElementById('configDefaultFrecuencia');
@@ -3836,14 +3613,12 @@ function poblarConfigClinica() {
     if (comisionEspecialista) comisionEspecialista.value = settings.comisionEspecialista ?? 50;
 
     // AGENDA
-    const apertura        = document.getElementById('configHoraApertura');
-    const cierre          = document.getElementById('configHoraCierre');
-    const duracion        = document.getElementById('configDuracionCita');
-    const numConsultorios = document.getElementById('configNumConsultorios');
-    if (apertura)        apertura.value        = settings.horaApertura    ?? 8;
-    if (cierre)          cierre.value          = settings.horaCierre      ?? 20;
-    if (duracion)        duracion.value        = settings.duracionCita    ?? 30;
-    if (numConsultorios) numConsultorios.value = settings.numConsultorios ?? 4;
+    const apertura   = document.getElementById('configHoraApertura');
+    const cierre     = document.getElementById('configHoraCierre');
+    const duracion   = document.getElementById('configDuracionCita');
+    if (apertura) apertura.value  = settings.horaApertura ?? 8;
+    if (cierre)   cierre.value    = settings.horaCierre   ?? 20;
+    if (duracion) duracion.value  = settings.duracionCita ?? 30;
 }
 
 function actualizarPreviewLogo(url) {
@@ -3868,7 +3643,7 @@ async function guardarIdentidadClinica() {
     if (!canWriteToFirebase('guardarIdentidadClinica')) return;
 
     try {
-        const monedaVal = document.getElementById('configMoneda')?.value || clinicConfig.moneda || '$';
+        const monedaVal = document.getElementById('configMoneda')?.value || clinicConfig.moneda || 'RD$';
         const LOCALES_MONEDA = {
             '$': 'es-MX', 'RD$': 'es-DO', 'R$': 'pt-BR', 'S/': 'es-PE',
             'Q': 'es-GT', 'L': 'es-HN', 'C$': 'es-NI', 'B/.': 'es-PA',
@@ -3910,14 +3685,14 @@ async function guardarIdentidadClinica() {
 }
 
 async function guardarContrasenaAdmin() {
-    const nueva    = document.getElementById('configNewPassword').value.trim();
-    const confirma = document.getElementById('configConfirmPassword').value.trim();
+    const nueva    = document.getElementById('configNewPassword').value;
+    const confirma = document.getElementById('configConfirmPassword').value;
 
-    if (!/^\d{4}$/.test(nueva)) {
-        showToast('⚠️ El PIN debe ser exactamente 4 dígitos'); return;
+    if (!nueva || nueva.length < 6) {
+        showToast('⚠️ La contraseña debe tener al menos 6 caracteres'); return;
     }
     if (nueva !== confirma) {
-        showToast('⚠️ Los PINs no coinciden'); return;
+        showToast('⚠️ Las contraseñas no coinciden'); return;
     }
 
     const admin = appData.personal.find(p => p.isAdmin);
@@ -3925,35 +3700,22 @@ async function guardarContrasenaAdmin() {
         showToast('❌ No se encontró el administrador', 4000, '#c0392b'); return;
     }
 
-    const pinAnterior = admin.pin;
-    admin.pin = nueva;
+    // Hash before saving — never store plaintext
+    const pwAnterior    = admin.password;
+    const pwHashedAntes = admin._pwHashed;
+    admin.password  = await hashPassword(nueva);
+    admin._pwHashed = true;
 
     try {
         await saveData();
         document.getElementById('configNewPassword').value  = '';
         document.getElementById('configConfirmPassword').value = '';
-        showToast('✓ PIN actualizado');
-        registrarAuditoria('seguridad', 'cambio_pin', 'PIN de administrador actualizado');
+        showToast('✓ Contraseña actualizada');
+        registrarAuditoria('seguridad', 'cambio_contrasena', 'Contraseña de administrador actualizada');
     } catch(e) {
-        admin.pin = pinAnterior;
-        showError('Error al guardar el PIN.', e);
-    }
-}
-
-async function resetearPin(personalId) {
-    const person = appData.personal.find(p => p.id === personalId);
-    if (!person) return;
-    const pinAnterior = person.pin;
-    person.pin = DEFAULT_PIN;
-    try {
-        await saveData();
-        showToast(`✓ PIN de ${person.nombre} reseteado a ${DEFAULT_PIN}`);
-        registrarAuditoria('seguridad', 'reset_pin', `PIN reseteado para ${person.nombre}`);
-        closeModal('modalPersonalDetail');
-        updatePersonalTab();
-    } catch(e) {
-        person.pin = pinAnterior;
-        showError('Error al resetear el PIN.', e);
+        admin.password  = pwAnterior;    // rollback
+        admin._pwHashed = pwHashedAntes;
+        showError('Error al guardar la contraseña.', e);
     }
 }
 
@@ -3995,25 +3757,19 @@ async function guardarConfigNomina() {
 }
 
 async function guardarConfigAgenda() {
-    const apertura        = parseInt(document.getElementById('configHoraApertura').value);
-    const cierre          = parseInt(document.getElementById('configHoraCierre').value);
-    const duracion        = parseInt(document.getElementById('configDuracionCita').value);
-    const numConsultorios = parseInt(document.getElementById('configNumConsultorios')?.value) || 4;
+    const apertura = parseInt(document.getElementById('configHoraApertura').value);
+    const cierre   = parseInt(document.getElementById('configHoraCierre').value);
+    const duracion = parseInt(document.getElementById('configDuracionCita').value);
 
     if (apertura >= cierre) {
         showToast('⚠️ La hora de apertura debe ser antes del cierre', 3000, '#e65100');
         return;
     }
-    if (numConsultorios < 1 || numConsultorios > 20) {
-        showToast('⚠️ El número de consultorios debe estar entre 1 y 20', 3000, '#e65100');
-        return;
-    }
 
     if (!appData.settings) appData.settings = {};
-    appData.settings.horaApertura    = apertura;
-    appData.settings.horaCierre      = cierre;
-    appData.settings.duracionCita    = duracion;
-    appData.settings.numConsultorios = numConsultorios;
+    appData.settings.horaApertura = apertura;
+    appData.settings.horaCierre   = cierre;
+    appData.settings.duracionCita = duracion;
 
     try {
         await saveData();
@@ -4092,18 +3848,14 @@ function updatePerfilTab() {
         importarCard.style.display = appData.currentRole === 'admin' ? 'block' : 'none';
     }
     const exportarCard = document.getElementById('exportarCard');
-    if (exportarCard) {
-        if (appData.currentRole === 'admin') {
-            exportarCard.style.display = 'block';
-            const stats = document.getElementById('exportarPacientesStats');
-            if (stats) {
-                const total = (appData.pacientes || []).length;
-                const conTel = appData.pacientes.filter(p => p.telefono).length;
-                const conEmail = appData.pacientes.filter(p => p.email).length;
-                stats.textContent = `${total} pacientes · ${conTel} con teléfono · ${conEmail} con email`;
-            }
-        } else {
-            exportarCard.style.display = 'none';
+    if (exportarCard && appData.currentRole === 'admin') {
+        exportarCard.style.display = 'block';
+        const stats = document.getElementById('exportarPacientesStats');
+        if (stats) {
+            const total = (appData.pacientes || []).length;
+            const conTel = appData.pacientes.filter(p => p.telefono).length;
+            const conEmail = appData.pacientes.filter(p => p.email).length;
+            stats.textContent = `${total} pacientes · ${conTel} con teléfono · ${conEmail} con email`;
         }
     }
 
@@ -4408,7 +4160,7 @@ function updatePacientesTab() {
         return `
             <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor:pointer;padding:16px 20px;margin-bottom:12px;border-left:3px solid var(--clinic-color,#C4856A);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-size: 17px; font-weight: 600; color: var(--dark, #1E1C1A); letter-spacing: -0.2px;">${sanitize.html(p.nombre)}</div>
+                    <div style="font-size: 17px; font-weight: 600; color: var(--dark, #1E1C1A); letter-spacing: -0.2px;">${p.nombre}</div>
                     <div>
                         ${balance > 0 ? `<span class="badge badge-warning">${formatCurrency(balance)}</span>` :
                           balance === 0 && facturasPaciente.length > 0 ? `<span class="badge badge-success">Al día</span>` : ''}
@@ -4471,12 +4223,12 @@ async function guardarPaciente() {
         fechaRegistro: new Date().toISOString()
     };
 
-    const backupPacientes = [...appData.pacientes];
+    const backupPacientes = appData.pacientes.length;
     appData.pacientes.push(paciente);
     try {
         await saveData();
     } catch(saveErr) {
-        appData.pacientes = backupPacientes;
+        appData.pacientes.splice(backupPacientes, 1);
         showError('Error al guardar el paciente. Intenta de nuevo.', saveErr);
         return;
     }
@@ -4523,12 +4275,6 @@ function verPaciente(pacienteId) {
         } else {
             tabBalanceBtn.style.display = 'block';
         }
-    }
-
-    // Botón Eliminar — solo visible para admin
-    const btnElim = document.getElementById('btnEliminarPaciente');
-    if (btnElim) {
-        btnElim.style.display = appData.currentRole === 'admin' ? 'inline-flex' : 'none';
     }
 
     // Activar primer tab — cambiarTabPaciente renderizará solo ese tab
@@ -5580,7 +5326,7 @@ function updateAgendaTab() {
                     return `
                     <div onclick="verDetalleCita('${c.id}')" style="background: ${colores[c.consultorio]}; color: white; padding: 8px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; transition: transform 0.2s; border-left: 4px solid ${colorEstado};" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                         <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">${c.hora}</div>
-                        <div style="font-size: 11px; opacity: 0.95; margin-bottom: 2px;">${sanitize.html(c.paciente)}</div>
+                        <div style="font-size: 11px; opacity: 0.95; margin-bottom: 2px;">${c.paciente}</div>
                         <div style="font-size: 10px; opacity: 0.9;">${c.profesional}</div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                             <div style="font-size: 10px; opacity: 0.85;">C${c.consultorio}</div>
@@ -5677,50 +5423,23 @@ function verDetalleCita(citaId) {
     openModal('modalDetalleCita');
 }
 
-function actualizarHoraFin() {
-    const horaInicio = document.getElementById('citaHora').value;
-    const duracion   = (appData.settings && appData.settings.duracionCita) || 30;
-    if (!horaInicio) return;
-    const [h, m] = horaInicio.split(':').map(Number);
-    const totalMin = h * 60 + m + duracion;
-    const hFin = String(Math.floor(totalMin / 60) % 24).padStart(2, '0');
-    const mFin = String(totalMin % 60).padStart(2, '0');
-    document.getElementById('citaHoraFin').value = hFin + ':' + mFin;
-}
-
 function abrirModalNuevaCita() {
-    // Reset autocomplete
-    const pacInput = document.getElementById('citaPacienteInput');
-    pacInput.value = '';
-    pacInput.dataset.pacienteSeleccionado = '';
-    pacInput.dataset.pacienteId = '';
+    // Autocomplete input en lugar de select
+    document.getElementById('citaPacienteInput').value = '';
     document.getElementById('citaPacienteSuggestions').innerHTML = '';
     document.getElementById('citaPacienteSuggestions').style.display = 'none';
 
-    // Profesionales
     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
+
     const selectProf = document.getElementById('citaProfesional');
     selectProf.innerHTML = '<option value="">Seleccione profesional</option>' +
-        profesionales.map(p => `<option value="${sanitize.html(p.nombre)}">${sanitize.html(p.nombre)}</option>`).join('');
+        profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
 
-    // Fecha de hoy (nunca pasado) — set min to today at browser level too
-    const todayStr = new Date().toISOString().split('T')[0];
-    const fechaEl = document.getElementById('citaFecha');
-    fechaEl.value = todayStr;
-    fechaEl.min   = todayStr;
-
-    // Hora inicio y fin automático
+    document.getElementById('citaFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('citaHora').value = '09:00';
-    actualizarHoraFin();
-
-    // Consultorios dinámicos desde settings
-    const nConsultorios = (appData.settings && appData.settings.numConsultorios) || 4;
-    const selectCons = document.getElementById('citaConsultorio');
-    selectCons.innerHTML = Array.from({length: nConsultorios}, (_, i) =>
-        `<option value="${i+1}">Consultorio ${i+1}</option>`
-    ).join('');
-
+    document.getElementById('citaConsultorio').value = '1';
     document.getElementById('citaMotivo').value = '';
+
     openModal('modalNuevaCita');
 }
 
@@ -5782,15 +5501,8 @@ async function guardarCita() {
     const consultorio = parseInt(document.getElementById('citaConsultorio').value);
     const motivo = document.getElementById('citaMotivo').value.trim();
 
-    // citaHoraFin is auto-calculated — not required from user
-    if (!paciente || !profesional || !fecha || !hora || isNaN(consultorio) || !motivo) {
-        // Identify which field is missing for a clear message
-        if (!paciente)           showToast('⚠️ Selecciona el paciente', 3000, '#e65100');
-        else if (!profesional)   showToast('⚠️ Selecciona el profesional', 3000, '#e65100');
-        else if (!fecha)         showToast('⚠️ Selecciona la fecha', 3000, '#e65100');
-        else if (!hora)          showToast('⚠️ Selecciona la hora de inicio', 3000, '#e65100');
-        else if (isNaN(consultorio)) showToast('⚠️ Selecciona el consultorio', 3000, '#e65100');
-        else                     showToast('⚠️ Escribe el motivo de la cita', 3000, '#e65100');
+    if (!paciente || !profesional || !fecha || !hora || !consultorio || !motivo) {
+        showToast('⚠️ Completa todos los campos', 3000, '#e65100');
         return;
     }
 
@@ -5822,38 +5534,28 @@ async function guardarCita() {
     }
 
     // VALIDAR SOLAPAMIENTO
-    const duracionMin    = (appData.settings && appData.settings.duracionCita) || 30;
+    const duracionMin = (appData.settings && appData.settings.duracionCita) || 30;
     const fechaHoraNueva = new Date(fecha + 'T' + hora);
-    // Use horaFin field if available, otherwise calculate from duration
-    const horaFinVal = document.getElementById('citaHoraFin')?.value;
-    const finNueva   = horaFinVal
-        ? new Date(fecha + 'T' + horaFinVal)
-        : new Date(fechaHoraNueva.getTime() + duracionMin * 60000);
+    const finNueva = new Date(fechaHoraNueva.getTime() + duracionMin * 60000);
 
-    if (isNaN(fechaHoraNueva.getTime())) {
-        showToast('⚠️ Fecha u hora inválida', 3000, '#e65100');
-        return;
-    }
-
+    // Buscar citas que se solapen en el mismo consultorio
+    // Una cita se solapa si su inicio está antes del fin de la nueva, y su fin está después del inicio de la nueva
     const estadosIgnorar = ['Cancelada', 'Inasistencia', 'Completada'];
     const citasSolapadas = appData.citas.filter(c => {
         if (c.consultorio !== consultorio) return false;
         if (estadosIgnorar.includes(c.estado)) return false;
-        // Skip the cita being edited (if any)
-        if (c.id && c.id === document.getElementById('citaEditandoId')?.value) return false;
 
         const inicioCita = new Date(c.fecha);
-        if (isNaN(inicioCita.getTime())) return false;
         const durCita = (c.duracionMin) || duracionMin;
         const finCita = new Date(inicioCita.getTime() + durCita * 60000);
 
+        // Solapamiento real: las dos se superponen en el tiempo
         return fechaHoraNueva < finCita && finNueva > inicioCita;
     });
 
     if (citasSolapadas.length > 0) {
-        const cs = citasSolapadas[0];
-        const fmt12 = t => { if (!t) return ''; const [h,m] = t.split(':'); const hh=+h; return `${hh%12||12}:${m} ${hh<12?'AM':'PM'}`; };
-        showToast(`⚠️ Consultorio ${consultorio} ya tiene una cita a las ${fmt12(cs.hora)} con ${cs.paciente} — elige otra hora o consultorio`, 6000, '#e65100');
+        const citaSolapada = citasSolapadas[0];
+        showToast(`⚠️ Consultorio ${consultorio} ocupado a las ${citaSolapada.hora} — elige otra hora`, 5000, '#e65100');
         return;
     }
 
@@ -5872,12 +5574,12 @@ async function guardarCita() {
         fechaCreacion: new Date().toISOString()
     };
 
-    const backupCitas = [...appData.citas];
+    const backupCitas = appData.citas.length;
     appData.citas.push(cita);
     try {
         await saveData();
     } catch(saveErr) {
-        appData.citas = backupCitas; // revertir
+        appData.citas.splice(backupCitas, 1); // revertir
         throw saveErr;
     }
     closeModal('modalNuevaCita');
@@ -6109,7 +5811,7 @@ function updateLaboratorioTab() {
                             ${orden.tipo}${orden.dientes ? ` - ${orden.dientes}` : ''}
                         </div>
                         <div style="font-size: 14px; color: #666; margin-bottom: 2px;">
-                            👤 ${sanitize.html(orden.paciente)}
+                            👤 ${orden.paciente}
                         </div>
                         <div style="font-size: 13px; color: #666;">
                             👨‍⚕️ ${orden.profesional} • 🏥 ${orden.laboratorio}
@@ -6156,7 +5858,7 @@ function verDetalleOrdenLab(ordenId) {
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Paciente</div>
-                    <div style="font-size: 14px; font-weight: 500;">${sanitize.html(orden.paciente)}</div>
+                    <div style="font-size: 14px; font-weight: 500;">${orden.paciente}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Profesional</div>
@@ -6354,7 +6056,7 @@ async function avanzarEstadoLab(nuevoEstado) {
         if (balancePendiente > 0) {
             mostrarConfirmacion({
                 titulo: 'Balance pendiente',
-                mensaje: `<strong>${sanitize.html(orden.paciente)}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
+                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
                 tipo: 'advertencia',
                 confirmText: 'Sí, entregar',
                 onConfirm: ejecutarAvance
@@ -6908,11 +6610,13 @@ async function limpiarDatosAntiguos() {
 
     if (cambios > 0) {
         await saveData('saveData-init'); // contexto permitido sin usuario logueado
-        populateLoginUserPicker();
+        updateProfessionalPicker();
+        updateReceptionPicker();
     }
 
     // Actualizar pickers siempre
-    populateLoginUserPicker();
+    updateProfessionalPicker();
+    updateReceptionPicker();
 }
 
 // ========================================
@@ -7663,8 +7367,8 @@ if (!appData.auditLogs) {
     appData.auditLogs = [];
 }
 
-// Audit logs go directly to subcollection 'auditoria' — never stored in main doc.
-// Also kept in a 200-entry in-memory buffer for the current session (modal de auditoría).
+// Audit logs are queued in memory and flushed on the next natural saveData() call.
+// This avoids one saveData() per user action (which is expensive and causes extra snapshots).
 function registrarAuditoria(accion, tipo, detalles) {
     const log = {
         id: generateId('LOG-'),
@@ -7675,38 +7379,19 @@ function registrarAuditoria(accion, tipo, detalles) {
         detalles: detalles
     };
 
-    // In-memory buffer for current session only
-    if (!appData.auditLogs) appData.auditLogs = [];
-    appData.auditLogs.push(log);
-    if (appData.auditLogs.length > 200) appData.auditLogs = appData.auditLogs.slice(-200);
-
-    // Write to subcollection — fire-and-forget, never blocks the UI
-    if (CLINIC_PATH && typeof db !== 'undefined') {
-        db.collection('clinicas').doc(CLINIC_PATH)
-          .collection('auditoria').add(log)
-          .catch(e => console.warn('[Audit] write failed (non-critical):', e.message));
+    if (!appData.auditLogs) {
+        appData.auditLogs = [];
     }
+
+    appData.auditLogs.push(log);
+    // Limitar a 500 entradas — evita que el doc de Firebase crezca infinitamente
+    if (appData.auditLogs.length > 500) appData.auditLogs = appData.auditLogs.slice(-500);
 }
 
-async function verAuditoria() {
+function verAuditoria() {
     if (appData.currentRole !== 'admin') {
         showToast('⛔ Solo administradores pueden ver la auditoría', 3000, '#c0392b');
         return;
-    }
-
-    // Fetch latest 200 audit entries from subcollection on demand
-    if (CLINIC_PATH && db) {
-        try {
-            const snap = await db.collection('clinicas').doc(CLINIC_PATH)
-                .collection('auditoria')
-                .orderBy('fecha', 'desc')
-                .limit(200)
-                .get();
-            appData.auditLogs = snap.docs.map(d => d.data()).reverse();
-        } catch(e) {
-            // Fallback to session buffer if Firestore unavailable
-            console.warn('[Audit] load from subcollection failed, using session buffer:', e.message);
-        }
     }
 
     renderizarAuditoria();
@@ -7835,7 +7520,7 @@ function aplicarFiltrosFacturas() {
                     <div class="item-header">
                         <div>
                             <div style="font-size: 12px; color: #8e8e93;">${f.numero} - ${formatDate(f.fecha)}</div>
-                            <div class="item-title">${sanitize.html(f.paciente)}</div>
+                            <div class="item-title">${f.paciente}</div>
                             <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff' : '#ff3b30'}; font-weight: 600;">
                                 ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
                             </div>
@@ -7916,7 +7601,7 @@ function inicializarFiltrosProfesionales() {
 
     select.innerHTML = '<option value="todos">Todos</option>';
     profesionales.forEach(p => {
-        select.innerHTML += `<option value="${sanitize.html(p.nombre)}">${sanitize.html(p.nombre)}</option>`;
+        select.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
     });
 }
 
@@ -8304,23 +7989,7 @@ function updateDashboardTab() {
 
     // Fecha + saludo + frase motivacional
     const fechaStr = new Date().toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
-
-    // Obtener nombre real del usuario — con múltiples fuentes de fallback
-    let nombre = appData.currentUser || '';
-    if (!nombre || nombre === 'admin') {
-        // Fallback 1: buscar en personal por rol admin
-        const adminPerson = appData.personal.find(p => p.isAdmin);
-        nombre = adminPerson?.nombre || '';
-    }
-    if (!nombre) {
-        // Fallback 2: buscar en personal por nombre de usuario actual
-        const person = appData.personal.find(p => p.nombre === appData.currentUser);
-        nombre = person?.nombre || '';
-    }
-    if (!nombre) {
-        // Fallback 3: getNombreAdmin como último recurso
-        nombre = getNombreAdmin();
-    }
+    const nombre = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
     const nombreCorto = nombre ? nombre.split(' ')[0] : '';
     const fraseDia = getFrase();
     const saludoDia = getSaludo();
@@ -8540,7 +8209,7 @@ function updateDashboardTab() {
                     onmouseenter="this.style.background='var(--bg)'"
                     onmouseleave="this.style.background='var(--surface)'">
                     <div style="flex:1;">
-                        <div style="font-weight:500;font-size:14px;color:var(--dark)">${hora} · ${sanitize.html(c.paciente)}</div>
+                        <div style="font-weight:500;font-size:14px;color:var(--dark)">${hora} · ${c.paciente}</div>
                         <div style="font-size:12px;color:var(--mid);margin-top:3px">${c.motivo || 'Sin motivo'} · ${c.profesional}</div>
                     </div>
                     <div style="background:${color};color:white;padding:5px 11px;border-radius:100px;font-size:11px;font-weight:600;flex-shrink:0">
@@ -9159,7 +8828,11 @@ function generarVistaPrevia() {
     const totalDespuesFiltro = window.pacientesAImportar.length;
     const filtrados = totalAntesFiltro - totalDespuesFiltro;
 
-    // [removed CSV debug log]
+    console.log(`📊 Procesamiento CSV:
+    - Total filas: ${csvData.length}
+    - Pacientes creados: ${totalAntesFiltro}
+    - Con nombre y teléfono: ${totalDespuesFiltro}
+    - Filtrados (sin datos): ${filtrados}`);
 
     // Mostrar vista previa
     document.getElementById('paso3-preview').style.display = 'block';
@@ -9230,17 +8903,18 @@ function ejecutarImportacion() {
         tipo: 'normal',
         confirmText: 'Sí, Importar Ahora',
         onConfirm: async () => {
-            // import started
+            console.log(`🚀 Iniciando importación de ${window.pacientesAImportar.length} pacientes...`);
 
             // Agregar pacientes
             const cantidadAntes = appData.pacientes.length;
             appData.pacientes.push(...window.pacientesAImportar);
             const cantidadDespues = appData.pacientes.length;
 
-            // import complete
+            console.log(`📥 Importación: ${cantidadAntes} → ${cantidadDespues} pacientes`);
+            console.log(`💾 Llamando a saveData()...`);
 
             await saveData();
-
+            console.log(`🔄 Actualizando tab de pacientes...`);
 
             // Actualizar tab de pacientes para reflejar los nuevos
             updatePacientesTab();
@@ -9418,11 +9092,12 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
-    // [removed debug logs]
+    console.log('📊 Debug abrirAbonoBalance:');
+    console.log('Paciente:', paciente.nombre);
     
     const todasFacturas = getFacturasDePaciente(paciente);
-
-
+    console.log('Total facturas del paciente:', todasFacturas.length);
+    console.log('Estados de facturas:', todasFacturas.map(f => ({ numero: f.numero, estado: f.estado })));
     
     // Encontrar factura más antigua pendiente (filtro robusto - ambos idiomas)
     const facturasPendientes = todasFacturas
@@ -9435,7 +9110,7 @@ function abrirAbonoBalance(pacienteId) {
         })
         .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
-
+    console.log('Facturas pendientes encontradas:', facturasPendientes.length);
     
     if (facturasPendientes.length === 0) {
         showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
@@ -9443,7 +9118,7 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
-
+    console.log('Abriendo pago de factura:', facturasPendientes[0].numero);
     
     // Abrir pago de la factura más antigua
     closeModal('modalVerPaciente');
@@ -9476,13 +9151,14 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // ═══════════════════════════════════════════════
 
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 5,   soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',              precio: 5,   soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',          precio: 5,   soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 5,   soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 15,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',              precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',          precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
-const BASE_PRECIOS = { clinica: 23, solo: 19 };
+const BASE_PRECIOS = { clinica: 1200, solo: 990 };
+const PRECIO_USUARIO_USD = 2.50; // USD por usuario adicional al primero
 
 function renderMiPlanTab() {
     // Deactivate other tabs, activate miplan
@@ -9556,76 +9232,138 @@ function renderMiPlanTab() {
     tab.innerHTML = `
         <div class="section-title" style="margin-bottom:4px">Mi plan</div>
         <div class="section-sub">${clinicConfig.enTrial
-            ? `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial!==1?'s':''} restante${diasTrial!==1?'s':''}</strong>`
-            : 'Plan activo · Solo módulos contratados'
+            ? \`Período de prueba · <strong style="color:var(--terracota)">\${diasTrial} día\${diasTrial!==1?'s':''} restante\${diasTrial!==1?'s':''}</strong>\`
+            : 'Plan activo'
         }</div>
-        ${clinicConfig.enTrial ? `<div style="margin-top:6px;padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;font-size:12px;color:var(--mid);border-left:3px solid var(--terracota)">💡 Durante el trial puedes agregar módulos y explorar SMILE. Solo pagas los módulos activos al finalizar.</div>` : ''}
+        \${clinicConfig.enTrial ? \`<div style="margin-top:6px;padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;font-size:12px;color:var(--mid);border-left:3px solid var(--terracota)">💡 Durante el trial puedes agregar módulos y explorar SMILE. Solo pagas los módulos activos al finalizar.</div>\` : ''}
 
         <!-- Plan base -->
         <div class="card" style="margin-bottom:14px">
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <div>
-                    <div style="font-size:13px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Plan base</div>
-                    <div style="font-size:18px;font-weight:300;color:var(--dark)">${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
+                    <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--terra,#C4856A);margin-bottom:6px">Plan base</div>
+                    <div style="font-size:18px;font-weight:300;color:var(--dark)">\${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
                     <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
                 </div>
                 <div style="text-align:right">
-                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">$${Number.isInteger(basePrice) ? basePrice.toLocaleString() : basePrice.toFixed(2)} USD</div>
+                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">\${clinicConfig.moneda || "RD$"}\${basePrice.toLocaleString()}</div>
                     <div style="font-size:10px;color:var(--light)">/mes</div>
                 </div>
             </div>
         </div>
 
-        <!-- Módulos -->
-        <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding:0 2px">
+        <!-- Usuarios -->
+        \${(() => {
+            const totalU = (appData.personal || []).filter(p => !p.isAdmin).length;
+            const extraU = Math.max(0, totalU - 1);
+            const costoU = extraU * PRECIO_USUARIO_USD;
+            return totalU > 0 ? \`
+            <div class="card" style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--terra,#C4856A);margin-bottom:6px">Usuarios</div>
+                    <div style="font-size:15px;font-weight:300;color:var(--dark)">\${totalU} usuario\${totalU!==1?'s':''} registrado\${totalU!==1?'s':''}</div>
+                    <div style="font-size:12px;color:var(--light);margin-top:2px">1 incluido · \${extraU} adicional\${extraU!==1?'es':''} × $\${PRECIO_USUARIO_USD.toFixed(2)} USD</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:20px;font-weight:200;color:var(--dark)">\${costoU > 0 ? '+$'+costoU.toFixed(2)+' USD' : 'Incluido'}</div>
+                    <div style="font-size:10px;color:var(--light)">/mes</div>
+                </div>
+            </div>\` : '';
+        })()}
+
+        <!-- Módulos adicionales -->
+        <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--terra,#C4856A);margin-bottom:12px;padding:0 2px">
             Módulos adicionales
         </div>
         <div id="miplan-modulos">
-            ${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
+            \${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
         </div>
 
         <!-- Total y guardar -->
         <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
-                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">$${Number.isInteger(calcTotal()) ? calcTotal().toLocaleString() : calcTotal().toFixed(2)} USD</div>
+                <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--light)">Total mensual</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">\${clinicConfig.moneda || "RD$"}\${calcTotal().toLocaleString()}</div>
             </div>
-            ${subscriptionState.status === 'active' ? `
             <button onclick="guardarCambiosPlan()" style="
-                width:100%;padding:14px;background:var(--clinic-color);color:white;
-                border:none;border-radius:var(--radius-sm);font-size:12px;
-                letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;
-                cursor:pointer;transition:background 0.2s;margin-bottom:10px;
-            " onmouseover="this.style.background='var(--terracota)'"
-               onmouseout="this.style.background='var(--clinic-color)'">
-                Guardar cambios
-            </button>
-            <button id="btn-portal-stripe" onclick="abrirPortalStripe()" style="
-                width:100%;padding:12px;background:transparent;
-                border:1.5px solid rgba(30,28,26,0.1);border-radius:var(--radius-sm);
-                font-size:11px;letter-spacing:1px;text-transform:uppercase;
-                font-family:inherit;cursor:pointer;color:var(--mid);
-            ">
-                Gestionar suscripción (facturas · tarjeta · cancelar)
-            </button>
-            ` : `
-            <button onclick="abrirCheckout()" style="
-                width:100%;padding:15px;background:#1E1C1A;color:white;
-                border:none;border-radius:12px;font-size:12px;
+                width:100%;padding:14px;background:var(--dark);color:white;
+                border:none;border-radius:var(--radius-sm);font-size:11px;
                 letter-spacing:2px;text-transform:uppercase;font-family:inherit;
-                cursor:pointer;margin-bottom:10px;
-            ">
-                ${subscriptionState.status === 'trial' ? 'Agregar método de pago →' : 'Reactivar mi clínica →'}
+                font-weight:500;cursor:pointer;transition:background 0.2s;
+            " onmouseover="this.style.background='var(--terra,#C4856A)'"
+               onmouseout="this.style.background='var(--dark)'">
+                Guardar cambios de plan
             </button>
-            <div style="font-size:11px;color:var(--light);text-align:center;line-height:1.6">
-                Pago seguro con Stripe · Cancela cuando quieras
+            <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
+                Los módulos nuevos se activan al instante.<br>El ajuste aplica a partir del próximo ciclo.
             </div>
-            `}
+        </div>
+
+        <!-- Suscripción y pagos a SMILE -->
+        <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--terra,#C4856A);margin:28px 0 12px;padding:0 2px">
+            Mi suscripción
+        </div>
+
+        <!-- Estado de suscripción -->
+        <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div>
+                    <div style="font-size:14px;font-weight:400;color:var(--dark)">Estado</div>
+                    <div style="font-size:12px;color:var(--light);margin-top:2px">
+                        \${clinicConfig.enTrial
+                            ? \`Trial activo · vence \${clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta).toLocaleDateString('es',{day:'numeric',month:'long',year:'numeric'}) : '—'}\`
+                            : (clinicConfig.activa ? 'Suscripción activa' : 'Inactiva')
+                        }
+                    </div>
+                </div>
+                <span style="
+                    font-size:9px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;
+                    padding:4px 12px;border-radius:100px;
+                    background:\${clinicConfig.enTrial ? 'rgba(196,133,106,0.10)' : clinicConfig.activa ? 'rgba(107,143,113,0.10)' : 'rgba(184,74,74,0.08)'};
+                    color:\${clinicConfig.enTrial ? 'var(--terra-dk,#A06448)' : clinicConfig.activa ? '#4a7a50' : '#b84a4a'};
+                ">\${clinicConfig.enTrial ? 'Trial' : clinicConfig.activa ? 'Activa' : 'Inactiva'}</span>
+            </div>
+            <a href="https://wa.me/18091234567?text=Hola+SMILE%2C+quiero+gestionar+mi+suscripción+de+\${encodeURIComponent(clinicConfig.nombre||'mi clínica')}" 
+               target="_blank" style="
+                display:flex;align-items:center;justify-content:center;gap:8px;
+                width:100%;padding:12px;border-radius:var(--radius-sm);
+                background:rgba(107,143,113,0.08);border:1.5px solid rgba(107,143,113,0.20);
+                color:#4a7a50;font-size:11px;font-weight:500;letter-spacing:1.5px;
+                text-transform:uppercase;text-decoration:none;transition:background 0.2s;
+            " onmouseover="this.style.background='rgba(107,143,113,0.15)'"
+               onmouseout="this.style.background='rgba(107,143,113,0.08)'">
+                💬 Contactar a SMILE por WhatsApp
+            </a>
+        </div>
+
+        <!-- Historial de pagos -->
+        <div class="card" style="margin-bottom:24px">
+            <div style="font-size:9px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--light);margin-bottom:14px">
+                Historial de pagos
+            </div>
+            \${(() => {
+                const pagos = (clinicConfig.pagosSuscripcion || []).slice().reverse();
+                if (!pagos.length) return \`
+                    <div style="text-align:center;padding:20px 0;color:var(--muted,#C8C2BB);font-size:13px">
+                        Aún no hay pagos registrados
+                    </div>\`;
+                return pagos.map(p => \`
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line,rgba(30,28,26,0.08))">
+                        <div>
+                            <div style="font-size:13px;color:var(--dark)">\${p.concepto || 'Suscripción mensual'}</div>
+                            <div style="font-size:11px;color:var(--light)">\${p.fecha ? new Date(p.fecha).toLocaleDateString('es',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div style="font-size:15px;font-weight:400;color:var(--dark)">$\${Number(p.monto||0).toFixed(2)} USD</div>
+                            <div style="font-size:9px;font-weight:500;letter-spacing:1px;text-transform:uppercase;
+                                color:\${p.estado==='pagado'?'#4a7a50':p.estado==='pendiente'?'var(--terra-dk,#A06448)':'var(--light)'};
+                                margin-top:2px">\${p.estado || 'registrado'}</div>
+                        </div>
+                    </div>\`).join('');
+            })()}
         </div>
     `;
-
-    // Store pendientes reference for toggles
-    tab._pendientes = pendientes;
+        tab._pendientes = pendientes;
     tab._calcTotal = calcTotal;
     tab._renderToggle = renderToggle;
 }
@@ -9645,7 +9383,7 @@ function togglePlanModulo(key) {
     document.getElementById('miplan-modulos').innerHTML =
         MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(clinicConfig.plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
     document.getElementById('miplan-total').textContent =
-        '$' + (Number.isInteger(tab._calcTotal()) ? tab._calcTotal().toLocaleString() : tab._calcTotal().toFixed(2)) + ' USD';
+        (clinicConfig.moneda || 'RD$') + tab._calcTotal().toLocaleString();
 }
 
 async function guardarCambiosPlan() {
@@ -9798,7 +9536,7 @@ function renderCobrosContent(key) {
             if (select) {
                 const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
                 select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                    profesionales.map(p => `<option value="${sanitize.html(p.nombre)}">${sanitize.html(p.nombre)}</option>`).join('');
+                    profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
             }
         }
 
@@ -9859,7 +9597,7 @@ function abrirMas() {
     if (role === 'admin' || role === 'professional') {
         items.push({ icon: '💰', label: 'Cobros',      action: `cerrarMas();showTab('cobros')` });
     }
-    if (role === 'admin' && hasModule('nomina')) {
+    if (role === 'admin') {
         items.push({ icon: '👥', label: 'Personal',    action: `cerrarMas();irTab('personal')` });
     }
     if (hasModule('inventario') && (role === 'admin' || role === 'reception')) {
@@ -11342,7 +11080,7 @@ async function crearSede() {
     try {
         const defaultPersonal = [
             { id: '1', nombre: 'Administrador', tipo: 'regular',
-              password: null, isAdmin: true, canAccessReception: true }
+              password: 'admin123', isAdmin: true, canAccessReception: true }
         ];
 
         // Crear documento principal de la sede
