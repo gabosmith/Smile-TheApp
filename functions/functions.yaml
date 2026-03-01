@@ -1,0 +1,14 @@
+specVersion: v1alpha1
+endpoints:
+  createCheckoutSession:
+    platform: gcfv2
+    httpsTrigger: {}
+    entryPoint: createCheckoutSession
+  stripeWebhook:
+    platform: gcfv2
+    httpsTrigger: {}
+    entryPoint: stripeWebhook
+  createPortalSession:
+    platform: gcfv2
+    httpsTrigger: {}
+    entryPoint: createPortalSession
