@@ -1095,15 +1095,24 @@ let currentFacturaToReverse = null;
 
 // Role selector removed — using unified login
 
-// Update professional picker
+// Update professional picker (cobros/factura workflow) and login user dropdown
 function updateProfessionalPicker() {
-    const picker = document.getElementById('loginUsername');
-    if (!picker) return;
-    picker.innerHTML = '<option value="">Selecciona tu usuario</option>';
-    appData.personal.forEach(p => {
-        const label = p.nombre + (p.isAdmin ? ' (Admin)' : '');
-        picker.innerHTML += `<option value="${p.id || p.nombre}">${label}</option>`;
-    });
+    const picker = document.getElementById('professionalPicker');
+    if (picker) {
+        picker.innerHTML = '<option value="">-- Seleccionar --</option>' +
+            appData.personal
+                .filter(p => p.tipo !== 'empleado')
+                .map(p => `<option value="${p.nombre}">${p.nombre}</option>`)
+                .join('');
+    }
+    const sel = document.getElementById('loginUsername');
+    if (sel) {
+        sel.innerHTML = '<option value="">Selecciona tu usuario</option>' +
+            appData.personal
+                .filter(p => p.password || p.isAdmin)
+                .map(p => `<option value="${p.id}">${p.nombre}${p.isAdmin ? ' (Admin)' : ''}</option>`)
+                .join('');
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1385,11 +1394,15 @@ async function login() {
     await showApp();
 }
 
-     sessionStorage.removeItem('smile_session');
+// Logout
+function logout() {
+    if (confirm('🚪 ¿Cerrar sesión?\n\nSe cerrará tu sesión actual.')) {
+        clearTimeout(_inactivityTimer);
+        clearInterval(_sessionCheckInterval);
+        sessionStorage.removeItem('smile_session');
         localStorage.removeItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
         localStorage.removeItem('clinicaData_cacheTime_' + (CLINIC_PATH || 'default'));
 
-        // Sign out Firebase anonymous session
         try { firebase.auth().signOut(); } catch(e) {}
 
         if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
@@ -1401,7 +1414,7 @@ async function login() {
         const lp = document.getElementById('loginPassword');
         const lu = document.getElementById('loginUsername');
         if (lp) lp.value = '';
-        if (lu) lu.value = '';
+        if (lu) lu.selectedIndex = 0;
     }
 }
 
