@@ -132,15 +132,11 @@ async function loadClinicBranding() {
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
         clinicConfig.defaultFrecuenciaPago = cfg.defaultFrecuenciaPago || 'mensual';
-        clinicConfig.exonerada             = cfg.exonerada === true;
 
-        // enTrial: false si trial fue desactivado explícitamente en Firestore (pago recibido)
-        // o si la clínica está exonerada de pago; de lo contrario depende de trialHasta
-        clinicConfig.enTrial = (cfg.trial === false || cfg.exonerada === true)
-            ? false
-            : (clinicConfig.trialHasta
-                ? (new Date() < new Date(clinicConfig.trialHasta))
-                : false);
+        // enTrial: trialHasta es la fuente de verdad
+        clinicConfig.enTrial = clinicConfig.trialHasta
+            ? (new Date() < new Date(clinicConfig.trialHasta))
+            : false;
 
         // ── Apply branding ──
         if (cfg.nombre) {
@@ -1119,11 +1115,12 @@ document.querySelectorAll('.role-btn').forEach(btn => {
 
 // Update professional picker
 function updateProfessionalPicker() {
-    const picker = document.getElementById('professionalPicker');
+    // Rellena el selector unificado del nuevo login
+    const picker = document.getElementById('loginUsername');
     if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
-    appData.personal.filter(p => p.tipo !== 'empleado').forEach(p => {
-        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+    picker.innerHTML = '<option value="">Selecciona tu usuario</option>';
+    appData.personal.forEach(p => {
+        picker.innerHTML += `<option value="${p.id || p.nombre}">${p.nombre}${p.isAdmin ? ' (Admin)' : ''}</option>`;
     });
 }
 
@@ -1342,96 +1339,74 @@ async function ensureFirebaseAuth() {
         'signInAnonymously falló 3 veces al cargar la app', 'ensureFirebaseAuth');
 }
 
-// Update reception picker
+// Update reception picker (unified with professional picker in new login)
 function updateReceptionPicker() {
-    const picker = document.getElementById('receptionPicker');
-    if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
-    appData.personal.filter(p => p.canAccessReception).forEach(p => {
-        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
-    });
+    updateProfessionalPicker(); // same unified selector
 }
 
 // Login — async to support SHA-256 password verification
 async function login() {
-    const roleBtn = document.querySelector('.role-btn.active');
-    const role    = roleBtn?.dataset.role;
-    const password = document.getElementById('password').value;
+    const select   = document.getElementById('loginUsername');
+    const pinInput = document.getElementById('loginPassword');
+    const errorDiv = document.getElementById('loginError');
 
-    if (!password) { showToast('⚠️ Ingresa tu contraseña'); return; }
+    const selectedId = select?.value;
+    const pin        = pinInput?.value || '';
 
-    let username = '';
-    let person   = null;
+    // Reset error
+    if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.textContent = ''; }
 
-    if (role === 'professional') {
-        username = document.getElementById('professionalPicker').value;
-        if (!username) { showToast('⚠️ Selecciona un profesional'); return; }
-        person = appData.personal.find(p => p.nombre === username);
-        if (!person)           { showToast('⚠️ Profesional no encontrado. Recarga la página.', 4000, '#c0392b'); return; }
-        if (!person.password)  { showToast('⚠️ Este profesional no tiene contraseña configurada', 4000, '#e65100'); return; }
-
-        if (!checkRateLimit(username)) return;
-        const ok = await verifyPassword(person, password);
-        if (!ok) {
-            recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
-            return;
-        }
-        appData.currentRole = 'professional';
-
-    } else if (role === 'reception') {
-        username = document.getElementById('receptionPicker').value;
-        if (!username) { showToast('⚠️ Selecciona un usuario'); return; }
-        person = appData.personal.find(p => p.nombre === username);
-        if (!person || !person.canAccessReception) { showToast('⚠️ Usuario sin acceso a recepción', 3000, '#c0392b'); return; }
-        if (!person.password) { showToast('⚠️ Sin contraseña configurada. Contacta al administrador.', 4000, '#e65100'); return; }
-
-        if (!checkRateLimit(username)) return;
-        const ok = await verifyPassword(person, password);
-        if (!ok) {
-            recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
-            return;
-        }
-        appData.currentRole = 'reception';
-
-    } else {
-        // Admin
-        username = document.getElementById('username').value || 'admin';
-        const admin = appData.personal.find(p => p.isAdmin);
-        if (!admin) { showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b'); return; }
-
-        if (!checkRateLimit('admin')) return;
-        const ok = await verifyPassword(admin, password);
-        if (!ok) {
-            recordFailedAttempt('admin');
-            showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b');
-            return;
-        }
-        username = admin.nombre;
-        appData.currentRole = 'admin';
-        person = admin;
+    if (!selectedId) {
+        if (errorDiv) { errorDiv.textContent = 'Selecciona tu usuario.'; errorDiv.style.display = 'block'; }
+        return;
+    }
+    if (!pin) {
+        if (errorDiv) { errorDiv.textContent = 'Ingresa tu PIN.'; errorDiv.style.display = 'block'; }
+        return;
     }
 
-    // Successful login
-    clearLoginAttempts(username);
-    appData.currentUser = username;
+    // Find the person by id or nombre
+    const person = appData.personal.find(p => (p.id || p.nombre) === selectedId);
+    if (!person) {
+        if (errorDiv) { errorDiv.textContent = 'Usuario no encontrado. Recarga la página.'; errorDiv.style.display = 'block'; }
+        return;
+    }
 
-    // Establish Firebase anonymous auth session (enables Security Rules)
+    if (!person.password) {
+        if (errorDiv) { errorDiv.textContent = 'Este usuario no tiene PIN configurado. Contacta al administrador.'; errorDiv.style.display = 'block'; }
+        return;
+    }
+
+    if (!checkRateLimit(person.nombre)) return;
+
+    const ok = await verifyPassword(person, pin);
+    if (!ok) {
+        recordFailedAttempt(person.nombre);
+        if (errorDiv) { errorDiv.textContent = 'PIN incorrecto. Intenta de nuevo.'; errorDiv.style.display = 'block'; }
+        if (pinInput) pinInput.value = '';
+        return;
+    }
+
+    // Determine role
+    if (person.isAdmin) {
+        appData.currentRole = 'admin';
+    } else if (person.canAccessReception) {
+        appData.currentRole = 'reception';
+    } else {
+        appData.currentRole = 'professional';
+    }
+
+    clearLoginAttempts(person.nombre);
+    appData.currentUser = person.nombre;
+
     await ensureFirebaseAuth();
-
-    // Vaciar cola de errores que no pudieron enviarse antes del login
     _flushErrorQueue().catch(e => console.warn('[ErrorLog] flush failed:', e));
-
-    // Start session + inactivity tracking
-    startSession(username);
-
-    // Register audit
-    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
-
+    startSession(person.nombre);
+    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${person.nombre} (${appData.currentRole})`);
     initRealtimeListener();
     await showApp();
 }
+
 
 // Logout
 function logout() {
@@ -6202,7 +6177,7 @@ function buscarPacienteFactura() {
     }
 
     suggestions.innerHTML = matches.map(p => `
-        <div onclick="seleccionarPacienteFactura('${p.nombre.replace(/'/g, `'`)}')"
+        <div onclick="seleccionarPacienteFactura('${p.nombre.replace(/'/g, "\'")}')"
              style="padding:14px 16px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,0.06);
                     transition:background 0.15s;display:flex;flex-direction:column;gap:3px"
              onmouseover="this.style.background='var(--surface)'"
