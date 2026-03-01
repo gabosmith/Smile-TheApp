@@ -190,6 +190,35 @@
         z-index: 1;
     }
 
+    .role-selector {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 28px;
+        background: var(--bg);
+        padding: 4px;
+        border-radius: var(--radius-sm);
+    }
+    .role-btn {
+        flex: 1;
+        padding: 10px 8px;
+        border: none;
+        background: transparent;
+        color: var(--light);
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 400;
+        font-size: 12px;
+        font-family: inherit;
+        letter-spacing: 0.3px;
+        transition: all 0.2s;
+    }
+    .role-btn.active {
+        background: var(--white);
+        color: var(--dark);
+        font-weight: 500;
+        box-shadow: var(--shadow-sm);
+    }
+
     .input-group {
         margin-bottom: 18px;
     }
@@ -894,7 +923,7 @@
 
     </style>
 </head>
-<body onmousemove="if(typeof registerActivity==='function')registerActivity()" onclick="if(typeof registerActivity==='function')registerActivity()" onkeydown="if(typeof registerActivity==='function')registerActivity()" ontouchstart="if(typeof registerActivity==='function')registerActivity()">
+<body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
 
     <!-- Pantalla de carga inicial -->
     <div class="clinic-loading" id="clinicLoading">
@@ -915,20 +944,22 @@
         <div class="login-card">
             <div class="input-group">
                 <label>Usuario</label>
-                <select id="loginUsername" onchange="document.getElementById('loginPassword').focus()">
+                <select id="loginUsername">
                     <option value="">Selecciona tu usuario</option>
                 </select>
             </div>
 
             <div class="input-group">
                 <label>PIN</label>
-                <input type="password" id="loginPassword" inputmode="numeric" pattern="\d{4}" maxlength="4"
-                       placeholder="• • • •" autocomplete="off"
+                <input type="password" id="loginPassword" inputmode="numeric"
+                       maxlength="6" placeholder="• • • •" autocomplete="off"
                        style="font-size:28px;letter-spacing:12px;text-align:center"
                        onkeydown="if(event.key==='Enter')login()">
             </div>
 
-            <div id="loginError" style="display:none;color:#E57373;font-size:13px;margin-bottom:16px;padding:10px 14px;background:rgba(229,115,115,0.08);border-radius:8px;border-left:3px solid #E57373"></div>
+            <div id="loginError" style="display:none;color:#E57373;font-size:13px;
+                 margin-bottom:12px;padding:10px 14px;background:rgba(229,115,115,0.08);
+                 border-radius:8px;border-left:3px solid #E57373"></div>
 
             <button class="btn-primary" onclick="login()">Acceder</button>
         </div>
