@@ -352,15 +352,6 @@ function initConnectionMonitor() {
     });
     window.addEventListener('offline', () => setConnectionState('offline'));
 
-    // Firestore tiene su propio detector de conectividad interno
-    // que es más confiable que navigator.onLine para detectar problemas con Firebase
-    if (typeof db !== 'undefined') {
-        try {
-            // enableNetwork/disableNetwork de Firestore sigue el estado real de la conexión
-            // El listener de onSnapshot ya maneja errors de red — no necesitamos probe extra
-            // Solo escuchar el evento 'online' del browser para reconectar
-        } catch(e) { /* ignorar */ }
-    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -497,6 +488,11 @@ const sanitize = {
         };
     },
 };
+
+// Sum the monto field across an array of payment objects.
+function sumPayments(pagos) {
+    return (pagos || []).reduce((sum, p) => sum + p.monto, 0);
+}
 
 // ── Error display helper — friendlier than alert() ──────
 function showError(msg, detail) {
@@ -1117,10 +1113,9 @@ document.querySelectorAll('.role-btn').forEach(btn => {
 function updateProfessionalPicker() {
     const picker = document.getElementById('professionalPicker');
     if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
-    appData.personal.filter(p => p.tipo !== 'empleado').forEach(p => {
-        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
-    });
+    picker.innerHTML = '<option value="">-- Seleccionar --</option>' +
+        appData.personal.filter(p => p.tipo !== 'empleado')
+            .map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1342,10 +1337,9 @@ async function ensureFirebaseAuth() {
 function updateReceptionPicker() {
     const picker = document.getElementById('receptionPicker');
     if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
-    appData.personal.filter(p => p.canAccessReception).forEach(p => {
-        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
-    });
+    picker.innerHTML = '<option value="">-- Seleccionar --</option>' +
+        appData.personal.filter(p => p.canAccessReception)
+            .map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
 }
 
 // Login — async to support SHA-256 password verification
@@ -1856,10 +1850,9 @@ function updateIngresosTab() {
     const todayKey = getTodayKey();
     const misFacturas = appData.facturas.filter(f => f.profesional === appData.currentUser);
 
-    const ingresosHoy = misFacturas
+    const ingresosHoy = sumPayments(misFacturas
         .flatMap(f => f.pagos || [])
-        .filter(p => p && isSameDayTZ(p.fecha, todayKey))
-        .reduce((sum, p) => sum + p.monto, 0);
+        .filter(p => p && isSameDayTZ(p.fecha, todayKey)));
 
     const prof = appData.personal.find(p => p.nombre === appData.currentUser);
     const comision = prof && prof.tipo !== 'empleado' && !prof.isAdmin ? getComisionRate(prof.tipo, prof) : 0;
@@ -1912,10 +1905,9 @@ function getComisionRate(tipo, person) {
 // Cobrar Tab
 function updateCobrarTab() {
     const todayKey = getTodayKey();
-    const cobradoHoy = appData.facturas
+    const cobradoHoy = sumPayments(appData.facturas
         .flatMap(f => f.pagos)
-        .filter(p => isSameDayTZ(p.fecha, todayKey))
-        .reduce((sum, p) => sum + p.monto, 0);
+        .filter(p => isSameDayTZ(p.fecha, todayKey)));
 
     document.getElementById('cobradoHoy').textContent = formatCurrency(cobradoHoy);
 
@@ -1941,7 +1933,7 @@ function selectTipoPago(tipo) {
         btnAbono.style.color = '#333';
 
         if (currentFacturaToPay) {
-            const balance = currentFacturaToPay.total - currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
+            const balance = currentFacturaToPay.total - sumPayments(currentFacturaToPay.pagos);
             montoInput.value = balance.toFixed(2);
         }
     } else {
@@ -1960,7 +1952,7 @@ function actualizarNuevoBalance() {
     if (!currentFacturaToPay) return;
 
     const monto = parseFloat(document.getElementById('pagoMonto').value) || 0;
-    const balanceActual = currentFacturaToPay.total - currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
+    const balanceActual = currentFacturaToPay.total - sumPayments(currentFacturaToPay.pagos);
     const nuevoBalance = balanceActual - monto;
 
     document.getElementById('nuevoBalance').textContent = formatCurrency(nuevoBalance);
@@ -1978,7 +1970,7 @@ function openPagarFactura(facturaId) {
     currentFacturaToPay = factura;
     tipoPagoSeleccionado = 'total';
 
-    const balance = factura.total - factura.pagos.reduce((sum, p) => sum + p.monto, 0);
+    const balance = factura.total - sumPayments(factura.pagos);
 
     // Mostrar nombre real en vez de "admin"
     const nombreProfesional = factura.profesional.toLowerCase() === 'admin' ? getNombreAdmin() : factura.profesional;
@@ -2028,7 +2020,7 @@ async function confirmarPago() {
         showToast('⚠️ Ingresa un monto válido mayor a cero'); return;
     }
 
-    const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
+    const totalPagadoActual = sumPayments(currentFacturaToPay.pagos);
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
 
     if (monto > balancePendiente + 0.01) {
@@ -2053,7 +2045,7 @@ async function confirmarPago() {
     const estadoAnterior = currentFacturaToPay.estado;
     currentFacturaToPay.pagos.push(pago);
 
-    const totalPagado = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
+    const totalPagado = sumPayments(currentFacturaToPay.pagos);
     if (totalPagado >= currentFacturaToPay.total) {
         currentFacturaToPay.estado = 'pagada';
     } else if (totalPagado > 0) {
@@ -2079,7 +2071,7 @@ async function confirmarPago() {
 function generarFacturaCliente(factura, montoPagado, metodoPago) {
     const fecha = new Date().toLocaleDateString(getLocale(), {year: 'numeric', month: 'long', day: 'numeric'});
     const hora = new Date().toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
-    const balance = factura.total - factura.pagos.reduce((sum, p) => sum + p.monto, 0);
+    const balance = factura.total - sumPayments(factura.pagos);
     const esPagoTotal = balance <= 0;
 
     // Mostrar nombre real en vez de "admin"
@@ -2377,9 +2369,9 @@ function updateCuadreTab() {
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, todayKey));
 
-    const efectivoHoy = pagosHoy.filter(p => p.metodo === 'efectivo').reduce((sum, p) => sum + p.monto, 0);
-    const tarjetaHoy = pagosHoy.filter(p => p.metodo === 'tarjeta').reduce((sum, p) => sum + p.monto, 0);
-    const transferenciaHoy = pagosHoy.filter(p => p.metodo === 'transferencia').reduce((sum, p) => sum + p.monto, 0);
+    const efectivoHoy = sumPayments(pagosHoy.filter(p => p.metodo === 'efectivo'));
+    const tarjetaHoy = sumPayments(pagosHoy.filter(p => p.metodo === 'tarjeta'));
+    const transferenciaHoy = sumPayments(pagosHoy.filter(p => p.metodo === 'transferencia'));
     const totalIngresos = efectivoHoy + tarjetaHoy + transferenciaHoy;
 
     const gastosHoy = appData.gastos
@@ -3922,7 +3914,7 @@ function eliminarFactura(facturaId) {
         return;
     }
 
-    const totalPagado = factura.pagos.reduce((sum, p) => sum + p.monto, 0);
+    const totalPagado = sumPayments(factura.pagos);
     const estadoLabel = factura.estado === 'pagada' ? 'Pagada' :
                        factura.estado === 'partial' ? 'Con abono' : 'Pendiente';
 
@@ -4036,7 +4028,7 @@ async function confirmarReversion() {
     factura.pagos.splice(pagoIdx, 1);
 
     // Recalcular estado de la factura
-    const totalPagado = factura.pagos.reduce((sum, p) => sum + p.monto, 0);
+    const totalPagado = sumPayments(factura.pagos);
     if (totalPagado === 0) {
         factura.estado = 'pendiente';
     } else if (totalPagado < factura.total) {
@@ -5180,7 +5172,7 @@ function renderTabBalance(paciente) {
             </h3>
             <div style="display: grid; gap: 12px;">
                 ${facturasPendientes.map(f => {
-                    const pagado = (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
+                    const pagado = sumPayments(f.pagos);
                     const pendiente = f.total - pagado;
                     return `
                     <div style="background: #fff; border: 2px solid #e5e5e7; border-radius: 8px; padding: 16px;">
@@ -7511,7 +7503,7 @@ function aplicarFiltrosFacturas() {
         list.innerHTML = '<li style="text-align: center; color: #999;">No hay facturas que coincidan con los filtros</li>';
     } else {
         list.innerHTML = facturasFiltradas.map(f => {
-            const balance = f.total - (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
+            const balance = f.total - sumPayments(f.pagos);
             const hasComprobante = (f.pagos || []).some(p => p.comprobanteData);
             const hasPagos = (f.pagos || []).length > 0;
 
@@ -7599,10 +7591,8 @@ function inicializarFiltrosProfesionales() {
 
     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
 
-    select.innerHTML = '<option value="todos">Todos</option>';
-    profesionales.forEach(p => {
-        select.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
-    });
+    select.innerHTML = '<option value="todos">Todos</option>' +
+        profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
 }
 
 // ========================================
@@ -7645,7 +7635,7 @@ function exportarFacturasExcel() {
 
     // Preparar datos para Excel
     const datos = facturas.map(f => {
-        const totalPagado = (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
+        const totalPagado = sumPayments(f.pagos);
         const balance = f.total - totalPagado;
 
         return {
@@ -8072,13 +8062,13 @@ function updateDashboardTab() {
     const pagosHoy = appData.facturas
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, todayKey));
-    const ingresosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+    const ingresosHoy = sumPayments(pagosHoy);
 
     // Comparación con ayer
     const pagosAyer = appData.facturas
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
-    const ingresosAyer = pagosAyer.reduce((sum, p) => sum + p.monto, 0);
+    const ingresosAyer = sumPayments(pagosAyer);
 
     document.getElementById('dashIngresosHoy').textContent = formatCurrency(ingresosHoy);
     if (ingresosAyer > 0) {

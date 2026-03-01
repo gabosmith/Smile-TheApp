@@ -152,8 +152,6 @@
       margin: 6px 4px;
     }
 
-    /* (clinic form removed — nav goes directly to app.html) */
-
     /* Bottom logo */
     .snav-bottom {
       padding: 8px 12px 4px;
@@ -217,19 +215,16 @@
     </div>
   `;
 
-  // Mount
-  document.addEventListener('DOMContentLoaded', function() {
+  function mountNav() {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
     document.body.appendChild(wrapper);
-    bindNav();
-  });
+  }
 
-  // If DOM already loaded
-  if (document.readyState !== 'loading') {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html;
-    document.body.appendChild(wrapper);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { mountNav(); bindNav(); });
+  } else {
+    mountNav();
     setTimeout(bindNav, 0);
   }
 
@@ -251,7 +246,5 @@
     panel.classList.toggle('open');
     toggle.classList.toggle('open');
   };
-
-  // snavToggleClinica / snavGoClinica removed — nav goes directly to app.html
 
 })();

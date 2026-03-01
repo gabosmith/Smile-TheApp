@@ -22,12 +22,25 @@ const PRICES = {
 
 const APP_URL = 'https://smile-theapp.web.app';
 
+function getClinicSettingsRef(clinicId) {
+  return db().collection('clinicas').doc(clinicId).collection('config').doc('settings');
+}
+
+async function findClinicByStripeCustomer(customerId) {
+  const snap = await db().collection('clinicas').get();
+  for (const doc of snap.docs) {
+    const c = await doc.ref.collection('config').doc('settings').get();
+    if (c.exists && c.data().stripeCustomerId === customerId) return doc.id;
+  }
+  return null;
+}
+
 exports.createCheckoutSession = onRequest({ cors: true }, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   try {
     const { clinicId } = req.body;
     if (!clinicId) { res.status(400).json({ error: 'clinicId requerido' }); return; }
-    const cfgSnap = await db().collection('clinicas').doc(clinicId).collection('config').doc('settings').get();
+    const cfgSnap = await getClinicSettingsRef(clinicId).get();
     if (!cfgSnap.exists) { res.status(404).json({ error: 'Clinica no encontrada' }); return; }
     const cfg = cfgSnap.data();
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-04-10' });
@@ -35,7 +48,7 @@ exports.createCheckoutSession = onRequest({ cors: true }, async (req, res) => {
     if (!customerId) {
       const customer = await stripe.customers.create({ name: cfg.nombre || clinicId, metadata: { clinicId } });
       customerId = customer.id;
-      await db().collection('clinicas').doc(clinicId).collection('config').doc('settings').set({ stripeCustomerId: customerId }, { merge: true });
+      await getClinicSettingsRef(clinicId).set({ stripeCustomerId: customerId }, { merge: true });
     }
     const items = [{ price: cfg.plan === 'solo' ? PRICES.plan_solo : PRICES.plan_base_clinica, quantity: 1 }];
     if ((cfg.modulos || []).length > 0) items.push({ price: PRICES.modulo_adicional, quantity: cfg.modulos.length });
@@ -70,26 +83,18 @@ exports.stripeWebhook = onRequest({ cors: false }, async (req, res) => {
       const cid = s.metadata && s.metadata.clinicId;
       if (!cid) return;
       const sub = await stripe.subscriptions.retrieve(s.subscription);
-      await db().collection('clinicas').doc(cid).collection('config').doc('settings').set({ stripeSubscriptionId: s.subscription, stripeCustomerId: s.customer, subscripcionActiva: true, suspendida: false, pagoPendiente: false, gracePeriodHasta: null, proximoPago: new Date(sub.current_period_end * 1000).toISOString(), suscripcionCreadaEn: new Date().toISOString() }, { merge: true });
+      await getClinicSettingsRef(cid).set({ stripeSubscriptionId: s.subscription, stripeCustomerId: s.customer, subscripcionActiva: true, suspendida: false, pagoPendiente: false, gracePeriodHasta: null, proximoPago: new Date(sub.current_period_end * 1000).toISOString(), suscripcionCreadaEn: new Date().toISOString() }, { merge: true });
     } else if (event.type === 'invoice.payment_failed') {
       const inv = event.data.object;
-      const snap = await db().collection('clinicas').get();
-      for (const doc of snap.docs) {
-        const c = await doc.ref.collection('config').doc('settings').get();
-        if (c.exists && c.data().stripeCustomerId === inv.customer) {
-          await db().collection('clinicas').doc(doc.id).collection('config').doc('settings').set({ pagoPendiente: true, gracePeriodHasta: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }, { merge: true });
-          break;
-        }
+      const clinicId = await findClinicByStripeCustomer(inv.customer);
+      if (clinicId) {
+        await getClinicSettingsRef(clinicId).set({ pagoPendiente: true, gracePeriodHasta: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }, { merge: true });
       }
     } else if (event.type === 'customer.subscription.deleted') {
       const sub = event.data.object;
-      const snap = await db().collection('clinicas').get();
-      for (const doc of snap.docs) {
-        const c = await doc.ref.collection('config').doc('settings').get();
-        if (c.exists && c.data().stripeCustomerId === sub.customer) {
-          await db().collection('clinicas').doc(doc.id).collection('config').doc('settings').set({ subscripcionActiva: false, suspendida: true, activa: false }, { merge: true });
-          break;
-        }
+      const clinicId = await findClinicByStripeCustomer(sub.customer);
+      if (clinicId) {
+        await getClinicSettingsRef(clinicId).set({ subscripcionActiva: false, suspendida: true, activa: false }, { merge: true });
       }
     }
   } catch (err) { console.error('[webhook]', err.message); }
@@ -100,7 +105,7 @@ exports.createPortalSession = onRequest({ cors: true }, async (req, res) => {
   try {
     const { clinicId } = req.body;
     if (!clinicId) { res.status(400).json({ error: 'clinicId requerido' }); return; }
-    const cfgSnap = await db().collection('clinicas').doc(clinicId).collection('config').doc('settings').get();
+    const cfgSnap = await getClinicSettingsRef(clinicId).get();
     if (!cfgSnap.exists || !cfgSnap.data().stripeCustomerId) { res.status(400).json({ error: 'Sin suscripcion activa' }); return; }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-04-10' });
     const session = await stripe.billingPortal.sessions.create({ customer: cfgSnap.data().stripeCustomerId, return_url: APP_URL + '/app.html?clinica=' + clinicId });
