@@ -1093,39 +1093,26 @@ let currentPersonalToEdit = null;
 let currentReciboText = '';
 let currentFacturaToReverse = null;
 
-// Role selector
-document.querySelectorAll('.role-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-
-        const role = this.dataset.role;
-
-        // Hide all first
-        document.getElementById('professionalSelect').classList.add('hidden');
-        document.getElementById('receptionSelect').classList.add('hidden');
-        document.getElementById('usernameInput').classList.add('hidden');
-
-        // Show correct one
-        if (role === 'professional') {
-            document.getElementById('professionalSelect').classList.remove('hidden');
-        } else if (role === 'reception') {
-            document.getElementById('receptionSelect').classList.remove('hidden');
-            updateReceptionPicker();
-        } else {
-            document.getElementById('usernameInput').classList.remove('hidden');
-        }
-    });
-});
-
 // Update professional picker
 function updateProfessionalPicker() {
+    // Fill professional picker used in cobros/factura workflow
     const picker = document.getElementById('professionalPicker');
-    if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
-    appData.personal.filter(p => p.tipo !== 'empleado').forEach(p => {
-        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
-    });
+    if (picker) {
+        picker.innerHTML = '<option value="">-- Seleccionar --</option>' +
+            appData.personal
+                .filter(p => p.tipo !== 'empleado')
+                .map(p => `<option value="${p.nombre}">${p.nombre}</option>`)
+                .join('');
+    }
+    // Fill login dropdown with every user that has a PIN or is admin
+    const sel = document.getElementById('loginUsername');
+    if (sel) {
+        sel.innerHTML = '<option value="">Selecciona tu usuario</option>' +
+            appData.personal
+                .filter(p => p.password || p.isAdmin)
+                .map(p => `<option value="${p.id}">${p.nombre}${p.isAdmin ? ' (Admin)' : ''}</option>`)
+                .join('');
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1355,64 +1342,34 @@ function updateReceptionPicker() {
 
 // Login — async to support SHA-256 password verification
 async function login() {
-    const roleBtn = document.querySelector('.role-btn.active');
-    const role    = roleBtn?.dataset.role;
-    const password = document.getElementById('password').value;
+    const errEl = document.getElementById('loginError');
+    const showErr = msg => { errEl.textContent = msg; errEl.style.display = 'block'; };
+    errEl.style.display = 'none';
 
-    if (!password) { showToast('⚠️ Ingresa tu contraseña'); return; }
+    const personId = document.getElementById('loginUsername').value;
+    const pin      = document.getElementById('loginPassword').value;
 
-    let username = '';
-    let person   = null;
+    if (!personId) { showErr('Selecciona un usuario'); return; }
+    if (!pin)      { showErr('Ingresa tu PIN'); return; }
 
-    if (role === 'professional') {
-        username = document.getElementById('professionalPicker').value;
-        if (!username) { showToast('⚠️ Selecciona un profesional'); return; }
-        person = appData.personal.find(p => p.nombre === username);
-        if (!person)           { showToast('⚠️ Profesional no encontrado. Recarga la página.', 4000, '#c0392b'); return; }
-        if (!person.password)  { showToast('⚠️ Este profesional no tiene contraseña configurada', 4000, '#e65100'); return; }
+    const person = appData.personal.find(p => p.id === personId);
+    if (!person) { showErr('Usuario no encontrado. Recarga la página.'); return; }
+    if (!person.password) { showErr('Este usuario no tiene PIN configurado. Contacta al administrador.'); return; }
 
-        if (!checkRateLimit(username)) return;
-        const ok = await verifyPassword(person, password);
-        if (!ok) {
-            recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
-            return;
-        }
-        appData.currentRole = 'professional';
+    const rateKey = person.nombre;
+    if (!checkRateLimit(rateKey)) return;
 
-    } else if (role === 'reception') {
-        username = document.getElementById('receptionPicker').value;
-        if (!username) { showToast('⚠️ Selecciona un usuario'); return; }
-        person = appData.personal.find(p => p.nombre === username);
-        if (!person || !person.canAccessReception) { showToast('⚠️ Usuario sin acceso a recepción', 3000, '#c0392b'); return; }
-        if (!person.password) { showToast('⚠️ Sin contraseña configurada. Contacta al administrador.', 4000, '#e65100'); return; }
-
-        if (!checkRateLimit(username)) return;
-        const ok = await verifyPassword(person, password);
-        if (!ok) {
-            recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
-            return;
-        }
-        appData.currentRole = 'reception';
-
-    } else {
-        // Admin
-        username = document.getElementById('username').value || 'admin';
-        const admin = appData.personal.find(p => p.isAdmin);
-        if (!admin) { showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b'); return; }
-
-        if (!checkRateLimit('admin')) return;
-        const ok = await verifyPassword(admin, password);
-        if (!ok) {
-            recordFailedAttempt('admin');
-            showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b');
-            return;
-        }
-        username = admin.nombre;
-        appData.currentRole = 'admin';
-        person = admin;
+    const ok = await verifyPassword(person, pin);
+    if (!ok) {
+        recordFailedAttempt(rateKey);
+        showErr('PIN incorrecto');
+        return;
     }
+
+    clearLoginAttempts(rateKey);
+    const role = person.isAdmin ? 'admin' : person.canAccessReception ? 'reception' : 'professional';
+    appData.currentUser = person.nombre;
+    appData.currentRole = role;
 
     // Successful login
     clearLoginAttempts(username);
@@ -1453,8 +1410,8 @@ function logout() {
 
         document.getElementById('loginScreen').style.display = 'flex';
         document.getElementById('appContainer').style.display = 'none';
-        document.getElementById('password').value = '';
-        document.getElementById('username').value = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('loginUsername').selectedIndex = 0;
     }
 }
 
