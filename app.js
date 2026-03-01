@@ -132,11 +132,15 @@ async function loadClinicBranding() {
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
         clinicConfig.defaultFrecuenciaPago = cfg.defaultFrecuenciaPago || 'mensual';
+        clinicConfig.exonerada             = cfg.exonerada === true;
 
-        // enTrial: trialHasta es la fuente de verdad
-        clinicConfig.enTrial = clinicConfig.trialHasta
-            ? (new Date() < new Date(clinicConfig.trialHasta))
-            : false;
+        // enTrial: false si trial fue desactivado explícitamente en Firestore (pago recibido)
+        // o si la clínica está exonerada de pago; de lo contrario depende de trialHasta
+        clinicConfig.enTrial = (cfg.trial === false || cfg.exonerada === true)
+            ? false
+            : (clinicConfig.trialHasta
+                ? (new Date() < new Date(clinicConfig.trialHasta))
+                : false);
 
         // ── Apply branding ──
         if (cfg.nombre) {

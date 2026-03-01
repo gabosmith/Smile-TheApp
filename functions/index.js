@@ -61,6 +61,7 @@ exports.createCheckoutSession = onRequest({ cors: true }, async (req, res) => {
       success_url: APP_URL + '/app.html?clinica=' + clinicId + '&stripe=success',
       cancel_url: APP_URL + '/app.html?clinica=' + clinicId + '&stripe=cancelled',
       allow_promotion_codes: true, locale: 'es',
+      custom_text: { submit: { message: 'Al activar, iniciarás tu suscripción mensual a SMILE.' } },
     });
     res.json({ url: session.url });
   } catch (err) {
@@ -83,7 +84,7 @@ exports.stripeWebhook = onRequest({ cors: false }, async (req, res) => {
       const cid = s.metadata && s.metadata.clinicId;
       if (!cid) return;
       const sub = await stripe.subscriptions.retrieve(s.subscription);
-      await getClinicSettingsRef(cid).set({ stripeSubscriptionId: s.subscription, stripeCustomerId: s.customer, subscripcionActiva: true, suspendida: false, pagoPendiente: false, gracePeriodHasta: null, proximoPago: new Date(sub.current_period_end * 1000).toISOString(), suscripcionCreadaEn: new Date().toISOString() }, { merge: true });
+      await getClinicSettingsRef(cid).set({ stripeSubscriptionId: s.subscription, stripeCustomerId: s.customer, subscripcionActiva: true, suspendida: false, pagoPendiente: false, gracePeriodHasta: null, trial: false, proximoPago: new Date(sub.current_period_end * 1000).toISOString(), suscripcionCreadaEn: new Date().toISOString() }, { merge: true });
     } else if (event.type === 'invoice.payment_failed') {
       const inv = event.data.object;
       const clinicId = await findClinicByStripeCustomer(inv.customer);
