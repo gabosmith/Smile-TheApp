@@ -190,35 +190,6 @@
         z-index: 1;
     }
 
-    .role-selector {
-        display: flex;
-        gap: 6px;
-        margin-bottom: 28px;
-        background: var(--bg);
-        padding: 4px;
-        border-radius: var(--radius-sm);
-    }
-    .role-btn {
-        flex: 1;
-        padding: 10px 8px;
-        border: none;
-        background: transparent;
-        color: var(--light);
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 400;
-        font-size: 12px;
-        font-family: inherit;
-        letter-spacing: 0.3px;
-        transition: all 0.2s;
-    }
-    .role-btn.active {
-        background: var(--white);
-        color: var(--dark);
-        font-weight: 500;
-        box-shadow: var(--shadow-sm);
-    }
-
     .input-group {
         margin-bottom: 18px;
     }
@@ -942,35 +913,22 @@
         </div>
 
         <div class="login-card">
-            <div class="role-selector">
-                <button class="role-btn active" data-role="professional">Profesional</button>
-                <button class="role-btn" data-role="reception">Recepción</button>
-                <button class="role-btn" data-role="admin">Admin</button>
-            </div>
-
-            <div class="input-group" id="professionalSelect">
-                <label>Seleccionar Profesional</label>
-                <select id="professionalPicker">
-                    <option value="">-- Seleccionar --</option>
-                </select>
-            </div>
-
-            <div class="input-group hidden" id="receptionSelect">
-                <label>Seleccionar Usuario</label>
-                <select id="receptionPicker">
-                    <option value="">-- Seleccionar --</option>
-                </select>
-            </div>
-
-            <div class="input-group hidden" id="usernameInput">
+            <div class="input-group">
                 <label>Usuario</label>
-                <input type="text" id="username" autocomplete="username">
+                <select id="loginUsername" onchange="document.getElementById('loginPassword').focus()">
+                    <option value="">Selecciona tu usuario</option>
+                </select>
             </div>
 
             <div class="input-group">
-                <label>Contraseña</label>
-                <input type="password" id="password" autocomplete="current-password">
+                <label>PIN</label>
+                <input type="password" id="loginPassword" inputmode="numeric" pattern="\d{4}" maxlength="4"
+                       placeholder="• • • •" autocomplete="off"
+                       style="font-size:28px;letter-spacing:12px;text-align:center"
+                       onkeydown="if(event.key==='Enter')login()">
             </div>
+
+            <div id="loginError" style="display:none;color:#E57373;font-size:13px;margin-bottom:16px;padding:10px 14px;background:rgba(229,115,115,0.08);border-radius:8px;border-left:3px solid #E57373"></div>
 
             <button class="btn-primary" onclick="login()">Acceder</button>
         </div>
