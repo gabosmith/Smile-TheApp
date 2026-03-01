@@ -1,5 +1,5 @@
 // ========================================
-// MULTI-TENANT CONFIG
+// MULTI-TENANT CONFIGURATION
 // ========================================
 
 let CLINIC_PATH = null;
