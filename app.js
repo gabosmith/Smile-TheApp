@@ -82,6 +82,190 @@ function _limpiarEstadoApp() {
     sessionStorage.removeItem('smile_session');
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// STRIPE SUBSCRIPTION SYSTEM
+// ════════════════════════════════════════════════════════════════════════════
+
+const FUNCTIONS_URL = 'https://us-central1-smile-theapp.cloudfunctions.net';
+
+let subscriptionState = {
+    status: 'unknown',
+    diasRestantes: null,
+    mensaje: '',
+    puedeUsar: true,
+};
+
+function loadSubscriptionState(cfg) {
+    const ahora = new Date();
+    if (cfg.subscripcionActiva && !cfg.pagoPendiente) {
+        subscriptionState = { status: 'active', diasRestantes: null, mensaje: '', puedeUsar: true };
+        return;
+    }
+    const trialHasta = cfg.trialHasta ? new Date(cfg.trialHasta) : null;
+    if (trialHasta && ahora < trialHasta) {
+        const dias = Math.max(1, Math.ceil((trialHasta - ahora) / (1000*60*60*24)));
+        subscriptionState = {
+            status: 'trial', diasRestantes: dias, puedeUsar: true,
+            mensaje: dias <= 3
+                ? `Tu trial termina en ${dias} día${dias!==1?'s':''}. Agrega tu método de pago para continuar.`
+                : `${dias} días restantes en tu período de prueba.`,
+        };
+        return;
+    }
+    const gracePeriodHasta = cfg.gracePeriodHasta ? new Date(cfg.gracePeriodHasta) : null;
+    if (gracePeriodHasta && ahora < gracePeriodHasta) {
+        const dias = Math.max(1, Math.ceil((gracePeriodHasta - ahora) / (1000*60*60*24)));
+        subscriptionState = {
+            status: 'grace', diasRestantes: dias, puedeUsar: true,
+            mensaje: cfg.pagoPendiente
+                ? `Hubo un problema con tu pago. Tienes ${dias} día${dias!==1?'s':''} para actualizar tu método de pago.`
+                : `Tu período de prueba terminó. Tienes ${dias} día${dias!==1?'s':''} para suscribirte.`,
+        };
+        return;
+    }
+    subscriptionState = {
+        status: 'blocked', diasRestantes: null, puedeUsar: false,
+        mensaje: cfg.pagoPendiente
+            ? 'Tu pago falló. Actualiza tu método de pago para continuar.'
+            : 'Tu período de prueba terminó. Suscríbete para continuar.',
+    };
+}
+
+function mostrarBannerSuscripcion() {
+    const existing = document.getElementById('smile-sub-banner');
+    if (existing) existing.remove();
+    const { status, mensaje, diasRestantes } = subscriptionState;
+    if (status === 'active' || status === 'unknown') return;
+    const esUrgente = status === 'grace' && diasRestantes <= 3;
+    const bg = status === 'blocked' ? '#1E1C1A' : esUrgente ? '#A06448' : 'rgba(30,28,26,0.88)';
+    const banner = document.createElement('div');
+    banner.id = 'smile-sub-banner';
+    banner.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:9999;background:${bg};color:white;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:inherit;font-size:13px;font-weight:300;box-shadow:0 2px 16px rgba(0,0,0,0.25);`;
+    banner.innerHTML = `
+        <span style="flex:1">${mensaje}</span>
+        <button onclick="abrirCheckout()" style="background:#C4856A;color:white;border:none;border-radius:100px;padding:6px 16px;font-size:11px;font-weight:500;letter-spacing:1px;text-transform:uppercase;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+            ${status === 'trial' ? 'Agregar pago →' : 'Suscribirme →'}
+        </button>
+        ${status !== 'blocked' ? `<button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;">×</button>` : ''}
+    `;
+    document.body.insertBefore(banner, document.body.firstChild);
+    const app = document.getElementById('appContainer');
+    if (app) app.style.paddingTop = '44px';
+}
+
+function mostrarModalSuscripcion() {
+    const { status, diasRestantes, mensaje } = subscriptionState;
+    if (status !== 'grace' || diasRestantes > 3) return;
+    if (sessionStorage.getItem('smile_modal_sub_shown')) return;
+    sessionStorage.setItem('smile_modal_sub_shown', '1');
+    const overlay = document.createElement('div');
+    overlay.id = 'smile-sub-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(30,28,26,0.6);display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);';
+    overlay.innerHTML = `
+        <div style="background:#FDFCFB;border-radius:24px;padding:40px 36px;max-width:420px;width:100%;box-shadow:0 24px 80px rgba(30,28,26,0.2);text-align:center;">
+            <div style="font-size:40px;margin-bottom:16px;">⏳</div>
+            <div style="font-size:22px;font-weight:200;color:#1E1C1A;margin-bottom:8px;">${diasRestantes === 1 ? 'Último día' : `${diasRestantes} días restantes`}</div>
+            <div style="font-size:14px;color:#6B635C;line-height:1.7;margin-bottom:28px;">${mensaje}<br>Tus datos están seguros y no se borran.</div>
+            <button onclick="abrirCheckout()" style="width:100%;padding:14px;background:#C4856A;color:white;border:none;border-radius:12px;font-size:13px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;cursor:pointer;margin-bottom:12px;">Suscribirme ahora →</button>
+            <button onclick="document.getElementById('smile-sub-modal').remove()" style="width:100%;padding:12px;background:transparent;color:#A89F96;border:none;font-size:12px;font-family:inherit;cursor:pointer;">Continuar por ahora</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function mostrarPantallaBloqueo() {
+    if (subscriptionState.status !== 'blocked') return;
+    const app = document.getElementById('appContainer');
+    if (app) app.style.display = 'none';
+    const login = document.getElementById('loginScreen');
+    if (login) login.style.display = 'none';
+    const bloqueado = document.createElement('div');
+    bloqueado.id = 'smile-sub-blocked';
+    bloqueado.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#EEEAE4;display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit;';
+    bloqueado.innerHTML = `
+        <div style="background:#FDFCFB;border-radius:24px;padding:48px 40px;max-width:440px;width:100%;box-shadow:0 24px 80px rgba(30,28,26,0.12);text-align:center;">
+            <div style="font-size:11px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#A89F96;margin-bottom:28px;">SMILE · Software Dental</div>
+            <div style="font-size:36px;margin-bottom:20px;">🔒</div>
+            <div style="font-size:26px;font-weight:200;color:#1E1C1A;letter-spacing:-0.8px;margin-bottom:12px;">${clinicConfig.nombre || 'Tu clínica'}</div>
+            <div style="font-size:14px;color:#6B635C;line-height:1.8;margin-bottom:32px;">${subscriptionState.mensaje}<br><span style="color:#A89F96;font-size:12px;">Tus datos están seguros.</span></div>
+            <button onclick="abrirCheckout()" style="width:100%;padding:16px;background:#1E1C1A;color:white;border:none;border-radius:12px;font-size:12px;font-weight:500;letter-spacing:2px;text-transform:uppercase;font-family:inherit;cursor:pointer;margin-bottom:12px;">Reactivar mi clínica →</button>
+            <div style="font-size:11px;color:#A89F96;">¿Necesitas ayuda? <a href="https://wa.me/18294040809" style="color:#C4856A;text-decoration:none;">WhatsApp</a></div>
+        </div>
+    `;
+    document.body.appendChild(bloqueado);
+}
+
+async function abrirCheckout() {
+    if (!CLINIC_PATH) { showToast('Error: clínica no identificada', 3000, '#e65100'); return; }
+    document.querySelectorAll('button[onclick="abrirCheckout()"]').forEach(btn => {
+        btn.textContent = 'Conectando...'; btn.disabled = true;
+    });
+    try {
+        const res = await fetch(`${FUNCTIONS_URL}/createCheckoutSession`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clinicId: CLINIC_PATH }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.url) throw new Error(data.error || 'Error');
+        window.location.href = data.url;
+    } catch (err) {
+        console.error('[abrirCheckout]', err.message);
+        showToast('Error al conectar con Stripe. Intenta de nuevo.', 4000, '#e65100');
+        document.querySelectorAll('button[onclick="abrirCheckout()"]').forEach(btn => {
+            btn.textContent = 'Suscribirme →'; btn.disabled = false;
+        });
+    }
+}
+
+async function abrirPortalStripe() {
+    if (!CLINIC_PATH) return;
+    const btn = document.getElementById('btn-portal-stripe');
+    if (btn) { btn.textContent = 'Abriendo...'; btn.disabled = true; }
+    try {
+        const res = await fetch(`${FUNCTIONS_URL}/createPortalSession`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clinicId: CLINIC_PATH }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.url) throw new Error(data.error || 'Error');
+        window.location.href = data.url;
+    } catch (err) {
+        console.error('[abrirPortalStripe]', err.message);
+        showToast('Error al abrir el portal de Stripe.', 3000, '#e65100');
+        if (btn) { btn.textContent = 'Gestionar suscripción'; btn.disabled = false; }
+    }
+}
+
+function manejarRetornoStripe() {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('stripe');
+    if (!result) return;
+    params.delete('stripe');
+    const newUrl = (window.location.pathname + '?' + params.toString()).replace(/\?$/, '');
+    window.history.replaceState({}, '', newUrl);
+    if (result === 'success') {
+        showToast('🎉 ¡Suscripción activada! Bienvenido a SMILE.', 6000, '#6B8F71');
+        setTimeout(() => loadClinicBranding(), 2000);
+    } else if (result === 'cancelled') {
+        showToast('Pago cancelado. Puedes suscribirte desde Mi Plan.', 5000, '#A89F96');
+    }
+}
+
+function initSubscription(cfg) {
+    loadSubscriptionState(cfg);
+    const { status } = subscriptionState;
+    if (status === 'blocked') { mostrarPantallaBloqueo(); return; }
+    if (status === 'trial' || status === 'grace') {
+        mostrarBannerSuscripcion();
+        if (subscriptionState.diasRestantes <= 3) setTimeout(mostrarModalSuscripcion, 800);
+    }
+    manejarRetornoStripe();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+
 // Cargar branding dinámico desde Firebase config
 // Clinic config stored globally so buildNavigation() can read it
 let clinicConfig = {
@@ -201,6 +385,9 @@ async function loadClinicBranding() {
             const card = document.querySelector('.login-card');
             if (card) card.innerHTML = '<div style="text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:16px">🔒</div><div style="font-weight:600;font-size:18px;margin-bottom:8px">Cuenta pausada</div><div style="color:#666;font-size:14px">Contacta a SMILE para reactivar tu clínica.</div></div>';
         }
+
+        // ── Subscription system ──
+        initSubscription(cfg);
 
     } catch(e) {
         console.error('[Branding] Error cargando config de clínica:', e.code, e.message);
@@ -9409,18 +9596,37 @@ function renderMiPlanTab() {
                 <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
                 <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">$${Number.isInteger(calcTotal()) ? calcTotal().toLocaleString() : calcTotal().toFixed(2)} USD</div>
             </div>
+            ${subscriptionState.status === 'active' ? `
             <button onclick="guardarCambiosPlan()" style="
                 width:100%;padding:14px;background:var(--clinic-color);color:white;
                 border:none;border-radius:var(--radius-sm);font-size:12px;
                 letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;
-                cursor:pointer;transition:background 0.2s;
+                cursor:pointer;transition:background 0.2s;margin-bottom:10px;
             " onmouseover="this.style.background='var(--terracota)'"
                onmouseout="this.style.background='var(--clinic-color)'">
                 Guardar cambios
             </button>
-            <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
-                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica a partir del próximo ciclo de cobro.<br>Contacta a SMILE por WhatsApp para coordinar el pago.
+            <button id="btn-portal-stripe" onclick="abrirPortalStripe()" style="
+                width:100%;padding:12px;background:transparent;
+                border:1.5px solid rgba(30,28,26,0.1);border-radius:var(--radius-sm);
+                font-size:11px;letter-spacing:1px;text-transform:uppercase;
+                font-family:inherit;cursor:pointer;color:var(--mid);
+            ">
+                Gestionar suscripción (facturas · tarjeta · cancelar)
+            </button>
+            ` : `
+            <button onclick="abrirCheckout()" style="
+                width:100%;padding:15px;background:#1E1C1A;color:white;
+                border:none;border-radius:12px;font-size:12px;
+                letter-spacing:2px;text-transform:uppercase;font-family:inherit;
+                cursor:pointer;margin-bottom:10px;
+            ">
+                ${subscriptionState.status === 'trial' ? 'Agregar método de pago →' : 'Reactivar mi clínica →'}
+            </button>
+            <div style="font-size:11px;color:var(--light);text-align:center;line-height:1.6">
+                Pago seguro con Stripe · Cancela cuando quieras
             </div>
+            `}
         </div>
     `;
 
