@@ -352,6 +352,15 @@ function initConnectionMonitor() {
     });
     window.addEventListener('offline', () => setConnectionState('offline'));
 
+    // Firestore tiene su propio detector de conectividad interno
+    // que es más confiable que navigator.onLine para detectar problemas con Firebase
+    if (typeof db !== 'undefined') {
+        try {
+            // enableNetwork/disableNetwork de Firestore sigue el estado real de la conexión
+            // El listener de onSnapshot ya maneja errors de red — no necesitamos probe extra
+            // Solo escuchar el evento 'online' del browser para reconectar
+        } catch(e) { /* ignorar */ }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -488,11 +497,6 @@ const sanitize = {
         };
     },
 };
-
-// Sum the monto field across an array of payment objects.
-function sumPayments(pagos) {
-    return (pagos || []).reduce((sum, p) => sum + p.monto, 0);
-}
 
 // ── Error display helper — friendlier than alert() ──────
 function showError(msg, detail) {
@@ -982,7 +986,6 @@ window.addEventListener('load', async function() {
     await loadClinicBranding();
     await loadData();
     updateProfessionalPicker();
-    populateLoginUsers();
     inicializarEstadosCitas();
 });
 
@@ -1085,23 +1088,39 @@ let currentPersonalToEdit = null;
 let currentReciboText = '';
 let currentFacturaToReverse = null;
 
+// Role selector
+document.querySelectorAll('.role-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+
+        const role = this.dataset.role;
+
+        // Hide all first
+        document.getElementById('professionalSelect').classList.add('hidden');
+        document.getElementById('receptionSelect').classList.add('hidden');
+        document.getElementById('usernameInput').classList.add('hidden');
+
+        // Show correct one
+        if (role === 'professional') {
+            document.getElementById('professionalSelect').classList.remove('hidden');
+        } else if (role === 'reception') {
+            document.getElementById('receptionSelect').classList.remove('hidden');
+            updateReceptionPicker();
+        } else {
+            document.getElementById('usernameInput').classList.remove('hidden');
+        }
+    });
+});
+
 // Update professional picker
 function updateProfessionalPicker() {
     const picker = document.getElementById('professionalPicker');
     if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>' +
-        appData.personal.filter(p => p.tipo !== 'empleado')
-            .map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
-}
-
-function populateLoginUsers() {
-    const sel = document.getElementById('loginUsername');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Selecciona tu usuario</option>' +
-        appData.personal
-            .filter(p => p.password || p.isAdmin)
-            .map(p => `<option value="${p.id}">${p.nombre}${p.isAdmin ? ' (Admin)' : ''}</option>`)
-            .join('');
+    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
+    appData.personal.filter(p => p.tipo !== 'empleado').forEach(p => {
+        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+    });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1323,55 +1342,76 @@ async function ensureFirebaseAuth() {
 function updateReceptionPicker() {
     const picker = document.getElementById('receptionPicker');
     if (!picker) return;
-    picker.innerHTML = '<option value="">-- Seleccionar --</option>' +
-        appData.personal.filter(p => p.canAccessReception)
-            .map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+    picker.innerHTML = '<option value="">-- Seleccionar --</option>';
+    appData.personal.filter(p => p.canAccessReception).forEach(p => {
+        picker.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+    });
 }
 
-// Login — async to support SHA-256 PIN verification
+// Login — async to support SHA-256 password verification
 async function login() {
-    const errEl = document.getElementById('loginError');
-    const showLoginError = msg => {
-        errEl.textContent = msg;
-        errEl.style.display = 'block';
-    };
-    if (errEl) errEl.style.display = 'none';
+    const roleBtn = document.querySelector('.role-btn.active');
+    const role    = roleBtn?.dataset.role;
+    const password = document.getElementById('password').value;
 
-    const personId = document.getElementById('loginUsername').value;
-    const pin      = document.getElementById('loginPassword').value;
+    if (!password) { showToast('⚠️ Ingresa tu contraseña'); return; }
 
-    if (!personId) { showLoginError('Selecciona un usuario'); return; }
-    if (!pin)      { showLoginError('Ingresa tu PIN'); return; }
+    let username = '';
+    let person   = null;
 
-    const person = appData.personal.find(p => p.id === personId);
-    if (!person) { showLoginError('Usuario no encontrado. Recarga la página.'); return; }
+    if (role === 'professional') {
+        username = document.getElementById('professionalPicker').value;
+        if (!username) { showToast('⚠️ Selecciona un profesional'); return; }
+        person = appData.personal.find(p => p.nombre === username);
+        if (!person)           { showToast('⚠️ Profesional no encontrado. Recarga la página.', 4000, '#c0392b'); return; }
+        if (!person.password)  { showToast('⚠️ Este profesional no tiene contraseña configurada', 4000, '#e65100'); return; }
 
-    if (!person.password) {
-        showLoginError('Este usuario no tiene PIN configurado. Contacta al administrador.');
-        return;
+        if (!checkRateLimit(username)) return;
+        const ok = await verifyPassword(person, password);
+        if (!ok) {
+            recordFailedAttempt(username);
+            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
+            return;
+        }
+        appData.currentRole = 'professional';
+
+    } else if (role === 'reception') {
+        username = document.getElementById('receptionPicker').value;
+        if (!username) { showToast('⚠️ Selecciona un usuario'); return; }
+        person = appData.personal.find(p => p.nombre === username);
+        if (!person || !person.canAccessReception) { showToast('⚠️ Usuario sin acceso a recepción', 3000, '#c0392b'); return; }
+        if (!person.password) { showToast('⚠️ Sin contraseña configurada. Contacta al administrador.', 4000, '#e65100'); return; }
+
+        if (!checkRateLimit(username)) return;
+        const ok = await verifyPassword(person, password);
+        if (!ok) {
+            recordFailedAttempt(username);
+            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
+            return;
+        }
+        appData.currentRole = 'reception';
+
+    } else {
+        // Admin
+        username = document.getElementById('username').value || 'admin';
+        const admin = appData.personal.find(p => p.isAdmin);
+        if (!admin) { showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b'); return; }
+
+        if (!checkRateLimit('admin')) return;
+        const ok = await verifyPassword(admin, password);
+        if (!ok) {
+            recordFailedAttempt('admin');
+            showToast('⚠️ Credenciales incorrectas', 3000, '#c0392b');
+            return;
+        }
+        username = admin.nombre;
+        appData.currentRole = 'admin';
+        person = admin;
     }
 
-    const rateKey = person.nombre;
-    if (!checkRateLimit(rateKey)) return;
-
-    await migratePasswordIfNeeded(person);
-    const ok = await verifyPassword(person, pin);
-    if (!ok) {
-        recordFailedAttempt(rateKey);
-        showLoginError('PIN incorrecto');
-        return;
-    }
-
-    clearLoginAttempts(rateKey);
-
-    // Derive role from person flags
-    let role;
-    if (person.isAdmin)               role = 'admin';
-    else if (person.canAccessReception) role = 'reception';
-    else                               role = 'professional';
-
-    appData.currentUser = person.nombre;
-    appData.currentRole = role;
+    // Successful login
+    clearLoginAttempts(username);
+    appData.currentUser = username;
 
     // Establish Firebase anonymous auth session (enables Security Rules)
     await ensureFirebaseAuth();
@@ -1380,10 +1420,10 @@ async function login() {
     _flushErrorQueue().catch(e => console.warn('[ErrorLog] flush failed:', e));
 
     // Start session + inactivity tracking
-    startSession(person.nombre);
+    startSession(username);
 
     // Register audit
-    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${person.nombre} (${role})`);
+    registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
 
     initRealtimeListener();
     await showApp();
@@ -1408,8 +1448,8 @@ function logout() {
 
         document.getElementById('loginScreen').style.display = 'flex';
         document.getElementById('appContainer').style.display = 'none';
-        document.getElementById('loginPassword').value = '';
-        document.getElementById('loginUsername').selectedIndex = 0;
+        document.getElementById('password').value = '';
+        document.getElementById('username').value = '';
     }
 }
 
@@ -1816,9 +1856,10 @@ function updateIngresosTab() {
     const todayKey = getTodayKey();
     const misFacturas = appData.facturas.filter(f => f.profesional === appData.currentUser);
 
-    const ingresosHoy = sumPayments(misFacturas
+    const ingresosHoy = misFacturas
         .flatMap(f => f.pagos || [])
-        .filter(p => p && isSameDayTZ(p.fecha, todayKey)));
+        .filter(p => p && isSameDayTZ(p.fecha, todayKey))
+        .reduce((sum, p) => sum + p.monto, 0);
 
     const prof = appData.personal.find(p => p.nombre === appData.currentUser);
     const comision = prof && prof.tipo !== 'empleado' && !prof.isAdmin ? getComisionRate(prof.tipo, prof) : 0;
@@ -1871,9 +1912,10 @@ function getComisionRate(tipo, person) {
 // Cobrar Tab
 function updateCobrarTab() {
     const todayKey = getTodayKey();
-    const cobradoHoy = sumPayments(appData.facturas
+    const cobradoHoy = appData.facturas
         .flatMap(f => f.pagos)
-        .filter(p => isSameDayTZ(p.fecha, todayKey)));
+        .filter(p => isSameDayTZ(p.fecha, todayKey))
+        .reduce((sum, p) => sum + p.monto, 0);
 
     document.getElementById('cobradoHoy').textContent = formatCurrency(cobradoHoy);
 
@@ -1899,7 +1941,7 @@ function selectTipoPago(tipo) {
         btnAbono.style.color = '#333';
 
         if (currentFacturaToPay) {
-            const balance = currentFacturaToPay.total - sumPayments(currentFacturaToPay.pagos);
+            const balance = currentFacturaToPay.total - currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
             montoInput.value = balance.toFixed(2);
         }
     } else {
@@ -1918,7 +1960,7 @@ function actualizarNuevoBalance() {
     if (!currentFacturaToPay) return;
 
     const monto = parseFloat(document.getElementById('pagoMonto').value) || 0;
-    const balanceActual = currentFacturaToPay.total - sumPayments(currentFacturaToPay.pagos);
+    const balanceActual = currentFacturaToPay.total - currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
     const nuevoBalance = balanceActual - monto;
 
     document.getElementById('nuevoBalance').textContent = formatCurrency(nuevoBalance);
@@ -1936,7 +1978,7 @@ function openPagarFactura(facturaId) {
     currentFacturaToPay = factura;
     tipoPagoSeleccionado = 'total';
 
-    const balance = factura.total - sumPayments(factura.pagos);
+    const balance = factura.total - factura.pagos.reduce((sum, p) => sum + p.monto, 0);
 
     // Mostrar nombre real en vez de "admin"
     const nombreProfesional = factura.profesional.toLowerCase() === 'admin' ? getNombreAdmin() : factura.profesional;
@@ -1986,7 +2028,7 @@ async function confirmarPago() {
         showToast('⚠️ Ingresa un monto válido mayor a cero'); return;
     }
 
-    const totalPagadoActual = sumPayments(currentFacturaToPay.pagos);
+    const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
 
     if (monto > balancePendiente + 0.01) {
@@ -2011,7 +2053,7 @@ async function confirmarPago() {
     const estadoAnterior = currentFacturaToPay.estado;
     currentFacturaToPay.pagos.push(pago);
 
-    const totalPagado = sumPayments(currentFacturaToPay.pagos);
+    const totalPagado = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
     if (totalPagado >= currentFacturaToPay.total) {
         currentFacturaToPay.estado = 'pagada';
     } else if (totalPagado > 0) {
@@ -2037,7 +2079,7 @@ async function confirmarPago() {
 function generarFacturaCliente(factura, montoPagado, metodoPago) {
     const fecha = new Date().toLocaleDateString(getLocale(), {year: 'numeric', month: 'long', day: 'numeric'});
     const hora = new Date().toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
-    const balance = factura.total - sumPayments(factura.pagos);
+    const balance = factura.total - factura.pagos.reduce((sum, p) => sum + p.monto, 0);
     const esPagoTotal = balance <= 0;
 
     // Mostrar nombre real en vez de "admin"
@@ -2335,9 +2377,9 @@ function updateCuadreTab() {
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, todayKey));
 
-    const efectivoHoy = sumPayments(pagosHoy.filter(p => p.metodo === 'efectivo'));
-    const tarjetaHoy = sumPayments(pagosHoy.filter(p => p.metodo === 'tarjeta'));
-    const transferenciaHoy = sumPayments(pagosHoy.filter(p => p.metodo === 'transferencia'));
+    const efectivoHoy = pagosHoy.filter(p => p.metodo === 'efectivo').reduce((sum, p) => sum + p.monto, 0);
+    const tarjetaHoy = pagosHoy.filter(p => p.metodo === 'tarjeta').reduce((sum, p) => sum + p.monto, 0);
+    const transferenciaHoy = pagosHoy.filter(p => p.metodo === 'transferencia').reduce((sum, p) => sum + p.monto, 0);
     const totalIngresos = efectivoHoy + tarjetaHoy + transferenciaHoy;
 
     const gastosHoy = appData.gastos
@@ -2676,12 +2718,20 @@ async function agregarPersonal() {
     const tipo      = document.getElementById('personalTipo')?.value || 'regular';
     const sueldoRaw = document.getElementById('personalSueldo')?.value;
     const sueldo    = sanitize.num(sueldoRaw, 0);
+    const password  = sanitize.str(document.getElementById('personalPassword')?.value, 100);
     const exequatur = sanitize.str(document.getElementById('personalExequatur')?.value, 20);
 
-    if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+    if (!nombre) {
+        showToast('⚠️ El nombre es obligatorio'); return;
+    }
     if (tipo === 'empleado' && sueldo <= 0) {
         showToast('⚠️ Ingresa el sueldo del empleado'); return;
     }
+
+    // Hash password before storing — never plaintext
+    const defaultPw   = tipo === 'empleado' ? 'empleado123' : null;
+    const rawPassword = (tipo !== 'empleado' && password) ? password : defaultPw;
+    const hashedPw    = rawPassword ? await hashPassword(rawPassword) : null;
 
     const esEmp = tipo === 'empleado';
     const tipoRem = esEmp ? 'salario'
@@ -2695,62 +2745,34 @@ async function agregarPersonal() {
         showToast('⚠️ Ingresa el salario fijo del profesional'); return;
     }
 
-    // Generar username único (igual que en onboarding)
-    function _genUsername(nombre) {
-        const clean = nombre.toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z\s]/g, '').trim();
-        const parts = clean.split(/\s+/).filter(Boolean);
-        if (!parts.length) return 'usuario';
-        if (parts.length === 1) return parts[0].slice(0, 12);
-        return parts[0][0] + parts[parts.length - 1].slice(0, 10);
-    }
-    let baseUsername = _genUsername(nombre);
-    let username = baseUsername;
-    let counter = 2;
-    while (appData.personal.some(p => p.username === username)) {
-        username = baseUsername + counter++;
-    }
-
     const person = {
         id: generateId(),
         nombre,
-        username,
-        pin: '1234',
         tipo,
         exequatur:          !esEmp ? exequatur : null,
         sueldo:              esEmp ? sueldo    : null,
         tipoRemuneracion:   tipoRem,
         salarioFijo:        salFijo,
         frecuenciaPago:     frecPago,
+        password:           hashedPw,
+        _pwHashed:          !!hashedPw,
         canAccessReception: false,
         nextPayDate:        null
     };
 
-    const backupPersonal = [...appData.personal];
+    const backupPersonal = appData.personal.length;
     appData.personal.push(person);
     try {
         await saveData();
     } catch(saveErr) {
-        appData.personal = backupPersonal;
+        appData.personal.splice(backupPersonal, 1); // revertir
         showError('Error al agregar personal. Intenta de nuevo.', saveErr);
         return;
     }
-
-    // Avisar si el usuario nuevo afecta el precio mensual
-    const usuariosNoAdmin = appData.personal.filter(p => !p.isAdmin).length;
-    const esPrimero = usuariosNoAdmin === 1;
-
     updatePersonalTab();
     updateProfessionalPicker();
-    populateLoginUsers();
     closeModal('modalAddPersonal');
-
-    if (!esPrimero) {
-        showToast(`✓ ${nombre} agregado · usuario: ${username} · PIN: 1234 · +$2.50 USD/mes`);
-    } else {
-        showToast(`✓ ${nombre} agregado · usuario: ${username} · PIN inicial: 1234`);
-    }
+    showToast('✓ Personal agregado exitosamente');
 }
 
 function updatePersonalTab() {
@@ -3300,10 +3322,10 @@ async function guardarEdicion() {
 
     // Hash new password before saving — never store plaintext
     if (password) {
-        if (!/^\d{4}$/.test(password)) { showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return; }
+        if (password.length < 4) { showToast('⚠️ La contraseña debe tener al menos 4 caracteres'); return; }
         currentPersonalToEdit.password  = await hashPassword(password);
         currentPersonalToEdit._pwHashed = true;
-        registrarAuditoria('seguridad', 'cambio_pin', `PIN actualizado para ${nombre}`);
+        registrarAuditoria('seguridad', 'cambio_contrasena', `Contraseña actualizada para ${nombre}`);
     }
 
     if (currentPersonalToEdit.tipo === 'empleado') {
@@ -3335,7 +3357,6 @@ async function guardarEdicion() {
     }
     updatePersonalTab();
     updateProfessionalPicker();
-    populateLoginUsers();
     closeModal('modalEditPersonal');
     showToast('✓ Perfil actualizado');
 }
@@ -3513,7 +3534,6 @@ function eliminarPersonal(id) {
                 closeModal('modalEditPersonal');
                 updatePersonalTab();
                 updateProfessionalPicker();
-                populateLoginUsers();
                 showToast('✓ Personal eliminado');
             } catch(e) {
                 appData.personal = backupPersonal; // rollback
@@ -3649,11 +3669,11 @@ async function guardarContrasenaAdmin() {
     const nueva    = document.getElementById('configNewPassword').value;
     const confirma = document.getElementById('configConfirmPassword').value;
 
-    if (!nueva || !/^\d{4}$/.test(nueva)) {
-        showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return;
+    if (!nueva || nueva.length < 6) {
+        showToast('⚠️ La contraseña debe tener al menos 6 caracteres'); return;
     }
     if (nueva !== confirma) {
-        showToast('⚠️ Los PINs no coinciden'); return;
+        showToast('⚠️ Las contraseñas no coinciden'); return;
     }
 
     const admin = appData.personal.find(p => p.isAdmin);
@@ -3671,8 +3691,8 @@ async function guardarContrasenaAdmin() {
         await saveData();
         document.getElementById('configNewPassword').value  = '';
         document.getElementById('configConfirmPassword').value = '';
-        showToast('✓ PIN actualizado');
-        registrarAuditoria('seguridad', 'cambio_pin', 'PIN de administrador actualizado');
+        showToast('✓ Contraseña actualizada');
+        registrarAuditoria('seguridad', 'cambio_contrasena', 'Contraseña de administrador actualizada');
     } catch(e) {
         admin.password  = pwAnterior;    // rollback
         admin._pwHashed = pwHashedAntes;
@@ -3883,7 +3903,7 @@ function eliminarFactura(facturaId) {
         return;
     }
 
-    const totalPagado = sumPayments(factura.pagos);
+    const totalPagado = factura.pagos.reduce((sum, p) => sum + p.monto, 0);
     const estadoLabel = factura.estado === 'pagada' ? 'Pagada' :
                        factura.estado === 'partial' ? 'Con abono' : 'Pendiente';
 
@@ -3997,7 +4017,7 @@ async function confirmarReversion() {
     factura.pagos.splice(pagoIdx, 1);
 
     // Recalcular estado de la factura
-    const totalPagado = sumPayments(factura.pagos);
+    const totalPagado = factura.pagos.reduce((sum, p) => sum + p.monto, 0);
     if (totalPagado === 0) {
         factura.estado = 'pendiente';
     } else if (totalPagado < factura.total) {
@@ -5141,7 +5161,7 @@ function renderTabBalance(paciente) {
             </h3>
             <div style="display: grid; gap: 12px;">
                 ${facturasPendientes.map(f => {
-                    const pagado = sumPayments(f.pagos);
+                    const pagado = (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
                     const pendiente = f.total - pagado;
                     return `
                     <div style="background: #fff; border: 2px solid #e5e5e7; border-radius: 8px; padding: 16px;">
@@ -6178,7 +6198,7 @@ function buscarPacienteFactura() {
     }
 
     suggestions.innerHTML = matches.map(p => `
-        <div onclick="seleccionarPacienteFactura('${p.nombre.replace(/'/g, "\'")}')"
+        <div onclick="seleccionarPacienteFactura('${p.nombre.replace(/'/g, `'`)}')"
              style="padding:14px 16px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,0.06);
                     transition:background 0.15s;display:flex;flex-direction:column;gap:3px"
              onmouseover="this.style.background='var(--surface)'"
@@ -6577,7 +6597,6 @@ async function limpiarDatosAntiguos() {
 
     // Actualizar pickers siempre
     updateProfessionalPicker();
-    populateLoginUsers();
     updateReceptionPicker();
 }
 
@@ -7473,7 +7492,7 @@ function aplicarFiltrosFacturas() {
         list.innerHTML = '<li style="text-align: center; color: #999;">No hay facturas que coincidan con los filtros</li>';
     } else {
         list.innerHTML = facturasFiltradas.map(f => {
-            const balance = f.total - sumPayments(f.pagos);
+            const balance = f.total - (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
             const hasComprobante = (f.pagos || []).some(p => p.comprobanteData);
             const hasPagos = (f.pagos || []).length > 0;
 
@@ -7561,8 +7580,10 @@ function inicializarFiltrosProfesionales() {
 
     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
 
-    select.innerHTML = '<option value="todos">Todos</option>' +
-        profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+    select.innerHTML = '<option value="todos">Todos</option>';
+    profesionales.forEach(p => {
+        select.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+    });
 }
 
 // ========================================
@@ -7605,7 +7626,7 @@ function exportarFacturasExcel() {
 
     // Preparar datos para Excel
     const datos = facturas.map(f => {
-        const totalPagado = sumPayments(f.pagos);
+        const totalPagado = (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
         const balance = f.total - totalPagado;
 
         return {
@@ -8032,13 +8053,13 @@ function updateDashboardTab() {
     const pagosHoy = appData.facturas
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, todayKey));
-    const ingresosHoy = sumPayments(pagosHoy);
+    const ingresosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
 
     // Comparación con ayer
     const pagosAyer = appData.facturas
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
-    const ingresosAyer = sumPayments(pagosAyer);
+    const ingresosAyer = pagosAyer.reduce((sum, p) => sum + p.monto, 0);
 
     document.getElementById('dashIngresosHoy').textContent = formatCurrency(ingresosHoy);
     if (ingresosAyer > 0) {
@@ -9118,7 +9139,6 @@ const MODULOS_DISPONIBLES = [
     { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
 const BASE_PRECIOS = { clinica: 1200, solo: 990 };
-const PRECIO_USUARIO_USD = 2.50; // USD por usuario adicional al primero
 
 function renderMiPlanTab() {
     // Deactivate other tabs, activate miplan
@@ -9192,138 +9212,57 @@ function renderMiPlanTab() {
     tab.innerHTML = `
         <div class="section-title" style="margin-bottom:4px">Mi plan</div>
         <div class="section-sub">${clinicConfig.enTrial
-            ? \`Período de prueba · <strong style="color:var(--terracota)">\${diasTrial} día\${diasTrial!==1?'s':''} restante\${diasTrial!==1?'s':''}</strong>\`
-            : 'Plan activo'
+            ? `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial!==1?'s':''} restante${diasTrial!==1?'s':''}</strong>`
+            : 'Plan activo · Solo módulos contratados'
         }</div>
-        \${clinicConfig.enTrial ? \`<div style="margin-top:6px;padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;font-size:12px;color:var(--mid);border-left:3px solid var(--terracota)">💡 Durante el trial puedes agregar módulos y explorar SMILE. Solo pagas los módulos activos al finalizar.</div>\` : ''}
+        ${clinicConfig.enTrial ? `<div style="margin-top:6px;padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;font-size:12px;color:var(--mid);border-left:3px solid var(--terracota)">💡 Durante el trial puedes agregar módulos y explorar SMILE. Solo pagas los módulos activos al finalizar.</div>` : ''}
 
         <!-- Plan base -->
         <div class="card" style="margin-bottom:14px">
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <div>
-                    <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--terra,#C4856A);margin-bottom:6px">Plan base</div>
-                    <div style="font-size:18px;font-weight:300;color:var(--dark)">\${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
+                    <div style="font-size:13px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Plan base</div>
+                    <div style="font-size:18px;font-weight:300;color:var(--dark)">${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
                     <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
                 </div>
                 <div style="text-align:right">
-                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">\${clinicConfig.moneda || "RD$"}\${basePrice.toLocaleString()}</div>
+                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">${clinicConfig.moneda || "RD$"}${basePrice.toLocaleString()}</div>
                     <div style="font-size:10px;color:var(--light)">/mes</div>
                 </div>
             </div>
         </div>
 
-        <!-- Usuarios -->
-        \${(() => {
-            const totalU = (appData.personal || []).filter(p => !p.isAdmin).length;
-            const extraU = Math.max(0, totalU - 1);
-            const costoU = extraU * PRECIO_USUARIO_USD;
-            return totalU > 0 ? \`
-            <div class="card" style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
-                <div>
-                    <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--terra,#C4856A);margin-bottom:6px">Usuarios</div>
-                    <div style="font-size:15px;font-weight:300;color:var(--dark)">\${totalU} usuario\${totalU!==1?'s':''} registrado\${totalU!==1?'s':''}</div>
-                    <div style="font-size:12px;color:var(--light);margin-top:2px">1 incluido · \${extraU} adicional\${extraU!==1?'es':''} × $\${PRECIO_USUARIO_USD.toFixed(2)} USD</div>
-                </div>
-                <div style="text-align:right">
-                    <div style="font-size:20px;font-weight:200;color:var(--dark)">\${costoU > 0 ? '+$'+costoU.toFixed(2)+' USD' : 'Incluido'}</div>
-                    <div style="font-size:10px;color:var(--light)">/mes</div>
-                </div>
-            </div>\` : '';
-        })()}
-
-        <!-- Módulos adicionales -->
-        <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--terra,#C4856A);margin-bottom:12px;padding:0 2px">
+        <!-- Módulos -->
+        <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding:0 2px">
             Módulos adicionales
         </div>
         <div id="miplan-modulos">
-            \${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
+            ${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
         </div>
 
         <!-- Total y guardar -->
         <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--light)">Total mensual</div>
-                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">\${clinicConfig.moneda || "RD$"}\${calcTotal().toLocaleString()}</div>
+                <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${clinicConfig.moneda || "RD$"}${calcTotal().toLocaleString()}</div>
             </div>
             <button onclick="guardarCambiosPlan()" style="
-                width:100%;padding:14px;background:var(--dark);color:white;
-                border:none;border-radius:var(--radius-sm);font-size:11px;
-                letter-spacing:2px;text-transform:uppercase;font-family:inherit;
-                font-weight:500;cursor:pointer;transition:background 0.2s;
-            " onmouseover="this.style.background='var(--terra,#C4856A)'"
-               onmouseout="this.style.background='var(--dark)'">
-                Guardar cambios de plan
+                width:100%;padding:14px;background:var(--clinic-color);color:white;
+                border:none;border-radius:var(--radius-sm);font-size:12px;
+                letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;
+                cursor:pointer;transition:background 0.2s;
+            " onmouseover="this.style.background='var(--terracota)'"
+               onmouseout="this.style.background='var(--clinic-color)'">
+                Guardar cambios
             </button>
             <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
-                Los módulos nuevos se activan al instante.<br>El ajuste aplica a partir del próximo ciclo.
+                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica a partir del próximo ciclo de cobro.<br>Contacta a SMILE por WhatsApp para coordinar el pago.
             </div>
-        </div>
-
-        <!-- Suscripción y pagos a SMILE -->
-        <div style="font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--terra,#C4856A);margin:28px 0 12px;padding:0 2px">
-            Mi suscripción
-        </div>
-
-        <!-- Estado de suscripción -->
-        <div class="card" style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                <div>
-                    <div style="font-size:14px;font-weight:400;color:var(--dark)">Estado</div>
-                    <div style="font-size:12px;color:var(--light);margin-top:2px">
-                        \${clinicConfig.enTrial
-                            ? \`Trial activo · vence \${clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta).toLocaleDateString('es',{day:'numeric',month:'long',year:'numeric'}) : '—'}\`
-                            : (clinicConfig.activa ? 'Suscripción activa' : 'Inactiva')
-                        }
-                    </div>
-                </div>
-                <span style="
-                    font-size:9px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;
-                    padding:4px 12px;border-radius:100px;
-                    background:\${clinicConfig.enTrial ? 'rgba(196,133,106,0.10)' : clinicConfig.activa ? 'rgba(107,143,113,0.10)' : 'rgba(184,74,74,0.08)'};
-                    color:\${clinicConfig.enTrial ? 'var(--terra-dk,#A06448)' : clinicConfig.activa ? '#4a7a50' : '#b84a4a'};
-                ">\${clinicConfig.enTrial ? 'Trial' : clinicConfig.activa ? 'Activa' : 'Inactiva'}</span>
-            </div>
-            <a href="https://wa.me/18091234567?text=Hola+SMILE%2C+quiero+gestionar+mi+suscripción+de+\${encodeURIComponent(clinicConfig.nombre||'mi clínica')}" 
-               target="_blank" style="
-                display:flex;align-items:center;justify-content:center;gap:8px;
-                width:100%;padding:12px;border-radius:var(--radius-sm);
-                background:rgba(107,143,113,0.08);border:1.5px solid rgba(107,143,113,0.20);
-                color:#4a7a50;font-size:11px;font-weight:500;letter-spacing:1.5px;
-                text-transform:uppercase;text-decoration:none;transition:background 0.2s;
-            " onmouseover="this.style.background='rgba(107,143,113,0.15)'"
-               onmouseout="this.style.background='rgba(107,143,113,0.08)'">
-                💬 Contactar a SMILE por WhatsApp
-            </a>
-        </div>
-
-        <!-- Historial de pagos -->
-        <div class="card" style="margin-bottom:24px">
-            <div style="font-size:9px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--light);margin-bottom:14px">
-                Historial de pagos
-            </div>
-            \${(() => {
-                const pagos = (clinicConfig.pagosSuscripcion || []).slice().reverse();
-                if (!pagos.length) return \`
-                    <div style="text-align:center;padding:20px 0;color:var(--muted,#C8C2BB);font-size:13px">
-                        Aún no hay pagos registrados
-                    </div>\`;
-                return pagos.map(p => \`
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line,rgba(30,28,26,0.08))">
-                        <div>
-                            <div style="font-size:13px;color:var(--dark)">\${p.concepto || 'Suscripción mensual'}</div>
-                            <div style="font-size:11px;color:var(--light)">\${p.fecha ? new Date(p.fecha).toLocaleDateString('es',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div>
-                        </div>
-                        <div style="text-align:right">
-                            <div style="font-size:15px;font-weight:400;color:var(--dark)">$\${Number(p.monto||0).toFixed(2)} USD</div>
-                            <div style="font-size:9px;font-weight:500;letter-spacing:1px;text-transform:uppercase;
-                                color:\${p.estado==='pagado'?'#4a7a50':p.estado==='pendiente'?'var(--terra-dk,#A06448)':'var(--light)'};
-                                margin-top:2px">\${p.estado || 'registrado'}</div>
-                        </div>
-                    </div>\`).join('');
-            })()}
         </div>
     `;
-        tab._pendientes = pendientes;
+
+    // Store pendientes reference for toggles
+    tab._pendientes = pendientes;
     tab._calcTotal = calcTotal;
     tab._renderToggle = renderToggle;
 }
@@ -9557,7 +9496,7 @@ function abrirMas() {
     if (role === 'admin' || role === 'professional') {
         items.push({ icon: '💰', label: 'Cobros',      action: `cerrarMas();showTab('cobros')` });
     }
-    if (role === 'admin') {
+    if (role === 'admin' && hasModule('nomina')) {
         items.push({ icon: '👥', label: 'Personal',    action: `cerrarMas();irTab('personal')` });
     }
     if (hasModule('inventario') && (role === 'admin' || role === 'reception')) {

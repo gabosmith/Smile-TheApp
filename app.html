@@ -923,7 +923,7 @@
 
     </style>
 </head>
-<body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
+<body onmousemove="if(typeof registerActivity==='function')registerActivity()" onclick="if(typeof registerActivity==='function')registerActivity()" onkeydown="if(typeof registerActivity==='function')registerActivity()" ontouchstart="if(typeof registerActivity==='function')registerActivity()">
 
     <!-- Pantalla de carga inicial -->
     <div class="clinic-loading" id="clinicLoading">
@@ -942,39 +942,37 @@
         </div>
 
         <div class="login-card">
-            <div class="login-panel-left" style="display:flex;flex-direction:column;gap:0">
-                <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:28px">ACCESO</div>
-                <div style="font-size:32px;font-weight:200;color:white;letter-spacing:-0.5px;margin-bottom:8px">Bienvenido de vuelta.</div>
-                <div style="font-size:14px;color:rgba(255,255,255,0.6);font-weight:300">Ingresa tu usuario y PIN para continuar.</div>
+            <div class="role-selector">
+                <button class="role-btn active" data-role="professional">Profesional</button>
+                <button class="role-btn" data-role="reception">Recepción</button>
+                <button class="role-btn" data-role="admin">Admin</button>
             </div>
 
-            <div class="login-panel-right">
-                <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#A89F96;margin-bottom:28px">ACCESO</div>
-
-                <div style="margin-bottom:20px">
-                    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#A89F96;margin-bottom:8px">USUARIO</div>
-                    <select id="loginUsername" style="width:100%;padding:14px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:14px;font-family:inherit;background:#FDFCFB;color:#1E1C1A;font-weight:300;appearance:none;-webkit-appearance:none;cursor:pointer" onchange="document.getElementById('loginPassword').focus()">
-                        <option value="">— Selecciona tu usuario —</option>
-                    </select>
-                </div>
-
-                <div style="margin-bottom:24px">
-                    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#A89F96;margin-bottom:8px">PIN</div>
-                    <input type="password" id="loginPassword" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="• • • •" autocomplete="off"
-                        style="width:100%;padding:14px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:22px;font-family:inherit;background:#FDFCFB;color:#1E1C1A;letter-spacing:8px;text-align:center"
-                        onkeydown="if(event.key==='Enter')login()"
-                        oninput="if(this.value.length===4)login()">
-                </div>
-
-                <div id="loginError" style="display:none;color:#E57373;font-size:13px;margin-bottom:16px;padding:10px 14px;background:rgba(229,115,115,0.08);border-radius:8px;border-left:3px solid #E57373"></div>
-
-                <button id="loginBtn" onclick="login()" style="width:100%;padding:15px;background:#1E1C1A;color:white;border:none;border-radius:12px;font-size:12px;font-weight:500;letter-spacing:2px;text-transform:uppercase;font-family:inherit;cursor:pointer;transition:background 0.2s" onmouseover="this.style.background='#C4856A'" onmouseout="this.style.background='#1E1C1A'">
-                    ENTRAR
-                </button>
-
-                <div style="font-size:11px;color:#C4AFA8;text-align:center;margin-top:16px">¿Olvidaste tu PIN? Contacta al administrador.</div>
-                <div style="font-size:10px;color:#D4CFC9;text-align:center;margin-top:20px;letter-spacing:2px">SMILE · SOFTWARE DENTAL</div>
+            <div class="input-group" id="professionalSelect">
+                <label>Seleccionar Profesional</label>
+                <select id="professionalPicker">
+                    <option value="">-- Seleccionar --</option>
+                </select>
             </div>
+
+            <div class="input-group hidden" id="receptionSelect">
+                <label>Seleccionar Usuario</label>
+                <select id="receptionPicker">
+                    <option value="">-- Seleccionar --</option>
+                </select>
+            </div>
+
+            <div class="input-group hidden" id="usernameInput">
+                <label>Usuario</label>
+                <input type="text" id="username" autocomplete="username">
+            </div>
+
+            <div class="input-group">
+                <label>Contraseña</label>
+                <input type="password" id="password" autocomplete="current-password">
+            </div>
+
+            <button class="btn-primary" onclick="login()">Acceder</button>
         </div>
     </div>
 
@@ -1558,14 +1556,14 @@
                     <div style="margin-bottom: 28px;">
                         <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Seguridad</div>
                         <div class="form-group">
-                            <label>Nuevo PIN del administrador (4 dígitos)</label>
-                            <input type="password" id="configNewPassword" placeholder="Ej: 1234" inputmode="numeric" maxlength="4" autocomplete="new-password">
+                            <label>Nueva contraseña del administrador</label>
+                            <input type="password" id="configNewPassword" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
                         </div>
                         <div class="form-group">
-                            <label>Confirmar PIN</label>
-                            <input type="password" id="configConfirmPassword" placeholder="Repite el PIN" inputmode="numeric" maxlength="4" autocomplete="new-password">
+                            <label>Confirmar contraseña</label>
+                            <input type="password" id="configConfirmPassword" placeholder="Repite la contraseña" autocomplete="new-password">
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarContrasenaAdmin()">Cambiar PIN</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarContrasenaAdmin()">Cambiar Contraseña</button>
                     </div>
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
@@ -1761,7 +1759,7 @@
                 </select>
             </div>
 
-            <div class="form-group" id="passwordGroup"><label>PIN (4 dígitos, opcional)</label><input type="text" id="personalPassword" placeholder="Ej: 1234" inputmode="numeric" maxlength="4"></div>
+            <div class="form-group" id="passwordGroup"><label>Contraseña (Opcional)</label><input type="password" id="personalPassword" placeholder="Mínimo 4 caracteres"></div>
             <button class="btn btn-submit" onclick="agregarPersonal()">Agregar Personal</button>
         </div>
     </div>
@@ -1840,7 +1838,7 @@
                 </select>
             </div>
 
-            <div class="form-group" id="editPasswordGroup"><label>Nuevo PIN (4 dígitos)</label><input type="text" id="editPassword" placeholder="Dejar vacío para no cambiar" inputmode="numeric" maxlength="4"></div>
+            <div class="form-group" id="editPasswordGroup"><label>Nueva Contraseña</label><input type="password" id="editPassword" placeholder="Dejar vacío para no cambiar"></div>
             <div class="form-group hidden" id="editReceptionGroup"><label>Acceso a Recepción</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Permitir acceso al módulo de Recepción</span></label></div>
             <div class="form-group hidden" id="editPayDateGroup"><label>Próxima Fecha de Pago</label><input type="date" id="editPayDate"></div>
             <button class="btn btn-submit" onclick="guardarEdicion()">Guardar Cambios</button>
