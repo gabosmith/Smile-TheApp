@@ -4,21 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SMILE.app — Registro</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;1,200&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <style>
   :root {
-    --bg: #EEEAE4;
-    --surface: #F5F2EE;
-    --white: #FDFCFB;
-    --dark: #1E1C1A;
-    --mid: #9C9189;
-    --light: #CEC8C0;
-    --terracota: #C4856A;
-    --rosa: #E8C4B8;
-    --azul: #7B8FA1;
+    --bg:       #EEEAE4;
+    --sand:     #EEEAE4;
+    --surface:  #F5F2EE;
+    --white:    #FDFCFB;
+    --dark:     #1E1C1A;
+    --mid:      #6B635C;
+    --light:    #A89F96;
+    --muted:    #C8C2BB;
+    --terracota:#C4856A;
+    --terra:    #C4856A;
+    --terra-dk: #A06448;
+    --terra-lt: #DBA98E;
+    --rosa:     #EAC0B2;
+    --rose:     #EAC0B2;
+    --azul:     #7D8EA0;
+    --slate:    #7D8EA0;
+    --green:    #6B8F71;
+    --line:     rgba(30,28,26,0.08);
     --clinic-color: #C4856A;
   }
 
@@ -44,7 +53,8 @@
 
   /* ── LEFT PANEL ── */
   .left-panel {
-    background: var(--dark);
+    background: var(--surface);
+    border-right: 1px solid var(--line);
     padding: 48px;
     display: flex;
     flex-direction: column;
@@ -54,10 +64,11 @@
   }
 
   .logo {
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 7px;
-    color: var(--surface);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 6px;
+    color: var(--dark);
+    text-transform: uppercase;
     margin-bottom: auto;
   }
 
@@ -206,12 +217,12 @@
   .step-ind-dot {
     width: 24px; height: 24px;
     border-radius: 50%;
-    border: 1.5px solid #4A4440;
+    border: 1.5px solid var(--muted);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 10px;
-    color: #4A4440;
+    color: var(--light);
     flex-shrink: 0;
     transition: all 0.3s;
   }
@@ -223,13 +234,13 @@
   }
 
   .step-ind.done .step-ind-dot {
-    background: #2C2A28;
-    border-color: #3A3836;
+    background: rgba(196,133,106,0.12);
+    border-color: rgba(196,133,106,0.3);
     color: var(--terracota);
   }
 
-  .step-ind-label { font-size: 12px; color: #6B635C; }
-  .step-ind.active .step-ind-label { color: var(--surface); }
+  .step-ind-label { font-size: 12px; color: var(--light); }
+  .step-ind.active .step-ind-label { color: var(--dark); font-weight: 500; }
 
   /* ── RIGHT PANEL ── */
   .right-panel {
@@ -749,27 +760,29 @@
     align-items: center;
     justify-content: space-between;
     padding: 18px 20px 14px;
-    background: var(--dark);
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
     position: sticky;
     top: 0;
     z-index: 10;
   }
   .mobile-header-logo {
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 9px;
+    font-weight: 600;
     letter-spacing: 6px;
-    color: var(--surface);
+    text-transform: uppercase;
+    color: var(--dark);
   }
   .mobile-header-step {
     font-size: 11px;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: #6B635C;
+    color: var(--light);
   }
   .mobile-progress {
     display: none;
     height: 2px;
-    background: #2C2A28;
+    background: var(--line);
   }
   .mobile-progress-fill {
     height: 100%;
@@ -1768,20 +1781,18 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ─── ACTIVATION ───────────────────────────────────────
-// ── Crypto helpers (replicados de app.js para hashear password al crear clínica) ──
-async function sha256(message) {
-    const msgBuffer = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray  = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+// ─── USERNAME GENERATOR (igual que app.js) ────────────────────
+function generateUsername(nombre) {
+  const clean = nombre.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z\s]/g, '').trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'usuario';
+  if (parts.length === 1) return parts[0].slice(0, 12);
+  return parts[0][0] + parts[parts.length - 1].slice(0, 10);
 }
 
-async function hashPassword(plaintext) {
-    // In onboarding, CLINIC_PATH = clinicId (set just before calling this)
-    const salt = window._pendingClinicId || 'smile-default-salt';
-    return sha256(salt + ':' + plaintext);
-}
+// ─── ACTIVATION ───────────────────────────────────────
 
 async function activateClinic() {
   const btn = document.getElementById('btn-activate');
@@ -1856,28 +1867,23 @@ async function activateClinic() {
     };
     const modulosActivos = state.modules.map(m => MODULE_KEYS[m.name] || m.name.toLowerCase());
 
-    // Admin password — random 6 chars alphanumeric
-    const adminPassword = Math.random().toString(36).slice(2, 8).toUpperCase();
+    // Admin: PIN 1234 por defecto, username auto-generado
+    const DEFAULT_PIN = '1234';
+    const adminUsername = generateUsername(state.adminName.trim());
 
     // Build personal array with admin user
     const personal = [
       {
         id: '1',
         nombre: state.adminName.trim(),
+        username: adminUsername,
         tipo: 'regular',
-        password: adminPassword,  // se reemplaza abajo con hash
-        _pwHashed: false,
+        pin: DEFAULT_PIN,
         isAdmin: true,
         canAccessReception: true,
         email: state.adminEmail,
       }
     ];
-
-    // Hash admin password before saving (SHA-256 + clinic salt)
-    window._pendingClinicId = clinicId; // used by hashPassword as salt
-    const hashedAdminPw = await hashPassword(adminPassword);
-    personal[0].password = hashedAdminPw;
-    personal[0]._pwHashed = true;
 
     // 1. Create main clinic document
     await db.collection('clinicas').doc(clinicId).set({
@@ -1955,43 +1961,43 @@ async function activateClinic() {
     btnIr.style.display = 'block';
     btnIr.onclick = () => window.open(appUrl, '_blank');
 
-    // Build success details — clear login instructions
+    // Build success details — PIN system
     document.getElementById('successDetails').innerHTML = `
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--light);margin-bottom:16px;text-align:center">
         📋 Guarda estos datos — los necesitas para entrar
       </div>
 
       <div class="success-detail-card" style="grid-column:1/-1;border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
-        <div class="sd-label">🔗 Cómo entrar a tu clínica</div>
+        <div class="sd-label">🔗 Cómo entrar</div>
         <div style="font-size:13px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Abre <strong style="color:var(--dark)">app.html</strong> (o el link de abajo), escribe el ID de tu clínica y tu contraseña.
+          Accede por tu link, selecciona tu usuario y escribe tu PIN de 4 dígitos.
         </div>
       </div>
 
       <div class="success-detail-card" style="border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
-        <div class="sd-label">🏷️ ID de clínica</div>
-        <div class="sd-val" style="font-family:monospace;font-size:16px;color:var(--dark)">${clinicId}</div>
+        <div class="sd-label">👤 Usuario</div>
+        <div class="sd-val" style="font-family:monospace;font-size:18px;color:var(--dark)">${adminUsername}</div>
       </div>
 
       <div class="success-detail-card" style="border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
-        <div class="sd-label">🔑 Contraseña inicial</div>
-        <div class="sd-val" style="font-family:monospace;letter-spacing:4px;font-size:24px;color:var(--terracota)">${adminPassword}</div>
+        <div class="sd-label">🔑 PIN inicial</div>
+        <div class="sd-val" style="font-family:monospace;letter-spacing:10px;font-size:28px;color:var(--terracota)">${DEFAULT_PIN}</div>
       </div>
 
       <div class="success-detail-card">
-        <div class="sd-label">👤 Admin</div>
-        <div class="sd-val">${state.adminName.trim()}</div>
+        <div class="sd-label">🏥 Clínica</div>
+        <div class="sd-val">${state.clinicName}</div>
       </div>
 
       <div class="success-detail-card">
         <div class="sd-label">💳 Plan mensual</div>
-        <div class="sd-val" style="color:var(--terracota)">$${total.toLocaleString()} USD</div>
+        <div class="sd-val" style="color:var(--terracota)">$${total.toFixed(2)} USD</div>
       </div>
 
       <div class="success-detail-card" style="grid-column:1/-1;background:var(--surface);border:none">
         <div class="sd-label">⚠️ Importante</div>
         <div style="font-size:12px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Guarda la contraseña ahora — no la podrás ver de nuevo. Puedes cambiarla desde el panel de administración de la app.
+          Cambia tu PIN desde tu perfil después de entrar por primera vez. Puedes agregar más usuarios desde la sección de Personal.
         </div>
       </div>
     `;
