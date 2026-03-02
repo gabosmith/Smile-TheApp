@@ -591,16 +591,30 @@ let currentSection = 'overview';
 
 // ── INIT ──────────────────────────────────────────────
 async function initApp() {
+  // Show loading in main area
+  document.getElementById('main').innerHTML = `
+    <div style="padding:80px;text-align:center;color:var(--piedra)">
+      <div style="font-size:32px;margin-bottom:16px;animation:spin 1s linear infinite;display:inline-block">⏳</div>
+      <div style="font-size:13px;letter-spacing:2px">Conectando a Firebase...</div>
+    </div>`;
+
   try {
     const auth = firebase.auth();
     if (!auth.currentUser) await auth.signInAnonymously();
+    console.log('[Admin] Firebase auth OK — UID:', firebase.auth().currentUser?.uid);
   } catch(e) {
     console.warn('[Admin] Firebase auth warning:', e.message);
+    showToast('⚠️ Auth: ' + e.message, 5000, '#c0392b');
   }
   await loadClinicas();
   showSection('overview');
   actualizarErrorBadge();
 }
+
+// Add spin keyframe if not present
+const _spinStyle = document.createElement('style');
+_spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(_spinStyle);
 
 async function recargarAdmin() {
   const btn = document.querySelector('[onclick="recargarAdmin()"]');
@@ -665,21 +679,41 @@ async function loadClinicas() {
       };
     }));
   } catch(e) {
-    console.error('Error loading clinicas:', e);
+    console.error('[Admin] Error loading clinicas:', e);
     clinicas = [];
+    const main = document.getElementById('main');
+    if (main) {
+      main.innerHTML = `
+        <div style="padding:60px;text-align:center;color:var(--piedra)">
+          <div style="font-size:36px;margin-bottom:16px">🔥</div>
+          <div style="font-size:17px;font-weight:300;color:var(--topo);margin-bottom:8px">Error conectando a Firebase</div>
+          <div style="font-size:13px;margin-bottom:20px">${e.code || e.message}</div>
+          <button onclick="recargarAdmin()" style="padding:12px 24px;background:var(--sand);
+            border:none;border-radius:100px;font-family:inherit;font-size:12px;
+            letter-spacing:2px;text-transform:uppercase;cursor:pointer;
+            box-shadow:var(--neu-raised)">↻ Reintentar</button>
+        </div>`;
+    }
   }
 }
 
 function calcMRR(plan, modulos = [], personalCount = 0) {
-  const BASE = plan === 'solo' ? 990 : 1200;
+  // Solo = USD fijo, Clínica = RD$
+  if (plan === 'solo') return 19; // USD — sin módulos extra en plan Solo
+  const BASE = 1200; // RD$
   const MODULE_PRICES = {
     laboratorio: 300, nomina: 300, inventario: 300,
-    reportes: 300, multisucursal: 800,
-    // ncf y expediente: incluidos en el plan base
+    reportes: 300, multisucursal: 800, expediente: 0,
   };
-  const extraUsers = Math.max(0, personalCount - 1);
+  const extraUsers   = Math.max(0, personalCount - 1);
   const modulesTotal = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
   return BASE + modulesTotal + (extraUsers * 150);
+}
+
+function fmtMRR(c) {
+  // Format MRR with correct currency
+  if (c.plan === 'solo') return 'USD $' + c.mrr;
+  return 'RD$' + c.mrr.toLocaleString();
 }
 
 // ── SECTIONS ──────────────────────────────────────────
@@ -755,7 +789,7 @@ function renderContactos(main) {
         </div>
         <div style="display:flex;gap:16px;font-size:11px;color:var(--piedra)">
           <span>📦 ${c.plan === 'solo' ? 'Solo' : 'Clínica'}</span>
-          <span>💰 RD$${c.mrr.toLocaleString()}/mes</span>
+          <span>💰 ${fmtMRR(c)}/mes</span>
           <span>🧩 ${modulosStr}</span>
           <span>🕐 ${lastLoginStr}</span>
         </div>
@@ -825,9 +859,9 @@ function renderOverview(main) {
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--terra)"></div>
-          <div class="stat-label">MRR</div>
-          <div class="stat-val">RD$${mrr.toLocaleString()}</div>
-          <div class="stat-sub">${activas.length} clínica${activas.length !== 1 ? 's' : ''} activa${activas.length !== 1 ? 's' : ''}</div>
+          <div class="stat-label">MRR (RD$)</div>
+          <div class="stat-val">RD$${clinicas.filter(c=>c.activa&&!c.trial&&c.plan!=='solo').reduce((s,c)=>s+c.mrr,0).toLocaleString()}</div>
+          <div class="stat-sub">${activas.length} activas · ${trials.length} en trial</div>
         </div>
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--pizarra)"></div>
@@ -843,9 +877,9 @@ function renderOverview(main) {
         </div>
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--rosa)"></div>
-          <div class="stat-label">ARR proyectado</div>
-          <div class="stat-val">RD$${(mrr * 12).toLocaleString()}</div>
-          <div class="stat-sub">Si todas renuevan</div>
+          <div class="stat-label">ARR proyectado (RD$)</div>
+          <div class="stat-val">RD$${(clinicas.filter(c=>c.activa&&!c.trial&&c.plan!=='solo').reduce((s,c)=>s+c.mrr,0)*12).toLocaleString()}</div>
+          <div class="stat-sub">Solo clínicas activas RD$</div>
         </div>
       </div>
 
@@ -918,7 +952,7 @@ function renderClinicsTable(list) {
         <div>${statusBadge}</div>
         <div><span class="plan-tag">${planLabel}</span></div>
         <div>
-          <div class="amount">RD$${c.mrr.toLocaleString()}</div>
+          <div class="amount">${fmtMRR(c)}</div>
           <div class="amount-sub">/ mes</div>
         </div>
         <div style="font-size:13px;color:var(--piedra)">${c.pacientes.toLocaleString()} pac · ${c.ciudad}</div>
@@ -963,7 +997,7 @@ function openClinicDetail(id) {
       </div>
       <div class="detail-card">
         <div class="detail-label">MRR</div>
-        <div class="detail-val" style="color:var(--terra)">RD$${c.mrr.toLocaleString()}</div>
+        <div class="detail-val" style="color:var(--terra)">${fmtMRR(c)}</div>
     ${c.clinicaPadre ? `
     <div class="detail-label" style="margin-top:12px">Sede de</div>
     <div class="detail-val"><code style="font-size:12px">${c.clinicaPadre}</code></div>
@@ -1066,7 +1100,7 @@ function openClinicDetail(id) {
               <div style="font-size:11px;color:var(--muted)">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
             </div>
             <div style="text-align:right">
-              <div style="font-size:14px;font-weight:400;color:var(--topo)">RD$${Number(p.monto||0).toLocaleString()}</div>
+              <div style="font-size:14px;font-weight:400;color:var(--topo)">${p.moneda||'RD$'}${Number(p.monto||0).toLocaleString()}</div>
               <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-top:2px;color:${p.estado==='pagado'?'#4a7a50':p.estado==='pendiente'?'var(--terra)':'var(--muted)'}">${p.estado||'registrado'}</div>
             </div>
           </div>`).join('')
@@ -1084,7 +1118,7 @@ function openClinicDetail(id) {
         </div>
         <div style="text-align:right">
           <div style="font-size:12px;color:var(--muted);margin-bottom:2px">MRR</div>
-          <div style="font-size:18px;font-weight:300;color:var(--terra)">RD$${c.mrr.toLocaleString()}</div>
+          <div style="font-size:18px;font-weight:300;color:var(--terra)">${fmtMRR(c)}</div>
         </div>
       </div>
       ${c.trialHasta ? `<div style="font-size:12px;color:var(--piedra)">Trial vence: <strong>${new Date(c.trialHasta).toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'})}</strong></div>` : ''}
@@ -1158,8 +1192,8 @@ function openEditModal(id) {
       <div class="modal-field">
         <label>Plan</label>
         <select id="edit-plan">
-          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — $990</option>
-          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — RD$1,200</option>
+          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — USD $19/mes</option>
+          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — RD$1,200/mes</option>
         </select>
       </div>
     </div>
@@ -1256,15 +1290,21 @@ function renderNuevaClinica(main) {
           <div class="modal-field">
             <label>Plan</label>
             <select id="new-plan">
-              <option value="clinica">Clínica — RD$1,200</option>
-              <option value="solo">Solo — $990</option>
+              <option value="clinica">Clínica — RD$1,200/mes</option>
+              <option value="solo">Solo — USD $19/mes</option>
             </select>
           </div>
         </div>
 
-        <div class="modal-field">
-          <label>Email del administrador *</label>
-          <input type="email" id="new-email" placeholder="doctor@clinica.com">
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label>Nombre del admin *</label>
+            <input type="text" id="new-admin-nombre" placeholder="Dr. García">
+          </div>
+          <div class="modal-field">
+            <label>Email del administrador *</label>
+            <input type="email" id="new-email" placeholder="doctor@clinica.com">
+          </div>
         </div>
 
         <div class="modal-field">
@@ -1309,7 +1349,7 @@ function updateMRRPreview() {
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
   const mrr = calcMRR(plan, modulos, 1);
   const el = document.getElementById('new-mrr-preview');
-  if (el) el.textContent = 'RD$' + mrr.toLocaleString();
+  if (el) el.textContent = (plan==='solo' ? 'USD $19' : 'RD$' + mrr.toLocaleString());
 }
 
 function autoSlug(val) {
@@ -1323,59 +1363,121 @@ function autoSlug(val) {
 }
 
 async function crearClinica() {
-  const nombre = document.getElementById('new-nombre').value.trim();
-  const id     = document.getElementById('new-id').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
-  const ciudad = document.getElementById('new-ciudad').value.trim();
-  const plan   = document.getElementById('new-plan').value;
-  const email  = document.getElementById('new-email').value.trim();
-  const color  = document.getElementById('new-color').value;
-  const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
+  const nombre      = document.getElementById('new-nombre').value.trim();
+  const id          = document.getElementById('new-id').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
+  const ciudad      = document.getElementById('new-ciudad').value.trim();
+  const plan        = document.getElementById('new-plan').value;
+  const email       = document.getElementById('new-email').value.trim();
+  const adminNombre = document.getElementById('new-admin-nombre').value.trim() || 'Administrador';
+  const color       = document.getElementById('new-color').value;
+  const modulos     = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
 
   if (!nombre || !id || !email) {
     showToast('⚠️ Nombre, ID y email son requeridos');
     return;
   }
 
-  // Check if ID already exists
-  const existing = await db.collection('clinicas').doc(id).get();
-  if (existing.exists) {
-    showToast('⚠️ Ya existe una clínica con ese ID');
-    return;
-  }
+  const btn = document.querySelector('[onclick="crearClinica()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Creando...'; }
 
   try {
+    // Check if ID already exists
+    const existing = await db.collection('clinicas').doc(id).get();
+    if (existing.exists) {
+      showToast('⚠️ Ya existe una clínica con ese ID');
+      if (btn) { btn.disabled = false; btn.textContent = '🏥 Crear clínica'; }
+      return;
+    }
+
+    // Generate a 4-digit PIN and hash it with the clinic ID as salt
+    const pinPlain = String(Math.floor(1000 + Math.random() * 9000));
+    const pinHash  = await adminHashPin(id, pinPlain);
+    const personal = [{
+      id: '1',
+      nombre: adminNombre,
+      tipo: 'regular',
+      password: pinHash,
+      _pwHashed: true,
+      isAdmin: true,
+      canAccessReception: true,
+      email: email,
+    }];
+
     // Create main document
     await db.collection('clinicas').doc(id).set({
-      facturas: [], personal: getDefaultPersonal(nombre),
+      facturas: [], personal,
       gastos: [], avances: [], cuadresDiarios: {},
       citas: [], laboratorios: [], reversiones: [], auditLogs: [],
       pacientes: [], usaSubcollectionPacientes: true,
       lastUpdated: new Date().toISOString(),
-      nombre, ciudad, plan, adminEmail: email, color, modulos
     });
 
-    // Create config
+    // Create config/settings
     await db.collection('clinicas').doc(id)
       .collection('config').doc('settings').set({
         nombre, clinicaId: id, ciudad, plan,
         adminEmail: email, color, modulos,
-        activa: true, trial: true, creadaEn: new Date().toISOString(),
-        trialHasta: getTrial14Days()
+        activa: true, trial: true,
+        creadaEn: new Date().toISOString(),
+        trialHasta: getTrial14Days(),
+        mrr: calcMRR(plan, modulos, 1),
       });
 
-    showToast('✅ Clínica creada exitosamente');
+    // Show success with the PIN so admin can share it
+    showToast('✅ Clínica creada — PIN admin: ' + pinPlain, 8000);
+    setTimeout(() => {
+      document.getElementById('modalTitle').textContent = '✅ Clínica creada';
+      document.getElementById('modalBody').innerHTML = `
+        <div style="text-align:center;padding:16px 0 8px">
+          <div style="font-size:13px;color:var(--piedra);margin-bottom:24px;line-height:1.7">
+            <strong style="color:var(--topo)">${nombre}</strong> está lista.<br>
+            Comparte este PIN con el administrador:
+          </div>
+          <div style="background:rgba(255,255,255,.4);border-radius:16px;padding:28px;
+                      margin-bottom:20px;box-shadow:var(--neu-raised)">
+            <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
+                        color:var(--muted);margin-bottom:12px;font-weight:600">PIN de acceso</div>
+            <div style="font-family:monospace;font-size:40px;letter-spacing:10px;
+                        color:var(--pizarra);font-weight:300">${pinPlain}</div>
+            <div style="font-size:12px;color:var(--piedra);margin-top:10px">
+              Usuario: <strong>${adminNombre}</strong>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">
+            El cliente puede cambiarlo desde Ajustes → Personal
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeModal()">Cerrar</button>
+          <button class="btn-save" onclick="copyToClipboard('${pinPlain}');showToast('✓ PIN copiado')">
+            Copiar PIN
+          </button>
+        </div>`;
+      document.getElementById('modalOverlay').classList.add('open');
+    }, 400);
+
     await loadClinicas();
     showSection('clinicas');
   } catch(e) {
     showToast('❌ Error: ' + e.message);
     console.error(e);
+    if (btn) { btn.disabled = false; btn.textContent = '🏥 Crear clínica'; }
   }
 }
 
+// SHA-256 hash matching app.js verifyPassword logic
+// salt = clinicId (same as CLINIC_PATH in app.js)
+async function adminSha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function adminHashPin(clinicId, pin) {
+  return adminSha256(clinicId + ':' + pin);
+}
+
 function getDefaultPersonal(clinicNombre) {
-  return [
-    { id: '1', nombre: 'Administrador', tipo: 'regular', password: 'admin123', isAdmin: true, canAccessReception: true }
-  ];
+  // Legacy — now crearClinica generates a real hashed PIN
+  return [{ id:'1', nombre:'Administrador', tipo:'regular', password:'1234', isAdmin:true, canAccessReception:true }];
 }
 
 function getTrial14Days() {
@@ -1522,11 +1624,12 @@ function copyToClipboard(text) {
   navigator.clipboard?.writeText(text).then(() => showToast('✓ Link copiado'));
 }
 
-function showToast(msg) {
+function showToast(msg, duration = 3000, bg = null) {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  if (bg) t.style.background = bg; else t.style.background = '';
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  setTimeout(() => t.classList.remove('show'), duration);
 }
 
 // Close modal on Escape
@@ -1648,30 +1751,43 @@ let _errFiltro = 'todos';
 let _errLogs   = [];  // cache local de los logs cargados
 
 async function cargarErrorLogs() {
-  // Leer auditLogs de TODAS las clínicas y filtrar los que son errores
   const errores = [];
+
+  // 1. Leer auditLogs de cada clínica (los errores están embebidos ahí)
   for (const clinica of clinicas) {
     try {
       const doc = await db.collection('clinicas').doc(clinica.id).get();
       if (!doc.exists) continue;
-      const data = doc.data();
-      const logs = data.auditLogs || [];
-      // Filtrar solo entradas de error (las que tienen campo 'error' o tipo 'error')
-      logs.filter(l => l.tipo === 'error' || l.error).forEach(l => {
-        errores.push({ ...l, clinicaId: clinica.id, clinicaNombre: clinica.nombre || clinica.id });
+      const logs = doc.data().auditLogs || [];
+      logs.filter(l => l.tipo === 'error' || l.error || l.codigo).forEach(l => {
+        errores.push({
+          ...l,
+          _docId: null, // embebido — no tiene docId en smile_errors
+          clinicaId:    clinica.id,
+          clinicaNombre: clinica.nombre || clinica.id,
+        });
       });
-    } catch(e) { /* clínica inaccesible, skip */ }
+    } catch(e) { console.warn('[ErrorLog] Skipping', clinica.id, e.message); }
   }
-  // También leer de la colección global smile_errors si existe
-  try {
-    const errSnap = await db.collection('smile_errors').orderBy('fecha', 'desc').limit(200).get();
-    errSnap.docs.forEach(d => {
-      const e = d.data();
-      errores.push({ ...e, _docId: d.id });
-    });
-  } catch(e) { /* colección no existe aún */ }
 
-  // Ordenar por fecha desc
+  // 2. Leer colección global smile_errors (si existe)
+  try {
+    const errSnap = await db.collection('smile_errors')
+      .orderBy('fecha', 'desc').limit(200).get();
+    errSnap.docs.forEach(d => {
+      const data = d.data();
+      // Avoid duplicates: skip if same clinica+fecha+codigo already in list
+      const dup = errores.find(e =>
+        e.clinicaId === data.clinicaId &&
+        e.fecha     === data.fecha &&
+        e.codigo    === data.codigo);
+      if (!dup) errores.push({ ...data, _docId: d.id });
+    });
+  } catch(e) {
+    // colección smile_errors no existe aún — normal en instalaciones nuevas
+    console.info('[ErrorLog] smile_errors no existe aún, mostrando solo auditLogs embebidos');
+  }
+
   errores.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
   _errLogs = errores;
   return errores;
@@ -1783,7 +1899,7 @@ async function renderErrorLog(main) {
       <div class="page-header">
         <div>
           <div class="page-title">Log de Errores</div>
-          <div class="page-sub">Cada error viene con una explicación y pasos para resolverlo</div>
+          <div class="page-sub">Errores de todas las clínicas · con explicación y pasos para resolver</div>
         </div>
         <button class="header-btn" onclick="recargarErrorLog()" style="background:none;box-shadow:var(--neu-flat);border:none;color:var(--piedra)">
           ↻ Actualizar
@@ -1838,17 +1954,34 @@ async function recargarErrorLog() {
 // Actualizar el badge de errores en el nav cuando carga el admin
 async function actualizarErrorBadge() {
   try {
-    const snap = await db.collection('smile_errors')
-      .where('resuelto', '==', false).limit(99).get();
+    // Count errors from smile_errors collection
+    let count = 0;
+    try {
+      const snap = await db.collection('smile_errors')
+        .where('resuelto', '==', false).limit(99).get();
+      count += snap.size;
+    } catch(e) { /* colección no existe — normal */ }
+
+    // Also count unresolved auditLog errors from all clinics
+    for (const cl of clinicas) {
+      try {
+        const doc = await db.collection('clinicas').doc(cl.id).get();
+        if (!doc.exists) continue;
+        const logs = doc.data().auditLogs || [];
+        count += logs.filter(l => (l.tipo==='error'||l.error||l.codigo) && !l.resuelto).length;
+      } catch(e) {}
+      if (count >= 99) break;
+    }
+
     const badge = document.getElementById('errorBadge');
     if (!badge) return;
-    if (snap.size > 0) {
-      badge.textContent = snap.size > 9 ? '9+' : snap.size;
+    if (count > 0) {
+      badge.textContent = count > 9 ? '9+' : count;
       badge.style.display = 'inline-block';
     } else {
       badge.style.display = 'none';
     }
-  } catch(e) { /* colección no existe aún — normal */ }
+  } catch(e) { console.warn('[Badge]', e.message); }
 }
 
 </script>
