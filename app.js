@@ -9161,7 +9161,7 @@ function renderMiPlanTab() {
     });
 
     const plan = clinicConfig.plan || 'clinica';
-    const basePrice = BASE_PRECIOS[plan] || 1200;
+    const basePrice = BASE_PRECIOS[plan] || 23;
     const activosActuales = [...(clinicConfig.modulos || [])];
     const hasta = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
     const diasTrial = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / (1000*60*60*24))) : 0;

@@ -1009,34 +1009,143 @@
         </p>
 
         <div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;">
-            <input id="clinicIdInput" type="text" placeholder="ID de clínica (ej: dr-garcia)"
-                   autocomplete="off" autocorrect="off" autocapitalize="none"
-                   onkeydown="if(event.key==='Enter')accederPorId()"
-                   style="width:100%;padding:16px 20px;border:none;border-radius:14px;
-                          font-size:15px;font-family:inherit;font-weight:300;
-                          background:var(--sand);color:var(--topo);
-                          box-shadow:var(--neu-inset);outline:none;"
-                   onfocus="this.style.boxShadow='var(--neu-inset-lg),0 0 0 2px rgba(125,142,160,.18)'"
-                   onblur="this.style.boxShadow='var(--neu-inset)'">
+
+            <!-- PASO 1: ID de clínica -->
+            <div id="clinicStepId">
+                <input id="clinicIdInput" type="text" placeholder="ID de clínica (ej: dr-garcia)"
+                       autocomplete="off" autocorrect="off" autocapitalize="none"
+                       onkeydown="if(event.key==='Enter')verificarClinicaId()"
+                       style="width:100%;padding:16px 20px;border:none;border-radius:14px;
+                              font-size:15px;font-family:inherit;font-weight:300;
+                              background:var(--sand);color:var(--topo);
+                              box-shadow:var(--neu-inset);outline:none;margin-bottom:12px;"
+                       onfocus="this.style.boxShadow='var(--neu-inset-lg),0 0 0 2px rgba(125,142,160,.18)'"
+                       onblur="this.style.boxShadow='var(--neu-inset)'">
+                <button onclick="verificarClinicaId()"
+                    style="width:100%;padding:15px;border:none;border-radius:14px;
+                           background:linear-gradient(145deg,#8b9eb2,var(--pizarra));
+                           color:white;font-size:11px;font-weight:500;font-family:inherit;
+                           letter-spacing:2px;text-transform:uppercase;cursor:pointer;
+                           box-shadow:var(--neu-pizarra);transition:all .25s;">
+                    Continuar →
+                </button>
+            </div>
+
+            <!-- PASO 2: PIN -->
+            <div id="clinicStepPin" style="display:none;flex-direction:column;gap:12px;">
+                <button onclick="volverAlId()"
+                    style="background:none;border:none;cursor:pointer;font-size:13px;
+                           color:var(--piedra);font-family:inherit;padding:4px 0;
+                           display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                    ← <span id="clinicNombreLabel" style="color:var(--topo)"></span>
+                </button>
+                <div style="display:flex;gap:10px;justify-content:center;margin-bottom:4px;">
+                    <div id="pin1" class="pin-digit"></div>
+                    <div id="pin2" class="pin-digit"></div>
+                    <div id="pin3" class="pin-digit"></div>
+                    <div id="pin4" class="pin-digit"></div>
+                </div>
+                <input id="clinicAccessPass" type="password" inputmode="numeric"
+                       maxlength="4" autocomplete="off"
+                       style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;"
+                       oninput="actualizarPinDisplay(this.value)"
+                       onkeydown="if(event.key==='Enter'&&this.value.length===4)accederPorId()">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;">
+                    <button class="ls-key" onclick="pinKey('1')">1</button>
+                    <button class="ls-key" onclick="pinKey('2')">2</button>
+                    <button class="ls-key" onclick="pinKey('3')">3</button>
+                    <button class="ls-key" onclick="pinKey('4')">4</button>
+                    <button class="ls-key" onclick="pinKey('5')">5</button>
+                    <button class="ls-key" onclick="pinKey('6')">6</button>
+                    <button class="ls-key" onclick="pinKey('7')">7</button>
+                    <button class="ls-key" onclick="pinKey('8')">8</button>
+                    <button class="ls-key" onclick="pinKey('9')">9</button>
+                    <button class="ls-key ls-key-empty" style="visibility:hidden"></button>
+                    <button class="ls-key" onclick="pinKey('0')">0</button>
+                    <button class="ls-key" onclick="pinBackspace()">⌫</button>
+                </div>
+                <button id="clinicAccessBtn" onclick="accederPorId()"
+                    style="width:100%;padding:15px;border:none;border-radius:14px;
+                           background:linear-gradient(145deg,#8b9eb2,var(--pizarra));
+                           color:white;font-size:11px;font-weight:500;font-family:inherit;
+                           letter-spacing:2px;text-transform:uppercase;cursor:pointer;
+                           box-shadow:var(--neu-pizarra);transition:all .25s;margin-top:4px;">
+                    Entrar →
+                </button>
+            </div>
 
             <div id="clinicAccessErr" style="display:none;font-size:13px;color:#c0392b;
                  background:rgba(192,57,43,.07);border-radius:10px;
                  padding:10px 16px;text-align:center;"></div>
-
-            <button id="clinicAccessBtn" onclick="accederPorId()"
-                style="width:100%;padding:15px;border:none;border-radius:14px;
-                       background:linear-gradient(145deg,#8b9eb2,var(--pizarra));
-                       color:white;font-size:11px;font-weight:500;font-family:inherit;
-                       letter-spacing:2px;text-transform:uppercase;cursor:pointer;
-                       box-shadow:var(--neu-pizarra);transition:all .25s;">
-                Entrar →
-            </button>
         </div>
 
         <p style="font-size:11px;color:var(--muted);margin-top:16px;text-align:center;">
             La próxima vez guarda el enlace como favorito para entrar directo.
         </p>
     </div>
+
+    <style>
+    .pin-digit {
+        width:56px;height:68px;background:var(--sand);border-radius:14px;
+        box-shadow:var(--neu-inset);display:flex;align-items:center;
+        justify-content:center;font-size:28px;font-weight:300;color:var(--topo);
+        transition:box-shadow .15s;
+    }
+    .pin-digit.filled { box-shadow:var(--neu-inset-lg),0 0 0 2px rgba(125,142,160,.2); }
+    </style>
+
+    <script>
+    var _pinValue = '';
+    function verificarClinicaId() {
+        var idInput = document.getElementById('clinicIdInput');
+        var errEl   = document.getElementById('clinicAccessErr');
+        var rawId   = (idInput.value || '').toLowerCase()
+            .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
+            .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
+            .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
+            .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-|-$/g,'');
+        if (!rawId) { errEl.textContent='Escribe el ID de tu clínica.'; errEl.style.display='block'; return; }
+        errEl.style.display='none';
+        var proceed = function() {
+            db.collection('clinicas').doc(rawId).get().then(function(doc) {
+                if (!doc.exists) { errEl.textContent='No encontramos una clínica con ese ID.'; errEl.style.display='block'; return; }
+                document.getElementById('clinicNombreLabel').textContent = rawId;
+                document.getElementById('clinicStepId').style.display  = 'none';
+                var pinStep = document.getElementById('clinicStepPin');
+                pinStep.style.display = 'flex';
+                _pinValue=''; actualizarPinDisplay('');
+            }).catch(function() { errEl.textContent='Error de conexión.'; errEl.style.display='block'; });
+        };
+        var auth = firebase.auth();
+        if (!auth.currentUser) { auth.signInAnonymously().then(proceed).catch(proceed); } else { proceed(); }
+    }
+    function volverAlId() {
+        document.getElementById('clinicStepPin').style.display='none';
+        document.getElementById('clinicStepId').style.display='block';
+        document.getElementById('clinicAccessErr').style.display='none';
+        _pinValue=''; actualizarPinDisplay('');
+    }
+    function pinKey(digit) {
+        if (_pinValue.length>=4) return;
+        _pinValue+=digit;
+        document.getElementById('clinicAccessPass').value=_pinValue;
+        actualizarPinDisplay(_pinValue);
+        if (_pinValue.length===4) { setTimeout(function(){ accederPorId(); },120); }
+    }
+    function pinBackspace() {
+        _pinValue=_pinValue.slice(0,-1);
+        document.getElementById('clinicAccessPass').value=_pinValue;
+        actualizarPinDisplay(_pinValue);
+    }
+    function actualizarPinDisplay(val) {
+        _pinValue=val;
+        for (var i=1;i<=4;i++) {
+            var el=document.getElementById('pin'+i);
+            if (val.length>=i) { el.textContent='●'; el.classList.add('filled'); }
+            else { el.textContent=''; el.classList.remove('filled'); }
+        }
+    }
+    </script>
 
     <!-- Hidden legacy inputs (app.js compatibility) -->
     <select id="loginUsername"      style="display:none"></select>
@@ -1082,7 +1191,7 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px;">
                     <div class="dash-stat" style="background: linear-gradient(135deg, #3a9e5f 0%, #2d7a4a 100%);">
                         <div style="font-size: 11px; opacity: 0.7; margin-bottom: 10px; letter-spacing: 1px; text-transform: uppercase;">Ingresos Hoy</div>
-                        <div id="dashIngresosHoy" style="font-size: 28px; font-weight: 200; margin-bottom: 6px; letter-spacing: -1px;">RD$ 0</div>
+                        <div id="dashIngresosHoy" style="font-size: 28px; font-weight: 200; margin-bottom: 6px; letter-spacing: -1px;">— </div>
                         <div id="dashIngresosComparacion" style="font-size: 12px; opacity: 0.8;"></div>
                     </div>
                     <div class="dash-stat" style="background: var(--clinic-color);">
@@ -1092,7 +1201,7 @@
                     </div>
                     <div class="dash-stat" style="background: linear-gradient(135deg, #C4856A 0%, #A06448 100%);">
                         <div style="font-size: 11px; opacity: 0.7; margin-bottom: 10px; letter-spacing: 1px; text-transform: uppercase;">Por Cobrar</div>
-                        <div id="dashPorCobrar" style="font-size: 28px; font-weight: 200; margin-bottom: 6px; letter-spacing: -1px;">RD$ 0</div>
+                        <div id="dashPorCobrar" style="font-size: 28px; font-weight: 200; margin-bottom: 6px; letter-spacing: -1px;">— </div>
                         <div id="dashFacturasPendientes" style="font-size: 12px; opacity: 0.8;"></div>
                     </div>
                     <div class="dash-stat" style="background: linear-gradient(135deg, #7B8FA1 0%, #5A7080 100%);">
@@ -1235,19 +1344,19 @@
                 <div class="stat-grid">
                     <div class="stat-card">
                         <div class="stat-label">Ingresos Hoy</div>
-                        <div class="stat-value" id="ingresosHoy">RD$ 0</div>
+                        <div class="stat-value" id="ingresosHoy">— </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Comisiones Hoy</div>
-                        <div class="stat-value green" id="comisionesHoy">RD$ 0</div>
+                        <div class="stat-value green" id="comisionesHoy">— </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Comisiones Acumuladas</div>
-                        <div class="stat-value orange" id="comisionesAcum">RD$ 0</div>
+                        <div class="stat-value orange" id="comisionesAcum">— </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Por Cobrar</div>
-                        <div class="stat-value red" id="porCobrar">RD$ 0</div>
+                        <div class="stat-value red" id="porCobrar">— </div>
                     </div>
                 </div>
                 <div class="section-title" style="margin-bottom:16px">Ingresos</div>
@@ -1266,7 +1375,7 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Cobrado Hoy</div>
-                        <div class="stat-value green" id="cobradoHoy">RD$ 0</div>
+                        <div class="stat-value green" id="cobradoHoy">— </div>
                     </div>
                 </div>
 
@@ -1328,11 +1437,11 @@
                     <div style="margin-bottom: 10px; display: flex; justify-content: space-between;"><span>💵 Gastos en Efectivo</span><strong style="color: #ff9500;" id="gastosEfectivoHoy">RD$ 0</strong></div>
                     <div style="margin: 20px 0; padding: 20px; background: var(--sand); border-radius: var(--radius-md);">
                         <div style="font-size: 16px; font-weight: 400; margin-bottom: 10px;">Balance del Día</div>
-                        <div style="font-size: 32px; font-weight: 400; color: #34c759;" id="balanceDia">RD$ 0</div>
+                        <div style="font-size: 32px; font-weight: 400; color: #34c759;" id="balanceDia">— </div>
                     </div>
                     <div style="padding: 15px; background: rgba(0, 35, 102, 0.1); border-radius: var(--radius-md);">
                         <div style="font-weight: 400; margin-bottom: 5px; color: var(--clinic-color);">Efectivo Esperado en Caja</div>
-                        <div style="font-size: 24px; font-weight: 400; color: var(--clinic-color);" id="efectivoCaja">RD$ 0</div>
+                        <div style="font-size: 24px; font-weight: 400; color: var(--clinic-color);" id="efectivoCaja">— </div>
                     </div>
                     <div id="detalleTransacciones" style="margin-top: 30px; display: none;">
                         <h3 style="color: var(--clinic-color); margin-bottom: 15px;">📝 Detalle de Transacciones</h3>

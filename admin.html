@@ -138,7 +138,7 @@
   .sidebar-nav { flex: 1; }
   .nav-item {
     display: flex; align-items: center; gap: 11px;
-    padding: 11px 28px; font-size: 13px; color: var(--muted);
+    padding: 11px 28px; font-size: 13px; color: var(--piedra);
     cursor: pointer; transition: all .2s;
     border-left: 2px solid transparent;
   }
@@ -154,7 +154,7 @@
     border-top: 1px solid rgba(168,159,150,.25);
     margin-top: 16px;
   }
-  .sidebar-version { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .sidebar-version { font-size: 10px; color: var(--piedra); letter-spacing: 1px; }
   .logout-btn {
     font-size: 12px; color: var(--piedra); background: none; border: none;
     font-family: inherit; cursor: pointer; padding: 8px 0;
@@ -195,7 +195,7 @@
   }
   .tab-btn {
     padding: 9px 20px; border-radius: 100px; font-size: 12px;
-    color: var(--muted); cursor: pointer; border: none;
+    color: var(--piedra); cursor: pointer; border: none;
     background: none; font-family: inherit; transition: all .2s;
   }
   .tab-btn.active { background: var(--sand); color: var(--topo); box-shadow: var(--neu-raised); }
@@ -211,7 +211,7 @@
   }
   .stat-card:hover { box-shadow: var(--neu-raised-lg); transform: translateY(-2px); }
   .stat-accent { width: 28px; height: 3px; border-radius: 2px; margin-bottom: 14px; }
-  .stat-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .stat-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--piedra); margin-bottom: 12px; }
   .stat-val { font-size: 32px; font-weight: 200; letter-spacing: -1px; color: var(--topo); margin-bottom: 6px; }
   .stat-sub { font-size: 11px; color: var(--piedra); }
 
@@ -226,7 +226,7 @@
     display: grid;
     grid-template-columns: 2fr 1fr 1fr 1.2fr 1fr 80px;
     padding: 14px 24px; font-size: 9px; letter-spacing: 3px;
-    text-transform: uppercase; color: var(--muted);
+    text-transform: uppercase; color: var(--piedra);
     border-bottom: 1px solid rgba(255,255,255,.8);
   }
   .clinic-row {
@@ -239,7 +239,7 @@
   .clinic-row:hover { background: rgba(255,255,255,.5); }
 
   .clinic-name { font-size: 14px; font-weight: 400; color: var(--topo); }
-  .clinic-id   { font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; font-family: monospace; }
+  .clinic-id   { font-size: 10px; color: var(--piedra); margin-top: 2px; letter-spacing: 1px; font-family: monospace; }
 
   /* ══ BADGES ═══════════════════════════════════════ */
   .badge {
@@ -273,7 +273,7 @@
   .empty-icon  { font-size: 36px; margin-bottom: 14px; }
   .empty-title { font-size: 17px; font-weight: 300; margin-bottom: 6px; color: var(--topo); }
   .empty-sub   { font-size: 13px; }
-  .loading-row { padding: 48px; text-align: center; color: var(--muted); font-size: 12px; letter-spacing: 2px; }
+  .loading-row { padding: 48px; text-align: center; color: var(--piedra); font-size: 12px; letter-spacing: 2px; }
 
   /* ══ MODAL ════════════════════════════════════════ */
   .modal-overlay {
@@ -365,7 +365,7 @@
   /* ══ DETAIL VIEW ══════════════════════════════════ */
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
   .detail-card { background: var(--sand); border-radius: var(--radius-sm); padding: 16px 18px; box-shadow: var(--neu-inset); }
-  .detail-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+  .detail-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--piedra); margin-bottom: 5px; font-weight: 600; }
   .detail-val   { font-size: 15px; color: var(--topo); font-weight: 400; }
 
   .link-card {
@@ -425,7 +425,7 @@
 
   .error-section-title {
     font-size: 9px; font-weight: 700; letter-spacing: 2px;
-    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    text-transform: uppercase; color: var(--piedra); margin-bottom: 8px;
   }
   .error-explanation { font-size: 13px; color: var(--topo); line-height: 1.7; margin-bottom: 14px; }
 
@@ -873,9 +873,9 @@ function renderOverview(main) {
         </div>
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--rosa)"></div>
-          <div class="stat-label">ARR proyectado (RD$)</div>
+          <div class="stat-label">ARR proyectado (USD)</div>
           <div class="stat-val">USD $${(clinicas.filter(c=>c.activa&&!c.trial).reduce((s,c)=>s+c.mrr,0)*12).toFixed(0)}</div>
-          <div class="stat-sub">Solo clínicas activas RD$</div>
+          <div class="stat-sub">Solo clínicas activas</div>
         </div>
       </div>
 
@@ -1049,7 +1049,7 @@ function openClinicDetail(id) {
       </div>`;
     })()}
 
-    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-weight:600">Módulos activos</div>
+    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--piedra);margin-bottom:10px;font-weight:600">Módulos activos</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px">
       ${c.modulos.length ? c.modulos.map(m => `<span style="background:var(--sand);padding:6px 14px;border-radius:8px;font-size:12px;color:var(--piedra)">${m}</span>`).join('') : '<span style="font-size:13px;color:var(--muted)">Sin módulos adicionales</span>'}
     </div>
@@ -1071,7 +1071,7 @@ function openClinicDetail(id) {
     </div>
 
     <!-- SECCIÓN: HISTORIAL DE PAGOS -->
-    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-weight:600">Historial de pagos</div>
+    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--piedra);margin-bottom:10px;font-weight:600">Historial de pagos</div>
     <div style="background:rgba(255,255,255,.45);border-radius:14px;padding:${(c.raw?.config?.pagosSuscripcion||[]).length ? '4px 16px' : '20px'};margin-bottom:24px;text-align:${(c.raw?.config?.pagosSuscripcion||[]).length ? 'left' : 'center'}">
       ${(c.raw?.config?.pagosSuscripcion||[]).length
         ? [...(c.raw.config.pagosSuscripcion)].reverse().map(p => `
@@ -1090,15 +1090,15 @@ function openClinicDetail(id) {
     </div>
 
     <!-- SECCIÓN: GESTIÓN SUSCRIPCIÓN -->
-    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-weight:600">Gestión de suscripción</div>
+    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--piedra);margin-bottom:10px;font-weight:600">Gestión de suscripción</div>
     <div style="background:rgba(255,255,255,.45);border-radius:14px;padding:16px 20px;margin-bottom:24px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:2px">Estado</div>
+          <div style="font-size:12px;color:var(--piedra);margin-bottom:2px">Estado</div>
           <div style="font-size:14px;color:var(--topo)">${c.exonerada ? '🟢 Exonerada' : c.trial ? '🟡 En trial' : c.activa ? '🟢 Suscripción activa' : '🔴 Inactiva'}</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:2px">MRR</div>
+          <div style="font-size:12px;color:var(--piedra);margin-bottom:2px">MRR</div>
           <div style="font-size:18px;font-weight:300;color:var(--terra)">${fmtMRR(c)}</div>
         </div>
       </div>
@@ -1106,7 +1106,7 @@ function openClinicDetail(id) {
       ${c.raw?.config?.proximoPago ? `<div style="font-size:12px;color:var(--piedra);margin-top:4px">Próximo cobro: <strong>${new Date(c.raw.config.proximoPago).toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'})}</strong></div>` : ''}
     </div>
 
-        <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-weight:600">Acceso directo</div>
+        <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--piedra);margin-bottom:10px;font-weight:600">Acceso directo</div>
     <div class="link-card" onclick="copyToClipboard('${appUrl}')">
       <div class="link-url">${appUrl}</div>
       <div class="link-copy">Copiar link</div>
@@ -1174,7 +1174,7 @@ function openEditModal(id) {
         <label>Plan</label>
         <select id="edit-plan">
           <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — USD $19/mes</option>
-          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — RD$1,200/mes</option>
+          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — USD $23/mes</option>
         </select>
       </div>
     </div>
@@ -1271,7 +1271,7 @@ function renderNuevaClinica(main) {
           <div class="modal-field">
             <label>Plan</label>
             <select id="new-plan">
-              <option value="clinica">Clínica — RD$1,200/mes</option>
+              <option value="clinica">Clínica — USD $23/mes</option>
               <option value="solo">Solo — USD $19/mes</option>
             </select>
           </div>
@@ -1308,7 +1308,7 @@ function renderNuevaClinica(main) {
 
         <div style="background:var(--sand);border-radius:16px;padding:20px 24px;margin-bottom:24px;box-shadow:var(--neu-raised)">
           <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--piedra);margin-bottom:8px">MRR estimado</div>
-          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">RD$1,200</div>
+          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">USD $23</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px">/ mes</div>
         </div>
 
