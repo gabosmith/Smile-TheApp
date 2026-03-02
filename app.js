@@ -92,7 +92,7 @@ let clinicConfig = {
     activa: true,
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
-    moneda:   'RD$',     // símbolo de moneda — configurable por país
+    moneda:   'USD $',     // símbolo de moneda — configurable por país
     locale:   'es-419',      // locale para fechas y números
     pais:     'República Dominicana',
 };
@@ -127,7 +127,7 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda              = cfg.moneda              || 'RD$';
+        clinicConfig.moneda              = cfg.moneda              || 'USD $';
         clinicConfig.locale              = cfg.locale              || getLocale();
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
@@ -1595,7 +1595,7 @@ function showTab(tabName) {
 
 // Currency format
 function formatCurrency(amount) {
-    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
+    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'USD $';
     const locale  = (typeof clinicConfig !== 'undefined' && clinicConfig.locale)  ? clinicConfig.locale  : getLocale();
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
@@ -9182,13 +9182,13 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // ═══════════════════════════════════════════════
 
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',              precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',          precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 5,   soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',              precio: 5,   soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',          precio: 5,   soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 5,   soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 15,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
-const BASE_PRECIOS = { clinica: 1200, solo: 990 };
+const BASE_PRECIOS = { clinica: 23, solo: 19 };
 
 function renderMiPlanTab() {
     // Deactivate other tabs, activate miplan
@@ -9276,7 +9276,7 @@ function renderMiPlanTab() {
                     <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
                 </div>
                 <div style="text-align:right">
-                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">${clinicConfig.moneda || "RD$"}${basePrice.toLocaleString()}</div>
+                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">USD $${basePrice}</div>
                     <div style="font-size:10px;color:var(--light)">/mes</div>
                 </div>
             </div>
@@ -9294,7 +9294,7 @@ function renderMiPlanTab() {
         <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
-                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${clinicConfig.moneda || "RD$"}${calcTotal().toLocaleString()}</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">USD $${calcTotal()}</div>
             </div>
             <button onclick="guardarCambiosPlan()" style="
                 width:100%;padding:14px;background:var(--clinic-color);color:white;
@@ -9306,7 +9306,7 @@ function renderMiPlanTab() {
                 Guardar cambios
             </button>
             <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
-                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica a partir del próximo ciclo de cobro.<br>Contacta a SMILE por WhatsApp para coordinar el pago.
+                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica a partir del próximo ciclo de cobro.<br>Contacta a SMILE por WhatsApp para coordinar el pago en USD.
             </div>
         </div>
     `;
@@ -9332,7 +9332,7 @@ function togglePlanModulo(key) {
     document.getElementById('miplan-modulos').innerHTML =
         MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(clinicConfig.plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
     document.getElementById('miplan-total').textContent =
-        (clinicConfig.moneda || 'RD$') + tab._calcTotal().toLocaleString();
+        'USD $' + tab._calcTotal();
 }
 
 async function guardarCambiosPlan() {

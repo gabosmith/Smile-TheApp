@@ -698,22 +698,18 @@ async function loadClinicas() {
 }
 
 function calcMRR(plan, modulos = [], personalCount = 0) {
-  // Solo = USD fijo, Clínica = RD$
-  if (plan === 'solo') return 19; // USD — sin módulos extra en plan Solo
-  const BASE = 1200; // RD$
+  const BASE = plan === 'solo' ? 19 : 23; // USD
   const MODULE_PRICES = {
-    laboratorio: 300, nomina: 300, inventario: 300,
-    reportes: 300, multisucursal: 800, expediente: 0,
+    laboratorio: 5, nomina: 5, inventario: 5,
+    reportes: 5, multisucursal: 15, expediente: 0,
   };
   const extraUsers   = Math.max(0, personalCount - 1);
   const modulesTotal = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
-  return BASE + modulesTotal + (extraUsers * 150);
+  return BASE + modulesTotal + (extraUsers * 2.5);
 }
 
 function fmtMRR(c) {
-  // Format MRR with correct currency
-  if (c.plan === 'solo') return 'USD $' + c.mrr;
-  return 'RD$' + c.mrr.toLocaleString();
+  return 'USD $' + (c.mrr % 1 === 0 ? c.mrr : c.mrr.toFixed(2));
 }
 
 // ── SECTIONS ──────────────────────────────────────────
@@ -859,8 +855,8 @@ function renderOverview(main) {
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--terra)"></div>
-          <div class="stat-label">MRR (RD$)</div>
-          <div class="stat-val">RD$${clinicas.filter(c=>c.activa&&!c.trial&&c.plan!=='solo').reduce((s,c)=>s+c.mrr,0).toLocaleString()}</div>
+          <div class="stat-label">MRR (USD)</div>
+          <div class="stat-val">USD $${clinicas.filter(c=>c.activa&&!c.trial).reduce((s,c)=>s+c.mrr,0).toFixed(0)}</div>
           <div class="stat-sub">${activas.length} activas · ${trials.length} en trial</div>
         </div>
         <div class="stat-card">
@@ -878,7 +874,7 @@ function renderOverview(main) {
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--rosa)"></div>
           <div class="stat-label">ARR proyectado (RD$)</div>
-          <div class="stat-val">RD$${(clinicas.filter(c=>c.activa&&!c.trial&&c.plan!=='solo').reduce((s,c)=>s+c.mrr,0)*12).toLocaleString()}</div>
+          <div class="stat-val">USD $${(clinicas.filter(c=>c.activa&&!c.trial).reduce((s,c)=>s+c.mrr,0)*12).toFixed(0)}</div>
           <div class="stat-sub">Solo clínicas activas RD$</div>
         </div>
       </div>
@@ -1334,7 +1330,7 @@ function updateMRRPreview() {
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
   const mrr = calcMRR(plan, modulos, 1);
   const el = document.getElementById('new-mrr-preview');
-  if (el) el.textContent = (plan==='solo' ? 'USD $19' : 'RD$' + mrr.toLocaleString());
+  if (el) el.textContent = 'USD $' + mrr;
 }
 
 function autoSlug(val) {
