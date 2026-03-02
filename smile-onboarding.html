@@ -4,30 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SMILE.app — Registro</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;1,200&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <style>
   :root {
-    --bg:       #EEEAE4;
-    --sand:     #EEEAE4;
-    --surface:  #F5F2EE;
-    --white:    #FDFCFB;
-    --dark:     #1E1C1A;
-    --mid:      #6B635C;
-    --light:    #A89F96;
-    --muted:    #C8C2BB;
-    --terracota:#C4856A;
-    --terra:    #C4856A;
-    --terra-dk: #A06448;
-    --terra-lt: #DBA98E;
-    --rosa:     #EAC0B2;
-    --rose:     #EAC0B2;
-    --azul:     #7D8EA0;
-    --slate:    #7D8EA0;
-    --green:    #6B8F71;
-    --line:     rgba(30,28,26,0.08);
+    --bg: #EEEAE4;
+    --surface: #F5F2EE;
+    --white: #FDFCFB;
+    --dark: #1E1C1A;
+    --mid: #9C9189;
+    --light: #CEC8C0;
+    --terracota: #C4856A;
+    --rosa: #E8C4B8;
+    --azul: #7B8FA1;
     --clinic-color: #C4856A;
   }
 
@@ -53,8 +44,7 @@
 
   /* ── LEFT PANEL ── */
   .left-panel {
-    background: var(--surface);
-    border-right: 1px solid var(--line);
+    background: var(--dark);
     padding: 48px;
     display: flex;
     flex-direction: column;
@@ -64,11 +54,10 @@
   }
 
   .logo {
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 6px;
-    color: var(--dark);
-    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 7px;
+    color: var(--surface);
     margin-bottom: auto;
   }
 
@@ -217,12 +206,12 @@
   .step-ind-dot {
     width: 24px; height: 24px;
     border-radius: 50%;
-    border: 1.5px solid var(--muted);
+    border: 1.5px solid #4A4440;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 10px;
-    color: var(--light);
+    color: #4A4440;
     flex-shrink: 0;
     transition: all 0.3s;
   }
@@ -234,13 +223,13 @@
   }
 
   .step-ind.done .step-ind-dot {
-    background: rgba(196,133,106,0.12);
-    border-color: rgba(196,133,106,0.3);
+    background: #2C2A28;
+    border-color: #3A3836;
     color: var(--terracota);
   }
 
-  .step-ind-label { font-size: 12px; color: var(--light); }
-  .step-ind.active .step-ind-label { color: var(--dark); font-weight: 500; }
+  .step-ind-label { font-size: 12px; color: #6B635C; }
+  .step-ind.active .step-ind-label { color: var(--surface); }
 
   /* ── RIGHT PANEL ── */
   .right-panel {
@@ -760,29 +749,27 @@
     align-items: center;
     justify-content: space-between;
     padding: 18px 20px 14px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
+    background: var(--dark);
     position: sticky;
     top: 0;
     z-index: 10;
   }
   .mobile-header-logo {
-    font-size: 9px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
     letter-spacing: 6px;
-    text-transform: uppercase;
-    color: var(--dark);
+    color: var(--surface);
   }
   .mobile-header-step {
     font-size: 11px;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--light);
+    color: #6B635C;
   }
   .mobile-progress {
     display: none;
     height: 2px;
-    background: var(--line);
+    background: #2C2A28;
   }
   .mobile-progress-fill {
     height: 100%;
@@ -858,21 +845,269 @@
     .right-panel { padding: 22px 16px calc(28px + env(safe-area-inset-bottom)); }
     .step-title { font-size: 26px; }
     .btn-next, .btn-activate { width: 100%; text-align: center; }
+    .plan-cards { grid-template-columns: 1fr; }
+  }
+
+  /* ── STEP 0: PLAN SELECTOR ── */
+  .step-0-wrap {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 48px 56px;
+    animation: stepIn 0.5s ease forwards;
+  }
+
+  .step-0-logo {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 7px;
+    color: var(--mid);
+    margin-bottom: 60px;
+  }
+
+  .step-0-title {
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 200;
+    letter-spacing: -1.5px;
+    color: var(--dark);
+    line-height: 1.05;
+    margin-bottom: 12px;
+  }
+
+  .step-0-sub {
+    font-size: 15px;
+    color: var(--mid);
+    line-height: 1.7;
+    margin-bottom: 48px;
+    max-width: 420px;
+  }
+
+  .plan-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    max-width: 580px;
+  }
+
+  .plan-card {
+    background: var(--white);
+    border: 2px solid transparent;
+    border-radius: 20px;
+    padding: 32px 28px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34,1.2,0.64,1);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .plan-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    background: var(--terracota);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+
+  .plan-card:hover {
+    border-color: var(--light);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+
+  .plan-card.selected {
+    border-color: var(--terracota);
+    background: rgba(196,133,106,0.04);
+  }
+
+  .plan-card-icon {
+    font-size: 32px;
+    margin-bottom: 18px;
+    display: block;
+  }
+
+  .plan-card-title {
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--dark);
+    margin-bottom: 6px;
+  }
+
+  .plan-card-sub {
+    font-size: 13px;
+    color: var(--mid);
+    line-height: 1.65;
+    margin-bottom: 20px;
+  }
+
+  .plan-card-price {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--terracota);
+    letter-spacing: 0.3px;
+  }
+
+  .plan-card-steps {
+    display: flex;
+    gap: 5px;
+    margin-top: 16px;
+  }
+
+  .plan-step-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--light);
+    transition: background 0.2s;
+  }
+
+  .plan-card.selected .plan-step-dot,
+  .plan-card:hover .plan-step-dot {
+    background: var(--terracota);
+  }
+
+  .plan-card-badge {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: var(--terracota);
+    color: white;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+  }
+
+  .step-0-cta {
+    margin-top: 36px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .btn-plan {
+    background: var(--dark);
+    color: var(--white);
+    border: none;
+    padding: 16px 36px;
+    border-radius: 100px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 16px rgba(30,28,26,0.18);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  .btn-plan.ready {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .btn-plan.ready:hover {
+    background: var(--terracota);
+    box-shadow: 0 6px 24px rgba(196,133,106,0.3);
+  }
+
+  .step-0-note {
+    font-size: 12px;
+    color: var(--light);
+    letter-spacing: 0.3px;
+  }
+
+  /* Hide onboarding shell when on step-0 */
+  .onboarding.at-step-0 {
+    display: none;
+  }
+
+  @media (max-width: 680px) {
+    .step-0-wrap {
+      padding: 36px 24px calc(40px + env(safe-area-inset-bottom));
+      min-height: 100vh;
+      justify-content: flex-start;
+    }
+    .step-0-logo { margin-bottom: 40px; font-size: 11px; }
+    .step-0-title { font-size: clamp(28px, 9vw, 38px); margin-bottom: 10px; }
+    .step-0-sub { font-size: 14px; margin-bottom: 32px; }
+    .plan-cards { grid-template-columns: 1fr; gap: 12px; max-width: 100%; }
+    .plan-card { padding: 26px 22px; }
+    .plan-card-icon { font-size: 28px; margin-bottom: 14px; }
+    .plan-card-title { font-size: 17px; }
+    .btn-plan { width: 100%; text-align: center; padding: 16px 24px; }
+    .step-0-cta { flex-direction: column; align-items: stretch; gap: 12px; }
   }
 </style>
 </head>
 <body>
 
+<!-- ═══ STEP 0: PLAN SELECTOR ═══════════════════════════ -->
+<div id="step0Screen" class="step-0-wrap">
+  <div class="step-0-logo">SMILE</div>
+
+  <div class="step-0-title">¿Cómo trabajas<br>en tu clínica?</div>
+  <p class="step-0-sub">Cuéntanos un poco para mostrarte solo lo que necesitas. Puedes cambiar tu plan en cualquier momento.</p>
+
+  <div class="plan-cards">
+
+    <!-- SOLO -->
+    <div class="plan-card" id="planCardSolo" onclick="selectPlan('solo')">
+      <div class="plan-card-badge">Más simple</div>
+      <span class="plan-card-icon">🦷</span>
+      <div class="plan-card-title">Trabajo solo</div>
+      <div class="plan-card-sub">Soy el único dentista de mi clínica, con o sin recepción.</div>
+      <div class="plan-card-price">$19 USD / mes</div>
+      <div class="plan-card-steps">
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+      </div>
+      <div style="font-size:11px;color:var(--light);margin-top:6px">4 pasos · 3 minutos</div>
+    </div>
+
+    <!-- CLÍNICA -->
+    <div class="plan-card" id="planCardClinica" onclick="selectPlan('clinica')">
+      <span class="plan-card-icon">🏥</span>
+      <div class="plan-card-title">Tengo un equipo</div>
+      <div class="plan-card-sub">Trabajo con otros dentistas, recepción o asistentes.</div>
+      <div class="plan-card-price">Desde $23 USD / mes</div>
+      <div class="plan-card-steps">
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+        <div class="plan-step-dot"></div>
+      </div>
+      <div style="font-size:11px;color:var(--light);margin-top:6px">7 pasos · 5 minutos</div>
+    </div>
+
+  </div>
+
+  <div class="step-0-cta">
+    <button class="btn-plan" id="btnStartPlan" onclick="startOnboarding()">Continuar →</button>
+    <span class="step-0-note">14 días gratis · Sin tarjeta de crédito</span>
+  </div>
+</div>
+
 <!-- MOBILE HEADER -->
 <div class="mobile-header" id="mobileHeader">
   <div class="mobile-header-logo">SMILE</div>
-  <div class="mobile-header-step" id="mobileStepLabel">Paso 1 de 7</div>
+  <div class="mobile-header-step" id="mobileStepLabel">Paso 1 de 4</div>
 </div>
 <div class="mobile-progress">
   <div class="mobile-progress-fill" id="mobileProgressFill" style="width:14%"></div>
 </div>
 
-<div class="onboarding">
+<div class="onboarding at-step-0" id="onboardingShell">
 
   <!-- ── LEFT PANEL ── -->
   <div class="left-panel">
@@ -971,7 +1206,7 @@
 
     <!-- ── STEP 1: CLÍNICA ── -->
     <div class="step active" id="step-1">
-      <div class="step-eyebrow">Paso 1 de 7</div>
+      <div class="step-eyebrow" id="eyebrow-1">Paso 1</div>
       <div class="step-title">Cuéntanos sobre<br>tu clínica.</div>
       <div class="step-sub">Esta información aparecerá en tu app y en los documentos de tus pacientes.</div>
 
@@ -1076,7 +1311,7 @@
 
     <!-- ── STEP 2: IDENTIDAD ── -->
     <div class="step" id="step-2">
-      <div class="step-eyebrow">Paso 2 de 7</div>
+      <div class="step-eyebrow" id="eyebrow-2">Paso 2</div>
       <div class="step-title">Identidad<br>visual.</div>
       <div class="step-sub">El logo y los colores de tu clínica aparecerán en toda la app y en los documentos.</div>
 
@@ -1166,7 +1401,7 @@
 
       <div class="counter-row">
         <div>
-          <div class="counter-label">Empleados</div>
+          <div class="counter-label">Asistentes</div>
           <div class="counter-sub">Acceso limitado según rol asignado</div>
         </div>
         <div class="counter-controls">
@@ -1186,38 +1421,38 @@
     <div class="step" id="step-4">
       <div class="step-eyebrow">Paso 4 de 7</div>
       <div class="step-title">¿Qué necesita<br>tu clínica?</div>
-      <div class="step-sub">Agrega los módulos que necesites. El expediente clínico está incluido en el plan base. Puedes cambiarlos en cualquier momento.</div>
+      <div class="step-sub">Agrega los módulos que necesites. NCF · DGII y expediente clínico van incluidos en el plan base. Puedes cambiarlos en cualquier momento.</div>
 
       <div class="modules-mini" id="modulesMini">
-        <div class="module-mini" data-price="5" data-name="Laboratorio" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="300" data-name="Laboratorio" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--terracota)"></div>
           <div class="module-mini-name">Laboratorio</div>
-          <div class="module-mini-price">+$5 USD</div>
+          <div class="module-mini-price">+RD$300</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="5" data-name="Nómina" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="300" data-name="Nómina" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--azul)"></div>
           <div class="module-mini-name">Nómina</div>
-          <div class="module-mini-price">+$5 USD</div>
+          <div class="module-mini-price">+RD$300</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="5" data-name="Inventario" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="300" data-name="Inventario" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--rosa)"></div>
           <div class="module-mini-name">Inventario</div>
-          <div class="module-mini-price">+$5 USD</div>
+          <div class="module-mini-price">+RD$300</div>
           <div class="module-mini-check">✓</div>
         </div>
 
-        <div class="module-mini" data-price="5" data-name="Reportes avanzados" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="300" data-name="Reportes avanzados" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--terracota)"></div>
           <div class="module-mini-name">Reportes avanzados</div>
-          <div class="module-mini-price">+$5 USD</div>
+          <div class="module-mini-price">+RD$300</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="15" data-name="Sucursal adicional" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="800" data-name="Sucursal adicional" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--azul)"></div>
           <div class="module-mini-name">Sucursal adicional</div>
-          <div class="module-mini-price">+$15 USD</div>
+          <div class="module-mini-price">+RD$800</div>
           <div class="module-mini-check">✓</div>
         </div>
 
@@ -1226,16 +1461,16 @@
       <div class="summary-box">
         <div class="summary-row">
           <span>Plan base</span>
-          <span>$23 USD</span>
+          <span>RD$1,200</span>
         </div>
         <div id="module-summary-rows"></div>
         <div class="summary-row">
           <span>Usuarios adicionales (<span id="extra-users-count">0</span>)</span>
-          <span id="extra-users-price">$0 USD</span>
+          <span id="extra-users-price">RD$0</span>
         </div>
         <div class="summary-total">
           <span>Total mensual</span>
-          <span id="step4-total">$23 USD</span>
+          <span id="step4-total">RD$1,200</span>
         </div>
       </div>
 
@@ -1247,7 +1482,7 @@
 
     <!-- ── STEP 5: PROCEDIMIENTOS ── -->
     <div class="step" id="step-6">
-      <div class="step-eyebrow">Paso 6 de 7</div>
+      <div class="step-eyebrow" id="eyebrow-6">Paso 6</div>
       <div class="step-title">Precios de<br>procedimientos.</div>
       <div class="step-sub">¿Cómo quieres manejar los precios en las facturas?</div>
 
@@ -1284,7 +1519,7 @@
 
     <!-- ── STEP 5: WHATSAPP ── -->
     <div class="step" id="step-5">
-      <div class="step-eyebrow">Paso 5 de 7</div>
+      <div class="step-eyebrow" id="eyebrow-5">Paso 5 de 7</div>
       <div class="step-title">Contacto<br>de WhatsApp.</div>
       <div class="step-sub">Para soporte, novedades y comunicación directa. Solo lo usamos para ayudarte.</div>
 
@@ -1358,6 +1593,37 @@
       </div>
     </div>
 
+    <!-- ── STEP SOLO SUMMARY ── -->
+    <div class="step" id="step-solo-summary">
+      <div class="step-eyebrow" id="eyebrow-solo-summary">Paso 4 de 4</div>
+      <div class="step-title">Todo listo.<br>Revisa y activa.</div>
+      <div class="step-sub">Plan Solo — un dentista, todo incluido.</div>
+
+      <div class="summary-box" id="solo-final-summary"></div>
+
+      <!-- Plan Solo highlight -->
+      <div style="margin-top:16px;background:rgba(196,133,106,0.06);border:1.5px solid rgba(196,133,106,0.2);
+                  border-radius:16px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:4px">Plan Solo</div>
+          <div style="font-size:13px;color:var(--mid);line-height:1.6">1 usuario · Pacientes ilimitados<br>Agenda · Cobros · Expediente clínico</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--dark)">$19</div>
+          <div style="font-size:11px;color:var(--mid)">USD / mes</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;font-size:12px;color:var(--light);text-align:center">
+        14 días gratis · Sin tarjeta · Cancela cuando quieras
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goBack('solo-summary')">← Atrás</button>
+        <button class="btn-activate" id="btn-activate" onclick="activateClinic()">Activar mi clínica →</button>
+      </div>
+    </div>
+
     <div class="success-screen" id="success">
       <div class="success-icon">🦷</div>
       <div class="success-title">¡Tu clínica está lista!</div>
@@ -1385,13 +1651,14 @@
 <script>
 // ─── STATE ────────────────────────────────────────────
 const state = {
+  plan: null,          // 'solo' | 'clinica'
   currentStep: 1,
   clinicName: '',
   subdomain: '',
   ciudad: '',
   pais: '',
-  moneda: 'RD$', // moneda para facturas a pacientes (no es el precio de SMILE)
-  locale: 'es-419',
+  moneda: 'RD$',
+  locale: 'es-DO',
   adminName: '',
   adminEmail: '',
   color: '#C4856A',
@@ -1417,56 +1684,164 @@ const state = {
   ],
 };
 
+// ─── PLAN SELECTION ───────────────────────────────────
+function selectPlan(plan) {
+  state.plan = plan;
+  document.getElementById('planCardSolo').classList.toggle('selected', plan === 'solo');
+  document.getElementById('planCardClinica').classList.toggle('selected', plan === 'clinica');
+  const btn = document.getElementById('btnStartPlan');
+  btn.classList.add('ready');
+}
+
+function startOnboarding() {
+  if (!state.plan) return;
+  // Hide step-0, show onboarding shell
+  document.getElementById('step0Screen').style.display = 'none';
+  const shell = document.getElementById('onboardingShell');
+  shell.classList.remove('at-step-0');
+  // Show mobile header
+  document.getElementById('mobileHeader').style.display = 'flex';
+  document.querySelector('.mobile-progress').style.display = 'block';
+  // Update left panel indicators
+  updateIndicators();
+  setStep(1);
+}
+
+// ─── PLAN ROUTING ─────────────────────────────────────
+// Solo flow:    1 → 2 → 6 → 7s (summary-solo)
+// Clinica flow: 1 → 2 → 3 → 4 → 5 → 6 → 7  (original)
+const SOLO_FLOW    = [1, 2, 6, 'solo-summary'];
+const CLINICA_FLOW = [1, 2, 3, 4, 5, 6, 7];
+
+function totalSteps() {
+  return state.plan === 'solo' ? 4 : 7;
+}
+
+function soloStepIndex(stepId) {
+  // returns 1-based position in solo flow, or -1 if not in flow
+  if (stepId === 'solo-summary') return 4;
+  const idx = SOLO_FLOW.indexOf(stepId);
+  return idx >= 0 ? idx + 1 : -1;
+}
+
+function nextStep(from) {
+  if (state.plan === 'solo') {
+    const idx = SOLO_FLOW.indexOf(from);
+    return SOLO_FLOW[idx + 1] ?? null;
+  } else {
+    return from < 7 ? from + 1 : null;
+  }
+}
+
+function prevStep(from) {
+  if (state.plan === 'solo') {
+    if (from === 'solo-summary') return 6;
+    const idx = SOLO_FLOW.indexOf(from);
+    if (idx <= 0) return null;
+    return SOLO_FLOW[idx - 1];
+  } else {
+    return from > 1 ? from - 1 : null;
+  }
+}
+
 // ─── STEP NAVIGATION ──────────────────────────────────
 function goNext(from) {
   if (!validateStep(from)) return;
-  setStep(from + 1);
+  const next = nextStep(from);
+  if (next) setStep(next);
 }
 
 function goBack(from) {
-  setStep(from - 1);
+  const prev = prevStep(from);
+  if (prev) setStep(prev);
 }
 
 function setStep(n) {
   // hide current
-  document.getElementById('step-' + state.currentStep)?.classList.remove('active');
+  const cur = state.currentStep;
+  if (cur === 'solo-summary') {
+    document.getElementById('step-solo-summary')?.classList.remove('active');
+  } else {
+    document.getElementById('step-' + cur)?.classList.remove('active');
+  }
 
   state.currentStep = n;
 
   // show new
-  const newStep = document.getElementById('step-' + n);
-  if (newStep) {
-    newStep.classList.add('active');
+  if (n === 'solo-summary') {
+    document.getElementById('step-solo-summary')?.classList.add('active');
+    buildSoloSummary();
+  } else {
+    document.getElementById('step-' + n)?.classList.add('active');
   }
 
-  // update progress
-  document.getElementById('progressFill').style.width = (n * (100/7)) + '%';
+  // progress bar
+  const total = totalSteps();
+  const pos = state.plan === 'solo'
+    ? (n === 'solo-summary' ? 4 : SOLO_FLOW.indexOf(n) + 1)
+    : (typeof n === 'number' ? n : 7);
+  document.getElementById('progressFill').style.width = (pos * (100 / total)) + '%';
 
-  // update mobile header
+  // mobile header
   const mobileLabel = document.getElementById('mobileStepLabel');
   const mobileFill  = document.getElementById('mobileProgressFill');
-  if (mobileLabel) mobileLabel.textContent = 'Paso ' + n + ' de 7';
-  if (mobileFill)  mobileFill.style.width = (n * (100/7)) + '%';
-  // Scroll to top on step change (mobile)
+  if (mobileLabel) mobileLabel.textContent = `Paso ${pos} de ${total}`;
+  if (mobileFill)  mobileFill.style.width = (pos * (100 / total)) + '%';
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // update indicators
-  for (let i = 1; i <= 7; i++) {
-    const ind = document.getElementById('ind-' + i);
-    ind.classList.remove('active', 'done');
-    if (i < n) ind.classList.add('done');
-    if (i === n) ind.classList.add('active');
+  updateIndicators();
 
-    // Update dot content
-    const dot = ind.querySelector('.step-ind-dot');
-    dot.textContent = i < n ? '✓' : i;
-  }
+  // Update eyebrows dynamically
+  const total = totalSteps();
+  const pos2 = state.plan === 'solo'
+    ? (n === 'solo-summary' ? 4 : SOLO_FLOW.indexOf(n) + 1)
+    : (typeof n === 'number' ? n : 7);
+  const eyebrow = document.getElementById('eyebrow-' + (n === 'solo-summary' ? 'solo-summary' : n));
+  if (eyebrow) eyebrow.textContent = `Paso ${pos2} de ${total}`;
 
   // special logic per step
   if (n === 4) updateStep4Totals();
-  // step 5 = proc mode selection, no JS init needed
-  if (n === 6) { /* WhatsApp step — no JS init needed */ }
   if (n === 7) buildFinalSummary();
+}
+
+function updateIndicators() {
+  if (state.plan === 'solo') {
+    // Update left panel for Solo: 4 steps
+    const soloLabels = ['Tu clínica', 'Identidad visual', 'Precios', 'Resumen'];
+    const soloIds = [1, 2, 6, 'solo-summary'];
+    for (let i = 1; i <= 7; i++) {
+      const ind = document.getElementById('ind-' + i);
+      if (!ind) continue;
+      if (i <= 4) {
+        ind.style.display = 'flex';
+        const dot = ind.querySelector('.step-ind-dot');
+        const label = ind.querySelector('.step-ind-label');
+        if (dot) dot.textContent = i;
+        if (label) label.textContent = soloLabels[i - 1];
+        ind.classList.remove('active', 'done');
+        const curPos = state.currentStep === 'solo-summary' ? 4
+          : SOLO_FLOW.indexOf(state.currentStep) + 1;
+        if (i < curPos) { ind.classList.add('done'); if (dot) dot.textContent = '✓'; }
+        if (i === curPos) ind.classList.add('active');
+      } else {
+        ind.style.display = 'none';
+      }
+    }
+  } else {
+    // Original 7-step indicators
+    for (let i = 1; i <= 7; i++) {
+      const ind = document.getElementById('ind-' + i);
+      if (!ind) continue;
+      ind.style.display = 'flex';
+      ind.classList.remove('active', 'done');
+      const dot = ind.querySelector('.step-ind-dot');
+      const n = typeof state.currentStep === 'number' ? state.currentStep : 7;
+      if (i < n) { ind.classList.add('done'); if (dot) dot.textContent = '✓'; }
+      if (i === n) { ind.classList.add('active'); if (dot) dot.textContent = i; }
+      if (i > n && dot) dot.textContent = i;
+    }
+  }
 }
 
 // ─── VALIDATION ───────────────────────────────────────
@@ -1672,8 +2047,8 @@ function toggleModuleMini(el) {
 }
 
 function updateStep4Totals() {
-  const BASE = 23; // USD — plan base Clínica
-  const EXTRA_USER_PRICE = 2.5; // USD por usuario adicional
+  const BASE = 1200;
+  const EXTRA_USER_PRICE = 150;
   const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
   const extraUsers = Math.max(0, totalUsers - 1);
   const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
@@ -1683,15 +2058,16 @@ function updateStep4Totals() {
 
   // Update extra users row
   document.getElementById('extra-users-count').textContent = extraUsers;
-  document.getElementById('extra-users-price').textContent = '$' + (Number.isInteger(extraUsersCost) ? extraUsersCost : extraUsersCost.toFixed(2)) + ' USD';
+  const M = state.moneda || 'RD$';
+  document.getElementById('extra-users-price').textContent = M + extraUsersCost.toLocaleString();
 
   // Update module rows
   const rows = state.modules.map(m =>
-    `<div class="summary-row"><span>${m.name}</span><span>+$${m.price.toLocaleString()} USD</span></div>`
+    `<div class="summary-row"><span>${m.name}</span><span>+${M}${m.price.toLocaleString()}</span></div>`
   ).join('');
   document.getElementById('module-summary-rows').innerHTML = rows;
 
-  document.getElementById('step4-total').textContent = '$' + (Number.isInteger(total) ? total.toLocaleString() : total.toFixed(2)) + ' USD';
+  document.getElementById('step4-total').textContent = M + total.toLocaleString();
 }
 
 // ─── STEP 5: FINAL SUMMARY ────────────────────────────
@@ -1710,18 +2086,17 @@ function buildFinalSummary() {
   if (wcEl) state.waCargo    = wcEl.value         || state.waCargo;
   if (wpEl) state.waPhone    = wpEl.value.trim()  || state.waPhone;
 
-  const BASE = 23; // USD
-  const EXTRA_USER_PRICE = 2.5; // USD
+  const BASE = 1200;
+  const EXTRA_USER_PRICE = 150;
   const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
   const extraUsers = Math.max(0, totalUsers - 1);
   const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
   const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
   const total = BASE + modulesTotal + extraUsersCost;
-
-  const fmt = (n) => '$' + (Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2)) + ' USD';
+  const M = state.moneda || 'RD$';
 
   const moduleRows = state.modules.map(m =>
-    `<div class="summary-row"><span>+ ${m.name}</span><span>${fmt(m.price)}</span></div>`
+    `<div class="summary-row"><span>+ ${m.name}</span><span>${M}${m.price.toLocaleString()}</span></div>`
   ).join('');
 
   document.getElementById('final-summary').innerHTML = `
@@ -1747,24 +2122,53 @@ function buildFinalSummary() {
     </div>
     <div class="summary-row">
       <span>Plan base</span>
-      <span>${fmt(BASE)}</span>
+      <span>${M}1,200</span>
     </div>
     ${moduleRows}
-    ${extraUsers > 0 ? `<div class="summary-row"><span>Usuarios adicionales (${extraUsers})</span><span>${fmt(extraUsersCost)}</span></div>` : ''}
+    ${extraUsers > 0 ? `<div class="summary-row"><span>Usuarios adicionales (${extraUsers})</span><span>${M}${extraUsersCost.toLocaleString()}</span></div>` : ''}
     <div class="summary-total">
       <span>Total mensual</span>
-      <span style="color:var(--terracota)">${fmt(total)}</span>
+      <span style="color:var(--terracota)">${M}${total.toLocaleString()}</span>
     </div>
     <div class="summary-row">
       <span>💊 Precios</span>
       <span>${state.procMode === 'lista' ? 'Lista predeterminada (' + state.procItems.length + ' proc.)' : 'A criterio del médico'}</span>
     </div>
-    <div class="summary-row">
-      <span>💱 Moneda clínica</span>
-      <span>${state.moneda || 'RD$'} (facturas a pacientes)</span>
-    </div>
     <div style="font-size:12px;color:var(--light);margin-top:12px;text-align:center">
       14 días gratis · Sin tarjeta · Cancela cuando quieras
+    </div>
+  `;
+}
+
+// ─── SOLO SUMMARY ─────────────────────────────────────
+function buildSoloSummary() {
+  const cnEl = document.getElementById('clinicName');
+  const anEl = document.getElementById('adminName');
+  const aeEl = document.getElementById('adminEmail');
+  if (cnEl) state.clinicName = cnEl.value.trim() || state.clinicName;
+  if (anEl) state.adminName  = anEl.value.trim()  || state.adminName;
+  if (aeEl) state.adminEmail = aeEl.value.trim()  || state.adminEmail;
+
+  document.getElementById('solo-final-summary').innerHTML = `
+    <div class="summary-row">
+      <span>🏥 Clínica</span>
+      <span style="color:var(--dark);font-weight:400">${state.clinicName}</span>
+    </div>
+    <div class="summary-row">
+      <span>🔗 Subdominio</span>
+      <span style="color:var(--terracota)">smile.app/${state.subdomain || 'tu-clinica'}</span>
+    </div>
+    <div class="summary-row">
+      <span>👤 Nombre</span>
+      <span>${state.adminName}</span>
+    </div>
+    <div class="summary-row">
+      <span>📧 Email</span>
+      <span>${state.adminEmail}</span>
+    </div>
+    <div class="summary-row">
+      <span>💊 Precios</span>
+      <span>${state.procMode === 'lista' ? 'Lista predeterminada' : 'A criterio del médico'}</span>
     </div>
   `;
 }
@@ -1781,21 +2185,23 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ─── USERNAME GENERATOR (igual que app.js) ────────────────────
-function generateUsername(nombre) {
-  const clean = nombre.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z\s]/g, '').trim();
-  const parts = clean.split(/\s+/).filter(Boolean);
-  if (!parts.length) return 'usuario';
-  if (parts.length === 1) return parts[0].slice(0, 12);
-  return parts[0][0] + parts[parts.length - 1].slice(0, 10);
+// ─── ACTIVATION ───────────────────────────────────────
+// ── Crypto helpers (replicados de app.js para hashear password al crear clínica) ──
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray  = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ─── ACTIVATION ───────────────────────────────────────
+async function hashPassword(plaintext) {
+    // In onboarding, CLINIC_PATH = clinicId (set just before calling this)
+    const salt = window._pendingClinicId || 'smile-default-salt';
+    return sha256(salt + ':' + plaintext);
+}
 
 async function activateClinic() {
-  const btn = document.getElementById('btn-activate');
+  const btn = document.getElementById('btn-activate') || document.getElementById('btn-activate-clinica') || document.querySelector('.btn-activate:not([disabled])');
   btn.textContent = '⏳ Creando tu clínica...';
   btn.disabled = true;
 
@@ -1845,12 +2251,19 @@ async function activateClinic() {
     }
 
     // Calculate pricing
-    const BASE = 23; // USD base price
-    const EXTRA_USER_PRICE = 2.5; // USD per extra user
-    const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
-    const extraUsers = Math.max(0, totalUsers - 1);
-    const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
-    const total = BASE + modulesTotal + (extraUsers * EXTRA_USER_PRICE);
+    let total, planKey;
+    if (state.plan === 'solo') {
+      total = 19;   // USD fixed
+      planKey = 'solo';
+    } else {
+      const BASE = 1200;
+      const EXTRA_USER_PRICE = 150;
+      const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
+      const extraUsers = Math.max(0, totalUsers - 1);
+      const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
+      total = BASE + modulesTotal + (extraUsers * EXTRA_USER_PRICE);
+      planKey = 'clinica';
+    }
 
     // Trial end date (14 days)
     const trialEnd = new Date();
@@ -1867,23 +2280,28 @@ async function activateClinic() {
     };
     const modulosActivos = state.modules.map(m => MODULE_KEYS[m.name] || m.name.toLowerCase());
 
-    // Admin: PIN 1234 por defecto, username auto-generado
-    const DEFAULT_PIN = '1234';
-    const adminUsername = generateUsername(state.adminName.trim());
+    // Admin password — random 6 chars alphanumeric
+    const adminPassword = Math.random().toString(36).slice(2, 8).toUpperCase();
 
     // Build personal array with admin user
     const personal = [
       {
         id: '1',
         nombre: state.adminName.trim(),
-        username: adminUsername,
         tipo: 'regular',
-        pin: DEFAULT_PIN,
+        password: adminPassword,  // se reemplaza abajo con hash
+        _pwHashed: false,
         isAdmin: true,
         canAccessReception: true,
         email: state.adminEmail,
       }
     ];
+
+    // Hash admin password before saving (SHA-256 + clinic salt)
+    window._pendingClinicId = clinicId; // used by hashPassword as salt
+    const hashedAdminPw = await hashPassword(adminPassword);
+    personal[0].password = hashedAdminPw;
+    personal[0]._pwHashed = true;
 
     // 1. Create main clinic document
     await db.collection('clinicas').doc(clinicId).set({
@@ -1908,13 +2326,13 @@ async function activateClinic() {
         ciudad: state.ciudad || '',
         pais: state.pais || '',
         moneda: state.moneda || 'RD$',
-        locale: state.locale || 'es-419',
+        locale: state.locale || 'es-DO',
         color: state.color || '#C4856A',
         logoPositivo: state.logoPositivo || null,
         logoNegativo: state.logoNegativo || null,
         procMode: state.procMode || 'libre',
         procItems: state.procMode === 'lista' ? state.procItems : [],
-        plan: 'clinica',
+        plan: planKey,
         modulos: modulosActivos,
         adminEmail: state.adminEmail,
         activa: true,
@@ -1961,43 +2379,43 @@ async function activateClinic() {
     btnIr.style.display = 'block';
     btnIr.onclick = () => window.open(appUrl, '_blank');
 
-    // Build success details — PIN system
+    // Build success details — clear login instructions
     document.getElementById('successDetails').innerHTML = `
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--light);margin-bottom:16px;text-align:center">
         📋 Guarda estos datos — los necesitas para entrar
       </div>
 
       <div class="success-detail-card" style="grid-column:1/-1;border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
-        <div class="sd-label">🔗 Cómo entrar</div>
+        <div class="sd-label">🔗 Cómo entrar a tu clínica</div>
         <div style="font-size:13px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Accede por tu link, selecciona tu usuario y escribe tu PIN de 4 dígitos.
+          Abre <strong style="color:var(--dark)">app.html</strong> (o el link de abajo), escribe el ID de tu clínica y tu contraseña.
         </div>
       </div>
 
       <div class="success-detail-card" style="border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
-        <div class="sd-label">👤 Usuario</div>
-        <div class="sd-val" style="font-family:monospace;font-size:18px;color:var(--dark)">${adminUsername}</div>
+        <div class="sd-label">🏷️ ID de clínica</div>
+        <div class="sd-val" style="font-family:monospace;font-size:16px;color:var(--dark)">${clinicId}</div>
       </div>
 
       <div class="success-detail-card" style="border:1.5px solid var(--terracota);background:rgba(196,133,106,0.06)">
-        <div class="sd-label">🔑 PIN inicial</div>
-        <div class="sd-val" style="font-family:monospace;letter-spacing:10px;font-size:28px;color:var(--terracota)">${DEFAULT_PIN}</div>
+        <div class="sd-label">🔑 Contraseña inicial</div>
+        <div class="sd-val" style="font-family:monospace;letter-spacing:4px;font-size:24px;color:var(--terracota)">${adminPassword}</div>
       </div>
 
       <div class="success-detail-card">
-        <div class="sd-label">🏥 Clínica</div>
-        <div class="sd-val">${state.clinicName}</div>
+        <div class="sd-label">👤 Admin</div>
+        <div class="sd-val">${state.adminName.trim()}</div>
       </div>
 
       <div class="success-detail-card">
         <div class="sd-label">💳 Plan mensual</div>
-        <div class="sd-val" style="color:var(--terracota)">$${total.toFixed(2)} USD</div>
+        <div class="sd-val" style="color:var(--terracota)">${state.plan === 'solo' ? '$19 USD' : (state.moneda || 'RD$') + total.toLocaleString()}</div>
       </div>
 
       <div class="success-detail-card" style="grid-column:1/-1;background:var(--surface);border:none">
         <div class="sd-label">⚠️ Importante</div>
         <div style="font-size:12px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Cambia tu PIN desde tu perfil después de entrar por primera vez. Puedes agregar más usuarios desde la sección de Personal.
+          Guarda la contraseña ahora — no la podrás ver de nuevo. Puedes cambiarla desde el panel de administración de la app.
         </div>
       </div>
     `;
