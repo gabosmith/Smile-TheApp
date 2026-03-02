@@ -204,8 +204,9 @@ body {
 
 .onboarding {
   display: grid;
-  grid-template-columns: 264px 1fr;
+  grid-template-columns: 320px 1fr;
   min-height: 100vh;
+  align-items: start;
 }
 
 /* ── Left panel ── */
@@ -213,25 +214,28 @@ body {
   background: linear-gradient(160deg, #F2EEE8 0%, #EAE6DE 100%);
   border-right: 1px solid rgba(255,255,255,.8);
   box-shadow: 3px 0 18px rgba(185,177,167,.14);
-  padding: 44px 32px;
+  padding: 44px 28px;
   display: flex;
   flex-direction: column;
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow: hidden;
 }
 
 .logo {
   font-size: 9px; font-weight: 600; letter-spacing: 6px;
   text-transform: uppercase;
   color: var(--topo); opacity: .5;
-  margin-bottom: auto;
+  margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .preview-area {
   flex: 1;
   display: flex; flex-direction: column; justify-content: center;
-  padding: 28px 0;
+  padding: 0;
+  min-height: 0;
 }
 
 /* App mockup */
@@ -239,8 +243,10 @@ body {
   background: var(--sand-lt);
   border-radius: 16px; overflow: hidden;
   box-shadow: var(--neu-raised-lg);
-  transform: perspective(800px) rotateY(-4deg) rotateX(2deg);
+  transform: perspective(900px) rotateY(-3deg) rotateX(1deg);
+  transform-origin: top center;
   transition: all .6s cubic-bezier(.34,1.2,.64,1);
+  max-width: 100%;
 }
 
 .mockup-header {
@@ -282,7 +288,7 @@ body {
 .mockup-tab.active { color: var(--clinic-color); font-weight: 500; transition: color .4s; }
 
 /* Step indicators */
-.steps-indicator { display: flex; flex-direction: column; gap: 9px; }
+.steps-indicator { display: flex; flex-direction: column; gap: 9px; flex-shrink: 0; margin-top: 20px; }
 
 .step-ind { display: flex; align-items: center; gap: 11px; opacity: .28; transition: opacity .3s; }
 .step-ind.active { opacity: 1; }
@@ -304,9 +310,10 @@ body {
 /* ── Right panel ── */
 .right-panel {
   padding: 52px 60px;
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: flex-start;
   min-height: 100vh;
   max-width: 640px;
+  padding-top: 72px;
 }
 
 /* Progress bar */
@@ -546,11 +553,11 @@ body {
 /* ═══ RESPONSIVE ════════════════════════════════════════ */
 
 /* Tablet */
-@media (max-width: 900px) {
-  .onboarding    { grid-template-columns: 210px 1fr; }
-  .left-panel    { padding: 28px 22px; }
+@media (max-width: 960px) {
+  .onboarding    { grid-template-columns: 240px 1fr; }
+  .left-panel    { padding: 32px 20px; }
   .preview-area  { display: none; }
-  .right-panel   { padding: 40px 36px; }
+  .right-panel   { padding: 52px 36px; }
   .step-ind-label { font-size: 10px; }
 }
 
