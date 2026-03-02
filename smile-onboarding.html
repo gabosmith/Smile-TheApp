@@ -1193,21 +1193,56 @@ body {
     </div>
 
     <div class="success-screen" id="success">
-      <div class="success-icon">🦷</div>
+      <div class="success-icon">✓</div>
       <div class="success-title">¡Tu clínica está lista!</div>
-      <div class="success-sub">Hemos creado tu espacio en SMILE.<br>14 días gratis, sin tarjeta de crédito.</div>
-      <div class="success-url" onclick="copyUrl()" id="successUrl">
-        <div class="success-url-text" id="successUrlText">smile.app/tu-clinica</div>
-        <div class="success-url-copy">Copiar</div>
+      <div class="success-sub">Este es el enlace único de tu clínica.<br>Es la única forma de entrar — guárdalo ahora.</div>
+
+      <!-- URL card — énfasis máximo -->
+      <div style="background:var(--sand);border-radius:18px;padding:20px 22px;
+                  box-shadow:var(--neu-raised-lg);margin-bottom:14px;text-align:left;">
+        <div style="font-size:9px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;
+                    color:var(--muted);margin-bottom:10px;">Tu enlace de acceso</div>
+        <div id="successUrlText"
+             style="font-size:15px;color:var(--pizarra);font-weight:400;letter-spacing:.3px;
+                    word-break:break-all;margin-bottom:14px;">smile.app/tu-clinica</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="copyUrl()"
+            style="flex:1;padding:11px;background:var(--sand);color:var(--topo);border:none;
+                   border-radius:12px;font-size:11px;font-weight:500;font-family:inherit;
+                   letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;
+                   box-shadow:var(--neu-raised);transition:all .2s;" id="copyBtn">
+            Copiar enlace
+          </button>
+          <button onclick="shareUrl()"
+            style="padding:11px 14px;background:var(--sand);color:var(--topo);border:none;
+                   border-radius:12px;font-size:16px;cursor:pointer;
+                   box-shadow:var(--neu-raised);transition:all .2s;" title="Compartir">
+            ↗
+          </button>
+        </div>
+      </div>
+
+      <!-- Bookmark nudge -->
+      <div style="background:linear-gradient(145deg,rgba(125,142,160,.08),rgba(125,142,160,.04));
+                  border-radius:14px;padding:14px 16px;margin-bottom:22px;text-align:left;
+                  box-shadow:var(--neu-flat);">
+        <div style="font-size:12px;color:var(--topo);line-height:1.65;">
+          <strong style="font-weight:500;">¿Cómo guardar el enlace?</strong><br>
+          <span style="color:var(--piedra);">
+            En el celular: abre el enlace en Safari o Chrome y usa
+            <em>"Añadir a pantalla de inicio"</em> para tenerlo como app.<br>
+            En computadora: guárdalo en favoritos.
+          </span>
+        </div>
       </div>
 
       <button id="btnIrClinica" onclick="irAClinica()"
-        style="display:none; margin: 0 auto 24px; background: linear-gradient(145deg, #8b9eb2, var(--pizarra)); color: white;
-               border: none; padding: 16px 40px; border-radius: 100px; font-size: 13px;
+        style="display:none; margin: 0 auto 24px;
+               background: linear-gradient(145deg, #8b9eb2, var(--pizarra)); color: white;
+               border: none; padding: 16px 40px; border-radius: 100px; font-size: 11px;
                letter-spacing: 2px; text-transform: uppercase; font-family: inherit;
-               cursor: pointer; transition: all 0.25s;
-               box-shadow: 0 4px 16px rgba(30,28,26,0.18);">
-        Ir a mi clínica →
+               cursor: pointer; box-shadow: var(--neu-pizarra); transition: all 0.25s;">
+        Entrar a mi clínica →
       </button>
 
       <div class="success-details" id="successDetails"></div>
@@ -2070,11 +2105,21 @@ function irAClinica() {
 
 function copyUrl() {
   const urlEl = document.getElementById('successUrlText');
-  const fullUrl = urlEl.dataset.fullUrl || urlEl.textContent;
+  const fullUrl = urlEl.dataset.fullUrl || urlEl.textContent.trim();
   navigator.clipboard?.writeText(fullUrl);
-  const copy = document.querySelector('.success-url-copy');
-  copy.textContent = '✓ Copiado';
-  setTimeout(() => copy.textContent = 'Copiar', 2000);
+  const btn = document.getElementById('copyBtn');
+  if (btn) { btn.textContent = '✓ Copiado'; setTimeout(() => btn.textContent = 'Copiar enlace', 2000); }
+}
+
+function shareUrl() {
+  const urlEl  = document.getElementById('successUrlText');
+  const fullUrl = urlEl.dataset.fullUrl || urlEl.textContent.trim();
+  const nombre  = document.getElementById('successUrlText')?.dataset.nombre || 'mi clínica';
+  if (navigator.share) {
+    navigator.share({ title: 'SMILE — Acceso a ' + nombre, url: fullUrl });
+  } else {
+    copyUrl();
+  }
 }
 </script>
 <script src="smile-nav.js"></script>
