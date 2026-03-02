@@ -2205,19 +2205,6 @@
                 return localStorage.getItem('smile_clinica') || 'clinica-demo';
             })();
 
-            // ── Auth anónima ANTES de leer Firestore ─────────────
-            // Las Firestore rules exigen request.auth != null.
-            // aplicarBranding() corre antes que app.js hace auth,
-            // así que necesitamos autenticarnos aquí primero.
-            try {
-                const auth = firebase.auth();
-                if (!auth.currentUser) {
-                    await auth.signInAnonymously();
-                }
-            } catch(authErr) {
-                console.warn('[Branding] Auth anónima falló:', authErr.message);
-            }
-
             const cfgDoc = await db.collection('clinicas').doc(clinicaId)
                 .collection('config').doc('settings').get();
 
