@@ -2401,31 +2401,57 @@
     }
 
     // ── PHASE A: user cards ──────────────────────────────
+    // Retries until appData.personal has loaded from Firebase.
+    let _lsMostrarRetries = 0;
+
     function lsMostrar() {
         lsUpdateClinicBar();
 
-        const users  = ((typeof appData !== 'undefined') ? appData.personal : [])
-                       .filter(p => p.password);
-        const grid   = document.getElementById('lsUserGrid');
+        const personal = (typeof appData !== 'undefined') ? (appData.personal || []) : [];
+
+        // If personal is empty, Firebase data may not have loaded yet — retry
+        if (personal.length === 0 && _lsMostrarRetries < 20) {
+            _lsMostrarRetries++;
+            setTimeout(lsMostrar, 200);
+            // Show a subtle loading state on first attempt
+            if (_lsMostrarRetries === 1) {
+                const grid = document.getElementById('lsUserGrid');
+                if (grid) grid.innerHTML = `
+                    <div style="grid-column:1/-1;padding:32px 0;text-align:center;
+                                font-size:12px;color:var(--muted);letter-spacing:1px;">
+                        Cargando...
+                    </div>`;
+            }
+            return;
+        }
+        _lsMostrarRetries = 0;
+
+        // Show ALL users — with or without password.
+        // Users without password will get a "set up PIN" prompt when tapped.
+        // This ensures the admin always appears on first login.
+        const grid = document.getElementById('lsUserGrid');
         grid.innerHTML = '';
 
-        if (users.length === 0) {
+        if (personal.length === 0) {
+            // Truly empty — clinic has no staff configured at all
             grid.innerHTML = `
                 <div style="grid-column:1/-1;padding:24px 0;text-align:center;
                             font-size:13px;color:var(--piedra);line-height:1.6;">
-                    No hay usuarios con PIN configurado.<br>
+                    No hay usuarios configurados.<br>
                     <span style="color:var(--pizarra);font-size:12px;">
-                        Configúralos en Ajustes → Personal.
+                        Agrega personal en Ajustes → Personal.
                     </span>
                 </div>`;
         } else {
-            users.forEach(p => {
+            personal.forEach(p => {
                 const btn = document.createElement('button');
                 btn.className = 'ls-user-card';
+                const hasPin = !!(p.password);
                 btn.innerHTML = `
                     <div class="ls-avatar">${_initials(p.nombre)}</div>
                     <div class="ls-user-name">${p.nombre.split(' ')[0]}</div>
-                    <div class="ls-user-role">${_roleLabel(p)}</div>`;
+                    <div class="ls-user-role">${_roleLabel(p)}</div>
+                    ${!hasPin ? '<div style="font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1px;">SIN PIN</div>' : ''}`;
                 btn.onclick = () => lsSelectUser(p);
                 grid.appendChild(btn);
             });
@@ -2446,10 +2472,27 @@
             _initials(person.nombre);
         document.getElementById('lsPinName').textContent =
             person.nombre.split(' ').slice(0,2).join(' ');
-        document.getElementById('lsPinErr').textContent = '';
 
-        _lsBuildDots();
-        _lsBuildKeypad();
+        const errEl = document.getElementById('lsPinErr');
+
+        // If user has no PIN yet, show helpful message instead of keypad
+        if (!person.password) {
+            errEl.innerHTML = `
+                <div style="font-size:12px;color:var(--piedra);text-align:center;
+                            line-height:1.7;padding:8px 0;">
+                    Este usuario no tiene PIN configurado.<br>
+                    <span style="color:var(--pizarra);">
+                        Entra con otro usuario admin y configúralo<br>
+                        en <strong>Ajustes → Personal</strong>.
+                    </span>
+                </div>`;
+            document.getElementById('lsPinDots').innerHTML = '';
+            document.getElementById('lsKeypad').innerHTML = '';
+        } else {
+            errEl.textContent = '';
+            _lsBuildDots();
+            _lsBuildKeypad();
+        }
 
         document.getElementById('lsPhaseUsers').style.display = 'none';
         document.getElementById('lsPhasePIN').style.display   = 'block';
@@ -2567,17 +2610,18 @@
     }
 
     // ── INTERCEPT loginScreen show ───────────────────────
-    // app.js sets loginScreen.style.display='flex' after loading data.
-    // We catch that and call lsMostrar() to render the new UI.
+    // app.js sets loginScreen.style.display='flex' after loadClinicBranding().
+    // loadData() runs AFTER that, so appData.personal may not be ready yet.
+    // lsMostrar() handles this by retrying until personal is populated.
     (function() {
         const el = document.getElementById('loginScreen');
         if (!el) return;
         const obs = new MutationObserver(() => {
             if (el.style.display === 'flex') {
                 obs.disconnect();
-                // Hide the raw loginScreen (we manage its visibility in lsMostrar)
-                // Slight delay so app data is fully set
-                setTimeout(lsMostrar, 30);
+                // Small delay to let synchronous app.js code settle,
+                // then lsMostrar will retry internally until Firebase data arrives.
+                setTimeout(lsMostrar, 80);
             }
         });
         obs.observe(el, { attributes: true, attributeFilter: ['style'] });
