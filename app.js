@@ -3268,6 +3268,80 @@ function compartirWhatsApp() {
     window.open(`https://wa.me/?text=${texto}`, '_blank');
 }
 
+// ── COMUNICACIÓN CON PACIENTE ────────────────────────────────────────────
+// Abre WhatsApp con mensaje predeterminado si hay teléfono, o genérico si no.
+function waLink(telefono, mensaje) {
+    const tel = (telefono || '').replace(/\D/g, '');
+    const txt = encodeURIComponent(mensaje);
+    return tel
+        ? `https://wa.me/${tel}?text=${txt}`
+        : `https://wa.me/?text=${txt}`;
+}
+
+function contactarPaciente(pacienteId, tipo) {
+    const p = appData.pacientes.find(x => x.id === pacienteId);
+    if (!p) return;
+    const clinica = getNombreClinica();
+    let msg = '';
+    switch(tipo) {
+        case 'saludo':
+            msg = `Hola ${p.nombre}, te contactamos desde ${clinica}. 😊`;
+            break;
+        case 'recordatorio':
+            const proxCita = (appData.citas || [])
+                .filter(c => c.pacienteId === pacienteId && new Date(c.fecha) >= new Date())
+                .sort((a,b) => new Date(a.fecha) - new Date(b.fecha))[0];
+            if (proxCita) {
+                msg = `Hola ${p.nombre}, te recordamos tu cita en ${clinica} el ${formatDate(proxCita.fecha)} a las ${proxCita.hora}. Por favor confírmanos tu asistencia. 🦷`;
+            } else {
+                msg = `Hola ${p.nombre}, te contactamos desde ${clinica}. ¿Cómo te has sentido? ¿Quieres agendar tu próxima cita? 😊`;
+            }
+            break;
+        case 'confirmacion':
+            msg = `Hola ${p.nombre}, ¿puedes confirmar tu asistencia a tu cita en ${clinica}? Muchas gracias. 🦷`;
+            break;
+        case 'balance':
+            const saldo = calcularSaldoPaciente(p.id);
+            msg = `Hola ${p.nombre}, te informamos que tienes un balance pendiente de ${formatCurrency(Math.abs(saldo))} en ${clinica}. Cualquier consulta estamos a la orden. 😊`;
+            break;
+    }
+    window.open(waLink(p.telefono, msg), '_blank');
+}
+
+function contactarPacienteCita(citaId, tipo) {
+    const cita = appData.citas.find(c => c.id === citaId);
+    if (!cita) return;
+    const p = appData.pacientes.find(x => x.nombre === cita.paciente || x.id === cita.pacienteId);
+    const clinica = getNombreClinica();
+    let msg = '';
+    switch(tipo) {
+        case 'recordatorio':
+            msg = `Hola ${cita.paciente}, te recordamos tu cita en ${clinica} el ${formatDate(cita.fecha)} a las ${cita.hora}. Por favor confírmanos tu asistencia. 🦷`;
+            break;
+        case 'confirmacion':
+            msg = `Hola ${cita.paciente}, ¿puedes confirmar tu asistencia a tu cita mañana a las ${cita.hora} en ${clinica}? Gracias. 🦷`;
+            break;
+    }
+    const tel = p?.telefono || '';
+    window.open(waLink(tel, msg), '_blank');
+}
+
+function avisarPacienteLab(ordenId) {
+    const orden = appData.laboratorios.find(o => o.id === ordenId);
+    if (!orden) return;
+    const p = appData.pacientes.find(x => x.nombre === orden.paciente || x.id === orden.pacienteId);
+    const clinica = getNombreClinica();
+    const msg = `Hola ${orden.paciente}, te informamos que tu trabajo de ${orden.tipo} ya está listo en ${clinica}. Por favor coordina con nosotros para tu cita de colocación. 😊🦷`;
+    window.open(waLink(p?.telefono || '', msg), '_blank');
+}
+
+function enviarReciboWhatsApp(pacienteId) {
+    const p = appData.pacientes.find(x => x.id === pacienteId);
+    const texto = encodeURIComponent(currentReciboText);
+    const tel = (p?.telefono || '').replace(/\D/g, '');
+    window.open(tel ? `https://wa.me/${tel}?text=${texto}` : `https://wa.me/?text=${texto}`, '_blank');
+}
+
 function copiarRecibo() {
     navigator.clipboard.writeText(currentReciboText).then(() => {
         showToast('✓ Recibo copiado al portapapeles');
@@ -4759,6 +4833,23 @@ function renderTabResumen(paciente) {
                 ` : ''}
             </div>
 
+            ${paciente.telefono ? `
+            <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(30,28,26,0.07);display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="contactarPaciente('${paciente.id}','saludo')"
+                    style="flex:1;min-width:120px;padding:9px 12px;background:#25D366;color:white;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
+                    💬 Contactar
+                </button>
+                <button onclick="contactarPaciente('${paciente.id}','recordatorio')"
+                    style="flex:1;min-width:120px;padding:9px 12px;background:rgba(37,211,102,0.1);color:#1a7a40;border:1px solid rgba(37,211,102,0.3);border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
+                    📅 Recordar cita
+                </button>
+                ${balance > 0 ? `<button onclick="contactarPaciente('${paciente.id}','balance')"
+                    style="flex:1;min-width:120px;padding:9px 12px;background:rgba(196,133,106,0.1);color:#856404;border:1px solid rgba(196,133,106,0.3);border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
+                    💰 Recordar pago
+                </button>` : ''}
+            </div>
+            ` : ''}
+
             ${paciente.alergias ? `
                 <div style="background: #ffe5e5; padding: 12px; border-radius: 8px; margin-top: 16px; border-left: 3px solid #dc3545;">
                     <div style="font-size: 11px; color: #721c24; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">🚨 ALERGIAS</div>
@@ -5398,6 +5489,21 @@ function verDetalleCita(citaId) {
             <div style="font-size: 14px; font-weight: 500; color: #1d1d1f;">${cita.notasProcedimiento}</div>
         </div>
         ` : ''}
+
+        <!-- CONTACTAR PACIENTE -->
+        <div style="margin-top:20px;padding:14px;background:var(--surface,#F5F2EE);border-radius:10px;">
+            <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Contactar paciente</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="contactarPacienteCita('${cita.id}','recordatorio')"
+                    style="flex:1;min-width:120px;padding:10px 12px;background:#25D366;color:white;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+                    💬 Recordatorio
+                </button>
+                <button onclick="contactarPacienteCita('${cita.id}','confirmacion')"
+                    style="flex:1;min-width:120px;padding:10px 12px;background:rgba(37,211,102,0.12);color:#1a7a40;border:1px solid rgba(37,211,102,0.3);border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+                    ✅ Pedir confirmación
+                </button>
+            </div>
+        </div>
     `;
 
     document.getElementById('detalleCitaContent').innerHTML = html;
@@ -5831,6 +5937,7 @@ function verDetalleOrdenLab(ordenId) {
     const orden = appData.laboratorios.find(o => o.id === ordenId);
     if (!orden) return;
 
+    window._currentLabOrdenId = ordenId;
     document.getElementById('detalleLabInfo').innerHTML = `
         <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
@@ -9161,7 +9268,7 @@ function renderMiPlanTab() {
     });
 
     const plan = clinicConfig.plan || 'clinica';
-    const basePrice = BASE_PRECIOS[plan] || 23;
+    const basePrice = BASE_PRECIOS[plan] || 1200;
     const activosActuales = [...(clinicConfig.modulos || [])];
     const hasta = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
     const diasTrial = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / (1000*60*60*24))) : 0;
