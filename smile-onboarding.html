@@ -1362,12 +1362,8 @@ function setStep(n) {
   updateIndicators();
 
   // Update eyebrows dynamically
-  const total = totalSteps();
-  const pos2 = state.plan === 'solo'
-    ? (n === 'solo-summary' ? 4 : SOLO_FLOW.indexOf(n) + 1)
-    : (typeof n === 'number' ? n : 7);
   const eyebrow = document.getElementById('eyebrow-' + (n === 'solo-summary' ? 'solo-summary' : n));
-  if (eyebrow) eyebrow.textContent = `Paso ${pos2} de ${total}`;
+  if (eyebrow) eyebrow.textContent = `Paso ${pos} de ${total}`;
 
   // special logic per step
   if (n === 4) updateStep4Totals();
