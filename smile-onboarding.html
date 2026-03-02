@@ -73,8 +73,10 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 60px 68px;
+  padding: 60px 32px;
+  text-align: center;
   animation: fadeUp .65s ease both;
 }
 
@@ -85,15 +87,15 @@ body {
   text-transform: uppercase;
   color: var(--topo);
   opacity: .5;
-  margin-bottom: 68px;
+  margin-bottom: 52px;
 }
 
 .step-0-title {
-  font-size: clamp(34px, 4.5vw, 54px);
+  font-size: clamp(32px, 4.5vw, 52px);
   font-weight: 200;
-  letter-spacing: -2.5px;
+  letter-spacing: -2px;
   color: var(--topo);
-  line-height: 1.04;
+  line-height: 1.05;
   margin-bottom: 12px;
 }
 
@@ -101,36 +103,54 @@ body {
   font-size: 15px;
   color: var(--piedra);
   line-height: 1.75;
-  margin-bottom: 48px;
-  max-width: 400px;
+  margin-bottom: 52px;
+  max-width: 380px;
 }
 
 .plan-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  max-width: 560px;
+  gap: 18px;
+  width: 100%;
+  max-width: 680px;
 }
 
 .plan-card {
   background: var(--sand);
-  border-radius: 22px;
-  padding: 30px 26px 26px;
+  border-radius: 24px;
+  padding: 36px 30px 30px;
   cursor: pointer;
   box-shadow: var(--neu-raised);
   transition: box-shadow .3s cubic-bezier(.34,1.56,.64,1),
               transform .3s cubic-bezier(.34,1.56,.64,1);
   position: relative;
+  text-align: left;
 }
-.plan-card:hover  { box-shadow: var(--neu-raised-lg); transform: translateY(-3px); }
-.plan-card.selected { box-shadow: var(--neu-pizarra); }
-.plan-card.selected::after {
-  content: '✓';
-  position: absolute; top: 14px; right: 16px;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: var(--pizarra); color: white;
-  font-size: 11px; font-weight: 600;
+.plan-card:hover { box-shadow: var(--neu-raised-lg); transform: translateY(-4px); }
+
+/* Selected state — visible inset + tinted bg */
+.plan-card.selected {
+  box-shadow: var(--neu-pizarra);
+  background: linear-gradient(145deg, #EEF1F4, #E8EDF3);
+}
+
+/* Check badge top-right */
+.plan-card-check {
+  position: absolute;
+  top: 16px; right: 18px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--sand);
+  box-shadow: var(--neu-raised);
   display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--muted);
+  transition: all .25s;
+  line-height: 1;
+}
+.plan-card.selected .plan-card-check {
+  background: var(--pizarra);
+  box-shadow: var(--neu-pizarra);
+  color: white;
 }
 
 .plan-card-badge {
@@ -140,38 +160,38 @@ body {
   font-size: 8px; font-weight: 600;
   letter-spacing: 2px; text-transform: uppercase;
   padding: 4px 11px; border-radius: 100px;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   box-shadow: var(--neu-salvia);
 }
 
-.plan-card-icon   { font-size: 28px; margin-bottom: 14px; display: block; }
-.plan-card-title  { font-size: 17px; font-weight: 400; color: var(--topo); margin-bottom: 6px; }
-.plan-card-sub    { font-size: 12px; color: var(--piedra); line-height: 1.65; margin-bottom: 18px; }
-.plan-card-price  { font-size: 13px; font-weight: 400; color: var(--pizarra); }
-.plan-card-steps  { display: flex; gap: 5px; margin-top: 14px; }
+.plan-card-icon   { font-size: 32px; margin-bottom: 16px; display: block; }
+.plan-card-title  { font-size: 18px; font-weight: 400; color: var(--topo); margin-bottom: 8px; }
+.plan-card-sub    { font-size: 13px; color: var(--piedra); line-height: 1.65; margin-bottom: 20px; }
+.plan-card-price  { font-size: 15px; font-weight: 400; color: var(--pizarra); }
+.plan-card-steps  { display: flex; gap: 5px; margin-top: 16px; }
 
 .plan-step-dot {
-  width: 5px; height: 5px; border-radius: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
   background: var(--muted);
   box-shadow: var(--neu-flat);
-  transition: background .2s;
+  transition: background .25s;
 }
 .plan-card.selected .plan-step-dot { background: var(--pizarra); }
 .plan-card:hover .plan-step-dot    { background: var(--piedra); }
 
-.step-0-cta  { margin-top: 42px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.step-0-cta  { margin-top: 44px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: center; }
 .step-0-note { font-size: 11px; color: var(--muted); }
 
 .btn-plan {
   background: var(--sand);
   color: var(--topo);
   border: none;
-  padding: 14px 36px;
+  padding: 15px 40px;
   border-radius: 100px;
   font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
   font-family: inherit; cursor: pointer;
   box-shadow: var(--neu-raised);
-  transition: box-shadow .25s, color .25s;
+  transition: box-shadow .25s, color .25s, opacity .25s;
   opacity: .3; pointer-events: none;
 }
 .btn-plan.ready               { opacity: 1; pointer-events: auto; }
@@ -571,12 +591,14 @@ body {
   .success-detail-card { padding: 14px; }
 
   /* Step-0 mobile */
-  .step-0-wrap   { padding: 32px 24px calc(40px + env(safe-area-inset-bottom)); justify-content: flex-start; }
-  .step-0-logo   { margin-bottom: 40px; }
+  .step-0-wrap   { padding: 40px 20px calc(40px + env(safe-area-inset-bottom)); }
+  .step-0-logo   { margin-bottom: 36px; }
   .step-0-title  { font-size: clamp(28px, 9vw, 38px); }
   .step-0-sub    { font-size: 14px; margin-bottom: 32px; }
-  .plan-cards    { grid-template-columns: 1fr; gap: 10px; max-width: 100%; }
-  .plan-card     { padding: 24px 20px 20px; }
+  .plan-cards    { grid-template-columns: 1fr; gap: 12px; }
+  .plan-card     { padding: 28px 22px 22px; }
+  .plan-card-icon { font-size: 28px; margin-bottom: 13px; }
+  .plan-card-title { font-size: 17px; }
   .btn-plan      { width: 100%; text-align: center; }
   .step-0-cta    { flex-direction: column; align-items: stretch; gap: 10px; }
 }
@@ -602,6 +624,7 @@ body {
 
     <!-- SOLO -->
     <div class="plan-card" id="planCardSolo" onclick="selectPlan('solo')">
+      <div class="plan-card-check" id="checkSolo">○</div>
       <div class="plan-card-badge">Más simple</div>
       <span class="plan-card-icon">🦷</span>
       <div class="plan-card-title">Trabajo solo</div>
@@ -613,11 +636,12 @@ body {
         <div class="plan-step-dot"></div>
         <div class="plan-step-dot"></div>
       </div>
-      <div style="font-size:11px;color:var(--light);margin-top:6px">4 pasos · 3 minutos</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">4 pasos · 3 minutos</div>
     </div>
 
     <!-- CLÍNICA -->
     <div class="plan-card" id="planCardClinica" onclick="selectPlan('clinica')">
+      <div class="plan-card-check" id="checkClinica">○</div>
       <span class="plan-card-icon">🏥</span>
       <div class="plan-card-title">Tengo un equipo</div>
       <div class="plan-card-sub">Trabajo con otros dentistas, recepción o asistentes.</div>
@@ -631,7 +655,7 @@ body {
         <div class="plan-step-dot"></div>
         <div class="plan-step-dot"></div>
       </div>
-      <div style="font-size:11px;color:var(--light);margin-top:6px">7 pasos · 5 minutos</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">7 pasos · 5 minutos</div>
     </div>
 
   </div>
@@ -1233,8 +1257,9 @@ function selectPlan(plan) {
   state.plan = plan;
   document.getElementById('planCardSolo').classList.toggle('selected', plan === 'solo');
   document.getElementById('planCardClinica').classList.toggle('selected', plan === 'clinica');
-  const btn = document.getElementById('btnStartPlan');
-  btn.classList.add('ready');
+  document.getElementById('checkSolo').textContent    = plan === 'solo'    ? '✓' : '○';
+  document.getElementById('checkClinica').textContent = plan === 'clinica' ? '✓' : '○';
+  document.getElementById('btnStartPlan').classList.add('ready');
 }
 
 function startOnboarding() {
