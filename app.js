@@ -980,7 +980,6 @@ window.addEventListener('load', async function() {
         return;
     }
 
-    console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
@@ -1161,7 +1160,6 @@ async function migratePasswordIfNeeded(person, plaintext) {
         person.password    = hashed;
         person._pwHashed   = true;
         await saveData('saveData-init');
-        console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
     } catch(e) {
         console.warn('[Auth] No se pudo migrar contraseña:', e);
     }
@@ -1324,7 +1322,6 @@ async function ensureFirebaseAuth() {
         try {
             const cred = await intentarAuth();
             _firebaseAuthUid = cred.user.uid;
-            console.log(`[Auth] Firebase auth OK (intento ${intento}):`, _firebaseAuthUid);
             return;
         } catch(e) {
             console.warn(`[Auth] Intento ${intento}/3 fallido:`, e.message);
@@ -3263,10 +3260,6 @@ Firma: _____________________
     }); // end mostrarConfirmacion
 }
 
-function compartirWhatsApp() {
-    const texto = encodeURIComponent(currentReciboText);
-    window.open(`https://wa.me/?text=${texto}`, '_blank');
-}
 
 // ── COMUNICACIÓN CON PACIENTE ────────────────────────────────────────────
 // Abre WhatsApp con mensaje predeterminado si hay teléfono, o genérico si no.
@@ -8916,11 +8909,6 @@ function generarVistaPrevia() {
     const totalDespuesFiltro = window.pacientesAImportar.length;
     const filtrados = totalAntesFiltro - totalDespuesFiltro;
 
-    console.log(`📊 Procesamiento CSV:
-    - Total filas: ${csvData.length}
-    - Pacientes creados: ${totalAntesFiltro}
-    - Con nombre y teléfono: ${totalDespuesFiltro}
-    - Filtrados (sin datos): ${filtrados}`);
 
     // Mostrar vista previa
     document.getElementById('paso3-preview').style.display = 'block';
@@ -8991,18 +8979,14 @@ function ejecutarImportacion() {
         tipo: 'normal',
         confirmText: 'Sí, Importar Ahora',
         onConfirm: async () => {
-            console.log(`🚀 Iniciando importación de ${window.pacientesAImportar.length} pacientes...`);
 
             // Agregar pacientes
             const cantidadAntes = appData.pacientes.length;
             appData.pacientes.push(...window.pacientesAImportar);
             const cantidadDespues = appData.pacientes.length;
 
-            console.log(`📥 Importación: ${cantidadAntes} → ${cantidadDespues} pacientes`);
-            console.log(`💾 Llamando a saveData()...`);
 
             await saveData();
-            console.log(`🔄 Actualizando tab de pacientes...`);
 
             // Actualizar tab de pacientes para reflejar los nuevos
             updatePacientesTab();
@@ -9180,12 +9164,8 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
-    console.log('📊 Debug abrirAbonoBalance:');
-    console.log('Paciente:', paciente.nombre);
     
     const todasFacturas = getFacturasDePaciente(paciente);
-    console.log('Total facturas del paciente:', todasFacturas.length);
-    console.log('Estados de facturas:', todasFacturas.map(f => ({ numero: f.numero, estado: f.estado })));
     
     // Encontrar factura más antigua pendiente (filtro robusto - ambos idiomas)
     const facturasPendientes = todasFacturas
@@ -9198,7 +9178,6 @@ function abrirAbonoBalance(pacienteId) {
         })
         .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
-    console.log('Facturas pendientes encontradas:', facturasPendientes.length);
     
     if (facturasPendientes.length === 0) {
         showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
@@ -9206,7 +9185,6 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
-    console.log('Abriendo pago de factura:', facturasPendientes[0].numero);
     
     // Abrir pago de la factura más antigua
     closeModal('modalVerPaciente');
