@@ -84,11 +84,6 @@ function _limpiarEstadoApp() {
 
 // Cargar branding dinámico desde Firebase config
 // Clinic config stored globally so buildNavigation() can read it
-
-function getLocale() {
-    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
-}
-
 let clinicConfig = {
     modulos: [],
     plan: 'clinica',
@@ -98,7 +93,7 @@ let clinicConfig = {
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
     moneda:   'RD$',     // símbolo de moneda — configurable por país
-    locale:   'es-419',   // locale para fechas y números — se actualiza en loadClinicBranding
+    locale:   getLocale(),   // locale para fechas y números
     pais:     'República Dominicana',
 };
 
@@ -137,7 +132,6 @@ async function loadClinicBranding() {
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
         clinicConfig.defaultFrecuenciaPago = cfg.defaultFrecuenciaPago || 'mensual';
-        clinicConfig.proximoPago           = cfg.proximoPago || null;
 
         // enTrial: trialHasta es la fuente de verdad
         clinicConfig.enTrial = clinicConfig.trialHasta
@@ -1092,6 +1086,7 @@ let appData = {
 
 let currentPersonalToEdit = null;
 let currentReciboText = '';
+let currentReciboTelefono = ''; // teléfono del destinatario del recibo actual
 let currentFacturaToReverse = null;
 
 // Role selector
@@ -1173,27 +1168,19 @@ async function migratePasswordIfNeeded(person, plaintext) {
     }
 }
 
-// Compare entered PIN/password against stored value
-// Supports: plaintext PIN (4 digits), plaintext legacy, and SHA-256 hashed
+// Compare entered password against stored hash (or plaintext for legacy accounts)
 async function verifyPassword(person, entered) {
     if (!person?.password) return false;
-
-    // 1. Direct plaintext match (PINs de 4 dígitos generados desde Admin SMILE)
-    if (person.password === entered) return true;
-
-    // 2. SHA-256 hashed (onboarding legacy)
     if (person._pwHashed) {
+        // Already hashed — compare hash
         const enteredHash = await hashPassword(entered);
         return person.password === enteredHash;
+    } else {
+        // Legacy plaintext — compare directly, then migrate silently
+        const match = person.password === entered;
+        if (match) migratePasswordIfNeeded(person, entered); // async, non-blocking
+        return match;
     }
-
-    // 3. Try hash comparison even if not flagged (migration safety)
-    try {
-        const enteredHash = await hashPassword(entered);
-        if (person.password === enteredHash) return true;
-    } catch(e) {}
-
-    return false;
 }
 
 // ── RATE LIMITING ─────────────────────────────────────────
@@ -1616,7 +1603,9 @@ function formatCurrency(amount) {
 // ── Locale helper ───────────────────────────────────────
 // Usa el locale de la clínica para formatear fechas y números.
 // Fallback a getLocale() si clinicConfig no está listo todavía.
-
+function getLocale() {
+    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
+}
 
 // Procedimientos
 // Helper: always find factura form elements in the visible cobros-content clone,
@@ -2257,6 +2246,11 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     currentFacturaCliente = facturaHTML;
     document.getElementById('facturaClienteContent').innerHTML = facturaHTML;
 
+    // Guardar teléfono del paciente para el botón WhatsApp directo
+    const pacienteRecibo = appData.pacientes.find(p => p.nombre === factura.paciente);
+    window.currentReciboPacienteTel = pacienteRecibo ? (pacienteRecibo.telefono || '') : '';
+    window.currentReciboPacienteNombre = factura.paciente || '';
+
     closeModal('modalPagarFactura');
     openModal('modalFacturaCliente');
 
@@ -2740,14 +2734,10 @@ async function agregarPersonal() {
         showToast('⚠️ Ingresa el sueldo del empleado'); return;
     }
 
-    // Auto-generate 4-digit PIN if none provided
-    // Employees don't need login access, professionals always get a PIN
-    let rawPassword = null;
-    if (tipo !== 'empleado') {
-        rawPassword = (password && /^\d{4}$/.test(password)) ? password
-                    : String(Math.floor(1000 + Math.random() * 9000));
-    }
-    const hashedPw = rawPassword ? await hashPassword(rawPassword) : null;
+    // Hash password before storing — never plaintext
+    const defaultPw   = tipo === 'empleado' ? 'empleado123' : null;
+    const rawPassword = (tipo !== 'empleado' && password) ? password : defaultPw;
+    const hashedPw    = rawPassword ? await hashPassword(rawPassword) : null;
 
     const esEmp = tipo === 'empleado';
     const tipoRem = esEmp ? 'salario'
@@ -2788,8 +2778,7 @@ async function agregarPersonal() {
     updatePersonalTab();
     updateProfessionalPicker();
     closeModal('modalAddPersonal');
-    const pinMsg = rawPassword ? ` · PIN: ${rawPassword}` : '';
-    showToast(`✓ ${nombre} agregado${pinMsg}`, 5000);
+    showToast('✓ Personal agregado exitosamente');
 }
 
 function updatePersonalTab() {
@@ -3282,7 +3271,35 @@ Firma: _____________________
 
 function compartirWhatsApp() {
     const texto = encodeURIComponent(currentReciboText);
-    window.open(`https://wa.me/?text=${texto}`, '_blank');
+    // Si hay un teléfono de destinatario conocido, enviarlo directo
+    if (currentReciboTelefono) {
+        const num = _waNormalizarTelefono(currentReciboTelefono);
+        window.open(`https://wa.me/${num}?text=${texto}`, '_blank');
+    } else {
+        window.open(`https://wa.me/?text=${texto}`, '_blank');
+    }
+}
+
+/** Botón del modal de factura cliente — envía mensaje al paciente con aviso del recibo */
+function enviarFacturaWhatsApp() {
+    const nombre = window.currentReciboPacienteNombre || 'paciente';
+    const tel    = window.currentReciboPacienteTel    || '';
+    const clinica = clinicConfig.nombre || 'la clínica';
+    const pais = (clinicConfig.pais || '').toLowerCase();
+    const esIngles = pais.includes('united states') || pais.includes('estados unidos');
+
+    const mensaje = esIngles
+        ? `Hello ${nombre}! 😊 Your payment receipt from *${clinica}* is ready. Thank you for trusting us! 🦷✨`
+        : `¡Hola ${nombre}! 😊 Tu recibo de pago en *${clinica}* está listo.\n\nGracias por preferirnos. ¡Que cuides mucho tu sonrisa! 🦷✨`;
+
+    const texto = encodeURIComponent(mensaje);
+    const num   = _waNormalizarTelefono(tel);
+    if (num) {
+        window.open(`https://wa.me/${num}?text=${texto}`, '_blank');
+    } else {
+        window.open(`https://wa.me/?text=${texto}`, '_blank');
+        showToast('⚠️ No hay número registrado — selecciona el contacto en WhatsApp');
+    }
 }
 
 function copiarRecibo() {
@@ -4791,6 +4808,9 @@ function renderTabResumen(paciente) {
             ` : ''}
         </div>
 
+        <!-- Contacto WhatsApp -->
+        ${waRenderBotones(paciente, 'ficha')}
+
         <!-- Próxima cita -->
         ${(() => {
             const citasFuturas = getCitasDePaciente(paciente)
@@ -5415,6 +5435,13 @@ function verDetalleCita(citaId) {
             <div style="font-size: 14px; font-weight: 500; color: #1d1d1f;">${cita.notasProcedimiento}</div>
         </div>
         ` : ''}
+
+        ${(() => {
+            // Buscar datos del paciente para botones WhatsApp
+            const pac = appData.pacientes.find(p => p.nombre === cita.paciente);
+            if (!pac) return '';
+            return waRenderBotones(pac, 'cita', { cita });
+        })()}
     `;
 
     document.getElementById('detalleCitaContent').innerHTML = html;
@@ -5921,7 +5948,13 @@ function verDetalleOrdenLab(ordenId) {
     window.currentOrdenLabId = ordenId;
 
     const botonesHTML = renderizarBotonesAvance(orden);
+
+    // Botones WhatsApp para laboratorio
+    const pacLab = appData.pacientes.find(p => p.nombre === orden.paciente);
+    const waBotonesLab = pacLab ? waRenderBotones(pacLab, 'laboratorio', { orden }) : '';
+
     document.getElementById('botonesAvanceLab').innerHTML = `
+        ${waBotonesLab}
         ${orden.estadoActual !== 'Entregado' ? `
         <textarea id="notasAvanceLab" placeholder="Notas del cambio (opcional)..."
             style="width:100%;padding:10px 12px;border:1.5px solid rgba(30,28,26,0.1);
@@ -9234,51 +9267,6 @@ function renderMiPlanTab() {
         }</div>
         ${clinicConfig.enTrial ? `<div style="margin-top:6px;padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;font-size:12px;color:var(--mid);border-left:3px solid var(--terracota)">💡 Durante el trial puedes agregar módulos y explorar SMILE. Solo pagas los módulos activos al finalizar.</div>` : ''}
 
-        <!-- SUSCRIPCIÓN: estado y botón de pago -->
-        <div class="card" style="margin-bottom:20px;background:var(--surface)">
-            <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px">Estado de suscripción</div>
-
-            ${clinicConfig.enTrial ? `
-            <!-- EN TRIAL -->
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <div>
-                    <div style="font-size:13px;color:var(--dark)">Período de prueba activo</div>
-                    <div style="font-size:12px;color:var(--mid);margin-top:3px">Vence el ${hasta ? hasta.toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div>
-                </div>
-                <div style="text-align:right">
-                    <div style="font-size:26px;font-weight:200;color:var(--terracota)">${diasTrial}</div>
-                    <div style="font-size:10px;color:var(--light)">día${diasTrial!==1?'s':''} restante${diasTrial!==1?'s':''}</div>
-                </div>
-            </div>
-            <div style="font-size:12px;color:var(--mid);padding:10px 14px;background:rgba(196,133,106,0.06);border-radius:8px;margin-bottom:16px;line-height:1.6">
-                Al finalizar el trial, necesitas activar tu suscripción para continuar usando SMILE.
-            </div>
-            <button onclick="iniciarPago()" style="
-                width:100%;padding:14px;background:var(--clinic-color);color:white;
-                border:none;border-radius:var(--radius-sm);font-size:12px;
-                letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;
-                cursor:pointer;transition:background 0.2s;"
-                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                Activar suscripción
-            </button>
-            ` : `
-            <!-- SUSCRIPCIÓN ACTIVA -->
-            <div style="display:flex;justify-content:space-between;align-items:center">
-                <div>
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                        <div style="width:8px;height:8px;border-radius:50%;background:#4a7a50"></div>
-                        <div style="font-size:13px;color:var(--dark)">Suscripción activa</div>
-                    </div>
-                    ${clinicConfig.proximoPago ? `<div style="font-size:12px;color:var(--mid);margin-top:4px">Próximo cobro: <strong>${new Date(clinicConfig.proximoPago).toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'})}</strong></div>` : ''}
-                </div>
-                <div style="text-align:right">
-                    <div style="font-size:20px;font-weight:200;color:var(--dark)">${clinicConfig.moneda || 'RD$'}${calcTotal().toLocaleString()}</div>
-                    <div style="font-size:10px;color:var(--light)">/mes</div>
-                </div>
-            </div>
-            `}
-        </div>
-
         <!-- Plan base -->
         <div class="card" style="margin-bottom:14px">
             <div style="display:flex;justify-content:space-between;align-items:center">
@@ -9347,31 +9335,6 @@ function togglePlanModulo(key) {
         (clinicConfig.moneda || 'RD$') + tab._calcTotal().toLocaleString();
 }
 
-async function iniciarPago() {
-    try {
-        const btn = event.currentTarget;
-        btn.textContent = 'Redirigiendo...';
-        btn.disabled = true;
-
-        const FUNCTIONS_URL = 'https://us-central1-smile-theapp.cloudfunctions.net/createCheckoutSession';
-        const res = await fetch(FUNCTIONS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clinicId: CLINIC_PATH })
-        });
-        const data = await res.json();
-        if (data.url) {
-            window.location.href = data.url;
-        } else {
-            throw new Error(data.error || 'No se pudo crear la sesión de pago');
-        }
-    } catch(e) {
-        showToast('❌ Error al iniciar el pago: ' + e.message, 4000, '#c0392b');
-        const btn = document.querySelector('[onclick="iniciarPago()"]');
-        if (btn) { btn.textContent = 'Activar suscripción'; btn.disabled = false; }
-    }
-}
-
 async function guardarCambiosPlan() {
     try {
     const tab = document.getElementById('tab-miplan');
@@ -9394,14 +9357,12 @@ async function guardarCambiosPlan() {
         if (!canWriteToFirebase('guardarModulosPlan')) return;
 
         // Update Firebase config
-        // Write to main clinic doc — config/settings is admin-only per Firestore Rules
-        await db.collection('clinicas').doc(CLINIC_PATH).set({
-            planPendiente: {
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings').set({
                 modulos: nuevosModulos,
                 mrr: nuevoMRR,
-                solicitadoEn: new Date().toISOString(),
-            }
-        }, { merge: true });
+                planModificadoEn: new Date().toISOString(),
+            }, { merge: true });
 
         // Update local state
         clinicConfig.modulos = nuevosModulos;
@@ -11249,6 +11210,277 @@ async function eliminarPacienteActual() {
 }
 
 // ── 3. Editar Orden de Laboratorio ───────────────────────
+// ============================================================
+// WHATSAPP INTEGRATION SYSTEM
+// ============================================================
+
+/**
+ * Normaliza un número de teléfono a formato internacional para wa.me
+ * Detecta el país de la clínica y agrega el código de área correcto.
+ */
+function _waNormalizarTelefono(telefono) {
+    if (!telefono) return null;
+    let num = telefono.replace(/[\s\-\(\)\.]/g, '');
+
+    // Si ya tiene código de país (empieza con +), solo quitar el +
+    if (num.startsWith('+')) return num.slice(1);
+
+    // Detectar por país de la clínica
+    const pais = (clinicConfig.pais || '').toLowerCase();
+    const codigos = {
+        'república dominicana': '1',
+        'dominican republic': '1',
+        'méxico': '52',
+        'mexico': '52',
+        'colombia': '57',
+        'venezuela': '58',
+        'panamá': '507',
+        'panama': '507',
+        'costa rica': '506',
+        'guatemala': '502',
+        'honduras': '504',
+        'el salvador': '503',
+        'nicaragua': '505',
+        'ecuador': '593',
+        'perú': '51',
+        'peru': '51',
+        'chile': '56',
+        'argentina': '54',
+        'uruguay': '598',
+        'bolivia': '591',
+        'paraguay': '595',
+        'españa': '34',
+        'espana': '34',
+        'united states': '1',
+        'estados unidos': '1',
+        'puerto rico': '1',
+    };
+
+    for (const [nombre, codigo] of Object.entries(codigos)) {
+        if (pais.includes(nombre)) {
+            // RD y EEUU: el número ya incluye el área (10 dígitos)
+            return codigo + num;
+        }
+    }
+    // Fallback: enviar sin código (WhatsApp dejará al usuario elegir)
+    return num;
+}
+
+/**
+ * Retorna los templates de mensaje según el país/idioma de la clínica.
+ */
+function _waGetTemplates() {
+    const pais = (clinicConfig.pais || '').toLowerCase();
+    const clinica = clinicConfig.nombre || 'la clínica';
+
+    // Idioma según país
+    const esIngles = pais.includes('united states') || pais.includes('estados unidos');
+
+    if (esIngles) {
+        return {
+            saludoGeneral: (nombre) =>
+                `Hello ${nombre}! 👋 This is ${clinica}. How can we help you?`,
+            recordatorioCita: (nombre, fecha, hora, motivo, profesional) =>
+                `Hello ${nombre}! 😊\n\nThis is a reminder from ${clinica} about your upcoming appointment:\n\n📅 Date: ${fecha}\n🕐 Time: ${hora}\n🦷 Reason: ${motivo}\n👨‍⚕️ With: ${profesional}\n\nPlease confirm you'll be attending. See you soon! ✨`,
+            confirmacionCita: (nombre, fecha, hora) =>
+                `Hello ${nombre}! We'd like to confirm your appointment at ${clinica} on ${fecha} at ${hora}. Will you be able to make it? Please reply YES or NO. Thank you! 😊`,
+            reciboResumen: null, // uses existing text
+            labListo: (nombre, tipo) =>
+                `Hello ${nombre}! 🎉\n\nGreat news from ${clinica}: your ${tipo || 'dental work'} is ready!\n\nPlease contact us to schedule your fitting appointment. We're looking forward to seeing you! 😊`,
+            labRetraso: (nombre, tipo) =>
+                `Hello ${nombre}. This is ${clinica}.\n\nWe wanted to let you know that your ${tipo || 'dental work'} has required an adjustment at the lab. We'll notify you as soon as it's ready. We apologize for any inconvenience. 🙏`,
+            balancePendiente: (nombre, monto) =>
+                `Hello ${nombre}! 😊\n\nThis is ${clinica}. You have a pending balance of *${monto}*.\n\nWould you like to schedule a payment? We're happy to assist you.`,
+        };
+    }
+
+    // Español (default)
+    return {
+        saludoGeneral: (nombre) =>
+            `¡Hola ${nombre}! 👋 Te saludamos desde ${clinica}. ¿En qué podemos ayudarte?`,
+        recordatorioCita: (nombre, fecha, hora, motivo, profesional) =>
+            `¡Hola ${nombre}! 😊\n\nTe recordamos tu próxima cita en *${clinica}*:\n\n📅 Fecha: *${fecha}*\n🕐 Hora: *${hora}*\n🦷 Motivo: ${motivo}\n👨‍⚕️ Con: ${profesional}\n\nPor favor confirma tu asistencia. ¡Te esperamos! ✨`,
+        confirmacionCita: (nombre, fecha, hora) =>
+            `¡Hola ${nombre}! 😊 Te contactamos desde *${clinica}* para confirmar tu cita el *${fecha}* a las *${hora}*. ¿Podrás asistir? Responde SÍ o NO. ¡Gracias!`,
+        reciboResumen: null, // usa el texto existente del recibo
+        labListo: (nombre, tipo) =>
+            `¡Hola ${nombre}! 🎉\n\nTe contactamos desde *${clinica}* con buenas noticias: tu *${tipo || 'trabajo dental'}* ya está listo en el laboratorio.\n\nComunícate con nosotros para coordinar tu cita de prueba. ¡Te esperamos! 😊`,
+        labRetraso: (nombre, tipo) =>
+            `¡Hola ${nombre}! Te saludamos desde *${clinica}*.\n\nQueremos avisarte que tu *${tipo || 'trabajo dental'}* requirió un ajuste adicional en el laboratorio. Te notificaremos en cuanto esté listo. ¡Disculpa la espera! 🙏`,
+        balancePendiente: (nombre, monto) =>
+            `¡Hola ${nombre}! 😊 Te contactamos desde *${clinica}*. Tienes un balance pendiente de *${monto}*.\n\n¿Te gustaría coordinar el pago? Estamos para ayudarte.`,
+    };
+}
+
+/**
+ * Función principal de contacto WhatsApp.
+ * Abre WhatsApp con el template correcto para la situación.
+ *
+ * @param {string} telefono  - Teléfono del paciente
+ * @param {string} template  - Template a usar (ver _waGetTemplates)
+ * @param {object} datos     - Datos para rellenar el template
+ */
+function waContactar(telefono, template, datos = {}) {
+    const numero = _waNormalizarTelefono(telefono);
+    const templates = _waGetTemplates();
+    const fn = templates[template];
+    if (!fn) { showToast('⚠️ Template no encontrado'); return; }
+
+    let mensaje = '';
+    switch (template) {
+        case 'saludoGeneral':
+            mensaje = fn(datos.nombre || 'paciente');
+            break;
+        case 'recordatorioCita':
+            mensaje = fn(datos.nombre, datos.fecha, datos.hora, datos.motivo, datos.profesional);
+            break;
+        case 'confirmacionCita':
+            mensaje = fn(datos.nombre, datos.fecha, datos.hora);
+            break;
+        case 'labListo':
+            mensaje = fn(datos.nombre, datos.tipo);
+            break;
+        case 'labRetraso':
+            mensaje = fn(datos.nombre, datos.tipo);
+            break;
+        case 'balancePendiente':
+            mensaje = fn(datos.nombre, datos.monto);
+            break;
+        default:
+            mensaje = fn(datos.nombre || 'paciente');
+    }
+
+    const texto = encodeURIComponent(mensaje);
+    if (numero) {
+        window.open(`https://wa.me/${numero}?text=${texto}`, '_blank');
+    } else {
+        // Sin número: abrir WhatsApp sin destinatario (el usuario elige)
+        window.open(`https://wa.me/?text=${texto}`, '_blank');
+        showToast('⚠️ No hay número registrado — selecciona el contacto en WhatsApp');
+    }
+}
+
+/**
+ * Abre el teléfono del dispositivo para llamar al paciente.
+ */
+function waLlamar(telefono, nombre) {
+    if (!telefono) {
+        showToast(`⚠️ ${nombre} no tiene teléfono registrado`);
+        return;
+    }
+    window.location.href = `tel:${telefono}`;
+}
+
+/**
+ * Renderiza el bloque de botones de contacto para usar en modales.
+ * Retorna HTML como string.
+ *
+ * @param {object} paciente         - Objeto paciente con nombre y telefono
+ * @param {string} contexto         - 'ficha' | 'cita' | 'laboratorio'
+ * @param {object} extraDatos       - Datos adicionales según contexto (cita, orden, etc.)
+ */
+function waRenderBotones(paciente, contexto, extraDatos = {}) {
+    if (!paciente) return '';
+    const nombre = paciente.nombre || 'el paciente';
+    const tel = paciente.telefono || '';
+    const tieneWA = !!tel;
+    const clinica = clinicConfig.nombre || 'la clínica';
+    const pais = (clinicConfig.pais || '').toLowerCase();
+    const esIngles = pais.includes('united states') || pais.includes('estados unidos');
+
+    // Estilo base de los botones
+    const btnBase = `font-family:inherit;font-size:13px;font-weight:500;border:none;
+                     border-radius:100px;padding:10px 16px;cursor:pointer;
+                     display:flex;align-items:center;gap:7px;white-space:nowrap;transition:opacity 0.15s;`;
+    const btnWA   = `${btnBase}background:#25D366;color:white;`;
+    const btnCall = `${btnBase}background:var(--azul,#7B8FA1);color:white;`;
+    const btnSoft = `${btnBase}background:rgba(37,211,102,0.1);color:#128C7E;border:1.5px solid rgba(37,211,102,0.3);`;
+
+    let botonesHTML = '';
+
+    if (contexto === 'ficha') {
+        // Botones para ficha del paciente
+        const balance = calcularBalancePaciente(nombre);
+        const tienePendiente = balance > 0;
+
+        botonesHTML = `
+            <button style="${btnWA}" onclick="waContactar('${tel}','saludoGeneral',{nombre:'${nombre.replace(/'/g,"\\'")}'})" title="Abrir WhatsApp">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                ${esIngles ? 'Message' : 'Mensaje'}
+            </button>
+            ${tienePendiente ? `
+            <button style="${btnSoft}" onclick="waContactar('${tel}','balancePendiente',{nombre:'${nombre.replace(/'/g,"\\'")}',monto:'${formatCurrency(balance)}'})" title="Recordar pago">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                💰 ${esIngles ? 'Remind payment' : 'Recordar pago'}
+            </button>` : ''}
+            <button style="${btnCall}" onclick="waLlamar('${tel}','${nombre.replace(/'/g,"\\'")}')">
+                📞 ${esIngles ? 'Call' : 'Llamar'}
+            </button>
+        `;
+    }
+
+    if (contexto === 'cita') {
+        const cita = extraDatos.cita || {};
+        const fechaStr = cita.fecha ? formatDate(cita.fecha) : '';
+        const horaStr  = cita.hora  || '';
+        const motivo   = (cita.motivo || '').replace(/'/g, "\\'");
+        const prof     = (cita.profesional || '').replace(/'/g, "\\'");
+        const nomEsc   = nombre.replace(/'/g, "\\'");
+
+        botonesHTML = `
+            <button style="${btnWA}" onclick="waContactar('${tel}','confirmacionCita',{nombre:'${nomEsc}',fecha:'${fechaStr}',hora:'${horaStr}'})">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                ✅ ${esIngles ? 'Confirm appointment' : 'Confirmar cita'}
+            </button>
+            <button style="${btnSoft}" onclick="waContactar('${tel}','recordatorioCita',{nombre:'${nomEsc}',fecha:'${fechaStr}',hora:'${horaStr}',motivo:'${motivo}',profesional:'${prof}'})">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                📅 ${esIngles ? 'Send reminder' : 'Enviar recordatorio'}
+            </button>
+            <button style="${btnCall}" onclick="waLlamar('${tel}','${nomEsc}')">
+                📞 ${esIngles ? 'Call' : 'Llamar'}
+            </button>
+        `;
+    }
+
+    if (contexto === 'laboratorio') {
+        const orden = extraDatos.orden || {};
+        const tipo  = (orden.tipo || '').replace(/'/g, "\\'");
+        const nomEsc = nombre.replace(/'/g, "\\'");
+
+        botonesHTML = `
+            <button style="${btnWA}" onclick="waContactar('${tel}','labListo',{nombre:'${nomEsc}',tipo:'${tipo}'})">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                🎉 ${esIngles ? 'Work is ready!' : '¡Listo para prueba!'}
+            </button>
+            <button style="${btnSoft}" onclick="waContactar('${tel}','labRetraso',{nombre:'${nomEsc}',tipo:'${tipo}'})">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                🔄 ${esIngles ? 'Notify delay' : 'Avisar retraso'}
+            </button>
+            <button style="${btnCall}" onclick="waLlamar('${tel}','${nomEsc}')">
+                📞 ${esIngles ? 'Call' : 'Llamar'}
+            </button>
+        `;
+    }
+
+    const sinTelMsg = esIngles
+        ? `<span style="font-size:11px;color:#999;">No phone number registered</span>`
+        : `<span style="font-size:11px;color:#999;">Sin número registrado</span>`;
+
+    return `
+        <div style="background:rgba(37,211,102,0.06);border:1.5px solid rgba(37,211,102,0.2);
+                    border-radius:12px;padding:12px 14px;margin:12px 0;">
+            <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;
+                        color:#128C7E;font-weight:600;margin-bottom:8px;">
+                💬 Contactar ${tieneWA ? `· ${tel}` : ''}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                ${tieneWA ? botonesHTML : sinTelMsg}
+            </div>
+        </div>
+    `;
+}
+
+// ============================================================
 // El modal #modalEditarOrden tiene campos: descripcion, laboratorio, precio.
 // window.currentOrdenLabId guarda la orden actualmente abierta en el detalle.
 

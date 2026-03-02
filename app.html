@@ -8,589 +8,592 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title id="pageTitle">SMILE — Gestión Dental</title>
     <style>
-    /* ══════════════════════════════════════════════════
-       SMILE — App v3 · Warm Neumorphic
-       Palette: Sand · Topo · Piedra · Salvia · Pizarra · Terra
-    ══════════════════════════════════════════════════ */
+    /* ══════════════════════════════════════════════
+       SMILE — App CSS
+       Palette: #EEEAE4 base · #F5F2EE surface · #FDFCFB white
+                #1E1C1A dark · #C4856A terracota · #7B8FA1 slate
+       Font: Plus Jakarta Sans 200–500
+    ══════════════════════════════════════════════ */
 
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;1,200&display=swap');
 
     * {
-        margin: 0; padding: 0; box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
         -webkit-tap-highlight-color: transparent;
     }
 
     :root {
-        /* ── Palette ── */
-        --sand:       #EEEAE4;
-        --sand-lt:    #F7F4EF;
-        --white:      #FDFCFB;
-        --topo:       #6B635C;
-        --piedra:     #A89F96;
-        --muted:      #C8C2BB;
-        --terra:      #C4856A;
-        --salvia:     #6B8F71;
-        --pizarra:    #7D8EA0;
-        --rosa:       #EAC0B2;
-        --carbon:     #3A3532;
-
-        /* ── Neumorphic shadows ── */
-        --neu-raised:    5px 5px 12px rgba(185,177,167,.55), -4px -4px 10px rgba(255,255,255,.95);
-        --neu-raised-lg: 8px 8px 20px rgba(182,174,164,.60), -6px -6px 16px rgba(255,255,255,.98);
-        --neu-inset:     inset 3px 3px 8px rgba(182,174,164,.55), inset -3px -3px 7px rgba(255,255,255,.92);
-        --neu-inset-lg:  inset 5px 5px 14px rgba(182,174,164,.60), inset -4px -4px 10px rgba(255,255,255,.96);
-        --neu-flat:      2px 2px 6px rgba(185,177,167,.38), -2px -2px 5px rgba(255,255,255,.85);
-        --neu-salvia:    5px 5px 14px rgba(80,120,88,.22),  -4px -4px 10px rgba(210,230,212,.70);
-        --neu-pizarra:   5px 5px 14px rgba(90,108,128,.22), -4px -4px 10px rgba(200,214,228,.70);
-        --neu-terra:     5px 5px 14px rgba(170,115,90,.22), -4px -4px 10px rgba(240,210,195,.75);
-        --neu-rosa:      5px 5px 14px rgba(180,130,118,.22),-4px -4px 10px rgba(248,230,222,.80);
-
-        /* ── Legacy aliases for JS compatibility ── */
-        --clinic-color:       #7D8EA0;   /* was dark, now pizarra */
-        --clinic-color-light: #8fa0b2;
-        --bg:        var(--sand);
-        --surface:   var(--sand-lt);
-        --dark:      var(--carbon);
-        --mid:       var(--topo);
-        --light:     var(--piedra);
-        --terracota: var(--terra);
-        --slate:     var(--pizarra);
-        --radius-sm: 12px;
+        --clinic-color: #1E1C1A;
+        --clinic-color-light: #3A3836;
+        --bg: #EEEAE4;
+        --surface: #F5F2EE;
+        --white: #FDFCFB;
+        --dark: #1E1C1A;
+        --mid: #6B635C;
+        --light: #A89F96;
+        --terracota: #C4856A;
+        --slate: #7B8FA1;
+        --rosa: #E8C4B8;
+        --radius-sm: 10px;
         --radius-md: 16px;
-        --radius-lg: 22px;
-        --shadow-sm: var(--neu-raised);
-        --shadow-md: var(--neu-raised-lg);
-        --shadow-lg: var(--neu-raised-lg);
+        --radius-lg: 24px;
+        --shadow-sm: 0 1px 4px rgba(30,28,26,0.06), 0 4px 16px rgba(30,28,26,0.04);
+        --shadow-md: 0 2px 8px rgba(30,28,26,0.07), 0 8px 32px rgba(30,28,26,0.06);
+        --shadow-lg: 0 8px 32px rgba(30,28,26,0.1), 0 2px 8px rgba(30,28,26,0.06);
     }
 
     body {
         font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-        background: var(--sand);
-        color: var(--topo);
+        background: var(--bg);
+        color: var(--dark);
         overflow-x: hidden;
         font-weight: 300;
         -webkit-font-smoothing: antialiased;
     }
 
-    /* ── LOADING SCREEN ───────────────────────────── */
+    /* ── LOADING SCREEN ─────────────────────────── */
     .clinic-loading {
         font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-        position: fixed; inset: 0;
-        background: var(--sand);
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        z-index: 9999; gap: 20px;
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        gap: 20px;
     }
     .clinic-loading-logo {
-        font-size: 9px; font-weight: 600;
-        letter-spacing: 8px; text-transform: uppercase;
-        color: var(--topo); opacity: .45;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 8px;
+        color: var(--dark);
+        opacity: 0.4;
     }
     .clinic-loading-spinner {
-        width: 28px; height: 28px;
-        border: 1.5px solid rgba(185,177,167,.4);
-        border-top-color: var(--pizarra);
+        width: 28px;
+        height: 28px;
+        border: 1.5px solid rgba(30,28,26,0.1);
+        border-top-color: var(--terracota);
         border-radius: 50%;
-        animation: spin .8s linear infinite;
+        animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── SYNC INDICATOR ───────────────────────────── */
+    /* ── SYNC INDICATOR ─────────────────────────── */
     .sync-indicator {
-        position: fixed; top: 68px; right: 16px;
-        background: var(--sand);
-        color: var(--topo);
-        padding: 6px 16px; border-radius: 100px;
-        font-size: 11px; font-weight: 400; letter-spacing: .5px;
-        z-index: 9999; opacity: 0;
-        transition: opacity .3s;
-        box-shadow: var(--neu-raised);
+        position: fixed;
+        top: 68px;
+        right: 16px;
+        background: var(--dark);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 100px;
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.5px;
+        z-index: 9999;
+        opacity: 0;
+        transition: opacity 0.3s, background 0.3s;
+        box-shadow: var(--shadow-md);
         pointer-events: none;
     }
     .sync-indicator.show { opacity: 1; }
-    @keyframes syncPulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+    @keyframes syncPulse {
+        0%,100% { opacity: 1; }
+        50%      { opacity: 0.5; }
+    }
     .sync-indicator.sync-pulse { animation: syncPulse 1s ease-in-out infinite; }
 
-    /* ── LOGIN SCREEN ─────────────────────────────── */
-    /* ═══ CLINIC SEARCH SCREEN ══════════════════════ */
-    .clinic-search-screen {
-        position: fixed; inset: 0; z-index: 999;
-        background: var(--sand);
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        padding: 32px 24px;
-        animation: fadeIn .4s ease;
-    }
-    .cs-logo {
-        font-size: 9px; font-weight: 600; letter-spacing: 6px;
-        text-transform: uppercase; color: var(--topo); opacity: .45;
-        margin-bottom: 52px;
-    }
-    .cs-title {
-        font-size: clamp(28px, 5vw, 42px); font-weight: 200;
-        letter-spacing: -1.5px; color: var(--topo);
-        text-align: center; margin-bottom: 8px;
-    }
-    .cs-sub {
-        font-size: 14px; color: var(--piedra); text-align: center;
-        margin-bottom: 40px; line-height: 1.6;
-    }
-    .cs-form {
-        width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px;
-    }
-    .cs-input-wrap {
-        position: relative;
-    }
-    .cs-input {
-        width: 100%; padding: 16px 20px;
-        border: none; border-radius: 16px;
-        font-size: 16px; font-family: inherit; font-weight: 300;
-        background: var(--sand); color: var(--topo);
-        box-shadow: var(--neu-inset); outline: none;
-        transition: box-shadow .2s;
-    }
-    .cs-input:focus { box-shadow: var(--neu-inset-lg), 0 0 0 2px rgba(125,142,160,.2); }
-    .cs-results {
-        position: absolute; top: calc(100% + 8px); left: 0; right: 0;
-        background: var(--sand); border-radius: 16px;
-        box-shadow: var(--neu-raised-lg);
-        overflow: hidden; z-index: 10;
-        max-height: 220px; overflow-y: auto;
-    }
-    .cs-result-item {
-        padding: 14px 20px; cursor: pointer;
-        font-size: 14px; color: var(--topo); font-weight: 300;
-        border-bottom: 1px solid rgba(255,255,255,.6);
-        transition: background .15s;
-        display: flex; align-items: center; gap: 12px;
-    }
-    .cs-result-item:last-child { border-bottom: none; }
-    .cs-result-item:hover { background: rgba(125,142,160,.07); }
-    .cs-result-icon {
-        width: 32px; height: 32px; border-radius: 8px;
-        background: var(--sand); box-shadow: var(--neu-flat);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 14px; font-weight: 500; color: var(--pizarra);
-        flex-shrink: 0;
-    }
-    .cs-result-name { font-weight: 400; color: var(--topo); }
-    .cs-result-id   { font-size: 11px; color: var(--piedra); margin-top: 1px; }
-    .cs-btn {
-        width: 100%; padding: 15px;
-        background: linear-gradient(145deg, #8b9eb2, var(--pizarra));
-        color: white; border: none; border-radius: 16px;
-        font-size: 11px; font-weight: 500; font-family: inherit;
-        letter-spacing: 2px; text-transform: uppercase;
-        cursor: pointer; box-shadow: var(--neu-pizarra);
-        transition: all .25s;
-    }
-    .cs-btn:hover { background: linear-gradient(145deg, #cc9178, var(--terra)); box-shadow: var(--neu-terra); }
-    .cs-btn:active { transform: scale(.98); }
-    .cs-err {
-        font-size: 13px; color: #c0392b; text-align: center;
-        background: rgba(192,57,43,.07); border-radius: 10px;
-        padding: 10px 14px; display: none;
-    }
-    .cs-note { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; }
-
-    /* ═══ LOGIN SCREEN (user picker + PIN) ═══════════ */
+    /* ── LOGIN SCREEN ───────────────────────────── */
     .login-screen {
-        position: fixed; inset: 0; z-index: 998;
-        background: var(--sand);
-        display: none; flex-direction: column;
-        align-items: center; justify-content: center;
-        padding: 24px; overflow: hidden;
-    }
-    .login-screen.visible { display: flex; animation: fadeIn .35s ease; }
-
-    /* Clinic badge at top */
-    .ls-clinic-bar {
-        display: flex; align-items: center; gap: 10px;
-        margin-bottom: 40px; position: relative; z-index: 1;
-    }
-    .ls-clinic-logo {
-        width: 36px; height: 36px; border-radius: 10px;
-        background: var(--sand); box-shadow: var(--neu-raised);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 15px; font-weight: 600; color: var(--pizarra);
-        overflow: hidden; flex-shrink: 0;
-    }
-    .ls-clinic-logo img { width: 100%; height: 100%; object-fit: contain; }
-    .ls-clinic-name {
-        font-size: 14px; font-weight: 400; color: var(--topo); letter-spacing: -.2px;
-    }
-    .ls-clinic-change {
-        font-size: 10px; color: var(--pizarra); cursor: pointer;
-        margin-left: 8px; opacity: .7; letter-spacing: .5px;
-        background: none; border: none; font-family: inherit;
-        padding: 4px 8px; border-radius: 100px;
-        box-shadow: var(--neu-flat); transition: box-shadow .2s;
-    }
-    .ls-clinic-change:hover { box-shadow: var(--neu-raised); opacity: 1; }
-
-    /* Phase 1: user picker */
-    .ls-phase { width: 100%; max-width: 400px; }
-    .ls-phase-title {
-        font-size: 11px; font-weight: 600; letter-spacing: 3px;
-        text-transform: uppercase; color: var(--piedra);
-        text-align: center; margin-bottom: 20px;
-    }
-
-    /* User avatars grid */
-    .ls-users {
-        display: grid; gap: 10px;
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        margin-bottom: 8px;
-    }
-    .ls-user-card {
-        background: var(--sand); border-radius: 16px;
-        padding: 18px 10px 14px;
-        display: flex; flex-direction: column; align-items: center; gap: 10px;
-        cursor: pointer; box-shadow: var(--neu-raised);
-        transition: box-shadow .25s cubic-bezier(.34,1.56,.64,1), transform .25s cubic-bezier(.34,1.56,.64,1);
-        border: none; font-family: inherit;
-    }
-    .ls-user-card:hover  { box-shadow: var(--neu-raised-lg); transform: translateY(-2px); }
-    .ls-user-card:active { box-shadow: var(--neu-inset); transform: scale(.97); }
-    .ls-user-avatar {
-        width: 48px; height: 48px; border-radius: 50%;
-        background: var(--sand); box-shadow: var(--neu-raised);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 18px; font-weight: 500; color: var(--pizarra);
+        min-height: 100vh;
+        background: linear-gradient(160deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        position: relative;
         overflow: hidden;
     }
-    .ls-user-name {
-        font-size: 11px; font-weight: 400; color: var(--topo);
-        text-align: center; line-height: 1.3;
-        word-break: break-word;
+    .login-screen::before {
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -20%;
+        width: 60vw;
+        height: 60vw;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.03);
+        pointer-events: none;
     }
-    .ls-user-role {
-        font-size: 9px; color: var(--piedra); letter-spacing: 1px;
+    .login-screen::after {
+        content: '';
+        position: absolute;
+        bottom: -20%;
+        left: -15%;
+        width: 50vw;
+        height: 50vw;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.025);
+        pointer-events: none;
+    }
+
+    .logo-container {
+        margin-bottom: 36px;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+    .logo-container img {
+        max-width: 180px;
+        width: 55%;
+        height: auto;
+        filter: brightness(0) invert(1);
+        opacity: 0.95;
+        display: none; /* shown by JS when logo exists */
+    }
+    .logo-container img.loaded {
+        display: block;
+        margin: 0 auto 12px;
+    }
+    .clinic-name-login {
+        color: rgba(255,255,255,0.9);
+        font-size: 22px;
+        font-weight: 200;
+        text-align: center;
+        margin-top: 10px;
+        letter-spacing: -0.3px;
+        transition: font-size 0.2s;
+    }
+    .clinic-name-login.logo-visible {
+        font-size: 13px;
+        opacity: 0.7;
+        font-weight: 300;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-top: 8px;
+    }
+
+    .login-card {
+        background: var(--white);
+        border-radius: var(--radius-lg);
+        padding: 32px 28px;
+        max-width: 380px;
+        width: 100%;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.12);
+        position: relative;
+        z-index: 1;
+    }
+
+    .role-selector {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 28px;
+        background: var(--bg);
+        padding: 4px;
+        border-radius: var(--radius-sm);
+    }
+    .role-btn {
+        flex: 1;
+        padding: 10px 8px;
+        border: none;
+        background: transparent;
+        color: var(--light);
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 400;
+        font-size: 12px;
+        font-family: inherit;
+        letter-spacing: 0.3px;
+        transition: all 0.2s;
+    }
+    .role-btn.active {
+        background: var(--white);
+        color: var(--dark);
+        font-weight: 500;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .input-group {
+        margin-bottom: 18px;
+    }
+    .input-group label {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--mid);
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.8px;
         text-transform: uppercase;
     }
-
-    /* Phase 2: PIN pad */
-    .ls-pin-phase { width: 100%; max-width: 320px; display: none; }
-    .ls-pin-phase.visible { display: block; animation: fadeIn .25s ease; }
-
-    .ls-pin-user {
-        display: flex; align-items: center; gap: 12px;
-        justify-content: center; margin-bottom: 28px;
+    .input-group input,
+    .input-group select {
+        width: 100%;
+        padding: 13px 16px;
+        border: 1.5px solid rgba(30,28,26,0.1);
+        border-radius: var(--radius-sm);
+        font-size: 15px;
+        font-family: inherit;
+        font-weight: 300;
+        background: var(--surface);
+        color: var(--dark);
+        transition: border-color 0.2s, box-shadow 0.2s;
+        -webkit-appearance: none;
     }
-    .ls-pin-avatar {
-        width: 44px; height: 44px; border-radius: 50%;
-        background: var(--sand); box-shadow: var(--neu-raised);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 18px; font-weight: 500; color: var(--pizarra);
-    }
-    .ls-pin-name { font-size: 16px; font-weight: 300; color: var(--topo); }
-
-    /* PIN dots */
-    .ls-pin-dots {
-        display: flex; justify-content: center; gap: 12px;
-        margin-bottom: 28px; height: 16px; align-items: center;
-    }
-    .ls-pin-dot {
-        width: 12px; height: 12px; border-radius: 50%;
-        background: var(--sand); box-shadow: var(--neu-raised);
-        transition: all .15s cubic-bezier(.34,1.56,.64,1);
-    }
-    .ls-pin-dot.filled {
-        background: var(--pizarra);
-        box-shadow: var(--neu-pizarra);
-        transform: scale(1.15);
-    }
-    .ls-pin-dot.error {
-        background: #c0392b;
-        animation: shake .35s ease;
-    }
-    @keyframes shake {
-        0%,100% { transform: translateX(0); }
-        20%      { transform: translateX(-5px); }
-        40%      { transform: translateX(5px); }
-        60%      { transform: translateX(-4px); }
-        80%      { transform: translateX(4px); }
-    }
-
-    /* PIN keypad */
-    .ls-keypad {
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-    }
-    .ls-key {
-        background: var(--sand); border: none; border-radius: 16px;
-        padding: 18px 0; font-size: 22px; font-weight: 300;
-        color: var(--topo); cursor: pointer; font-family: inherit;
-        box-shadow: var(--neu-raised);
-        transition: box-shadow .15s, transform .1s;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 1px; line-height: 1;
-    }
-    .ls-key:active { box-shadow: var(--neu-inset); transform: scale(.95); }
-    .ls-key .ls-key-letters {
-        font-size: 8px; letter-spacing: 1.5px;
-        color: var(--muted); font-weight: 400;
-    }
-    .ls-key-back { font-size: 18px; color: var(--piedra); }
-    .ls-key-empty { background: transparent; box-shadow: none; cursor: default; }
-    .ls-key-empty:active { box-shadow: none; transform: none; }
-
-    .ls-back-btn {
-        display: flex; align-items: center; gap: 6px;
-        font-size: 12px; color: var(--piedra); background: none;
-        border: none; font-family: inherit; cursor: pointer;
-        margin: 20px auto 0; padding: 8px 16px;
-        border-radius: 100px; transition: color .2s;
-    }
-    .ls-back-btn:hover { color: var(--topo); }
-    .ls-pin-err {
-        font-size: 12px; color: #c0392b; text-align: center;
-        margin-bottom: 12px; min-height: 18px;
-        transition: opacity .2s;
+    .input-group input:focus,
+    .input-group select:focus {
+        outline: none;
+        border-color: var(--clinic-color);
+        box-shadow: 0 0 0 3px rgba(30,28,26,0.06);
+        background: var(--white);
     }
 
     .btn-primary {
-        width: 100%; padding: 14px;
-        background: linear-gradient(145deg, #8b9eb2, var(--pizarra));
-        color: white; border: none;
+        width: 100%;
+        padding: 15px;
+        background: var(--clinic-color);
+        color: white;
+        border: none;
         border-radius: var(--radius-sm);
-        font-size: 11px; font-weight: 500; font-family: inherit;
-        letter-spacing: 2px; text-transform: uppercase;
-        cursor: pointer; transition: all .25s; margin-top: 8px;
-        box-shadow: var(--neu-pizarra);
+        font-size: 13px;
+        font-weight: 400;
+        font-family: inherit;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
+        margin-top: 8px;
     }
     .btn-primary:hover {
-        background: linear-gradient(145deg, #cc9178, var(--terra));
-        box-shadow: var(--neu-terra);
+        background: var(--terracota);
+        box-shadow: 0 6px 20px rgba(196,133,106,0.35);
     }
-    .btn-primary:active { transform: scale(.98); }
+    .btn-primary:active { transform: scale(0.98); }
 
-    /* legacy - keep for any JS refs */
-    .logo-container { display: none; }
-    .clinic-name-login { display: none; }
-    .login-card { display: none; }
-    .role-selector { display: none; }
-    .role-btn { display: none; }
-    .input-group { margin-bottom: 18px; }
-    .input-group label {
-        display: block; margin-bottom: 7px; color: var(--piedra);
-        font-size: 9px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase;
-    }
-    .input-group input, .input-group select {
-        width: 100%; padding: 13px 16px; border: none; border-radius: var(--radius-sm);
-        font-size: 15px; font-family: inherit; font-weight: 300;
-        background: var(--sand); color: var(--topo);
-        box-shadow: var(--neu-inset); transition: box-shadow .2s;
-        -webkit-appearance: none; outline: none;
+    /* ── APP CONTAINER ──────────────────────────── */
+    .app-container {
+        display: none;
+        min-height: 100vh;
+        padding-bottom: 76px;
     }
 
-    /* ── APP CONTAINER ────────────────────────────── */
-    .app-container { display: none; min-height: 100vh; padding-bottom: 76px; }
-
-    /* ── APP HEADER ───────────────────────────────── */
+    /* ── APP HEADER ─────────────────────────────── */
     .app-header {
-        background: linear-gradient(160deg, #F0ECE5 0%, #E8E4DC 100%);
-        border-bottom: 1px solid rgba(255,255,255,.75);
-        box-shadow: 0 2px 16px rgba(185,177,167,.2);
-        padding: 13px 18px;
-        display: flex; justify-content: space-between; align-items: center;
-        position: sticky; top: 0; z-index: 100;
+        background: var(--clinic-color);
+        color: white;
+        padding: 14px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 4px 24px rgba(0,0,0,0.15);
     }
     .app-header h1 {
-        font-size: 9px; font-weight: 600;
-        letter-spacing: 5px; text-transform: uppercase;
-        color: var(--topo); opacity: .55;
+        font-size: 15px;
+        font-weight: 300;
+        letter-spacing: 0.5px;
+        opacity: 0.9;
     }
 
     .logout-btn {
-        background: var(--sand);
-        border: none; color: var(--piedra);
-        padding: 7px 16px; border-radius: 100px;
-        cursor: pointer; font-size: 11px; font-family: inherit;
-        font-weight: 400; letter-spacing: .5px;
-        box-shadow: var(--neu-raised); transition: box-shadow .2s, color .2s;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.15);
+        color: rgba(255,255,255,0.8);
+        padding: 7px 16px;
+        border-radius: 100px;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: inherit;
+        font-weight: 400;
+        letter-spacing: 0.5px;
+        transition: background 0.2s;
     }
-    .logout-btn:hover { box-shadow: var(--neu-raised-lg); color: var(--topo); }
+    .logout-btn:hover { background: rgba(255,255,255,0.18); }
 
-    /* ── CONTENT AREA ─────────────────────────────── */
-    .content-area { padding: 20px 16px; max-width: 800px; margin: 0 auto; }
+    /* ── CONTENT AREA ───────────────────────────── */
+    .content-area {
+        padding: 20px 16px;
+        max-width: 800px;
+        margin: 0 auto;
+    }
 
     .tab-content { display: none; }
-    .tab-content.active { display: block; animation: fadeIn .25s ease; }
+    .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
 
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(6px); }
         to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── CARDS ────────────────────────────────────── */
+    /* ── CARDS ──────────────────────────────────── */
     .card {
-        background: var(--sand);
+        background: var(--white);
         border-radius: var(--radius-md);
-        padding: 20px; margin-bottom: 14px;
-        box-shadow: var(--neu-raised);
+        padding: 20px;
+        margin-bottom: 14px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid rgba(30,28,26,0.04);
     }
     .card h2 {
-        font-size: 14px; font-weight: 400;
-        margin-bottom: 18px; color: var(--topo); letter-spacing: -.2px;
+        font-size: 15px;
+        font-weight: 400;
+        margin-bottom: 18px;
+        color: var(--dark);
+        letter-spacing: -0.2px;
     }
 
-    /* ── STAT CARDS ───────────────────────────────── */
+    /* ── STAT CARDS ─────────────────────────────── */
     .stat-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 12px; margin-bottom: 16px;
+        gap: 12px;
+        margin-bottom: 16px;
     }
     .stat-card {
-        background: var(--sand);
-        padding: 18px 16px; border-radius: var(--radius-md);
-        box-shadow: var(--neu-raised);
+        background: var(--white);
+        padding: 18px 16px;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid rgba(30,28,26,0.04);
     }
     .stat-label {
-        font-size: 9px; color: var(--muted);
-        margin-bottom: 8px; letter-spacing: 1.5px;
-        text-transform: uppercase; font-weight: 600;
+        font-size: 10px;
+        color: var(--light);
+        margin-bottom: 8px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-weight: 400;
     }
     .stat-value {
-        font-size: 22px; font-weight: 200;
-        color: var(--pizarra); letter-spacing: -.5px;
+        font-size: 22px;
+        font-weight: 300;
+        color: var(--clinic-color);
+        letter-spacing: -0.5px;
     }
-    .stat-value.green  { color: #4a7a50; }
-    .stat-value.orange { color: var(--terra); }
-    .stat-value.red    { color: #c0392b; }
+    .stat-value.green { color: #3a9e5f; }
+    .stat-value.orange { color: #C4856A; }
+    .stat-value.red { color: #c0392b; }
 
-    /* ── FORMS ────────────────────────────────────── */
+    /* ── FORMS ──────────────────────────────────── */
     .form-group { margin-bottom: 18px; position: relative; }
     .form-group label {
-        display: block; margin-bottom: 7px;
-        font-weight: 600; color: var(--piedra);
-        font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase;
+        display: block;
+        margin-bottom: 7px;
+        font-weight: 400;
+        color: var(--mid);
+        font-size: 11px;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
     }
     .form-group input,
     .form-group select,
     .form-group textarea {
-        width: 100%; padding: 12px 14px;
-        border: none; border-radius: var(--radius-sm);
-        font-size: 14px; font-family: inherit; font-weight: 300;
-        background: var(--sand); color: var(--topo);
-        box-shadow: var(--neu-inset);
-        transition: box-shadow .2s;
-        -webkit-appearance: none; outline: none;
+        width: 100%;
+        padding: 12px 14px;
+        border: 1.5px solid rgba(30,28,26,0.1);
+        border-radius: var(--radius-sm);
+        font-size: 15px;
+        font-family: inherit;
+        font-weight: 300;
+        background: var(--surface);
+        color: var(--dark);
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        -webkit-appearance: none;
     }
     .form-group input:focus,
     .form-group select:focus,
     .form-group textarea:focus {
-        box-shadow: var(--neu-inset-lg), 0 0 0 2px rgba(125,142,160,.18);
+        outline: none;
+        border-color: var(--clinic-color);
+        box-shadow: 0 0 0 3px rgba(30,28,26,0.05);
+        background: var(--white);
     }
-    .form-group textarea { min-height: 80px; resize: vertical; }
+    .form-group textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
 
-    /* ── BUTTONS ──────────────────────────────────── */
+    /* ── BUTTONS ────────────────────────────────── */
     .btn {
-        padding: 10px 20px; border: none;
+        padding: 10px 20px;
+        border: none;
         border-radius: var(--radius-sm);
-        font-size: 13px; font-weight: 400; font-family: inherit;
-        cursor: pointer; transition: all .2s; letter-spacing: .3px;
+        font-size: 13px;
+        font-weight: 400;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.3px;
     }
     .btn-add {
-        background: var(--sand);
-        color: var(--topo);
-        width: 100%; margin-bottom: 14px; padding: 13px;
+        background: var(--dark);
+        color: white;
+        width: 100%;
+        margin-bottom: 14px;
+        padding: 13px;
         border-radius: var(--radius-sm);
-        font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
-        box-shadow: var(--neu-raised);
+        font-size: 12px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
     }
-    .btn-add:hover { box-shadow: var(--neu-pizarra); color: var(--pizarra); }
+    .btn-add:hover { background: var(--terracota); }
 
     .btn-submit {
-        background: linear-gradient(145deg, #8b9eb2, var(--pizarra));
-        color: white; width: 100%; padding: 14px;
-        font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
-        border-radius: var(--radius-sm); box-shadow: var(--neu-pizarra);
+        background: var(--clinic-color);
+        color: white;
+        width: 100%;
+        padding: 14px;
+        font-size: 12px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-radius: var(--radius-sm);
     }
-    .btn-submit:hover {
-        background: linear-gradient(145deg, #cc9178, var(--terra));
-        box-shadow: var(--neu-terra);
-    }
+    .btn-submit:hover { background: var(--terracota); }
 
     .btn-secondary {
-        background: var(--sand); color: var(--piedra);
-        box-shadow: var(--neu-flat);
+        background: var(--surface);
+        color: var(--mid);
+        border: 1px solid rgba(30,28,26,0.1);
     }
-    .btn-secondary:hover { box-shadow: var(--neu-raised); color: var(--topo); }
+    .btn-secondary:hover { background: var(--bg); color: var(--dark); }
 
-    .btn-danger  { background: #c0392b; color: white; }
-    .btn-cancel  { background: var(--sand); color: var(--piedra); box-shadow: var(--neu-flat); }
-    .btn-save    {
-        background: linear-gradient(145deg, #8b9eb2, var(--pizarra));
-        color: white; box-shadow: var(--neu-pizarra);
+    .btn-danger {
+        background: #c0392b;
+        color: white;
     }
-    .btn-save:hover {
-        background: linear-gradient(145deg, #cc9178, var(--terra));
-        box-shadow: var(--neu-terra);
+    .btn-cancel {
+        background: var(--surface);
+        color: var(--mid);
+        border: 1px solid rgba(30,28,26,0.08);
     }
+    .btn-save {
+        background: var(--clinic-color);
+        color: white;
+    }
+    .btn-save:hover { background: var(--terracota); }
 
-    /* ── BOTTOM NAVIGATION ────────────────────────── */
+    /* ── BOTTOM NAVIGATION ──────────────────────── */
     .bottom-nav {
-        position: fixed; bottom: 0; left: 0; right: 0;
-        background: linear-gradient(160deg, #F2EEE8 0%, #EAE6DE 100%);
-        border-top: 1px solid rgba(255,255,255,.8);
-        box-shadow: 0 -2px 20px rgba(185,177,167,.25);
-        display: flex; justify-content: space-around;
-        padding: 8px 0 max(8px, env(safe-area-inset-bottom));
-        z-index: 100;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(253,252,251,0.92);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(30,28,26,0.07);
+        display: flex;
+        justify-content: space-around;
+        padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+        z-index: 100;
+        box-shadow: 0 -1px 0 rgba(30,28,26,0.04), 0 -8px 32px rgba(30,28,26,0.06);
     }
     .nav-item {
-        flex: 1; display: flex; flex-direction: column;
-        align-items: center; padding: 6px 4px;
-        color: var(--muted); cursor: pointer;
-        transition: color .2s; border: none;
-        background: none; font-family: inherit; gap: 3px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 4px;
+        color: var(--light);
+        cursor: pointer;
+        transition: color 0.2s;
+        border: none;
+        background: none;
+        font-family: inherit;
+        gap: 3px;
     }
-    .nav-item.active { color: var(--pizarra); }
-    .nav-item svg    { width: 22px; height: 22px; }
-    .nav-item span   { font-size: 10px; font-weight: 400; letter-spacing: .3px; }
+    .nav-item.active { color: var(--clinic-color); }
+    .nav-item svg {
+        width: 22px;
+        height: 22px;
+    }
+    .nav-item span {
+        font-size: 10px;
+        font-weight: 400;
+        letter-spacing: 0.3px;
+    }
 
-    /* ── ITEM LIST ────────────────────────────────── */
+    /* ── ITEM LIST ──────────────────────────────── */
     .item-list { list-style: none; }
     .item-list li {
-        background: var(--sand);
-        padding: 16px; margin-bottom: 8px;
+        background: var(--white);
+        padding: 16px;
+        margin-bottom: 8px;
         border-radius: var(--radius-md);
-        box-shadow: var(--neu-raised);
-        cursor: pointer; transition: box-shadow .2s, transform .2s;
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.15s;
+        border: 1px solid rgba(30,28,26,0.04);
     }
-    .item-list li:hover { transform: translateY(-1px); box-shadow: var(--neu-raised-lg); }
-    .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-    .item-title  { font-weight: 400; color: var(--topo); font-size: 14px; }
-    .item-amount { font-size: 16px; font-weight: 400; color: var(--pizarra); letter-spacing: -.3px; }
-    .item-meta   { font-size: 12px; color: var(--piedra); font-weight: 300; }
+    .item-list li:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+    .item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 6px;
+    }
+    .item-title {
+        font-weight: 400;
+        color: var(--dark);
+        font-size: 14px;
+    }
+    .item-amount {
+        font-size: 16px;
+        font-weight: 400;
+        color: var(--clinic-color);
+        letter-spacing: -0.3px;
+    }
+    .item-meta {
+        font-size: 12px;
+        color: var(--light);
+        font-weight: 300;
+    }
 
-    /* ── MODAL ────────────────────────────────────── */
+    /* ── MODAL ──────────────────────────────────── */
     .modal {
-        display: none; position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(107,99,92,.35);
-        backdrop-filter: blur(8px);
-        z-index: 1000; align-items: flex-end; justify-content: center; padding: 0;
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(30,28,26,0.45);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: flex-end;
+        justify-content: center;
+        padding: 0;
     }
-    @media (min-width: 600px) { .modal { align-items: center; padding: 20px; } }
+    @media (min-width: 600px) {
+        .modal { align-items: center; padding: 20px; }
+    }
     .modal.active { display: flex; }
 
     .modal-content {
-        background: var(--sand);
+        background: var(--white);
         border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-        max-width: 500px; width: 100%;
-        max-height: 92vh; overflow-y: auto;
+        max-width: 500px;
+        width: 100%;
+        max-height: 92vh;
+        overflow-y: auto;
         padding: 28px 24px 40px;
-        box-shadow: var(--neu-raised-lg);
-        animation: slideUp .28s cubic-bezier(.34,1.2,.64,1);
+        animation: slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1);
     }
     @media (min-width: 600px) {
         .modal-content {
             border-radius: var(--radius-lg);
             padding: 28px 28px 32px;
-            animation: fadeIn .2s ease;
+            animation: fadeIn 0.2s ease;
         }
     }
     @keyframes slideUp {
@@ -600,451 +603,378 @@
 
     /* drag handle */
     .modal-content::before {
-        content: ''; display: block;
-        width: 36px; height: 3px;
-        background: var(--muted); border-radius: 2px;
-        margin: 0 auto 24px; opacity: .5;
+        content: '';
+        display: block;
+        width: 36px;
+        height: 4px;
+        background: rgba(30,28,26,0.12);
+        border-radius: 2px;
+        margin: 0 auto 24px;
     }
-    @media (min-width: 600px) { .modal-content::before { display: none; } }
+    @media (min-width: 600px) {
+        .modal-content::before { display: none; }
+    }
 
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .modal-title  { font-size: 18px; font-weight: 200; color: var(--topo); letter-spacing: -.3px; }
-    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
-
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    .modal-title {
+        font-size: 18px;
+        font-weight: 300;
+        color: var(--dark);
+        letter-spacing: -0.3px;
+    }
+    .modal-footer {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 24px;
+    }
     .close-modal {
-        background: var(--sand); border: none;
-        width: 32px; height: 32px; border-radius: 50%;
-        cursor: pointer; font-size: 16px; color: var(--piedra);
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: var(--neu-raised); transition: box-shadow .2s, color .2s;
+        background: var(--surface);
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 16px;
+        color: var(--mid);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
     }
-    .close-modal:hover { box-shadow: var(--neu-raised-lg); color: var(--topo); }
+    .close-modal:hover { background: var(--bg); }
 
-    /* ── BADGES ───────────────────────────────────── */
+    /* ── BADGES ─────────────────────────────────── */
     .badge {
-        display: inline-block; padding: 3px 10px;
-        border-radius: 100px; font-size: 11px;
-        font-weight: 400; letter-spacing: .3px;
-        box-shadow: var(--neu-flat);
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 100px;
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.3px;
     }
-    .badge-pending   { background: rgba(196,133,106,.12); color: #9B5E42; }
-    .badge-paid      { background: rgba(107,143,113,.12); color: #4a7a50; }
-    .badge-partial   { background: rgba(125,142,160,.12); color: var(--pizarra); }
-    .badge-cancelled { background: rgba(192,57,43,.08);   color: #922B21; text-decoration: line-through; }
+    .badge-pending  { background: rgba(196,133,106,0.15); color: #9B5E42; }
+    .badge-paid     { background: rgba(58,158,95,0.12); color: #2D7A4A; }
+    .badge-partial  { background: rgba(123,143,161,0.15); color: var(--slate); }
+    .badge-cancelled { background: rgba(192,57,43,0.1); color: #922B21; text-decoration: line-through; }
 
-    /* ── DISCOUNT BUTTONS ─────────────────────────── */
+    /* ── DISCOUNT BUTTONS ───────────────────────── */
     .discount-buttons {
-        display: grid; grid-template-columns: repeat(4,1fr);
-        gap: 8px; margin-top: 10px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-top: 10px;
     }
     .discount-btn {
-        padding: 9px; background: var(--sand); color: var(--piedra);
-        border: none; border-radius: 10px;
-        cursor: pointer; font-size: 12px; font-family: inherit;
-        font-weight: 400; transition: all .2s;
-        box-shadow: var(--neu-raised);
+        padding: 9px;
+        background: var(--surface);
+        color: var(--mid);
+        border: 1px solid rgba(30,28,26,0.1);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: inherit;
+        font-weight: 400;
+        transition: all 0.2s;
     }
-    .discount-btn:hover { box-shadow: var(--neu-pizarra); color: var(--pizarra); }
+    .discount-btn:hover {
+        background: var(--clinic-color);
+        color: white;
+        border-color: var(--clinic-color);
+    }
 
-    /* ── PROCEDIMIENTO ITEM ───────────────────────── */
+    /* ── PROCEDIMIENTO ITEM ─────────────────────── */
     .procedimiento-item {
-        background: var(--sand);
-        padding: 13px 16px; border-radius: var(--radius-sm);
-        margin-bottom: 8px; display: flex;
-        justify-content: space-between; align-items: center;
-        box-shadow: var(--neu-flat);
+        background: var(--surface);
+        padding: 13px 16px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid rgba(30,28,26,0.06);
     }
     .procedimiento-delete {
-        background: none; color: var(--muted); border: none;
-        width: 28px; height: 28px; border-radius: 50%;
-        cursor: pointer; font-size: 15px;
-        display: flex; align-items: center; justify-content: center;
-        transition: color .2s, background .2s;
+        background: none;
+        color: var(--light);
+        border: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s, background 0.2s;
     }
-    .procedimiento-delete:hover { color: #c0392b; background: rgba(192,57,43,.08); }
+    .procedimiento-delete:hover { color: #c0392b; background: rgba(192,57,43,0.08); }
 
-    /* ── MISC ─────────────────────────────────────── */
+    /* ── MISC ───────────────────────────────────── */
     .hidden { display: none !important; }
 
     .loading {
-        text-align: center; padding: 48px 24px;
-        color: var(--piedra); font-size: 13px; font-weight: 300;
+        text-align: center;
+        padding: 48px 24px;
+        color: var(--light);
+        font-size: 13px;
+        font-weight: 300;
     }
 
-    .image-preview { max-width: 100%; border-radius: var(--radius-sm); margin-top: 10px; }
+    .image-preview {
+        max-width: 100%;
+        border-radius: var(--radius-sm);
+        margin-top: 10px;
+    }
 
     .file-input-label {
-        display: block; padding: 14px;
-        background: var(--sand);
-        border: 1.5px dashed var(--muted);
-        border-radius: var(--radius-sm); text-align: center;
-        cursor: pointer; margin-top: 10px; font-size: 13px;
-        color: var(--piedra); transition: border-color .2s, box-shadow .2s;
-        box-shadow: var(--neu-inset);
+        display: block;
+        padding: 14px;
+        background: var(--surface);
+        border: 1.5px dashed rgba(30,28,26,0.15);
+        border-radius: var(--radius-sm);
+        text-align: center;
+        cursor: pointer;
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--mid);
+        transition: border-color 0.2s, background 0.2s;
     }
-    .file-input-label:hover { border-color: var(--pizarra); box-shadow: var(--neu-inset-lg); }
+    .file-input-label:hover {
+        border-color: var(--clinic-color);
+        background: var(--bg);
+    }
     input[type="file"] { display: none; }
 
     /* Paciente tabs */
     .paciente-tab.active {
-        color: var(--pizarra) !important;
-        border-bottom-color: var(--pizarra) !important;
+        color: var(--clinic-color) !important;
+        border-bottom-color: var(--clinic-color) !important;
     }
-    .paciente-tab:hover { background: var(--sand-lt); }
-    .paciente-tab-content { animation: fadeIn .25s ease; }
+    .paciente-tab:hover { background: var(--surface); }
+    .paciente-tab-content { animation: fadeIn 0.25s ease; }
 
     /* Search inputs */
     input[type="text"][id="searchPacientes"],
     input[type="text"][id="busquedaGlobal"] {
-        background: rgba(255,255,255,.12);
-        border: 1px solid rgba(255,255,255,.15);
-        color: var(--topo); border-radius: var(--radius-sm);
-        padding: 9px 16px; font-size: 13px;
-        font-family: inherit; font-weight: 300;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.15);
+        color: white;
+        border-radius: var(--radius-sm);
+        padding: 9px 16px;
+        font-size: 13px;
+        font-family: inherit;
+        font-weight: 300;
     }
     input[type="text"][id="searchPacientes"] {
-        background: var(--sand); border: none;
-        color: var(--topo); width: 100%;
-        padding: 13px 18px; border-radius: var(--radius-md);
-        font-size: 14px; box-shadow: var(--neu-inset);
+        background: var(--surface);
+        border: 1.5px solid rgba(30,28,26,0.1);
+        color: var(--dark);
+        width: 100%;
+        padding: 13px 18px;
+        border-radius: var(--radius-md);
+        font-size: 14px;
     }
     input[type="text"][id="searchPacientes"]:focus {
         outline: none;
-        box-shadow: var(--neu-inset-lg), 0 0 0 2px rgba(125,142,160,.18);
+        border-color: var(--clinic-color);
+        background: var(--white);
+        box-shadow: 0 0 0 3px rgba(30,28,26,0.05);
     }
 
-    /* Header search */
-    input[type="text"][id="busquedaGlobal"] {
-        background: rgba(255,255,255,.15);
-        border: 1px solid rgba(255,255,255,.2);
-        color: var(--topo);
-    }
+    /* Global search in header */
     #busquedaGlobal:focus {
         outline: none;
-        background: rgba(255,255,255,.28) !important;
-        border-color: rgba(255,255,255,.4) !important;
+        background: rgba(255,255,255,0.18) !important;
+        border-color: rgba(255,255,255,0.3) !important;
         box-shadow: none !important;
+        color: white !important;
     }
-    #busquedaGlobal::placeholder { color: var(--piedra); opacity: .7; }
+    #busquedaGlobal::placeholder { color: rgba(255,255,255,0.4); }
     #resultadosBusqueda {
-        background: var(--sand) !important;
+        background: var(--white) !important;
         border: none !important;
         border-radius: var(--radius-md) !important;
-        box-shadow: var(--neu-raised-lg) !important;
+        box-shadow: var(--shadow-lg) !important;
     }
 
-    /* Dashboard colored stat cards */
+    /* Dashboard inline stat cards */
     .dash-stat {
-        padding: 22px 20px; border-radius: var(--radius-md);
-        position: relative; overflow: hidden;
-        box-shadow: var(--neu-raised);
+        padding: 22px 20px;
+        border-radius: var(--radius-md);
+        color: white;
+        position: relative;
+        overflow: hidden;
     }
     .dash-stat::after {
-        content: ''; position: absolute;
-        top: -30%; right: -20%; width: 80%; height: 80%;
-        border-radius: 50%; background: rgba(255,255,255,.08);
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -20%;
+        width: 80%;
+        height: 80%;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.06);
         pointer-events: none;
     }
 
     /* Range slider */
     input[type="range"] {
-        -webkit-appearance: none; width: 100%;
-        height: 4px; border-radius: 2px;
-        background: var(--sand); outline: none; margin: 8px 0;
-        box-shadow: var(--neu-inset);
+        -webkit-appearance: none;
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--bg);
+        outline: none;
+        margin: 8px 0;
     }
     input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none; width: 20px; height: 20px;
-        border-radius: 50%; background: var(--pizarra);
-        cursor: pointer; box-shadow: var(--neu-raised);
+        -webkit-appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--clinic-color);
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
 
     /* Section titles */
     .section-title {
-        font-size: 22px; font-weight: 200; color: var(--topo);
-        letter-spacing: -.5px; margin-bottom: 4px;
+        font-size: 22px;
+        font-weight: 200;
+        color: var(--dark);
+        letter-spacing: -0.5px;
+        margin-bottom: 4px;
     }
     .section-sub {
-        font-size: 12px; color: var(--piedra); font-weight: 300;
-        margin-bottom: 20px; letter-spacing: .3px;
+        font-size: 12px;
+        color: var(--light);
+        font-weight: 300;
+        margin-bottom: 20px;
+        letter-spacing: 0.3px;
     }
 
-    /* Filter cards */
+    /* Inline filter rows */
     .filter-card {
-        background: var(--sand);
-        border-radius: var(--radius-md); padding: 16px;
-        margin-bottom: 14px; box-shadow: var(--neu-raised);
+        background: var(--surface);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        margin-bottom: 14px;
+        border: 1px solid rgba(30,28,26,0.05);
     }
     .filter-label {
-        font-size: 9px; color: var(--muted); letter-spacing: 1.5px;
-        text-transform: uppercase; font-weight: 600; margin-bottom: 12px;
+        font-size: 10px;
+        color: var(--light);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        font-weight: 400;
+        margin-bottom: 12px;
     }
 
     /* Week nav */
     .week-nav {
-        display: flex; justify-content: center; align-items: center; gap: 16px;
-        background: var(--sand); padding: 14px 20px;
-        border-radius: var(--radius-md); box-shadow: var(--neu-raised);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 16px;
+        background: var(--white);
+        padding: 14px 20px;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
         margin-bottom: 16px;
+        border: 1px solid rgba(30,28,26,0.04);
     }
     .week-nav-btn {
-        width: 36px; height: 36px;
-        background: var(--sand); border: none;
-        border-radius: 50%; cursor: pointer; font-size: 15px;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: var(--neu-raised); transition: all .2s;
-        color: var(--topo);
+        width: 36px;
+        height: 36px;
+        border: 1px solid rgba(30,28,26,0.1);
+        background: var(--surface);
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        color: var(--dark);
     }
-    .week-nav-btn:hover { box-shadow: var(--neu-pizarra); color: var(--pizarra); }
+    .week-nav-btn:hover { background: var(--dark); color: white; border-color: var(--dark); }
 
     @media (max-width: 768px) {
-        .stat-grid { grid-template-columns: repeat(2,1fr); }
+        .stat-grid { grid-template-columns: repeat(2, 1fr); }
         .content-area { padding: 16px 12px; }
     }
 
-    /* Reportes — período activo */
+    /* Reportes — botón período activo */
     .reporte-periodo-btn.active {
-        background: var(--pizarra) !important;
+        background: var(--clinic-color, #C4856A) !important;
         color: white !important;
-        box-shadow: var(--neu-pizarra) !important;
+        border-color: var(--clinic-color, #C4856A) !important;
     }
     .reporte-periodo-btn:hover:not(.active) {
-        box-shadow: var(--neu-raised-lg) !important;
-        color: var(--topo) !important;
+        border-color: var(--clinic-color, #C4856A) !important;
+        color: var(--dark, #1E1C1A) !important;
     }
-
-
-    /* ══ LOGIN SCREEN ════════════════════════════════ */
-    .ls-user-card {
-        background: var(--sand); border-radius: 18px;
-        padding: 20px 10px 16px;
-        display: flex; flex-direction: column; align-items: center; gap: 9px;
-        cursor: pointer; box-shadow: var(--neu-raised); border: none;
-        font-family: inherit;
-        transition: box-shadow .25s cubic-bezier(.34,1.56,.64,1),
-                    transform .25s cubic-bezier(.34,1.56,.64,1);
-        width: 100%;
-    }
-    .ls-user-card:hover  { box-shadow: var(--neu-raised-lg); transform: translateY(-3px); }
-    .ls-user-card:active { box-shadow: var(--neu-inset); transform: scale(.96); }
-
-    .ls-avatar {
-        width: 52px; height: 52px; border-radius: 50%;
-        background: var(--sand); box-shadow: var(--neu-raised);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 20px; font-weight: 500; color: var(--pizarra); overflow: hidden;
-    }
-    .ls-user-name {
-        font-size: 12px; font-weight: 400; color: var(--topo);
-        text-align: center; line-height: 1.3; word-break: break-word;
-    }
-    .ls-user-role {
-        font-size: 9px; color: var(--piedra); letter-spacing: 1px; text-transform: uppercase;
-    }
-
-    /* PIN dots */
-    .ls-pin-dot {
-        width: 13px; height: 13px; border-radius: 50%;
-        background: var(--sand); box-shadow: var(--neu-raised);
-        transition: all .15s cubic-bezier(.34,1.56,.64,1); flex-shrink: 0;
-    }
-    .ls-pin-dot.ls-pin-filled { background: var(--pizarra); box-shadow: var(--neu-pizarra); transform: scale(1.2); }
-    .ls-pin-dot.ls-pin-error  { background: #c0392b; }
-
-    @keyframes lsShake {
-        0%,100% { transform: translateX(0); }
-        20%     { transform: translateX(-6px); }
-        40%     { transform: translateX(6px); }
-        60%     { transform: translateX(-4px); }
-        80%     { transform: translateX(4px); }
-    }
-
-    /* PIN keys */
-    .ls-key {
-        background: var(--sand); border: none; border-radius: 16px;
-        padding: 18px 0; font-size: 22px; font-weight: 300;
-        color: var(--topo); cursor: pointer; font-family: inherit;
-        box-shadow: var(--neu-raised);
-        transition: box-shadow .1s, transform .1s;
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 2px; line-height: 1;
-    }
-    .ls-key:active        { box-shadow: var(--neu-inset); transform: scale(.94); }
-    .ls-key-sub           { font-size: 8px; letter-spacing: 1.5px; color: var(--muted); font-weight: 400; }
-    .ls-key-back          { font-size: 18px; color: var(--piedra); }
-    .ls-key-empty         { background: transparent !important; box-shadow: none !important;
-                            cursor: default !important; pointer-events: none; }
 
     </style>
-</head><body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
+</head>
+<body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
 
-    <!-- Pantalla de carga -->
+    <!-- Pantalla de carga inicial -->
     <div class="clinic-loading" id="clinicLoading">
         <div class="clinic-loading-logo">SMILE</div>
         <div class="clinic-loading-spinner"></div>
     </div>
 
-    <!-- Sync indicator -->
+    <!-- Indicador de Sincronización -->
     <div class="sync-indicator" id="syncIndicator">✓ Sincronizado</div>
 
-    <!-- ══════════════════════════════════════════════════════
-         PANTALLA DE LOGIN
-         Solo se muestra cuando la clínica ya está identificada
-         (URL ?clinica= o sessionStorage).
-         Si no hay clínica, app.js llama mostrarPantallaAcceso()
-         que muestra el overlay de ID directo (definido abajo).
-    ══════════════════════════════════════════════════════ -->
-    <div id="loginScreen" style="display:none; position:fixed; inset:0; z-index:998;
-         flex-direction:column; align-items:stretch; overflow:hidden;">
-
-    <!-- ── BRANDING HERO (top half) ───────────────────────── -->
-    <div id="lsBrandHero" style="
-        flex:0 0 42%;
-        display:flex; flex-direction:column;
-        align-items:center; justify-content:flex-end;
-        padding:0 24px 32px;
-        background: linear-gradient(160deg, var(--clinic-color, #C4856A) 0%, color-mix(in srgb, var(--clinic-color, #C4856A) 70%, #3a2e28) 100%);
-        position:relative; overflow:hidden;
-        transition: background .6s ease;">
-
-        <!-- decorative orbs -->
-        <div style="position:absolute;top:-30%;right:-10%;width:60%;aspect-ratio:1;
-             border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none;"></div>
-        <div style="position:absolute;bottom:-20%;left:-8%;width:50%;aspect-ratio:1;
-             border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none;"></div>
-
-        <!-- Logo or initials -->
-        <div id="lsLogoWrap" style="
-            width:84px; height:84px; border-radius:24px;
-            background:rgba(255,255,255,.18); backdrop-filter:blur(12px);
-            display:flex; align-items:center; justify-content:center;
-            margin-bottom:16px; overflow:hidden;
-            box-shadow:0 8px 32px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.3);
-            flex-shrink:0;">
-            <img id="lsLogoImg" src="" alt="" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:20px;">
-            <span id="lsLogoText" style="font-size:30px;font-weight:500;color:white;letter-spacing:-1px;">S</span>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen" style="display:none">
+        <div class="logo-container">
+            <img src="logo.png" alt="Clínica" id="logoImg" onerror="this.style.display='none'">
+            <div class="clinic-name-login" id="clinicNameLogin">Clínica Dental</div>
         </div>
 
-        <!-- Clinic name -->
-        <div id="lsClinicName" style="
-            font-size:22px; font-weight:200; color:white;
-            letter-spacing:-.5px; text-align:center;
-            text-shadow:0 1px 12px rgba(0,0,0,.2);
-            max-width:280px; line-height:1.3;">
-            Tu Clínica
-        </div>
-        <div id="lsClinicSub" style="font-size:11px;color:rgba(255,255,255,.55);
-             margin-top:5px;letter-spacing:2px;text-transform:uppercase;">
-            Acceso al sistema
-        </div>
-    </div>
-
-    <!-- ── BOTTOM PANEL (user cards / PIN) ─────────────────── -->
-    <div style="flex:1; background:var(--sand); overflow-y:auto;
-         display:flex; flex-direction:column; align-items:center;
-         padding:28px 20px 24px; position:relative;">
-
-        <!-- ── FASE A: ¿Quién eres? ──────────────── -->
-        <div id="lsPhaseUsers" style="width:100%;max-width:440px;">
-            <div style="font-size:9px;font-weight:600;letter-spacing:3px;text-transform:uppercase;
-                        color:var(--piedra);text-align:center;margin-bottom:18px;">¿Quién eres?</div>
-            <div id="lsUserGrid" style="display:grid;gap:10px;
-                 grid-template-columns:repeat(auto-fill,minmax(110px,1fr));">
-                <!-- JS fills this -->
-            </div>
-        </div>
-
-        <!-- ── FASE B: teclado PIN ──────────────── -->
-        <div id="lsPhasePIN" style="display:none;width:100%;max-width:300px;">
-
-            <div style="display:flex;align-items:center;gap:12px;
-                        justify-content:center;margin-bottom:24px;">
-                <div id="lsPinAvatar" style="width:46px;height:46px;border-radius:50%;
-                     background:var(--sand);box-shadow:var(--neu-raised);
-                     display:flex;align-items:center;justify-content:center;
-                     font-size:18px;font-weight:500;color:var(--pizarra);">?</div>
-                <div id="lsPinName" style="font-size:16px;font-weight:300;color:var(--topo);">
-                    Usuario</div>
+        <div class="login-card">
+            <div class="role-selector">
+                <button class="role-btn active" data-role="professional">Profesional</button>
+                <button class="role-btn" data-role="reception">Recepción</button>
+                <button class="role-btn" data-role="admin">Admin</button>
             </div>
 
-            <div id="lsPinDots" style="display:flex;justify-content:center;
-                 gap:14px;margin-bottom:22px;align-items:center;height:16px;"></div>
+            <div class="input-group" id="professionalSelect">
+                <label>Seleccionar Profesional</label>
+                <select id="professionalPicker">
+                    <option value="">-- Seleccionar --</option>
+                </select>
+            </div>
 
-            <div id="lsPinErr" style="font-size:12px;color:#c0392b;text-align:center;
-                 margin-bottom:10px;min-height:16px;"></div>
+            <div class="input-group hidden" id="receptionSelect">
+                <label>Seleccionar Usuario</label>
+                <select id="receptionPicker">
+                    <option value="">-- Seleccionar --</option>
+                </select>
+            </div>
 
-            <div id="lsKeypad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
+            <div class="input-group hidden" id="usernameInput">
+                <label>Usuario</label>
+                <input type="text" id="username" autocomplete="username">
+            </div>
 
-            <button onclick="lsVolverUsuarios()"
-                style="display:flex;align-items:center;gap:6px;font-size:12px;
-                       color:var(--piedra);background:none;border:none;
-                       font-family:inherit;cursor:pointer;margin:18px auto 0;
-                       padding:8px 16px;border-radius:100px;transition:color .2s;">
-                ← Cambiar usuario
-            </button>
+            <div class="input-group">
+                <label>Contraseña</label>
+                <input type="password" id="password" autocomplete="current-password">
+            </div>
+
+            <button class="btn-primary" onclick="login()">Acceder</button>
         </div>
     </div>
-</div>
-
-        <!-- ══ ACCESO POR ID (fallback sin URL) ════════════════
-         Mostrado por app.js vía mostrarPantallaAcceso()
-         cuando no hay ?clinica= en la URL.
-         Mantiene el flujo existente de app.js intacto.
-    ══════════════════════════════════════════════════════ -->
-    <div id="clinicAccessOverlay" style="display:none; position:fixed; inset:0; z-index:999;
-         background:var(--sand); flex-direction:column; align-items:center;
-         justify-content:center; padding:40px 24px;">
-
-        <div style="font-size:9px;font-weight:600;letter-spacing:6px;text-transform:uppercase;
-                    color:var(--topo);opacity:.4;margin-bottom:48px;">SMILE</div>
-
-        <div style="font-size:clamp(28px,5vw,44px);font-weight:200;letter-spacing:-1.5px;
-                    color:var(--topo);text-align:center;margin-bottom:8px;line-height:1.05;">
-            Accede a tu clínica
-        </div>
-        <p style="font-size:14px;color:var(--piedra);text-align:center;
-                  margin-bottom:36px;line-height:1.65;max-width:320px;">
-            Escribe el ID de tu clínica.<br>
-            Lo encontrarás en el email de bienvenida o en el enlace que usas normalmente.
-        </p>
-
-        <div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;">
-            <input id="clinicIdInput" type="text" placeholder="ID de clínica (ej: dr-garcia)"
-                   autocomplete="off" autocorrect="off" autocapitalize="none"
-                   onkeydown="if(event.key==='Enter')accederPorId()"
-                   style="width:100%;padding:16px 20px;border:none;border-radius:14px;
-                          font-size:15px;font-family:inherit;font-weight:300;
-                          background:var(--sand);color:var(--topo);
-                          box-shadow:var(--neu-inset);outline:none;"
-                   onfocus="this.style.boxShadow='var(--neu-inset-lg),0 0 0 2px rgba(125,142,160,.18)'"
-                   onblur="this.style.boxShadow='var(--neu-inset)'">
-
-            <div id="clinicAccessErr" style="display:none;font-size:13px;color:#c0392b;
-                 background:rgba(192,57,43,.07);border-radius:10px;
-                 padding:10px 16px;text-align:center;"></div>
-
-            <button id="clinicAccessBtn" onclick="accederPorId()"
-                style="width:100%;padding:15px;border:none;border-radius:14px;
-                       background:linear-gradient(145deg,#8b9eb2,var(--pizarra));
-                       color:white;font-size:11px;font-weight:500;font-family:inherit;
-                       letter-spacing:2px;text-transform:uppercase;cursor:pointer;
-                       box-shadow:var(--neu-pizarra);transition:all .25s;">
-                Entrar →
-            </button>
-        </div>
-
-        <p style="font-size:11px;color:var(--muted);margin-top:16px;text-align:center;">
-            La próxima vez guarda el enlace como favorito para entrar directo.
-        </p>
-    </div>
-
-    <!-- Hidden legacy inputs (app.js compatibility) -->
-    <select id="loginUsername"      style="display:none"></select>
-    <select id="professionalPicker" style="display:none"></select>
-    <select id="receptionPicker"    style="display:none"></select>
-    <input  id="password" type="password" style="display:none">
-    <input  id="username" type="text"     style="display:none">
-    <div    id="loginError"               style="display:none"></div>
 
     <!-- Main App -->
     <div id="appContainer" class="app-container">
@@ -1102,14 +1032,14 @@
                     </div>
                 </div>
 
-                <div id="dashboardAlertas" class="card" style="background: rgba(125,142,160,.07); border-left: 3px solid var(--pizarra); display: none; margin-bottom: 16px;">
-                    <h3 style="color: var(--pizarra); font-size: 13px; font-weight: 400; margin-bottom: 10px; letter-spacing: 0.5px;">Alertas</h3>
-                    <ul id="dashAlertasList" style="margin: 0; padding-left: 18px; color: var(--topo); font-size: 13px; font-weight: 300;"></ul>
+                <div id="dashboardAlertas" class="card" style="background: rgba(196,133,106,0.08); border-left: 3px solid var(--terracota); display: none; margin-bottom: 16px;">
+                    <h3 style="color: var(--terracota); font-size: 13px; font-weight: 400; margin-bottom: 10px; letter-spacing: 0.5px;">Alertas</h3>
+                    <ul id="dashAlertasList" style="margin: 0; padding-left: 18px; color: var(--mid); font-size: 13px; font-weight: 300;"></ul>
                 </div>
 
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h3 style="margin: 0; font-size: 14px; font-weight: 400; color: var(--topo);">Agenda de hoy</h3>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 400; color: var(--dark);">Agenda de hoy</h3>
                         <button class="btn btn-secondary" onclick="showTab('agenda')" style="padding: 8px 16px; font-size: 13px;">Ver Todas</button>
                     </div>
                     <div id="dashAgendaHoy"></div>
@@ -1123,7 +1053,7 @@
                     <button class="btn btn-add" style="width:auto;margin:0;padding:10px 20px" onclick="abrirModalNuevoPaciente()">+ Nuevo</button>
                 </div>
                 <div style="margin-bottom: 14px;">
-                    <input type="text" id="searchPacientes" placeholder="Buscar paciente..." onkeyup="filterPacientes()" style="width: 100%; padding: 13px 18px; border-radius: var(--radius-md); font-size: 14px; font-family: inherit; background: var(--sand); color: var(--topo); box-shadow: var(--neu-inset); border: none;" onfocus="this.style.boxShadow='var(--neu-inset-lg)'" onblur="this.style.boxShadow='var(--neu-inset)'">
+                    <input type="text" id="searchPacientes" placeholder="Buscar paciente..." onkeyup="filterPacientes()" style="width: 100%; padding: 13px 18px; border: 1.5px solid rgba(30,28,26,0.1); border-radius: var(--radius-md); font-size: 14px; font-family: inherit; background: var(--surface); color: var(--dark);" onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.1)'">
                 </div>
                 <div id="listaPacientes"></div>
             </div>
@@ -1170,7 +1100,7 @@
 
                 <div class="week-nav">
                     <button class="week-nav-btn" onclick="cambiarSemana(-1)">←</button>
-                    <h2 id="agendaSemanaTexto" style="margin: 0; min-width: 200px; text-align: center; font-size: 15px; font-weight: 300; color: var(--topo);">Semana</h2>
+                    <h2 id="agendaSemanaTexto" style="margin: 0; min-width: 200px; text-align: center; font-size: 15px; font-weight: 300; color: var(--dark);">Semana</h2>
                     <button class="week-nav-btn" onclick="cambiarSemana(1)">→</button>
                 </div>
 
@@ -1191,7 +1121,7 @@
                     <div class="form-group">
                         <label>Nombre del Paciente *</label>
                         <input type="text" id="pacienteNombre" placeholder="Escribe para buscar..." oninput="buscarPacienteFactura()" autocomplete="off">
-                        <div id="pacienteNombreSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--sand); border: none; border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: var(--neu-raised-lg);"></div>
+                        <div id="pacienteNombreSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1.5px solid rgba(30,28,26,0.1); border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);"></div>
                     </div>
                     <div class="form-group">
                         <label>Procedimientos</label>
@@ -1216,10 +1146,10 @@
                             <button class="discount-btn" onclick="setDescuento(20)">20%</button>
                         </div>
                     </div>
-                    <div class="card" style="background: var(--sand); box-shadow: var(--neu-raised);">
+                    <div class="card" style="background: var(--surface); border: 1.5px solid rgba(30,28,26,0.07);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--piedra);">Total</span>
-                            <span style="font-size: 28px; font-weight: 200; color: var(--topo); letter-spacing: -1px;" id="totalFactura">RD$ 0.00</span>
+                            <span style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--light);">Total</span>
+                            <span style="font-size: 28px; font-weight: 200; color: var(--dark); letter-spacing: -1px;" id="totalFactura">RD$ 0.00</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1252,7 +1182,7 @@
                 </div>
                 <div class="section-title" style="margin-bottom:16px">Ingresos</div>
                 <div class="card">
-                    <div style="font-size:13px;font-weight:400;color:var(--topo);margin-bottom:14px">Mis Facturas</div>
+                    <div style="font-size:13px;font-weight:400;color:var(--mid);margin-bottom:14px">Mis Facturas</div>
                     <ul class="item-list" id="facturasPersonal"></ul>
                 </div>
             </div>
@@ -1310,7 +1240,7 @@
             <div id="tab-cuadre" class="tab-content">
                 <div class="card">
                     <h2>Resumen del Día</h2>
-                    <div style="color: var(--topo); margin-bottom: 20px;" id="fechaCuadre"></div>
+                    <div style="color: var(--mid); margin-bottom: 20px;" id="fechaCuadre"></div>
                     <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                         <label style="display: block; font-weight: 400; margin-bottom: 8px; color: var(--clinic-color);">💰 Efectivo Inicial en Caja</label>
                         <input type="number" id="efectivoInicial" step="0.01" value="0" onchange="updateCuadreTab()" style="width: 100%; padding: 10px; border: 2px solid var(--clinic-color); border-radius: 6px; font-size: 16px; font-weight: 400;">
@@ -1326,7 +1256,7 @@
                     <h3 style="margin: 20px 0 10px; color: #ff3b30;">Egresos</h3>
                     <div style="margin-bottom: 10px; display: flex; justify-content: space-between;"><span>🛒 Gastos del Día</span><strong style="color: #ff3b30;" id="gastosHoy">RD$ 0</strong></div>
                     <div style="margin-bottom: 10px; display: flex; justify-content: space-between;"><span>💵 Gastos en Efectivo</span><strong style="color: #ff9500;" id="gastosEfectivoHoy">RD$ 0</strong></div>
-                    <div style="margin: 20px 0; padding: 20px; background: var(--sand); border-radius: var(--radius-md);">
+                    <div style="margin: 20px 0; padding: 20px; background: var(--surface); border-radius: var(--radius-md);">
                         <div style="font-size: 16px; font-weight: 400; margin-bottom: 10px;">Balance del Día</div>
                         <div style="font-size: 32px; font-weight: 400; color: #34c759;" id="balanceDia">RD$ 0</div>
                     </div>
@@ -1396,29 +1326,29 @@
 
                 <!-- Selector de período -->
                 <div class="card" style="padding:16px 20px">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px">Período</div>
+                    <div style="font-size:11px;color:var(--mid);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px">Período</div>
 
                     <!-- Botones rápidos -->
                     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-                        <button class="reporte-periodo-btn" data-periodo="hoy"          onclick="setReportePeriodo('hoy')"          style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Hoy</button>
-                        <button class="reporte-periodo-btn" data-periodo="ayer"         onclick="setReportePeriodo('ayer')"         style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Ayer</button>
-                        <button class="reporte-periodo-btn" data-periodo="semana"       onclick="setReportePeriodo('semana')"       style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Esta semana</button>
-                        <button class="reporte-periodo-btn active" data-periodo="mes"   onclick="setReportePeriodo('mes')"          style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--pizarra);color:white;cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-pizarra)">Este mes</button>
-                        <button class="reporte-periodo-btn" data-periodo="mes_anterior" onclick="setReportePeriodo('mes_anterior')" style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Mes anterior</button>
-                        <button class="reporte-periodo-btn" data-periodo="año"          onclick="setReportePeriodo('año')"          style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Este año</button>
+                        <button class="reporte-periodo-btn" data-periodo="hoy"          onclick="setReportePeriodo('hoy')"          style="padding:7px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:100px;font-size:12px;font-family:inherit;background:none;color:var(--mid);cursor:pointer;transition:all 0.15s">Hoy</button>
+                        <button class="reporte-periodo-btn" data-periodo="ayer"         onclick="setReportePeriodo('ayer')"         style="padding:7px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:100px;font-size:12px;font-family:inherit;background:none;color:var(--mid);cursor:pointer;transition:all 0.15s">Ayer</button>
+                        <button class="reporte-periodo-btn" data-periodo="semana"       onclick="setReportePeriodo('semana')"       style="padding:7px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:100px;font-size:12px;font-family:inherit;background:none;color:var(--mid);cursor:pointer;transition:all 0.15s">Esta semana</button>
+                        <button class="reporte-periodo-btn active" data-periodo="mes"   onclick="setReportePeriodo('mes')"          style="padding:7px 14px;border:1.5px solid var(--clinic-color,#C4856A);border-radius:100px;font-size:12px;font-family:inherit;background:var(--clinic-color,#C4856A);color:white;cursor:pointer;transition:all 0.15s">Este mes</button>
+                        <button class="reporte-periodo-btn" data-periodo="mes_anterior" onclick="setReportePeriodo('mes_anterior')" style="padding:7px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:100px;font-size:12px;font-family:inherit;background:none;color:var(--mid);cursor:pointer;transition:all 0.15s">Mes anterior</button>
+                        <button class="reporte-periodo-btn" data-periodo="año"          onclick="setReportePeriodo('año')"          style="padding:7px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:100px;font-size:12px;font-family:inherit;background:none;color:var(--mid);cursor:pointer;transition:all 0.15s">Este año</button>
                     </div>
 
                     <!-- Fechas manuales -->
                     <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end">
                         <div class="form-group" style="margin:0">
-                            <label style="font-size:11px;color:var(--topo);letter-spacing:0.5px">Desde</label>
+                            <label style="font-size:11px;color:var(--mid);letter-spacing:0.5px">Desde</label>
                             <input type="date" id="reporteFechaInicio" style="margin-top:4px">
                         </div>
                         <div class="form-group" style="margin:0">
-                            <label style="font-size:11px;color:var(--topo);letter-spacing:0.5px">Hasta</label>
+                            <label style="font-size:11px;color:var(--mid);letter-spacing:0.5px">Hasta</label>
                             <input type="date" id="reporteFechaFin" style="margin-top:4px">
                         </div>
-                        <button onclick="generarReporte()" style="padding:10px 18px;background:linear-gradient(145deg,#8b9eb2,var(--pizarra));color:white;border:none;border-radius:10px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;letter-spacing:0.3px;box-shadow:var(--neu-pizarra)">
+                        <button onclick="generarReporte()" style="padding:10px 18px;background:var(--dark,#1E1C1A);color:white;border:none;border-radius:10px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;letter-spacing:0.3px">
                             Generar →
                         </button>
                     </div>
@@ -1426,41 +1356,41 @@
 
                 <!-- Resumen financiero -->
                 <div class="card">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Resumen financiero</div>
+                    <div style="font-size:11px;color:var(--mid);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Resumen financiero</div>
                     <div id="reporteResumenFinanciero">
-                        <div style="text-align:center;padding:32px;color:var(--topo);font-size:13px">Selecciona un período para ver los datos</div>
+                        <div style="text-align:center;padding:32px;color:var(--mid);font-size:13px">Selecciona un período para ver los datos</div>
                     </div>
                 </div>
 
                 <!-- Por profesional -->
                 <div class="card">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Por profesional</div>
+                    <div style="font-size:11px;color:var(--mid);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Por profesional</div>
                     <div id="reportePorProfesional">
-                        <div style="text-align:center;padding:32px;color:var(--topo);font-size:13px">—</div>
+                        <div style="text-align:center;padding:32px;color:var(--mid);font-size:13px">—</div>
                     </div>
                 </div>
 
                 <!-- Top procedimientos -->
                 <div class="card">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Procedimientos</div>
+                    <div style="font-size:11px;color:var(--mid);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Procedimientos</div>
                     <ul class="item-list" id="reporteTopProcedimientos" style="padding:0;margin:0;list-style:none">
-                        <li style="text-align:center;padding:24px;color:var(--topo);font-size:13px">—</li>
+                        <li style="text-align:center;padding:24px;color:var(--mid);font-size:13px">—</li>
                     </ul>
                 </div>
 
                 <!-- Citas -->
                 <div class="card">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Citas y pacientes</div>
+                    <div style="font-size:11px;color:var(--mid);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Citas y pacientes</div>
                     <div id="reporteEstadoCitas">
-                        <div style="text-align:center;padding:24px;color:var(--topo);font-size:13px">—</div>
+                        <div style="text-align:center;padding:24px;color:var(--mid);font-size:13px">—</div>
                     </div>
                 </div>
 
                 <!-- Laboratorio (solo si módulo activo) -->
                 <div class="card" id="reporteCardLab" style="display:none">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Laboratorio</div>
+                    <div style="font-size:11px;color:var(--mid);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Laboratorio</div>
                     <div id="reporteLaboratorio">
-                        <div style="text-align:center;padding:24px;color:var(--topo);font-size:13px">—</div>
+                        <div style="text-align:center;padding:24px;color:var(--mid);font-size:13px">—</div>
                     </div>
                 </div>
 
@@ -1498,8 +1428,8 @@
                         <div id="perfilClinicaNombre" style="color:rgba(255,255,255,0.92);font-size:14px;font-weight:300;letter-spacing:0.3px;"></div>
                     </div>
                     <h2>Mi Perfil</h2>
-                    <div style="margin-bottom: 15px;"><div style="color: var(--topo); font-size: 14px;">Nombre</div><div style="font-weight: 400; font-size: 18px;" id="perfilNombre"></div></div>
-                    <div style="margin-bottom: 25px;"><div style="color: var(--topo); font-size: 14px;">Rol</div><div style="font-weight: 400; font-size: 18px;" id="perfilRol"></div></div>
+                    <div style="margin-bottom: 15px;"><div style="color: var(--mid); font-size: 14px;">Nombre</div><div style="font-weight: 400; font-size: 18px;" id="perfilNombre"></div></div>
+                    <div style="margin-bottom: 25px;"><div style="color: var(--mid); font-size: 14px;">Rol</div><div style="font-weight: 400; font-size: 18px;" id="perfilRol"></div></div>
                     <button class="btn btn-danger" style="width: 100%;" onclick="logout()">Cerrar Sesión</button>
                     <button class="btn btn-secondary" id="btnAuditoria" style="width: 100%; margin-top: 15px; display: none;" onclick="verAuditoria()">📋 Ver Historial de Auditoría</button>
                 </div>
@@ -1527,9 +1457,9 @@
 
                 <div class="card" id="importarCard" style="display: none;">
                     <h2>📥 Importar Pacientes desde CSV</h2>
-                    <p style="color: var(--topo); margin-bottom: 20px; font-size: 14px;">Sube un archivo CSV con los datos de tus pacientes.</p>
+                    <p style="color: var(--mid); margin-bottom: 20px; font-size: 14px;">Sube un archivo CSV con los datos de tus pacientes.</p>
                     <div id="paso1-upload" style="margin-bottom: 20px;">
-                        <div style="border: 2px dashed var(--clinic-color); border-radius: 12px; padding: 30px; text-align: center; background: var(--sand); cursor: pointer;" onclick="document.getElementById('csvFileInput').click()">
+                        <div style="border: 2px dashed var(--clinic-color); border-radius: 12px; padding: 30px; text-align: center; background: var(--surface); cursor: pointer;" onclick="document.getElementById('csvFileInput').click()">
                             <div style="font-size: 48px; margin-bottom: 10px;">📂</div>
                             <div style="font-size: 16px; font-weight: 400; color: var(--clinic-color); margin-bottom: 8px;">Click aquí para seleccionar archivo CSV</div>
                         </div>
@@ -1543,7 +1473,7 @@
 
                 <div class="card" id="exportarCard" style="display: none;">
                     <h2>📤 Exportar Pacientes</h2>
-                    <p style="color: var(--topo); margin-bottom: 20px; font-size: 14px;">
+                    <p style="color: var(--mid); margin-bottom: 20px; font-size: 14px;">
                         Descarga todos los expedientes para migrar a otra plataforma o como respaldo.
                     </p>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -1558,8 +1488,8 @@
                             <span style="font-size: 11px; opacity: 0.8;">Para revisar y editar</span>
                         </button>
                     </div>
-                    <div style="margin-top: 16px; padding: 12px; background: var(--sand); border-radius: 10px;">
-                        <div id="exportarPacientesStats" style="font-size: 13px; color: var(--topo);"></div>
+                    <div style="margin-top: 16px; padding: 12px; background: var(--surface); border-radius: 10px;">
+                        <div id="exportarPacientesStats" style="font-size: 13px; color: var(--mid);"></div>
                     </div>
                 </div>
 
@@ -1595,7 +1525,7 @@
                         </div>
                         <div class="form-group">
                             <label>Moneda</label>
-                            <select id="configMoneda" style="width:100%;padding:12px 16px;border:none;border-radius:12px;font-size:14px;font-family:inherit;background:var(--sand);color:var(--topo);appearance:none;box-shadow:var(--neu-inset);">
+                            <select id="configMoneda" style="width:100%;padding:12px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:14px;font-family:inherit;background:var(--surface);color:var(--dark);appearance:none;">
                                 <option value="RD$">RD$ — Peso dominicano</option>
                                 <option value="$">$ — Peso / Dólar</option>
                                 <option value="MX$">MX$ — Peso mexicano</option>
@@ -1659,7 +1589,7 @@
                         <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Modelo de Nómina</div>
                         <div class="form-group">
                             <label>Remuneración por defecto (dentistas)</label>
-                            <select id="configDefaultRemuneracion" style="width:100%;padding:12px 16px;border:none;border-radius:12px;font-size:14px;font-family:inherit;background:var(--sand);color:var(--topo);appearance:none;box-shadow:var(--neu-inset);">
+                            <select id="configDefaultRemuneracion" style="width:100%;padding:12px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:14px;font-family:inherit;background:var(--surface);color:var(--dark);appearance:none;">
                                 <option value="comision">Comisión por producción</option>
                                 <option value="salario">Salario fijo mensual</option>
                             </select>
@@ -1667,7 +1597,7 @@
                         </div>
                         <div class="form-group">
                             <label>Frecuencia de pago por defecto</label>
-                            <select id="configDefaultFrecuencia" style="width:100%;padding:12px 16px;border:none;border-radius:12px;font-size:14px;font-family:inherit;background:var(--sand);color:var(--topo);appearance:none;box-shadow:var(--neu-inset);">
+                            <select id="configDefaultFrecuencia" style="width:100%;padding:12px 16px;border:1.5px solid rgba(30,28,26,0.1);border-radius:12px;font-size:14px;font-family:inherit;background:var(--surface);color:var(--dark);appearance:none;">
                                 <option value="mensual">Mensual</option>
                                 <option value="quincenal">Quincenal (cada 15 días)</option>
                                 <option value="semanal">Semanal</option>
@@ -1739,7 +1669,7 @@
     <div id="modalPagarFactura" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Procesar Pago</div><button class="close-modal" onclick="closeModal('modalPagarFactura')">×</button></div>
-            <div style="background: var(--sand); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="margin-bottom: 10px;"><strong>Factura:</strong> <span id="pagoFacturaNum"></span></div>
                 <div style="margin-bottom: 10px;"><strong>Paciente:</strong> <span id="pagoPaciente"></span></div>
                 <div style="margin-bottom: 10px;"><strong>Atendido por:</strong> <span id="pagoProfesional"></span></div>
@@ -1750,7 +1680,7 @@
                 <label>Tipo de Pago</label>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <button class="btn" id="btnPagoTotal" onclick="selectTipoPago('total')" style="flex: 1; background: var(--clinic-color); color: white;">Pago Total</button>
-                    <button class="btn" id="btnPagoAbono" onclick="selectTipoPago('abono')" style="flex: 1; background: var(--sand); color: var(--piedra); border: none; box-shadow: var(--neu-raised);">Abono a Cuenta</button>
+                    <button class="btn" id="btnPagoAbono" onclick="selectTipoPago('abono')" style="flex: 1; background: var(--surface); color: var(--mid); border: 1px solid rgba(30,28,26,0.1);">Abono a Cuenta</button>
                 </div>
             </div>
             <div class="form-group"><label>Monto a Pagar</label><input type="number" id="pagoMonto" placeholder="0.00" step="0.01"></div>
@@ -1767,10 +1697,14 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header"><div class="modal-title">Factura para Cliente</div><button class="close-modal" onclick="closeModal('modalFacturaCliente')">×</button></div>
             <div id="facturaClienteContent" style="background: white; padding: 30px; border-radius: 8px; border: 2px solid var(--clinic-color);"></div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button class="btn btn-submit" onclick="descargarFacturaImagen()" style="flex: 1; background: #25D366;">📱 Descargar para WhatsApp</button>
-                <button class="btn btn-submit" onclick="imprimirFactura()" style="flex: 1;">🖨️ Imprimir</button>
-                <button class="btn btn-secondary" onclick="copiarFactura()" style="flex: 1;">📋 Copiar</button>
+            <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+                <button class="btn btn-submit" onclick="enviarFacturaWhatsApp()" style="flex: 1; background: #25D366; min-width: 140px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                    WhatsApp al paciente
+                </button>
+                <button class="btn btn-submit" onclick="descargarFacturaImagen()" style="flex: 1; min-width: 120px;">📷 Descargar imagen</button>
+                <button class="btn btn-submit" onclick="imprimirFactura()" style="flex: 1; min-width: 100px;">🖨️ Imprimir</button>
+                <button class="btn btn-secondary" onclick="copiarFactura()" style="flex: 1; min-width: 100px;">📋 Copiar</button>
             </div>
             <div id="mensajeDescarga" style="display: none; margin-top: 15px; padding: 12px; background: #e8f5e9; border-radius: 8px; text-align: center; color: #2e7d32; font-size: 14px;"></div>
         </div>
@@ -1864,7 +1798,7 @@
                 <strong style="color: #856404;">¡Atención!</strong>
                 <p style="margin-top: 8px; color: #856404; font-size: 14px;">Esta acción eliminará el último pago registrado.</p>
             </div>
-            <div style="background: var(--sand); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="margin-bottom: 10px;"><strong>Factura:</strong> <span id="reversarFacturaNum"></span></div>
                 <div style="margin-bottom: 10px;"><strong>Paciente:</strong> <span id="reversarPaciente"></span></div>
                 <div><strong>Último Pago:</strong> <span style="color: #ff3b30; font-weight: 400;" id="reversarMonto"></span></div>
@@ -1918,7 +1852,7 @@
     <div id="modalRecibo" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Recibo Generado</div><button class="close-modal" onclick="closeModal('modalRecibo')">×</button></div>
-            <div id="reciboContent" style="white-space: pre-wrap; font-family: monospace; padding: 20px; background: var(--sand); border-radius: 8px; margin-bottom: 20px;"></div>
+            <div id="reciboContent" style="white-space: pre-wrap; font-family: monospace; padding: 20px; background: var(--surface); border-radius: 8px; margin-bottom: 20px;"></div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-submit" onclick="compartirWhatsApp()" style="background: #25D366;">📱 Enviar por WhatsApp</button>
                 <button class="btn btn-submit" onclick="copiarRecibo()">📋 Copiar</button>
@@ -1935,7 +1869,7 @@
             <div class="form-group"><label>Laboratorio Externo</label><input type="text" id="labLaboratorio" placeholder="Nombre del laboratorio"></div>
             <div class="form-group"><label>Precio (cobrado al paciente)</label><input type="number" id="labPrecio" value="0" min="0" step="100" oninput="calcularMargenLab()"></div>
             <div class="form-group"><label>Costo (a la clínica)</label><input type="number" id="labCosto" value="0" min="0" step="100" oninput="calcularMargenLab()"></div>
-            <div style="background: var(--sand); padding: 15px; border-radius: 8px; text-align: center;"><div style="font-size: 12px; color: var(--topo); margin-bottom: 4px;">MARGEN DE GANANCIA</div><div style="font-size: 24px; font-weight: 400;" id="labMargen">RD$ 0.00</div></div>
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; text-align: center;"><div style="font-size: 12px; color: var(--mid); margin-bottom: 4px;">MARGEN DE GANANCIA</div><div style="font-size: 24px; font-weight: 400;" id="labMargen">RD$ 0.00</div></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalOrdenLab')">Cancelar</button><button class="btn btn-submit" onclick="agregarOrdenLabAFactura()">Agregar</button></div>
         </div>
     </div>
@@ -1968,10 +1902,10 @@
             <div class="form-group"><label>Seguro Médico</label><input type="text" id="nuevoPacienteSeguro"></div>
             <div class="form-group"><label>Contacto de Emergencia</label><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;"><input type="text" id="nuevoPacienteEmergenciaNombre" placeholder="Nombre"><input type="tel" id="nuevoPacienteEmergenciaTelefono" placeholder="Teléfono"></div></div>
             <div class="form-group"><label>Condiciones médicas</label><textarea id="nuevoPacienteCondiciones"></textarea></div>
-            <div style="margin-top: 30px; padding: 20px; background: var(--sand); border-radius: 8px; border: 2px solid var(--clinic-color);">
+            <div style="margin-top: 30px; padding: 20px; background: var(--surface); border-radius: 8px; border: 2px solid var(--clinic-color);">
                 <h3 style="margin: 0 0 15px 0; color: var(--clinic-color); font-size: 18px;">📋 Consentimiento Informado</h3>
-                <p style="font-size: 14px; line-height: 1.6; color: var(--topo); text-align: justify; margin-bottom: 20px;">Por la presente, declaro que he sido informado de forma clara sobre el diagnóstico, los riesgos, beneficios y alternativas del tratamiento dental propuesto. Autorizo voluntariamente al personal de esta clínica a realizar los procedimientos necesarios, incluyendo la administración de anestesia local si se requiere.</p>
-                <div style="margin-bottom: 10px;"><label style="font-weight: 400; color: var(--topo);">Firma del Paciente (o Tutor) *</label><div style="margin-top: 8px;"><canvas id="canvasFirma" width="600" height="150" style="border: 2px solid #ddd; border-radius: 8px; background: white; cursor: crosshair; display: block; width: 100%;"></canvas></div><button type="button" class="btn" onclick="limpiarFirma()" style="margin-top: 10px; background: #ff3b30; color: white; padding: 8px 16px;">🗑️ Limpiar Firma</button></div>
+                <p style="font-size: 14px; line-height: 1.6; color: var(--dark); text-align: justify; margin-bottom: 20px;">Por la presente, declaro que he sido informado de forma clara sobre el diagnóstico, los riesgos, beneficios y alternativas del tratamiento dental propuesto. Autorizo voluntariamente al personal de esta clínica a realizar los procedimientos necesarios, incluyendo la administración de anestesia local si se requiere.</p>
+                <div style="margin-bottom: 10px;"><label style="font-weight: 400; color: var(--dark);">Firma del Paciente (o Tutor) *</label><div style="margin-top: 8px;"><canvas id="canvasFirma" width="600" height="150" style="border: 2px solid #ddd; border-radius: 8px; background: white; cursor: crosshair; display: block; width: 100%;"></canvas></div><button type="button" class="btn" onclick="limpiarFirma()" style="margin-top: 10px; background: #ff3b30; color: white; padding: 8px 16px;">🗑️ Limpiar Firma</button></div>
             </div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevoPaciente')">Cancelar</button><button class="btn btn-save" onclick="guardarPaciente()">Guardar Paciente</button></div>
         </div>
@@ -1992,12 +1926,12 @@
                 </div>
             </div>
             <div style="background: white; border-bottom: 2px solid #e5e5e7; padding: 0 24px; display: flex; gap: 8px;">
-                <button class="paciente-tab active" data-tab="resumen" onclick="cambiarTabPaciente('resumen')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">📊 Resumen</button>
-                <button class="paciente-tab" data-tab="balance" onclick="cambiarTabPaciente('balance')" id="tabBalanceBtn" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">💰 Balance</button>
-                <button class="paciente-tab" data-tab="odontograma" onclick="cambiarTabPaciente('odontograma')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">🦷 Odontograma</button>
-                <button class="paciente-tab" data-tab="historial" onclick="cambiarTabPaciente('historial')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">📋 Historial</button>
-                <button class="paciente-tab" data-tab="recetas" onclick="cambiarTabPaciente('recetas')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">💊 Recetas</button>
-                <button class="paciente-tab" data-tab="documentos" onclick="cambiarTabPaciente('documentos')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">📄 Documentos</button>
+                <button class="paciente-tab active" data-tab="resumen" onclick="cambiarTabPaciente('resumen')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">📊 Resumen</button>
+                <button class="paciente-tab" data-tab="balance" onclick="cambiarTabPaciente('balance')" id="tabBalanceBtn" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">💰 Balance</button>
+                <button class="paciente-tab" data-tab="odontograma" onclick="cambiarTabPaciente('odontograma')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">🦷 Odontograma</button>
+                <button class="paciente-tab" data-tab="historial" onclick="cambiarTabPaciente('historial')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">📋 Historial</button>
+                <button class="paciente-tab" data-tab="recetas" onclick="cambiarTabPaciente('recetas')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">💊 Recetas</button>
+                <button class="paciente-tab" data-tab="documentos" onclick="cambiarTabPaciente('documentos')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--mid); border-bottom: 3px solid transparent;">📄 Documentos</button>
             </div>
             <div style="flex: 1; overflow-y: auto; padding: 24px;">
                 <div id="tabResumen" class="paciente-tab-content active"></div>
@@ -2053,7 +1987,7 @@
             <div class="form-group"><label>Alergias</label><textarea id="editPacienteAlergias" rows="2"></textarea></div>
             <div class="form-group"><label>Condiciones Médicas</label><textarea id="editPacienteCondiciones" rows="2"></textarea></div>
             <div class="form-group"><label>Seguro Médico</label><input type="text" id="editPacienteSeguro"></div>
-            <div style="background: var(--sand); padding: 15px; border-radius: 8px; margin-top: 15px;"><h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--clinic-color);">Contacto de Emergencia</h4><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group" style="margin: 0;"><label>Nombre</label><input type="text" id="editPacienteContactoNombre"></div><div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="tel" id="editPacienteContactoTel"></div></div></div>
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-top: 15px;"><h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--clinic-color);">Contacto de Emergencia</h4><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group" style="margin: 0;"><label>Nombre</label><input type="text" id="editPacienteContactoNombre"></div><div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="tel" id="editPacienteContactoTel"></div></div></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarPaciente')">Cancelar</button><button class="btn btn-submit" onclick="guardarEdicionPaciente()">💾 Guardar Cambios</button></div>
         </div>
     </div>
@@ -2062,9 +1996,9 @@
     <div id="modalConsentimiento" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header"><div class="modal-title">📋 Consentimiento Informado</div></div>
-            <div style="background: var(--sand); padding: 15px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: var(--topo); margin-bottom: 4px;">Paciente:</div><div style="font-size: 18px; font-weight: 400; margin-bottom: 8px;" id="consentimientoNombre"></div><div style="font-size: 14px; color: var(--topo);">Cédula: <span id="consentimientoCedula"></span></div></div>
+            <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: var(--mid); margin-bottom: 4px;">Paciente:</div><div style="font-size: 18px; font-weight: 400; margin-bottom: 8px;" id="consentimientoNombre"></div><div style="font-size: 14px; color: var(--mid);">Cédula: <span id="consentimientoCedula"></span></div></div>
             <div style="background: white; padding: 20px; border: 2px solid var(--clinic-color); border-radius: 8px; margin-bottom: 20px;"><h3 style="color: var(--clinic-color); margin-bottom: 15px;">Consentimiento Informado</h3><p style="font-size: 13px; line-height: 1.6; color: #1d1d1f; text-align: justify;">He sido informado sobre mi diagnóstico, tratamiento propuesto, riesgos, beneficios y alternativas. <strong>Autorizo voluntariamente</strong> los procedimientos odontológicos necesarios, incluyendo anestesia local. Entiendo que la odontología no garantiza resultados específicos. <strong>Me comprometo</strong> a seguir indicaciones médicas y asistir a controles.</p></div>
-            <div style="background: var(--sand); padding: 15px; border-radius: var(--radius-sm);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><div style="font-size: 14px; color: var(--topo); font-weight: 400;">Firma del Paciente (o Tutor):</div><button class="btn btn-secondary" onclick="limpiarFirma()" style="padding: 8px 16px;">🗑️ Limpiar</button></div><canvas id="signatureCanvas" width="600" height="200" style="border: 2px solid #ddd; border-radius: 8px; background: white; width: 100%; cursor: crosshair;"></canvas></div>
+            <div style="background: var(--surface); padding: 15px; border-radius: var(--radius-sm);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><div style="font-size: 14px; color: var(--mid); font-weight: 400;">Firma del Paciente (o Tutor):</div><button class="btn btn-secondary" onclick="limpiarFirma()" style="padding: 8px 16px;">🗑️ Limpiar</button></div><canvas id="signatureCanvas" width="600" height="200" style="border: 2px solid #ddd; border-radius: 8px; background: white; width: 100%; cursor: crosshair;"></canvas></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalConsentimiento')">Cancelar</button><button class="btn btn-submit" onclick="guardarConsentimiento()">💾 Guardar Consentimiento</button></div>
         </div>
     </div>
@@ -2081,7 +2015,7 @@
     <div id="modalNuevaCita" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Nueva Cita</div></div>
-            <div class="form-group"><label>Paciente *</label><input type="text" id="citaPacienteInput" placeholder="Escribe para buscar..." oninput="buscarPaciente()" autocomplete="off"><div id="citaPacienteSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--sand); border: none; border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: var(--neu-raised-lg);"></div></div>
+            <div class="form-group"><label>Paciente *</label><input type="text" id="citaPacienteInput" placeholder="Escribe para buscar..." oninput="buscarPaciente()" autocomplete="off"><div id="citaPacienteSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1.5px solid rgba(30,28,26,0.1); border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);"></div></div>
             <div class="form-group"><label>Profesional *</label><select id="citaProfesional"></select></div>
             <div class="form-group"><label>Fecha *</label><input type="date" id="citaFecha"></div>
             <div class="form-group"><label>Hora Inicio *</label><input type="time" id="citaHora" onchange="actualizarHoraFin()"></div>
@@ -2104,8 +2038,8 @@
     <div id="modalNuevaOrden" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Orden de Laboratorio</div></div>
-            <div id="ordenDesdeFactura" style="display: none;"><div style="background: var(--sand); padding: 12px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: var(--topo);">Paciente:</div><div style="font-size: 16px; font-weight: 400;" id="ordenPacienteNombre"></div><div style="font-size: 12px; color: var(--topo); margin-top: 4px;">Doctor:</div><div style="font-size: 14px; font-weight: 400;" id="ordenProfesionalNombre"></div></div></div>
-            <div id="ordenDirecta" style="display: none;"><div class="form-group"><label>Paciente *</label><input type="text" id="ordenPacienteInput" placeholder="Escribe para buscar..." oninput="buscarPacienteOrden()" autocomplete="off"><div id="ordenPacienteSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--sand); border: none; border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: var(--neu-raised-lg);"></div></div><div class="form-group"><label>Doctor *</label><select id="ordenProfesionalSelect"><option value="">Seleccione doctor</option></select></div></div>
+            <div id="ordenDesdeFactura" style="display: none;"><div style="background: var(--surface); padding: 12px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: var(--mid);">Paciente:</div><div style="font-size: 16px; font-weight: 400;" id="ordenPacienteNombre"></div><div style="font-size: 12px; color: var(--mid); margin-top: 4px;">Doctor:</div><div style="font-size: 14px; font-weight: 400;" id="ordenProfesionalNombre"></div></div></div>
+            <div id="ordenDirecta" style="display: none;"><div class="form-group"><label>Paciente *</label><input type="text" id="ordenPacienteInput" placeholder="Escribe para buscar..." oninput="buscarPacienteOrden()" autocomplete="off"><div id="ordenPacienteSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1.5px solid rgba(30,28,26,0.1); border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);"></div></div><div class="form-group"><label>Doctor *</label><select id="ordenProfesionalSelect"><option value="">Seleccione doctor</option></select></div></div>
             <div class="form-group"><label>Tipo de Trabajo *</label><select id="ordenTipo"><option value="">Seleccione tipo</option><option value="Corona">Corona</option><option value="Puente">Puente</option><option value="Prótesis Parcial">Prótesis Parcial</option><option value="Prótesis Total">Prótesis Total</option><option value="Placa de Relajación">Placa de Relajación</option><option value="Ortodoncia">Ortodoncia</option><option value="Otro">Otro</option></select></div>
             <div class="form-group"><label>Descripción/Indicaciones *</label><textarea id="ordenDescripcion" rows="4"></textarea></div>
             <div class="form-group"><label>Laboratorio</label><input type="text" id="ordenLaboratorio"></div>
@@ -2136,7 +2070,7 @@
     <div id="modalAbonoLab" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Registrar Abono al Laboratorio</div></div>
-            <div style="background: var(--sand); padding: 12px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 14px; font-weight: 400;" id="abonoOrdenInfo"></div><div style="font-size: 13px; color: var(--topo); margin-top: 4px;" id="abonoSaldoActual"></div></div>
+            <div style="background: var(--surface); padding: 12px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 14px; font-weight: 400;" id="abonoOrdenInfo"></div><div style="font-size: 13px; color: var(--mid); margin-top: 4px;" id="abonoSaldoActual"></div></div>
             <div class="form-group"><label>Monto del Abono *</label><input type="number" id="abonoMonto" placeholder="0" min="0" step="100"></div>
             <div class="form-group"><label>Fecha del Abono</label><input type="date" id="abonoFecha"></div>
             <div class="form-group"><label>Notas</label><textarea id="abonoNotas" rows="2"></textarea></div>
@@ -2147,7 +2081,7 @@
     <!-- Galería de Placas -->
     <div id="modalGaleriaPlacas" class="modal">
         <div class="modal-content" style="max-width: 1200px;">
-            <div class="modal-header"><div class="modal-title">🦷 Galería de Placas Radiográficas</div><div style="font-size: 14px; color: var(--topo); margin-top: 4px;" id="galeriaPacienteNombre"></div></div>
+            <div class="modal-header"><div class="modal-title">🦷 Galería de Placas Radiográficas</div><div style="font-size: 14px; color: var(--mid); margin-top: 4px;" id="galeriaPacienteNombre"></div></div>
             <div style="margin-bottom: 20px;"><button class="btn btn-submit" onclick="abrirSubirPlaca()" style="width: 100%;">📤 Subir Nueva Placa</button></div>
             <div id="galeriaPlacasContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalGaleriaPlacas')">Cerrar</button></div>
@@ -2159,7 +2093,7 @@
             <div class="modal-header"><div class="modal-title">📤 Subir Nueva Placa</div></div>
             <div class="form-group"><label>Tipo de Placa *</label><select id="placaTipo"><option value="Periapical">Periapical</option><option value="Bite-wing">Bite-wing</option><option value="Panorámica">Panorámica</option><option value="Cefalométrica">Cefalométrica</option><option value="Oclusal">Oclusal</option><option value="Cone Beam">Cone Beam (CBCT)</option><option value="Otra">Otra</option></select></div>
             <div class="form-group"><label>Notas / Observaciones</label><textarea id="placaNotas" rows="3"></textarea></div>
-            <div class="form-group"><label>Imagen *</label><input type="file" id="placaInput" accept="image/*" onchange="previsualizarPlaca()" style="display: none;"><button type="button" class="btn btn-secondary" onclick="document.getElementById('placaInput').click()" style="width: 100%; padding: 15px;">📁 Seleccionar Imagen</button><div id="placaNombreArchivo" style="font-size: 13px; color: var(--topo); text-align: center; margin-top: 8px;"></div></div>
+            <div class="form-group"><label>Imagen *</label><input type="file" id="placaInput" accept="image/*" onchange="previsualizarPlaca()" style="display: none;"><button type="button" class="btn btn-secondary" onclick="document.getElementById('placaInput').click()" style="width: 100%; padding: 15px;">📁 Seleccionar Imagen</button><div id="placaNombreArchivo" style="font-size: 13px; color: var(--mid); text-align: center; margin-top: 8px;"></div></div>
             <img id="placaPreview" class="hidden" style="max-width: 100%; border-radius: 8px; border: 2px solid #e5e5e7;">
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalSubirPlaca')">Cancelar</button><button class="btn btn-submit" onclick="guardarPlaca()">💾 Guardar Placa</button></div>
         </div>
@@ -2173,7 +2107,7 @@
                     <div style="display: flex; gap: 10px;"><button class="btn btn-secondary" onclick="descargarPlaca()" style="background: white; color: var(--clinic-color);">💾 Descargar</button><button class="btn btn-cancel" onclick="closeModal('modalPlacaFullscreen')" style="background: rgba(255,255,255,0.2); color: white;">✕ Cerrar</button></div>
                 </div>
                 <div style="flex: 1; overflow: auto; background: #1a1a1a; display: flex; align-items: center; justify-content: center; padding: 20px;"><img id="fullscreenPlacaImagen" style="max-width: 100%; max-height: 100%; object-fit: contain;"></div>
-                <div style="background: var(--sand); padding: 20px; border-top: 1px solid rgba(255,255,255,.6);"><div style="font-size: 12px; color: var(--piedra); font-weight: 400; margin-bottom: 8px;">NOTAS:</div><div style="font-size: 14px; color: var(--topo); line-height: 1.6;" id="fullscreenPlacaNotas"></div></div>
+                <div style="background: var(--surface); padding: 20px; border-top: 2px solid #e0e0e0;"><div style="font-size: 12px; color: var(--mid); font-weight: 400; margin-bottom: 8px;">NOTAS:</div><div style="font-size: 14px; color: var(--dark); line-height: 1.6;" id="fullscreenPlacaNotas"></div></div>
             </div>
         </div>
     </div>
@@ -2191,7 +2125,7 @@
     <!-- Recetas -->
     <div id="modalRecetasMedicas" class="modal">
         <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header"><div class="modal-title">💊 Recetas Médicas</div><div style="font-size: 14px; color: var(--topo); margin-top: 4px;" id="recetasPacienteNombre"></div></div>
+            <div class="modal-header"><div class="modal-title">💊 Recetas Médicas</div><div style="font-size: 14px; color: var(--mid); margin-top: 4px;" id="recetasPacienteNombre"></div></div>
             <button class="btn btn-submit" onclick="abrirNuevaReceta()" style="width: 100%; margin-bottom: 20px;">➕ Nueva Receta</button>
             <div id="listaRecetas"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalRecetasMedicas')">Cerrar</button></div>
@@ -2202,7 +2136,7 @@
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header"><div class="modal-title">➕ Nueva Receta Médica</div></div>
             <div class="form-group"><label>Diagnóstico (Opcional)</label><textarea id="recetaDiagnostico" rows="2"></textarea></div>
-            <div style="background: var(--sand); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <div style="background: var(--surface); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
                 <h4 style="font-size: 14px; color: var(--clinic-color); margin-bottom: 12px;">💊 Medicamentos</h4>
                 <div class="form-group"><label>Nombre del Medicamento *</label><input type="text" id="medNombre" placeholder="Ej: Ibuprofeno 400mg"></div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;"><div class="form-group"><label>Dosis *</label><input type="text" id="medDosis" placeholder="Ej: 1 tableta"></div><div class="form-group"><label>Frecuencia *</label><input type="text" id="medFrecuencia" placeholder="Ej: Cada 8 horas"></div></div>
@@ -2229,7 +2163,7 @@
     <div id="modalConfirmacion" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header" id="confirmacionHeader"><div class="modal-title" id="confirmacionTitulo"></div></div>
-            <div id="confirmacionMensaje" style="line-height: 1.6; color: var(--topo);"></div>
+            <div id="confirmacionMensaje" style="line-height: 1.6; color: var(--dark);"></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="cerrarConfirmacion()">Cancelar</button><button class="btn" id="confirmacionBtnConfirmar" onclick="ejecutarConfirmacion()">Confirmar</button></div>
         </div>
     </div>
@@ -2283,25 +2217,12 @@
                 document.documentElement.style.setProperty('--clinic-color-light', colorDark);
 
                 const nombre = cfg.nombre || 'Clínica Dental';
+                document.getElementById('clinicNameLogin').textContent = nombre;
                 document.title = nombre + ' — SMILE';
 
-                // Drive new hero elements
-                const hero = document.getElementById('lsBrandHero');
-                if (hero) {
-                    const dark = darkenColor(color, 28);
-                    hero.style.background = `linear-gradient(160deg, ${color} 0%, ${dark} 100%)`;
-                }
-                const nameEl = document.getElementById('lsClinicName');
-                if (nameEl) nameEl.textContent = nombre;
-
-                const logoSrc = cfg.logoPositivo || cfg.logo || null;
-                const lsImg = document.getElementById('lsLogoImg');
-                const lsTxt = document.getElementById('lsLogoText');
-                if (logoSrc && lsImg && lsTxt) {
-                    lsImg.src = logoSrc; lsImg.style.display = 'block';
-                    lsTxt.style.display = 'none';
-                } else if (lsTxt) {
-                    lsTxt.textContent = (nombre || 'S').charAt(0).toUpperCase();
+                if (cfg.logo) {
+                    const img = document.getElementById('logoImg');
+                    if (img) { img.src = cfg.logo; img.style.display = 'block'; }
                 }
 
                 // Mark clinic as valid
@@ -2326,307 +2247,6 @@
         }
     }
     aplicarBranding();
-    </script>
-
-    <script>
-    /* ══════════════════════════════════════════════════════
-       SMILE — Login v2  (PIN keypad + user cards)
-
-       FLUJO NORMAL  (tiene ?clinica= en URL):
-         app.js detecta clínica → carga datos → llama
-         document.getElementById('loginScreen').style.display='flex'
-         → MutationObserver lo intercepta → lsMostrar()
-
-       FLUJO FALLBACK (no hay ?clinica=):
-         app.js llama mostrarPantallaAcceso()
-         → muestra #clinicAccessOverlay (ID directo)
-         → accederPorId() valida y redirige con ?clinica=
-
-    ══════════════════════════════════════════════════════ */
-
-    let _lsUser = null;   // persona seleccionada
-    let _lsPin  = '';     // dígitos ingresados
-    const PIN_LEN = 4;
-
-    // ── helpers ─────────────────────────────────────────
-    function _initials(name) {
-        return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-    }
-    function _roleLabel(p) {
-        if (p.isAdmin) return 'Admin';
-        if (p.canAccessReception) return 'Recepción';
-        return 'Doctor';
-    }
-
-    // ── CLINIC HERO ──────────────────────────────────────
-    function lsUpdateClinicBar() {
-        const cfg    = (typeof clinicConfig !== 'undefined') ? clinicConfig : {};
-        const nombre = cfg.nombre || CLINIC_PATH || 'Tu Clínica';
-        const color  = cfg.color  || '#C4856A';
-        const logo   = cfg._logoSrc || cfg.logoPositivo || null;
-
-        // Clinic name
-        document.getElementById('lsClinicName').textContent = nombre;
-
-        // Hero background — use clinic color
-        const hero = document.getElementById('lsBrandHero');
-        if (hero) {
-            hero.style.background =
-                `linear-gradient(160deg, ${color} 0%, ${darkenHex(color, 28)} 100%)`;
-        }
-
-        // Logo or initials
-        const img  = document.getElementById('lsLogoImg');
-        const txt  = document.getElementById('lsLogoText');
-        if (logo && img && txt) {
-            img.src = logo;
-            img.style.display = 'block';
-            txt.style.display = 'none';
-        } else if (txt) {
-            txt.textContent    = _initials(nombre);
-            txt.style.display  = 'block';
-            if (img) img.style.display = 'none';
-        }
-    }
-
-    // Simple hex darkener for hero gradient
-    function darkenHex(hex, pct) {
-        try {
-            const n = parseInt((hex || '#C4856A').replace('#',''), 16);
-            const r = Math.max(0, (n >> 16)        - Math.round(2.55 * pct));
-            const g = Math.max(0, ((n >> 8) & 0xff)- Math.round(2.55 * pct));
-            const b = Math.max(0, (n & 0xff)       - Math.round(2.55 * pct));
-            return '#' + [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
-        } catch(e) { return '#4a3a30'; }
-    }
-
-    // ── PHASE A: user cards ──────────────────────────────
-    // Retries until appData.personal has loaded from Firebase.
-    let _lsMostrarRetries = 0;
-
-    function lsMostrar() {
-        lsUpdateClinicBar();
-
-        const personal = (typeof appData !== 'undefined') ? (appData.personal || []) : [];
-
-        // If personal is empty, Firebase data may not have loaded yet — retry
-        if (personal.length === 0 && _lsMostrarRetries < 20) {
-            _lsMostrarRetries++;
-            setTimeout(lsMostrar, 200);
-            // Show a subtle loading state on first attempt
-            if (_lsMostrarRetries === 1) {
-                const grid = document.getElementById('lsUserGrid');
-                if (grid) grid.innerHTML = `
-                    <div style="grid-column:1/-1;padding:32px 0;text-align:center;
-                                font-size:12px;color:var(--muted);letter-spacing:1px;">
-                        Cargando...
-                    </div>`;
-            }
-            return;
-        }
-        _lsMostrarRetries = 0;
-
-        // Show ALL users — with or without password.
-        // Users without password will get a "set up PIN" prompt when tapped.
-        // This ensures the admin always appears on first login.
-        const grid = document.getElementById('lsUserGrid');
-        grid.innerHTML = '';
-
-        if (personal.length === 0) {
-            // Truly empty — clinic has no staff configured at all
-            grid.innerHTML = `
-                <div style="grid-column:1/-1;padding:24px 0;text-align:center;
-                            font-size:13px;color:var(--piedra);line-height:1.6;">
-                    No hay usuarios configurados.<br>
-                    <span style="color:var(--pizarra);font-size:12px;">
-                        Agrega personal en Ajustes → Personal.
-                    </span>
-                </div>`;
-        } else {
-            personal.forEach(p => {
-                const btn = document.createElement('button');
-                btn.className = 'ls-user-card';
-                const hasPin = !!(p.password);
-                btn.innerHTML = `
-                    <div class="ls-avatar">${_initials(p.nombre)}</div>
-                    <div class="ls-user-name">${p.nombre.split(' ')[0]}</div>
-                    <div class="ls-user-role">${_roleLabel(p)}</div>
-                    ${!hasPin ? '<div style="font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1px;">SIN PIN</div>' : ''}`;
-                btn.onclick = () => lsSelectUser(p);
-                grid.appendChild(btn);
-            });
-        }
-
-        document.getElementById('lsPhaseUsers').style.display = 'block';
-        document.getElementById('lsPhasePIN').style.display   = 'none';
-        _lsUser = null;
-        _lsPin  = '';
-    }
-
-    // ── PHASE B: PIN pad ─────────────────────────────────
-    function lsSelectUser(person) {
-        _lsUser = person;
-        _lsPin  = '';
-
-        document.getElementById('lsPinAvatar').textContent =
-            _initials(person.nombre);
-        document.getElementById('lsPinName').textContent =
-            person.nombre.split(' ').slice(0,2).join(' ');
-
-        const errEl = document.getElementById('lsPinErr');
-
-        // If user has no PIN yet, show helpful message instead of keypad
-        if (!person.password) {
-            errEl.innerHTML = `
-                <div style="font-size:12px;color:var(--piedra);text-align:center;
-                            line-height:1.7;padding:8px 0;">
-                    Este usuario no tiene PIN configurado.<br>
-                    <span style="color:var(--pizarra);">
-                        Entra con otro usuario admin y configúralo<br>
-                        en <strong>Ajustes → Personal</strong>.
-                    </span>
-                </div>`;
-            document.getElementById('lsPinDots').innerHTML = '';
-            document.getElementById('lsKeypad').innerHTML = '';
-        } else {
-            errEl.textContent = '';
-            _lsBuildDots();
-            _lsBuildKeypad();
-        }
-
-        document.getElementById('lsPhaseUsers').style.display = 'none';
-        document.getElementById('lsPhasePIN').style.display   = 'block';
-    }
-
-    function _lsBuildDots() {
-        const el = document.getElementById('lsPinDots');
-        el.innerHTML = '';
-        for (let i = 0; i < PIN_LEN; i++) {
-            const d = document.createElement('div');
-            d.className = 'ls-pin-dot';
-            d.id = 'pd' + i;
-            el.appendChild(d);
-        }
-    }
-
-    function _lsBuildKeypad() {
-        const pad = document.getElementById('lsKeypad');
-        const letters = ['','ABC','DEF','GHI','JKL','MNO','PQRS','TUV','WXYZ'];
-        pad.innerHTML = '';
-
-        [1,2,3, 4,5,6, 7,8,9, null,0,'⌫'].forEach(key => {
-            const btn = document.createElement('button');
-
-            if (key === null) {
-                btn.className = 'ls-key ls-key-empty';
-            } else if (key === '⌫') {
-                btn.className = 'ls-key ls-key-back';
-                btn.innerHTML = '⌫';
-                btn.onclick   = lsKeyBack;
-            } else {
-                const sub = (key >= 2 && key <= 9) ? letters[key - 1] : '';
-                btn.className = 'ls-key';
-                btn.innerHTML = key + (sub ? `<span class="ls-key-sub">${sub}</span>` : '');
-                btn.onclick   = () => lsKeyPress(String(key));
-            }
-            pad.appendChild(btn);
-        });
-    }
-
-    function lsKeyPress(d) {
-        if (_lsPin.length >= PIN_LEN) return;
-        _lsPin += d;
-        _lsRefreshDots();
-        if (_lsPin.length === PIN_LEN) setTimeout(lsVerify, 100);
-    }
-
-    function lsKeyBack() {
-        if (!_lsPin.length) return;
-        _lsPin = _lsPin.slice(0, -1);
-        _lsRefreshDots();
-    }
-
-    function _lsRefreshDots() {
-        for (let i = 0; i < PIN_LEN; i++) {
-            const d = document.getElementById('pd' + i);
-            if (d) d.classList.toggle('ls-pin-filled', i < _lsPin.length);
-        }
-    }
-
-    async function lsVerify() {
-        const person = _lsUser;
-        const errEl  = document.getElementById('lsPinErr');
-
-        if (!checkRateLimit(person.nombre)) {
-            _lsPin = ''; _lsRefreshDots(); return;
-        }
-
-        const ok = await verifyPassword(person, _lsPin);
-
-        if (!ok) {
-            recordFailedAttempt(person.nombre);
-            // Shake dots
-            const dotsEl = document.getElementById('lsPinDots');
-            document.querySelectorAll('.ls-pin-dot').forEach(d => {
-                d.classList.remove('ls-pin-filled');
-                d.classList.add('ls-pin-error');
-            });
-            dotsEl.style.animation = 'lsShake .35s ease';
-            setTimeout(() => {
-                dotsEl.style.animation = '';
-                document.querySelectorAll('.ls-pin-dot')
-                    .forEach(d => d.classList.remove('ls-pin-error'));
-            }, 380);
-            errEl.textContent = 'PIN incorrecto';
-            _lsPin = '';
-            return;
-        }
-
-        // ✅ Acceso correcto
-        clearLoginAttempts(person.nombre);
-        errEl.textContent = '';
-
-        if      (person.isAdmin)              appData.currentRole = 'admin';
-        else if (person.canAccessReception)   appData.currentRole = 'reception';
-        else                                  appData.currentRole = 'professional';
-
-        appData.currentUser = person.nombre;
-        document.getElementById('password').value = _lsPin;
-
-        await ensureFirebaseAuth();
-        _flushErrorQueue().catch(() => {});
-        startSession(person.nombre);
-        registrarAuditoria('seguridad', 'login',
-            `Inicio de sesión: ${person.nombre} (${appData.currentRole})`);
-        initRealtimeListener();
-        await showApp();
-    }
-
-    function lsVolverUsuarios() {
-        _lsUser = null; _lsPin = '';
-        document.getElementById('lsPinErr').textContent = '';
-        document.getElementById('lsPhaseUsers').style.display = 'block';
-        document.getElementById('lsPhasePIN').style.display   = 'none';
-    }
-
-    // ── INTERCEPT loginScreen show ───────────────────────
-    // app.js sets loginScreen.style.display='flex' after loadClinicBranding().
-    // loadData() runs AFTER that, so appData.personal may not be ready yet.
-    // lsMostrar() handles this by retrying until personal is populated.
-    (function() {
-        const el = document.getElementById('loginScreen');
-        if (!el) return;
-        const obs = new MutationObserver(() => {
-            if (el.style.display === 'flex') {
-                obs.disconnect();
-                // Small delay to let synchronous app.js code settle,
-                // then lsMostrar will retry internally until Firebase data arrives.
-                setTimeout(lsMostrar, 80);
-            }
-        });
-        obs.observe(el, { attributes: true, attributeFilter: ['style'] });
-    })();
-
     </script>
 
     <script src="app.js"></script>
