@@ -112,90 +112,240 @@
     .sync-indicator.sync-pulse { animation: syncPulse 1s ease-in-out infinite; }
 
     /* ── LOGIN SCREEN ─────────────────────────────── */
-    .login-screen {
-        min-height: 100vh;
-        background: linear-gradient(160deg, #E8E4DC 0%, #DFD9D0 100%);
+    /* ═══ CLINIC SEARCH SCREEN ══════════════════════ */
+    .clinic-search-screen {
+        position: fixed; inset: 0; z-index: 999;
+        background: var(--sand);
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        padding: 24px; position: relative; overflow: hidden;
+        padding: 32px 24px;
+        animation: fadeIn .4s ease;
     }
-    .login-screen::before {
-        content: '';
-        position: absolute; top: -25%; right: -15%;
-        width: 55vw; height: 55vw; border-radius: 50%;
-        background: rgba(255,255,255,.18); pointer-events: none;
+    .cs-logo {
+        font-size: 9px; font-weight: 600; letter-spacing: 6px;
+        text-transform: uppercase; color: var(--topo); opacity: .45;
+        margin-bottom: 52px;
     }
-    .login-screen::after {
-        content: '';
-        position: absolute; bottom: -18%; left: -12%;
-        width: 48vw; height: 48vw; border-radius: 50%;
-        background: rgba(255,255,255,.12); pointer-events: none;
+    .cs-title {
+        font-size: clamp(28px, 5vw, 42px); font-weight: 200;
+        letter-spacing: -1.5px; color: var(--topo);
+        text-align: center; margin-bottom: 8px;
     }
-
-    .logo-container {
-        margin-bottom: 32px; text-align: center;
-        position: relative; z-index: 1;
+    .cs-sub {
+        font-size: 14px; color: var(--piedra); text-align: center;
+        margin-bottom: 40px; line-height: 1.6;
     }
-    .logo-container img {
-        max-width: 180px; width: 55%; height: auto;
-        filter: brightness(0) sepia(1) saturate(0) brightness(.5);
-        opacity: .85; display: none;
+    .cs-form {
+        width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px;
     }
-    .logo-container img.loaded { display: block; margin: 0 auto 12px; }
-    .clinic-name-login {
-        color: var(--topo);
-        font-size: 22px; font-weight: 200; text-align: center;
-        margin-top: 10px; letter-spacing: -0.3px; transition: font-size .2s;
+    .cs-input-wrap {
+        position: relative;
     }
-    .clinic-name-login.logo-visible {
-        font-size: 11px; opacity: .6; font-weight: 500;
-        letter-spacing: 4px; text-transform: uppercase; margin-top: 8px;
+    .cs-input {
+        width: 100%; padding: 16px 20px;
+        border: none; border-radius: 16px;
+        font-size: 16px; font-family: inherit; font-weight: 300;
+        background: var(--sand); color: var(--topo);
+        box-shadow: var(--neu-inset); outline: none;
+        transition: box-shadow .2s;
     }
-
-    .login-card {
-        background: var(--sand);
-        border-radius: var(--radius-lg);
-        padding: 32px 28px;
-        max-width: 380px; width: 100%;
+    .cs-input:focus { box-shadow: var(--neu-inset-lg), 0 0 0 2px rgba(125,142,160,.2); }
+    .cs-results {
+        position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+        background: var(--sand); border-radius: 16px;
         box-shadow: var(--neu-raised-lg);
-        position: relative; z-index: 1;
+        overflow: hidden; z-index: 10;
+        max-height: 220px; overflow-y: auto;
+    }
+    .cs-result-item {
+        padding: 14px 20px; cursor: pointer;
+        font-size: 14px; color: var(--topo); font-weight: 300;
+        border-bottom: 1px solid rgba(255,255,255,.6);
+        transition: background .15s;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .cs-result-item:last-child { border-bottom: none; }
+    .cs-result-item:hover { background: rgba(125,142,160,.07); }
+    .cs-result-icon {
+        width: 32px; height: 32px; border-radius: 8px;
+        background: var(--sand); box-shadow: var(--neu-flat);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 14px; font-weight: 500; color: var(--pizarra);
+        flex-shrink: 0;
+    }
+    .cs-result-name { font-weight: 400; color: var(--topo); }
+    .cs-result-id   { font-size: 11px; color: var(--piedra); margin-top: 1px; }
+    .cs-btn {
+        width: 100%; padding: 15px;
+        background: linear-gradient(145deg, #8b9eb2, var(--pizarra));
+        color: white; border: none; border-radius: 16px;
+        font-size: 11px; font-weight: 500; font-family: inherit;
+        letter-spacing: 2px; text-transform: uppercase;
+        cursor: pointer; box-shadow: var(--neu-pizarra);
+        transition: all .25s;
+    }
+    .cs-btn:hover { background: linear-gradient(145deg, #cc9178, var(--terra)); box-shadow: var(--neu-terra); }
+    .cs-btn:active { transform: scale(.98); }
+    .cs-err {
+        font-size: 13px; color: #c0392b; text-align: center;
+        background: rgba(192,57,43,.07); border-radius: 10px;
+        padding: 10px 14px; display: none;
+    }
+    .cs-note { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; }
+
+    /* ═══ LOGIN SCREEN (user picker + PIN) ═══════════ */
+    .login-screen {
+        position: fixed; inset: 0; z-index: 998;
+        background: var(--sand);
+        display: none; flex-direction: column;
+        align-items: center; justify-content: center;
+        padding: 24px; overflow: hidden;
+    }
+    .login-screen.visible { display: flex; animation: fadeIn .35s ease; }
+
+    /* Clinic badge at top */
+    .ls-clinic-bar {
+        display: flex; align-items: center; gap: 10px;
+        margin-bottom: 40px; position: relative; z-index: 1;
+    }
+    .ls-clinic-logo {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: var(--sand); box-shadow: var(--neu-raised);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 15px; font-weight: 600; color: var(--pizarra);
+        overflow: hidden; flex-shrink: 0;
+    }
+    .ls-clinic-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .ls-clinic-name {
+        font-size: 14px; font-weight: 400; color: var(--topo); letter-spacing: -.2px;
+    }
+    .ls-clinic-change {
+        font-size: 10px; color: var(--pizarra); cursor: pointer;
+        margin-left: 8px; opacity: .7; letter-spacing: .5px;
+        background: none; border: none; font-family: inherit;
+        padding: 4px 8px; border-radius: 100px;
+        box-shadow: var(--neu-flat); transition: box-shadow .2s;
+    }
+    .ls-clinic-change:hover { box-shadow: var(--neu-raised); opacity: 1; }
+
+    /* Phase 1: user picker */
+    .ls-phase { width: 100%; max-width: 400px; }
+    .ls-phase-title {
+        font-size: 11px; font-weight: 600; letter-spacing: 3px;
+        text-transform: uppercase; color: var(--piedra);
+        text-align: center; margin-bottom: 20px;
     }
 
-    .role-selector {
-        display: flex; gap: 5px; margin-bottom: 28px;
-        background: var(--sand); padding: 4px;
-        border-radius: 100px; box-shadow: var(--neu-inset);
+    /* User avatars grid */
+    .ls-users {
+        display: grid; gap: 10px;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        margin-bottom: 8px;
     }
-    .role-btn {
-        flex: 1; padding: 9px 8px;
-        border: none; background: transparent;
-        color: var(--muted); border-radius: 100px;
-        cursor: pointer; font-weight: 400; font-size: 12px;
-        font-family: inherit; letter-spacing: .3px; transition: all .2s;
+    .ls-user-card {
+        background: var(--sand); border-radius: 16px;
+        padding: 18px 10px 14px;
+        display: flex; flex-direction: column; align-items: center; gap: 10px;
+        cursor: pointer; box-shadow: var(--neu-raised);
+        transition: box-shadow .25s cubic-bezier(.34,1.56,.64,1), transform .25s cubic-bezier(.34,1.56,.64,1);
+        border: none; font-family: inherit;
     }
-    .role-btn.active {
-        background: var(--sand); color: var(--topo); font-weight: 500;
-        box-shadow: var(--neu-raised);
+    .ls-user-card:hover  { box-shadow: var(--neu-raised-lg); transform: translateY(-2px); }
+    .ls-user-card:active { box-shadow: var(--neu-inset); transform: scale(.97); }
+    .ls-user-avatar {
+        width: 48px; height: 48px; border-radius: 50%;
+        background: var(--sand); box-shadow: var(--neu-raised);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; font-weight: 500; color: var(--pizarra);
+        overflow: hidden;
     }
-
-    .input-group { margin-bottom: 18px; }
-    .input-group label {
-        display: block; margin-bottom: 7px; color: var(--piedra);
-        font-size: 9px; font-weight: 600; letter-spacing: 2.5px;
+    .ls-user-name {
+        font-size: 11px; font-weight: 400; color: var(--topo);
+        text-align: center; line-height: 1.3;
+        word-break: break-word;
+    }
+    .ls-user-role {
+        font-size: 9px; color: var(--piedra); letter-spacing: 1px;
         text-transform: uppercase;
     }
-    .input-group input,
-    .input-group select {
-        width: 100%; padding: 13px 16px;
-        border: none; border-radius: var(--radius-sm);
-        font-size: 15px; font-family: inherit; font-weight: 300;
-        background: var(--sand); color: var(--topo);
-        box-shadow: var(--neu-inset); transition: box-shadow .2s;
-        -webkit-appearance: none; outline: none;
+
+    /* Phase 2: PIN pad */
+    .ls-pin-phase { width: 100%; max-width: 320px; display: none; }
+    .ls-pin-phase.visible { display: block; animation: fadeIn .25s ease; }
+
+    .ls-pin-user {
+        display: flex; align-items: center; gap: 12px;
+        justify-content: center; margin-bottom: 28px;
     }
-    .input-group input:focus,
-    .input-group select:focus {
-        box-shadow: var(--neu-inset-lg), 0 0 0 2px rgba(125,142,160,.18);
+    .ls-pin-avatar {
+        width: 44px; height: 44px; border-radius: 50%;
+        background: var(--sand); box-shadow: var(--neu-raised);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; font-weight: 500; color: var(--pizarra);
+    }
+    .ls-pin-name { font-size: 16px; font-weight: 300; color: var(--topo); }
+
+    /* PIN dots */
+    .ls-pin-dots {
+        display: flex; justify-content: center; gap: 12px;
+        margin-bottom: 28px; height: 16px; align-items: center;
+    }
+    .ls-pin-dot {
+        width: 12px; height: 12px; border-radius: 50%;
+        background: var(--sand); box-shadow: var(--neu-raised);
+        transition: all .15s cubic-bezier(.34,1.56,.64,1);
+    }
+    .ls-pin-dot.filled {
+        background: var(--pizarra);
+        box-shadow: var(--neu-pizarra);
+        transform: scale(1.15);
+    }
+    .ls-pin-dot.error {
+        background: #c0392b;
+        animation: shake .35s ease;
+    }
+    @keyframes shake {
+        0%,100% { transform: translateX(0); }
+        20%      { transform: translateX(-5px); }
+        40%      { transform: translateX(5px); }
+        60%      { transform: translateX(-4px); }
+        80%      { transform: translateX(4px); }
+    }
+
+    /* PIN keypad */
+    .ls-keypad {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    }
+    .ls-key {
+        background: var(--sand); border: none; border-radius: 16px;
+        padding: 18px 0; font-size: 22px; font-weight: 300;
+        color: var(--topo); cursor: pointer; font-family: inherit;
+        box-shadow: var(--neu-raised);
+        transition: box-shadow .15s, transform .1s;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 1px; line-height: 1;
+    }
+    .ls-key:active { box-shadow: var(--neu-inset); transform: scale(.95); }
+    .ls-key .ls-key-letters {
+        font-size: 8px; letter-spacing: 1.5px;
+        color: var(--muted); font-weight: 400;
+    }
+    .ls-key-back { font-size: 18px; color: var(--piedra); }
+    .ls-key-empty { background: transparent; box-shadow: none; cursor: default; }
+    .ls-key-empty:active { box-shadow: none; transform: none; }
+
+    .ls-back-btn {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 12px; color: var(--piedra); background: none;
+        border: none; font-family: inherit; cursor: pointer;
+        margin: 20px auto 0; padding: 8px 16px;
+        border-radius: 100px; transition: color .2s;
+    }
+    .ls-back-btn:hover { color: var(--topo); }
+    .ls-pin-err {
+        font-size: 12px; color: #c0392b; text-align: center;
+        margin-bottom: 12px; min-height: 18px;
+        transition: opacity .2s;
     }
 
     .btn-primary {
@@ -213,6 +363,25 @@
         box-shadow: var(--neu-terra);
     }
     .btn-primary:active { transform: scale(.98); }
+
+    /* legacy - keep for any JS refs */
+    .logo-container { display: none; }
+    .clinic-name-login { display: none; }
+    .login-card { display: none; }
+    .role-selector { display: none; }
+    .role-btn { display: none; }
+    .input-group { margin-bottom: 18px; }
+    .input-group label {
+        display: block; margin-bottom: 7px; color: var(--piedra);
+        font-size: 9px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase;
+    }
+    .input-group input, .input-group select {
+        width: 100%; padding: 13px 16px; border: none; border-radius: var(--radius-sm);
+        font-size: 15px; font-family: inherit; font-weight: 300;
+        background: var(--sand); color: var(--topo);
+        box-shadow: var(--neu-inset); transition: box-shadow .2s;
+        -webkit-appearance: none; outline: none;
+    }
 
     /* ── APP CONTAINER ────────────────────────────── */
     .app-container { display: none; min-height: 100vh; padding-bottom: 76px; }
@@ -644,49 +813,209 @@
         color: var(--topo) !important;
     }
 
-    </style>
-</head>
-<body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
 
-    <!-- Pantalla de carga inicial -->
+    /* ══ LOGIN SCREEN ════════════════════════════════ */
+    .ls-user-card {
+        background: var(--sand); border-radius: 18px;
+        padding: 20px 10px 16px;
+        display: flex; flex-direction: column; align-items: center; gap: 9px;
+        cursor: pointer; box-shadow: var(--neu-raised); border: none;
+        font-family: inherit;
+        transition: box-shadow .25s cubic-bezier(.34,1.56,.64,1),
+                    transform .25s cubic-bezier(.34,1.56,.64,1);
+        width: 100%;
+    }
+    .ls-user-card:hover  { box-shadow: var(--neu-raised-lg); transform: translateY(-3px); }
+    .ls-user-card:active { box-shadow: var(--neu-inset); transform: scale(.96); }
+
+    .ls-avatar {
+        width: 52px; height: 52px; border-radius: 50%;
+        background: var(--sand); box-shadow: var(--neu-raised);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px; font-weight: 500; color: var(--pizarra); overflow: hidden;
+    }
+    .ls-user-name {
+        font-size: 12px; font-weight: 400; color: var(--topo);
+        text-align: center; line-height: 1.3; word-break: break-word;
+    }
+    .ls-user-role {
+        font-size: 9px; color: var(--piedra); letter-spacing: 1px; text-transform: uppercase;
+    }
+
+    /* PIN dots */
+    .ls-pin-dot {
+        width: 13px; height: 13px; border-radius: 50%;
+        background: var(--sand); box-shadow: var(--neu-raised);
+        transition: all .15s cubic-bezier(.34,1.56,.64,1); flex-shrink: 0;
+    }
+    .ls-pin-dot.ls-pin-filled { background: var(--pizarra); box-shadow: var(--neu-pizarra); transform: scale(1.2); }
+    .ls-pin-dot.ls-pin-error  { background: #c0392b; }
+
+    @keyframes lsShake {
+        0%,100% { transform: translateX(0); }
+        20%     { transform: translateX(-6px); }
+        40%     { transform: translateX(6px); }
+        60%     { transform: translateX(-4px); }
+        80%     { transform: translateX(4px); }
+    }
+
+    /* PIN keys */
+    .ls-key {
+        background: var(--sand); border: none; border-radius: 16px;
+        padding: 18px 0; font-size: 22px; font-weight: 300;
+        color: var(--topo); cursor: pointer; font-family: inherit;
+        box-shadow: var(--neu-raised);
+        transition: box-shadow .1s, transform .1s;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 2px; line-height: 1;
+    }
+    .ls-key:active        { box-shadow: var(--neu-inset); transform: scale(.94); }
+    .ls-key-sub           { font-size: 8px; letter-spacing: 1.5px; color: var(--muted); font-weight: 400; }
+    .ls-key-back          { font-size: 18px; color: var(--piedra); }
+    .ls-key-empty         { background: transparent !important; box-shadow: none !important;
+                            cursor: default !important; pointer-events: none; }
+
+    </style>
+</head><body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
+
+    <!-- Pantalla de carga -->
     <div class="clinic-loading" id="clinicLoading">
         <div class="clinic-loading-logo">SMILE</div>
         <div class="clinic-loading-spinner"></div>
     </div>
 
-    <!-- Indicador de Sincronización -->
+    <!-- Sync indicator -->
     <div class="sync-indicator" id="syncIndicator">✓ Sincronizado</div>
 
-    <!-- Login Screen -->
-    <div id="loginScreen" class="login-screen" style="display:none">
-        <div class="logo-container">
-            <img src="logo.png" alt="Clínica" id="logoImg" onerror="this.style.display='none'">
-            <div class="clinic-name-login" id="clinicNameLogin">Clínica Dental</div>
+    <!-- ══════════════════════════════════════════════════════
+         PANTALLA DE LOGIN
+         Solo se muestra cuando la clínica ya está identificada
+         (URL ?clinica= o sessionStorage).
+         Si no hay clínica, app.js llama mostrarPantallaAcceso()
+         que muestra el overlay de ID directo (definido abajo).
+    ══════════════════════════════════════════════════════ -->
+    <div id="loginScreen" style="display:none; position:fixed; inset:0; z-index:998;
+         background:var(--sand); flex-direction:column; align-items:center;
+         justify-content:center; padding:28px 20px; overflow-y:auto;">
+
+        <!-- Clinic badge -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:44px;">
+            <div id="lsClinicIcon" style="width:38px;height:38px;border-radius:11px;
+                 background:var(--sand);box-shadow:var(--neu-raised);overflow:hidden;
+                 display:flex;align-items:center;justify-content:center;
+                 font-size:15px;font-weight:600;color:var(--pizarra);flex-shrink:0;">S</div>
+            <span id="lsClinicName" style="font-size:14px;font-weight:400;color:var(--topo);">
+                Tu Clínica
+            </span>
         </div>
 
-        <div class="login-card">
-            <div class="input-group">
-                <label>Usuario</label>
-                <select id="loginUsername">
-                    <option value="">Selecciona tu usuario</option>
-                </select>
+        <!-- ── FASE A: quién eres ──────────────────────── -->
+        <div id="lsPhaseUsers" style="width:100%;max-width:440px;">
+            <div style="font-size:9px;font-weight:600;letter-spacing:3px;text-transform:uppercase;
+                        color:var(--piedra);text-align:center;margin-bottom:20px;">¿Quién eres?</div>
+            <div id="lsUserGrid" style="display:grid;gap:10px;
+                 grid-template-columns:repeat(auto-fill,minmax(110px,1fr));">
+                <!-- JS fills this -->
+            </div>
+        </div>
+
+        <!-- ── FASE B: teclado PIN ────────────────────── -->
+        <div id="lsPhasePIN" style="display:none;width:100%;max-width:300px;">
+
+            <!-- Selected user -->
+            <div style="display:flex;align-items:center;gap:12px;
+                        justify-content:center;margin-bottom:24px;">
+                <div id="lsPinAvatar" style="width:46px;height:46px;border-radius:50%;
+                     background:var(--sand);box-shadow:var(--neu-raised);
+                     display:flex;align-items:center;justify-content:center;
+                     font-size:18px;font-weight:500;color:var(--pizarra);">?</div>
+                <div id="lsPinName" style="font-size:16px;font-weight:300;color:var(--topo);">
+                    Usuario</div>
             </div>
 
-            <div class="input-group">
-                <label>PIN</label>
-                <input type="password" id="loginPassword" inputmode="numeric"
-                       maxlength="6" placeholder="• • • •" autocomplete="off"
-                       style="font-size:28px;letter-spacing:12px;text-align:center"
-                       onkeydown="if(event.key==='Enter')login()">
+            <!-- PIN dots -->
+            <div id="lsPinDots" style="display:flex;justify-content:center;
+                 gap:14px;margin-bottom:22px;align-items:center;height:16px;">
             </div>
 
-            <div id="loginError" style="display:none;color:#E57373;font-size:13px;
-                 margin-bottom:12px;padding:10px 14px;background:rgba(229,115,115,0.08);
-                 border-radius:8px;border-left:3px solid #E57373"></div>
+            <!-- Error -->
+            <div id="lsPinErr" style="font-size:12px;color:#c0392b;text-align:center;
+                 margin-bottom:10px;min-height:16px;"></div>
 
-            <button class="btn-primary" onclick="login()">Acceder</button>
+            <!-- Keypad -->
+            <div id="lsKeypad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            </div>
+
+            <!-- Back -->
+            <button onclick="lsVolverUsuarios()"
+                style="display:flex;align-items:center;gap:6px;font-size:12px;
+                       color:var(--piedra);background:none;border:none;
+                       font-family:inherit;cursor:pointer;margin:18px auto 0;
+                       padding:8px 16px;border-radius:100px;transition:color .2s;">
+                ← Cambiar usuario
+            </button>
         </div>
     </div>
+
+    <!-- ══ ACCESO POR ID (fallback sin URL) ════════════════
+         Mostrado por app.js vía mostrarPantallaAcceso()
+         cuando no hay ?clinica= en la URL.
+         Mantiene el flujo existente de app.js intacto.
+    ══════════════════════════════════════════════════════ -->
+    <div id="clinicAccessOverlay" style="display:none; position:fixed; inset:0; z-index:999;
+         background:var(--sand); flex-direction:column; align-items:center;
+         justify-content:center; padding:40px 24px;">
+
+        <div style="font-size:9px;font-weight:600;letter-spacing:6px;text-transform:uppercase;
+                    color:var(--topo);opacity:.4;margin-bottom:48px;">SMILE</div>
+
+        <div style="font-size:clamp(28px,5vw,44px);font-weight:200;letter-spacing:-1.5px;
+                    color:var(--topo);text-align:center;margin-bottom:8px;line-height:1.05;">
+            Accede a tu clínica
+        </div>
+        <p style="font-size:14px;color:var(--piedra);text-align:center;
+                  margin-bottom:36px;line-height:1.65;max-width:320px;">
+            Escribe el ID de tu clínica.<br>
+            Lo encontrarás en el email de bienvenida o en el enlace que usas normalmente.
+        </p>
+
+        <div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;">
+            <input id="clinicIdInput" type="text" placeholder="ID de clínica (ej: dr-garcia)"
+                   autocomplete="off" autocorrect="off" autocapitalize="none"
+                   onkeydown="if(event.key==='Enter')accederPorId()"
+                   style="width:100%;padding:16px 20px;border:none;border-radius:14px;
+                          font-size:15px;font-family:inherit;font-weight:300;
+                          background:var(--sand);color:var(--topo);
+                          box-shadow:var(--neu-inset);outline:none;"
+                   onfocus="this.style.boxShadow='var(--neu-inset-lg),0 0 0 2px rgba(125,142,160,.18)'"
+                   onblur="this.style.boxShadow='var(--neu-inset)'">
+
+            <div id="clinicAccessErr" style="display:none;font-size:13px;color:#c0392b;
+                 background:rgba(192,57,43,.07);border-radius:10px;
+                 padding:10px 16px;text-align:center;"></div>
+
+            <button id="clinicAccessBtn" onclick="accederPorId()"
+                style="width:100%;padding:15px;border:none;border-radius:14px;
+                       background:linear-gradient(145deg,#8b9eb2,var(--pizarra));
+                       color:white;font-size:11px;font-weight:500;font-family:inherit;
+                       letter-spacing:2px;text-transform:uppercase;cursor:pointer;
+                       box-shadow:var(--neu-pizarra);transition:all .25s;">
+                Entrar →
+            </button>
+        </div>
+
+        <p style="font-size:11px;color:var(--muted);margin-top:16px;text-align:center;">
+            La próxima vez guarda el enlace como favorito para entrar directo.
+        </p>
+    </div>
+
+    <!-- Hidden legacy inputs (app.js compatibility) -->
+    <select id="loginUsername"      style="display:none"></select>
+    <select id="professionalPicker" style="display:none"></select>
+    <select id="receptionPicker"    style="display:none"></select>
+    <input  id="password" type="password" style="display:none">
+    <input  id="username" type="text"     style="display:none">
+    <div    id="loginError"               style="display:none"></div>
 
     <!-- Main App -->
     <div id="appContainer" class="app-container">
@@ -1955,6 +2284,241 @@
         }
     }
     aplicarBranding();
+    </script>
+
+    <script>
+    /* ══════════════════════════════════════════════════════
+       SMILE — Login v2  (PIN keypad + user cards)
+
+       FLUJO NORMAL  (tiene ?clinica= en URL):
+         app.js detecta clínica → carga datos → llama
+         document.getElementById('loginScreen').style.display='flex'
+         → MutationObserver lo intercepta → lsMostrar()
+
+       FLUJO FALLBACK (no hay ?clinica=):
+         app.js llama mostrarPantallaAcceso()
+         → muestra #clinicAccessOverlay (ID directo)
+         → accederPorId() valida y redirige con ?clinica=
+
+    ══════════════════════════════════════════════════════ */
+
+    let _lsUser = null;   // persona seleccionada
+    let _lsPin  = '';     // dígitos ingresados
+    const PIN_LEN = 4;
+
+    // ── helpers ─────────────────────────────────────────
+    function _initials(name) {
+        return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+    }
+    function _roleLabel(p) {
+        if (p.isAdmin) return 'Admin';
+        if (p.canAccessReception) return 'Recepción';
+        return 'Doctor';
+    }
+
+    // ── CLINIC BAR ───────────────────────────────────────
+    function lsUpdateClinicBar() {
+        const nombre = (typeof clinicConfig !== 'undefined' && clinicConfig.nombre)
+            ? clinicConfig.nombre
+            : (CLINIC_PATH || 'Tu Clínica');
+
+        document.getElementById('lsClinicName').textContent = nombre;
+
+        const icon  = document.getElementById('lsClinicIcon');
+        const logo  = (typeof clinicConfig !== 'undefined')
+            ? (clinicConfig._logoSrc || clinicConfig.logoPositivo) : null;
+
+        if (logo) {
+            icon.innerHTML = `<img src="${logo}" style="width:100%;height:100%;
+                              object-fit:contain;border-radius:11px;">`;
+        } else {
+            icon.textContent = _initials(nombre);
+        }
+    }
+
+    // ── PHASE A: user cards ──────────────────────────────
+    function lsMostrar() {
+        lsUpdateClinicBar();
+
+        const users  = ((typeof appData !== 'undefined') ? appData.personal : [])
+                       .filter(p => p.password);
+        const grid   = document.getElementById('lsUserGrid');
+        grid.innerHTML = '';
+
+        if (users.length === 0) {
+            grid.innerHTML = `
+                <div style="grid-column:1/-1;padding:24px 0;text-align:center;
+                            font-size:13px;color:var(--piedra);line-height:1.6;">
+                    No hay usuarios con PIN configurado.<br>
+                    <span style="color:var(--pizarra);font-size:12px;">
+                        Configúralos en Ajustes → Personal.
+                    </span>
+                </div>`;
+        } else {
+            users.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'ls-user-card';
+                btn.innerHTML = `
+                    <div class="ls-avatar">${_initials(p.nombre)}</div>
+                    <div class="ls-user-name">${p.nombre.split(' ')[0]}</div>
+                    <div class="ls-user-role">${_roleLabel(p)}</div>`;
+                btn.onclick = () => lsSelectUser(p);
+                grid.appendChild(btn);
+            });
+        }
+
+        document.getElementById('lsPhaseUsers').style.display = 'block';
+        document.getElementById('lsPhasePIN').style.display   = 'none';
+        _lsUser = null;
+        _lsPin  = '';
+    }
+
+    // ── PHASE B: PIN pad ─────────────────────────────────
+    function lsSelectUser(person) {
+        _lsUser = person;
+        _lsPin  = '';
+
+        document.getElementById('lsPinAvatar').textContent =
+            _initials(person.nombre);
+        document.getElementById('lsPinName').textContent =
+            person.nombre.split(' ').slice(0,2).join(' ');
+        document.getElementById('lsPinErr').textContent = '';
+
+        _lsBuildDots();
+        _lsBuildKeypad();
+
+        document.getElementById('lsPhaseUsers').style.display = 'none';
+        document.getElementById('lsPhasePIN').style.display   = 'block';
+    }
+
+    function _lsBuildDots() {
+        const el = document.getElementById('lsPinDots');
+        el.innerHTML = '';
+        for (let i = 0; i < PIN_LEN; i++) {
+            const d = document.createElement('div');
+            d.className = 'ls-pin-dot';
+            d.id = 'pd' + i;
+            el.appendChild(d);
+        }
+    }
+
+    function _lsBuildKeypad() {
+        const pad = document.getElementById('lsKeypad');
+        const letters = ['','ABC','DEF','GHI','JKL','MNO','PQRS','TUV','WXYZ'];
+        pad.innerHTML = '';
+
+        [1,2,3, 4,5,6, 7,8,9, null,0,'⌫'].forEach(key => {
+            const btn = document.createElement('button');
+
+            if (key === null) {
+                btn.className = 'ls-key ls-key-empty';
+            } else if (key === '⌫') {
+                btn.className = 'ls-key ls-key-back';
+                btn.innerHTML = '⌫';
+                btn.onclick   = lsKeyBack;
+            } else {
+                const sub = (key >= 2 && key <= 9) ? letters[key - 1] : '';
+                btn.className = 'ls-key';
+                btn.innerHTML = key + (sub ? `<span class="ls-key-sub">${sub}</span>` : '');
+                btn.onclick   = () => lsKeyPress(String(key));
+            }
+            pad.appendChild(btn);
+        });
+    }
+
+    function lsKeyPress(d) {
+        if (_lsPin.length >= PIN_LEN) return;
+        _lsPin += d;
+        _lsRefreshDots();
+        if (_lsPin.length === PIN_LEN) setTimeout(lsVerify, 100);
+    }
+
+    function lsKeyBack() {
+        if (!_lsPin.length) return;
+        _lsPin = _lsPin.slice(0, -1);
+        _lsRefreshDots();
+    }
+
+    function _lsRefreshDots() {
+        for (let i = 0; i < PIN_LEN; i++) {
+            const d = document.getElementById('pd' + i);
+            if (d) d.classList.toggle('ls-pin-filled', i < _lsPin.length);
+        }
+    }
+
+    async function lsVerify() {
+        const person = _lsUser;
+        const errEl  = document.getElementById('lsPinErr');
+
+        if (!checkRateLimit(person.nombre)) {
+            _lsPin = ''; _lsRefreshDots(); return;
+        }
+
+        const ok = await verifyPassword(person, _lsPin);
+
+        if (!ok) {
+            recordFailedAttempt(person.nombre);
+            // Shake dots
+            const dotsEl = document.getElementById('lsPinDots');
+            document.querySelectorAll('.ls-pin-dot').forEach(d => {
+                d.classList.remove('ls-pin-filled');
+                d.classList.add('ls-pin-error');
+            });
+            dotsEl.style.animation = 'lsShake .35s ease';
+            setTimeout(() => {
+                dotsEl.style.animation = '';
+                document.querySelectorAll('.ls-pin-dot')
+                    .forEach(d => d.classList.remove('ls-pin-error'));
+            }, 380);
+            errEl.textContent = 'PIN incorrecto';
+            _lsPin = '';
+            return;
+        }
+
+        // ✅ Acceso correcto
+        clearLoginAttempts(person.nombre);
+        errEl.textContent = '';
+
+        if      (person.isAdmin)              appData.currentRole = 'admin';
+        else if (person.canAccessReception)   appData.currentRole = 'reception';
+        else                                  appData.currentRole = 'professional';
+
+        appData.currentUser = person.nombre;
+        document.getElementById('password').value = _lsPin;
+
+        await ensureFirebaseAuth();
+        _flushErrorQueue().catch(() => {});
+        startSession(person.nombre);
+        registrarAuditoria('seguridad', 'login',
+            `Inicio de sesión: ${person.nombre} (${appData.currentRole})`);
+        initRealtimeListener();
+        await showApp();
+    }
+
+    function lsVolverUsuarios() {
+        _lsUser = null; _lsPin = '';
+        document.getElementById('lsPinErr').textContent = '';
+        document.getElementById('lsPhaseUsers').style.display = 'block';
+        document.getElementById('lsPhasePIN').style.display   = 'none';
+    }
+
+    // ── INTERCEPT loginScreen show ───────────────────────
+    // app.js sets loginScreen.style.display='flex' after loading data.
+    // We catch that and call lsMostrar() to render the new UI.
+    (function() {
+        const el = document.getElementById('loginScreen');
+        if (!el) return;
+        const obs = new MutationObserver(() => {
+            if (el.style.display === 'flex') {
+                obs.disconnect();
+                // Hide the raw loginScreen (we manage its visibility in lsMostrar)
+                // Slight delay so app data is fully set
+                setTimeout(lsMostrar, 30);
+            }
+        });
+        obs.observe(el, { attributes: true, attributeFilter: ['style'] });
+    })();
+
     </script>
 
     <script src="app.js"></script>
