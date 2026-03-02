@@ -895,34 +895,68 @@
          que muestra el overlay de ID directo (definido abajo).
     ══════════════════════════════════════════════════════ -->
     <div id="loginScreen" style="display:none; position:fixed; inset:0; z-index:998;
-         background:var(--sand); flex-direction:column; align-items:center;
-         justify-content:center; padding:28px 20px; overflow-y:auto;">
+         flex-direction:column; align-items:stretch; overflow:hidden;">
 
-        <!-- Clinic badge -->
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:44px;">
-            <div id="lsClinicIcon" style="width:38px;height:38px;border-radius:11px;
-                 background:var(--sand);box-shadow:var(--neu-raised);overflow:hidden;
-                 display:flex;align-items:center;justify-content:center;
-                 font-size:15px;font-weight:600;color:var(--pizarra);flex-shrink:0;">S</div>
-            <span id="lsClinicName" style="font-size:14px;font-weight:400;color:var(--topo);">
-                Tu Clínica
-            </span>
+    <!-- ── BRANDING HERO (top half) ───────────────────────── -->
+    <div id="lsBrandHero" style="
+        flex:0 0 42%;
+        display:flex; flex-direction:column;
+        align-items:center; justify-content:flex-end;
+        padding:0 24px 32px;
+        background: linear-gradient(160deg, var(--clinic-color, #C4856A) 0%, color-mix(in srgb, var(--clinic-color, #C4856A) 70%, #3a2e28) 100%);
+        position:relative; overflow:hidden;
+        transition: background .6s ease;">
+
+        <!-- decorative orbs -->
+        <div style="position:absolute;top:-30%;right:-10%;width:60%;aspect-ratio:1;
+             border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none;"></div>
+        <div style="position:absolute;bottom:-20%;left:-8%;width:50%;aspect-ratio:1;
+             border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none;"></div>
+
+        <!-- Logo or initials -->
+        <div id="lsLogoWrap" style="
+            width:84px; height:84px; border-radius:24px;
+            background:rgba(255,255,255,.18); backdrop-filter:blur(12px);
+            display:flex; align-items:center; justify-content:center;
+            margin-bottom:16px; overflow:hidden;
+            box-shadow:0 8px 32px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.3);
+            flex-shrink:0;">
+            <img id="lsLogoImg" src="" alt="" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:20px;">
+            <span id="lsLogoText" style="font-size:30px;font-weight:500;color:white;letter-spacing:-1px;">S</span>
         </div>
 
-        <!-- ── FASE A: quién eres ──────────────────────── -->
+        <!-- Clinic name -->
+        <div id="lsClinicName" style="
+            font-size:22px; font-weight:200; color:white;
+            letter-spacing:-.5px; text-align:center;
+            text-shadow:0 1px 12px rgba(0,0,0,.2);
+            max-width:280px; line-height:1.3;">
+            Tu Clínica
+        </div>
+        <div id="lsClinicSub" style="font-size:11px;color:rgba(255,255,255,.55);
+             margin-top:5px;letter-spacing:2px;text-transform:uppercase;">
+            Acceso al sistema
+        </div>
+    </div>
+
+    <!-- ── BOTTOM PANEL (user cards / PIN) ─────────────────── -->
+    <div style="flex:1; background:var(--sand); overflow-y:auto;
+         display:flex; flex-direction:column; align-items:center;
+         padding:28px 20px 24px; position:relative;">
+
+        <!-- ── FASE A: ¿Quién eres? ──────────────── -->
         <div id="lsPhaseUsers" style="width:100%;max-width:440px;">
             <div style="font-size:9px;font-weight:600;letter-spacing:3px;text-transform:uppercase;
-                        color:var(--piedra);text-align:center;margin-bottom:20px;">¿Quién eres?</div>
+                        color:var(--piedra);text-align:center;margin-bottom:18px;">¿Quién eres?</div>
             <div id="lsUserGrid" style="display:grid;gap:10px;
                  grid-template-columns:repeat(auto-fill,minmax(110px,1fr));">
                 <!-- JS fills this -->
             </div>
         </div>
 
-        <!-- ── FASE B: teclado PIN ────────────────────── -->
+        <!-- ── FASE B: teclado PIN ──────────────── -->
         <div id="lsPhasePIN" style="display:none;width:100%;max-width:300px;">
 
-            <!-- Selected user -->
             <div style="display:flex;align-items:center;gap:12px;
                         justify-content:center;margin-bottom:24px;">
                 <div id="lsPinAvatar" style="width:46px;height:46px;border-radius:50%;
@@ -933,20 +967,14 @@
                     Usuario</div>
             </div>
 
-            <!-- PIN dots -->
             <div id="lsPinDots" style="display:flex;justify-content:center;
-                 gap:14px;margin-bottom:22px;align-items:center;height:16px;">
-            </div>
+                 gap:14px;margin-bottom:22px;align-items:center;height:16px;"></div>
 
-            <!-- Error -->
             <div id="lsPinErr" style="font-size:12px;color:#c0392b;text-align:center;
                  margin-bottom:10px;min-height:16px;"></div>
 
-            <!-- Keypad -->
-            <div id="lsKeypad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-            </div>
+            <div id="lsKeypad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
 
-            <!-- Back -->
             <button onclick="lsVolverUsuarios()"
                 style="display:flex;align-items:center;gap:6px;font-size:12px;
                        color:var(--piedra);background:none;border:none;
@@ -956,8 +984,9 @@
             </button>
         </div>
     </div>
+</div>
 
-    <!-- ══ ACCESO POR ID (fallback sin URL) ════════════════
+        <!-- ══ ACCESO POR ID (fallback sin URL) ════════════════
          Mostrado por app.js vía mostrarPantallaAcceso()
          cuando no hay ?clinica= en la URL.
          Mantiene el flujo existente de app.js intacto.
@@ -2254,12 +2283,25 @@
                 document.documentElement.style.setProperty('--clinic-color-light', colorDark);
 
                 const nombre = cfg.nombre || 'Clínica Dental';
-                document.getElementById('clinicNameLogin').textContent = nombre;
                 document.title = nombre + ' — SMILE';
 
-                if (cfg.logo) {
-                    const img = document.getElementById('logoImg');
-                    if (img) { img.src = cfg.logo; img.style.display = 'block'; }
+                // Drive new hero elements
+                const hero = document.getElementById('lsBrandHero');
+                if (hero) {
+                    const dark = darkenColor(color, 28);
+                    hero.style.background = `linear-gradient(160deg, ${color} 0%, ${dark} 100%)`;
+                }
+                const nameEl = document.getElementById('lsClinicName');
+                if (nameEl) nameEl.textContent = nombre;
+
+                const logoSrc = cfg.logoPositivo || cfg.logo || null;
+                const lsImg = document.getElementById('lsLogoImg');
+                const lsTxt = document.getElementById('lsLogoText');
+                if (logoSrc && lsImg && lsTxt) {
+                    lsImg.src = logoSrc; lsImg.style.display = 'block';
+                    lsTxt.style.display = 'none';
+                } else if (lsTxt) {
+                    lsTxt.textContent = (nombre || 'S').charAt(0).toUpperCase();
                 }
 
                 // Mark clinic as valid
@@ -2316,24 +2358,46 @@
         return 'Doctor';
     }
 
-    // ── CLINIC BAR ───────────────────────────────────────
+    // ── CLINIC HERO ──────────────────────────────────────
     function lsUpdateClinicBar() {
-        const nombre = (typeof clinicConfig !== 'undefined' && clinicConfig.nombre)
-            ? clinicConfig.nombre
-            : (CLINIC_PATH || 'Tu Clínica');
+        const cfg    = (typeof clinicConfig !== 'undefined') ? clinicConfig : {};
+        const nombre = cfg.nombre || CLINIC_PATH || 'Tu Clínica';
+        const color  = cfg.color  || '#C4856A';
+        const logo   = cfg._logoSrc || cfg.logoPositivo || null;
 
+        // Clinic name
         document.getElementById('lsClinicName').textContent = nombre;
 
-        const icon  = document.getElementById('lsClinicIcon');
-        const logo  = (typeof clinicConfig !== 'undefined')
-            ? (clinicConfig._logoSrc || clinicConfig.logoPositivo) : null;
-
-        if (logo) {
-            icon.innerHTML = `<img src="${logo}" style="width:100%;height:100%;
-                              object-fit:contain;border-radius:11px;">`;
-        } else {
-            icon.textContent = _initials(nombre);
+        // Hero background — use clinic color
+        const hero = document.getElementById('lsBrandHero');
+        if (hero) {
+            hero.style.background =
+                `linear-gradient(160deg, ${color} 0%, ${darkenHex(color, 28)} 100%)`;
         }
+
+        // Logo or initials
+        const img  = document.getElementById('lsLogoImg');
+        const txt  = document.getElementById('lsLogoText');
+        if (logo && img && txt) {
+            img.src = logo;
+            img.style.display = 'block';
+            txt.style.display = 'none';
+        } else if (txt) {
+            txt.textContent    = _initials(nombre);
+            txt.style.display  = 'block';
+            if (img) img.style.display = 'none';
+        }
+    }
+
+    // Simple hex darkener for hero gradient
+    function darkenHex(hex, pct) {
+        try {
+            const n = parseInt((hex || '#C4856A').replace('#',''), 16);
+            const r = Math.max(0, (n >> 16)        - Math.round(2.55 * pct));
+            const g = Math.max(0, ((n >> 8) & 0xff)- Math.round(2.55 * pct));
+            const b = Math.max(0, (n & 0xff)       - Math.round(2.55 * pct));
+            return '#' + [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+        } catch(e) { return '#4a3a30'; }
     }
 
     // ── PHASE A: user cards ──────────────────────────────
