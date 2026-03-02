@@ -816,6 +816,7 @@ async function loadClinicas() {
         plan: config.plan || 'clinica',
         modulos: config.modulos || [],
         activa: config.activa !== false,
+        exonerada: config.exonerada === true,
         trial: config.trialHasta ? new Date(config.trialHasta) > new Date() : false,
         trialHasta: config.trialHasta || null,
         adminEmail: config.adminEmail || '—',
@@ -1213,7 +1214,59 @@ function openClinicDetail(id) {
       ${c.modulos.length ? c.modulos.map(m => `<span style="background:var(--bg);padding:6px 14px;border-radius:8px;font-size:12px;color:var(--mid)">${m}</span>`).join('') : '<span style="font-size:13px;color:var(--light)">Sin módulos adicionales</span>'}
     </div>
 
-    <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Acceso directo</div>
+    <!-- SECCIÓN: EXONERADA DE PAGO -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid rgba(30,28,26,0.07);margin-bottom:20px">
+      <div>
+        <div style="font-size:14px;font-weight:400;color:var(--dark)">Exonerada de pago</div>
+        <div style="font-size:12px;color:var(--mid);margin-top:2px">No le aparecen avisos de cobro en la app</div>
+      </div>
+      <button onclick="toggleExonerada('${c.id}', ${!c.exonerada})" style="
+        padding:8px 20px;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;
+        transition:all 0.2s;white-space:nowrap;
+        border:1.5px solid ${c.exonerada ? '#4a7a50' : 'rgba(30,28,26,0.15)'};
+        background:${c.exonerada ? 'rgba(74,122,80,0.08)' : 'transparent'};
+        color:${c.exonerada ? '#4a7a50' : 'var(--mid)'}">
+        ${c.exonerada ? '✓ Exonerada' : 'Exonerar'}
+      </button>
+    </div>
+
+    <!-- SECCIÓN: HISTORIAL DE PAGOS -->
+    <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Historial de pagos</div>
+    <div style="background:var(--bg);border-radius:12px;padding:${(c.raw?.config?.pagosSuscripcion||[]).length ? '4px 16px' : '20px'};margin-bottom:24px;text-align:${(c.raw?.config?.pagosSuscripcion||[]).length ? 'left' : 'center'}">
+      ${(c.raw?.config?.pagosSuscripcion||[]).length
+        ? [...(c.raw.config.pagosSuscripcion)].reverse().map(p => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(30,28,26,0.07)">
+            <div>
+              <div style="font-size:13px;color:var(--dark)">${p.concepto || 'Suscripción mensual'}</div>
+              <div style="font-size:11px;color:var(--light)">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:14px;font-weight:400;color:var(--dark)">RD$${Number(p.monto||0).toLocaleString()}</div>
+              <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-top:2px;color:${p.estado==='pagado'?'#4a7a50':p.estado==='pendiente'?'var(--terracota)':'var(--light)'}">${p.estado||'registrado'}</div>
+            </div>
+          </div>`).join('')
+        : '<div style="font-size:13px;color:var(--light)">Sin pagos registrados aún</div>'
+      }
+    </div>
+
+    <!-- SECCIÓN: GESTIÓN SUSCRIPCIÓN -->
+    <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Gestión de suscripción</div>
+    <div style="background:var(--bg);border-radius:12px;padding:16px 20px;margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:12px;color:var(--light);margin-bottom:2px">Estado</div>
+          <div style="font-size:14px;color:var(--dark)">${c.exonerada ? '🟢 Exonerada' : c.trial ? '🟡 En trial' : c.activa ? '🟢 Suscripción activa' : '🔴 Inactiva'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--light);margin-bottom:2px">MRR</div>
+          <div style="font-size:18px;font-weight:300;color:var(--terracota)">RD$${c.mrr.toLocaleString()}</div>
+        </div>
+      </div>
+      ${c.trialHasta ? `<div style="font-size:12px;color:var(--mid)">Trial vence: <strong>${new Date(c.trialHasta).toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'})}</strong></div>` : ''}
+      ${c.raw?.config?.proximoPago ? `<div style="font-size:12px;color:var(--mid);margin-top:4px">Próximo cobro: <strong>${new Date(c.raw.config.proximoPago).toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'})}</strong></div>` : ''}
+    </div>
+
+        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:10px">Acceso directo</div>
     <div class="link-card" onclick="copyToClipboard('${appUrl}')">
       <div class="link-url">${appUrl}</div>
       <div class="link-copy">Copiar link</div>
@@ -1536,7 +1589,7 @@ async function toggleStatus(id) {
 function openResetPassword(id) {
   const c = clinicas.find(x => x.id === id);
   if (!c) return;
-  const newPass      = String(Math.floor(1000 + Math.random() * 9000)); // PIN de 4 dígitos
+  const newPass      = String(Math.floor(1000 + Math.random() * 9000));
   const adminNombre  = c.raw?.personal?.find(p => p.isAdmin)?.nombre
                     || c.raw?.personal?.[0]?.nombre
                     || 'Administrador';
@@ -1570,8 +1623,19 @@ async function confirmResetPassword(id, newPass) {
       : [{ id:'1', nombre:'Administrador', isAdmin:true, password:newPass, canAccessReception:true }];
     await db.collection('clinicas').doc(id).update({ personal: updated });
     closeModal();
-    showToast('✅ PIN cambiado: ' + newPass);
+    showToast('✅ PIN reseteado: ' + newPass);
     await loadClinicas();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── EXONERAR PAGO ────────────────────────────────────────
+async function toggleExonerada(id, value) {
+  try {
+    await db.collection('clinicas').doc(id)
+      .collection('config').doc('settings').set({ exonerada: value }, { merge: true });
+    showToast(value ? '✅ Clínica exonerada de pago' : '✅ Exoneración eliminada');
+    await loadClinicas();
+    openClinicDetail(id);
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
