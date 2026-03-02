@@ -127,7 +127,7 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda              = cfg.moneda              || 'RD$';
+        clinicConfig.moneda              = cfg.moneda              || 'USD $';
         clinicConfig.locale              = cfg.locale              || getLocale();
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
@@ -1594,7 +1594,7 @@ function showTab(tabName) {
 
 // Currency format
 function formatCurrency(amount) {
-    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
+    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'USD $';
     const locale  = (typeof clinicConfig !== 'undefined' && clinicConfig.locale)  ? clinicConfig.locale  : getLocale();
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
@@ -9268,7 +9268,7 @@ function renderMiPlanTab() {
     });
 
     const plan = clinicConfig.plan || 'clinica';
-    const basePrice = BASE_PRECIOS[plan] || 1200;
+    const basePrice = BASE_PRECIOS[plan] || 23;
     const activosActuales = [...(clinicConfig.modulos || [])];
     const hasta = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
     const diasTrial = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / (1000*60*60*24))) : 0;
