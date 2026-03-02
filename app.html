@@ -144,41 +144,39 @@
     }
 
     .logo-container {
-        margin-bottom: 48px;
+        margin-bottom: 36px;
         text-align: center;
         position: relative;
         z-index: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
     }
     .logo-container img {
-        max-width: 260px;
-        width: 70%;
+        max-width: 180px;
+        width: 55%;
         height: auto;
         filter: brightness(0) invert(1);
         opacity: 0.95;
         display: none; /* shown by JS when logo exists */
-        margin: 0 auto 16px;
     }
     .logo-container img.loaded {
         display: block;
+        margin: 0 auto 12px;
     }
     .clinic-name-login {
-        color: rgba(255,255,255,0.95);
-        font-size: 28px;
+        color: rgba(255,255,255,0.9);
+        font-size: 22px;
         font-weight: 200;
         text-align: center;
-        letter-spacing: -0.5px;
+        margin-top: 10px;
+        letter-spacing: -0.3px;
         transition: font-size 0.2s;
     }
     .clinic-name-login.logo-visible {
-        font-size: 14px;
-        opacity: 0.65;
+        font-size: 13px;
+        opacity: 0.7;
         font-weight: 300;
-        letter-spacing: 2px;
+        letter-spacing: 1.5px;
         text-transform: uppercase;
-        margin-top: 10px;
+        margin-top: 8px;
     }
 
     .login-card {
@@ -970,14 +968,11 @@
             </div>
 
             <div class="input-group">
-                <label>PIN de acceso</label>
-                <input type="password" id="password" autocomplete="current-password"
-                    inputmode="numeric" pattern="[0-9]*" maxlength="8"
-                    placeholder="••••"
-                    style="text-align:center;letter-spacing:8px;font-size:20px;">
+                <label>Contraseña</label>
+                <input type="password" id="password" autocomplete="current-password">
             </div>
 
-            <button class="btn-primary" onclick="login()">Entrar</button>
+            <button class="btn-primary" onclick="login()">Acceder</button>
         </div>
     </div>
 
@@ -1561,14 +1556,14 @@
                     <div style="margin-bottom: 28px;">
                         <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Seguridad</div>
                         <div class="form-group">
-                            <label>Nuevo PIN del administrador (4 dígitos)</label>
-                            <input type="password" id="configNewPassword" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4 dígitos numéricos" autocomplete="new-password">
+                            <label>Nueva contraseña del administrador</label>
+                            <input type="password" id="configNewPassword" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
                         </div>
                         <div class="form-group">
-                            <label>Confirmar PIN</label>
-                            <input type="password" id="configConfirmPassword" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Repite el PIN" autocomplete="new-password">
+                            <label>Confirmar contraseña</label>
+                            <input type="password" id="configConfirmPassword" placeholder="Repite la contraseña" autocomplete="new-password">
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarContrasenaAdmin()">Cambiar PIN</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarContrasenaAdmin()">Cambiar Contraseña</button>
                     </div>
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
@@ -1847,7 +1842,7 @@
                 </select>
             </div>
 
-            <div class="form-group" id="editPasswordGroup"><label>Nuevo PIN (4 dígitos)</label><input type="password" id="editPassword" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Dejar vacío para no cambiar"></div>
+            <div class="form-group" id="editPasswordGroup"><label>Nueva Contraseña</label><input type="password" id="editPassword" placeholder="Dejar vacío para no cambiar"></div>
             <div class="form-group hidden" id="editReceptionGroup"><label>Acceso a Recepción</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Permitir acceso al módulo de Recepción</span></label></div>
             <div class="form-group hidden" id="editPayDateGroup"><label>Próxima Fecha de Pago</label><input type="date" id="editPayDate"></div>
             <button class="btn btn-submit" onclick="guardarEdicion()">Guardar Cambios</button>
@@ -2209,6 +2204,19 @@
                 if (url) { localStorage.setItem('smile_clinica', url); return url; }
                 return localStorage.getItem('smile_clinica') || 'clinica-demo';
             })();
+
+            // ── Auth anónima ANTES de leer Firestore ─────────────
+            // Las Firestore rules exigen request.auth != null.
+            // aplicarBranding() corre antes que app.js hace auth,
+            // así que necesitamos autenticarnos aquí primero.
+            try {
+                const auth = firebase.auth();
+                if (!auth.currentUser) {
+                    await auth.signInAnonymously();
+                }
+            } catch(authErr) {
+                console.warn('[Branding] Auth anónima falló:', authErr.message);
+            }
 
             const cfgDoc = await db.collection('clinicas').doc(clinicaId)
                 .collection('config').doc('settings').get();
