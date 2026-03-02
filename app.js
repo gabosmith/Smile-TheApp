@@ -1048,7 +1048,7 @@ async function accederPorId() {
         const valid = await verifyPassword(admin, password);
         if (!valid) {
             CLINIC_PATH = null; // reset on failure
-            errEl.textContent = 'Contraseña incorrecta.';
+            errEl.textContent = 'PIN incorrecto.';
             errEl.style.display = 'block';
             btn.disabled = false; btn.textContent = 'Entrar →';
             return;
@@ -1355,7 +1355,7 @@ async function login() {
     const role    = roleBtn?.dataset.role;
     const password = document.getElementById('password').value;
 
-    if (!password) { showToast('⚠️ Ingresa tu contraseña'); return; }
+    if (!password) { showToast('⚠️ Ingresa tu PIN'); return; }
 
     let username = '';
     let person   = null;
@@ -1371,7 +1371,7 @@ async function login() {
         const ok = await verifyPassword(person, password);
         if (!ok) {
             recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
+            showToast('⚠️ PIN incorrecto', 3000, '#c0392b');
             return;
         }
         appData.currentRole = 'professional';
@@ -1387,7 +1387,7 @@ async function login() {
         const ok = await verifyPassword(person, password);
         if (!ok) {
             recordFailedAttempt(username);
-            showToast('⚠️ Contraseña incorrecta', 3000, '#c0392b');
+            showToast('⚠️ PIN incorrecto', 3000, '#c0392b');
             return;
         }
         appData.currentRole = 'reception';
@@ -3354,12 +3354,12 @@ async function guardarEdicion() {
 
     currentPersonalToEdit.nombre = nombre;
 
-    // Hash new password before saving — never store plaintext
+    // Hash new PIN before saving — never store plaintext
     if (password) {
-        if (password.length < 4) { showToast('⚠️ La contraseña debe tener al menos 4 caracteres'); return; }
+        if (!/^\d{4}$/.test(password)) { showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return; }
         currentPersonalToEdit.password  = await hashPassword(password);
         currentPersonalToEdit._pwHashed = true;
-        registrarAuditoria('seguridad', 'cambio_contrasena', `Contraseña actualizada para ${nombre}`);
+        registrarAuditoria('seguridad', 'cambio_contrasena', `PIN actualizado para ${nombre}`);
     }
 
     if (currentPersonalToEdit.tipo === 'empleado') {
@@ -3703,11 +3703,11 @@ async function guardarContrasenaAdmin() {
     const nueva    = document.getElementById('configNewPassword').value;
     const confirma = document.getElementById('configConfirmPassword').value;
 
-    if (!nueva || nueva.length < 6) {
-        showToast('⚠️ La contraseña debe tener al menos 6 caracteres'); return;
+    if (!nueva || !/^\d{4}$/.test(nueva)) {
+        showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return;
     }
     if (nueva !== confirma) {
-        showToast('⚠️ Las contraseñas no coinciden'); return;
+        showToast('⚠️ Los PINs no coinciden'); return;
     }
 
     const admin = appData.personal.find(p => p.isAdmin);
@@ -3725,12 +3725,12 @@ async function guardarContrasenaAdmin() {
         await saveData();
         document.getElementById('configNewPassword').value  = '';
         document.getElementById('configConfirmPassword').value = '';
-        showToast('✓ Contraseña actualizada');
-        registrarAuditoria('seguridad', 'cambio_contrasena', 'Contraseña de administrador actualizada');
+        showToast('✓ PIN actualizado');
+        registrarAuditoria('seguridad', 'cambio_contrasena', 'PIN de administrador actualizado');
     } catch(e) {
         admin.password  = pwAnterior;    // rollback
         admin._pwHashed = pwHashedAntes;
-        showError('Error al guardar la contraseña.', e);
+        showError('Error al guardar el PIN.', e);
     }
 }
 

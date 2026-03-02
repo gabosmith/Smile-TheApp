@@ -144,39 +144,41 @@
     }
 
     .logo-container {
-        margin-bottom: 36px;
+        margin-bottom: 48px;
         text-align: center;
         position: relative;
         z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
     .logo-container img {
-        max-width: 180px;
-        width: 55%;
+        max-width: 260px;
+        width: 70%;
         height: auto;
         filter: brightness(0) invert(1);
         opacity: 0.95;
         display: none; /* shown by JS when logo exists */
+        margin: 0 auto 16px;
     }
     .logo-container img.loaded {
         display: block;
-        margin: 0 auto 12px;
     }
     .clinic-name-login {
-        color: rgba(255,255,255,0.9);
-        font-size: 22px;
+        color: rgba(255,255,255,0.95);
+        font-size: 28px;
         font-weight: 200;
         text-align: center;
-        margin-top: 10px;
-        letter-spacing: -0.3px;
+        letter-spacing: -0.5px;
         transition: font-size 0.2s;
     }
     .clinic-name-login.logo-visible {
-        font-size: 13px;
-        opacity: 0.7;
+        font-size: 14px;
+        opacity: 0.65;
         font-weight: 300;
-        letter-spacing: 1.5px;
+        letter-spacing: 2px;
         text-transform: uppercase;
-        margin-top: 8px;
+        margin-top: 10px;
     }
 
     .login-card {
@@ -968,11 +970,14 @@
             </div>
 
             <div class="input-group">
-                <label>Contraseña</label>
-                <input type="password" id="password" autocomplete="current-password">
+                <label>PIN de acceso</label>
+                <input type="password" id="password" autocomplete="current-password"
+                    inputmode="numeric" pattern="[0-9]*" maxlength="8"
+                    placeholder="••••"
+                    style="text-align:center;letter-spacing:8px;font-size:20px;">
             </div>
 
-            <button class="btn-primary" onclick="login()">Acceder</button>
+            <button class="btn-primary" onclick="login()">Entrar</button>
         </div>
     </div>
 
@@ -1556,14 +1561,14 @@
                     <div style="margin-bottom: 28px;">
                         <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Seguridad</div>
                         <div class="form-group">
-                            <label>Nueva contraseña del administrador</label>
-                            <input type="password" id="configNewPassword" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+                            <label>Nuevo PIN del administrador (4 dígitos)</label>
+                            <input type="password" id="configNewPassword" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4 dígitos numéricos" autocomplete="new-password">
                         </div>
                         <div class="form-group">
-                            <label>Confirmar contraseña</label>
-                            <input type="password" id="configConfirmPassword" placeholder="Repite la contraseña" autocomplete="new-password">
+                            <label>Confirmar PIN</label>
+                            <input type="password" id="configConfirmPassword" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Repite el PIN" autocomplete="new-password">
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarContrasenaAdmin()">Cambiar Contraseña</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarContrasenaAdmin()">Cambiar PIN</button>
                     </div>
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
@@ -1842,7 +1847,7 @@
                 </select>
             </div>
 
-            <div class="form-group" id="editPasswordGroup"><label>Nueva Contraseña</label><input type="password" id="editPassword" placeholder="Dejar vacío para no cambiar"></div>
+            <div class="form-group" id="editPasswordGroup"><label>Nuevo PIN (4 dígitos)</label><input type="password" id="editPassword" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Dejar vacío para no cambiar"></div>
             <div class="form-group hidden" id="editReceptionGroup"><label>Acceso a Recepción</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Permitir acceso al módulo de Recepción</span></label></div>
             <div class="form-group hidden" id="editPayDateGroup"><label>Próxima Fecha de Pago</label><input type="date" id="editPayDate"></div>
             <button class="btn btn-submit" onclick="guardarEdicion()">Guardar Cambios</button>
