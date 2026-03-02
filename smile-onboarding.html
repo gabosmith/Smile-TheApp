@@ -1887,8 +1887,8 @@ async function activateClinic() {
     };
     const modulosActivos = state.modules.map(m => MODULE_KEYS[m.name] || m.name.toLowerCase());
 
-    // Admin password — random 6 chars alphanumeric
-    const adminPassword = Math.random().toString(36).slice(2, 8).toUpperCase();
+    // Admin PIN — 4 dígitos numéricos (igual que admin.html)
+    const adminPassword = String(Math.floor(1000 + Math.random() * 9000));
 
     // Build personal array with admin user
     const personal = [
@@ -1995,7 +1995,7 @@ async function activateClinic() {
       <div class="success-detail-card" style="grid-column:1/-1;border:none;box-shadow:var(--neu-pizarra);background:rgba(125,142,160,.07)">
         <div class="sd-label">🔗 Cómo entrar a tu clínica</div>
         <div style="font-size:13px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Abre <strong style="color:var(--topo)">app.html</strong> (o el link de abajo), escribe el ID de tu clínica y tu contraseña.
+          Abre <strong style="color:var(--topo)">app.html</strong> (o el link de abajo), escribe el ID de tu clínica y tu PIN.
         </div>
       </div>
 
@@ -2005,7 +2005,7 @@ async function activateClinic() {
       </div>
 
       <div class="success-detail-card" style="border:none;box-shadow:var(--neu-pizarra);background:rgba(125,142,160,.07)">
-        <div class="sd-label">🔑 Contraseña inicial</div>
+        <div class="sd-label">🔑 PIN de acceso</div>
         <div class="sd-val" style="font-family:monospace;letter-spacing:4px;font-size:24px;color:var(--pizarra)">${adminPassword}</div>
       </div>
 
@@ -2022,7 +2022,7 @@ async function activateClinic() {
       <div class="success-detail-card" style="grid-column:1/-1;background:var(--surface);border:none">
         <div class="sd-label">⚠️ Importante</div>
         <div style="font-size:12px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Guarda la contraseña ahora — no la podrás ver de nuevo. Puedes cambiarla desde el panel de administración de la app.
+          Guarda este PIN ahora — no lo podrás ver de nuevo. Puedes cambiarlo desde el panel de administración de la app.
         </div>
       </div>
     `;

@@ -17,7 +17,7 @@
     --sand:     #EEEAE4;
     --sand-lt:  #F7F4EF;
     --white:    #FDFCFB;
-    --topo:     #6B635C;
+    --topo:     var(--muted);
     --piedra:   #A89F96;
     --muted:    #C8C2BB;
     --carbon:   #3A3532;
@@ -29,11 +29,11 @@
     --green:    #6B8F71;
 
     /* ── Sombras neumórficas ── */
-    --neu-raised:    8px 8px 20px rgba(168,159,150,.52), -6px -6px 16px rgba(255,255,255,.95);
-    --neu-raised-lg: 14px 14px 34px rgba(168,159,150,.58), -10px -10px 26px rgba(255,255,255,.98);
-    --neu-inset:     inset 4px 4px 10px rgba(168,159,150,.48), inset -3px -3px 8px rgba(255,255,255,.92);
-    --neu-inset-lg:  inset 6px 6px 16px rgba(168,159,150,.52), inset -4px -4px 12px rgba(255,255,255,.96);
-    --neu-flat:      3px 3px 8px rgba(168,159,150,.38), -2px -2px 6px rgba(255,255,255,.88);
+    --neu-raised:    8px 8px 20px rgba(168,159,150,.30), -6px -6px 16px rgba(255,255,255,.80);
+    --neu-raised-lg: 14px 14px 34px rgba(168,159,150,.35), -10px -10px 26px rgba(255,255,255,.85);
+    --neu-inset:     inset 4px 4px 10px rgba(168,159,150,.28), inset -3px -3px 8px rgba(255,255,255,.75);
+    --neu-inset-lg:  inset 6px 6px 16px rgba(168,159,150,.32), inset -4px -4px 12px rgba(255,255,255,.80);
+    --neu-flat:      3px 3px 8px rgba(168,159,150,.20), -2px -2px 6px rgba(255,255,255,.70);
     --neu-pizarra:   6px 6px 16px rgba(125,142,160,.35), -4px -4px 12px rgba(255,255,255,.70);
     --neu-terra:     6px 6px 16px rgba(196,133,106,.35), -4px -4px 12px rgba(255,255,255,.70);
     --neu-salvia:    6px 6px 16px rgba(107,143,113,.30), -4px -4px 12px rgba(255,255,255,.70);
@@ -138,7 +138,7 @@
   .sidebar-nav { flex: 1; }
   .nav-item {
     display: flex; align-items: center; gap: 11px;
-    padding: 11px 28px; font-size: 13px; color: var(--piedra);
+    padding: 11px 28px; font-size: 13px; color: var(--muted);
     cursor: pointer; transition: all .2s;
     border-left: 2px solid transparent;
   }
@@ -154,7 +154,7 @@
     border-top: 1px solid rgba(168,159,150,.25);
     margin-top: 16px;
   }
-  .sidebar-version { font-size: 10px; color: var(--piedra); letter-spacing: 1px; }
+  .sidebar-version { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
   .logout-btn {
     font-size: 12px; color: var(--piedra); background: none; border: none;
     font-family: inherit; cursor: pointer; padding: 8px 0;
@@ -211,7 +211,7 @@
   }
   .stat-card:hover { box-shadow: var(--neu-raised-lg); transform: translateY(-2px); }
   .stat-accent { width: 28px; height: 3px; border-radius: 2px; margin-bottom: 14px; }
-  .stat-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--piedra); margin-bottom: 12px; }
+  .stat-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
   .stat-val { font-size: 32px; font-weight: 200; letter-spacing: -1px; color: var(--topo); margin-bottom: 6px; }
   .stat-sub { font-size: 11px; color: var(--piedra); }
 
@@ -226,7 +226,7 @@
     display: grid;
     grid-template-columns: 2fr 1fr 1fr 1.2fr 1fr 80px;
     padding: 14px 24px; font-size: 9px; letter-spacing: 3px;
-    text-transform: uppercase; color: var(--piedra);
+    text-transform: uppercase; color: var(--muted);
     border-bottom: 1px solid rgba(255,255,255,.8);
   }
   .clinic-row {
@@ -239,7 +239,7 @@
   .clinic-row:hover { background: rgba(255,255,255,.5); }
 
   .clinic-name { font-size: 14px; font-weight: 400; color: var(--topo); }
-  .clinic-id   { font-size: 10px; color: var(--piedra); margin-top: 2px; letter-spacing: 1px; font-family: monospace; }
+  .clinic-id   { font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; font-family: monospace; }
 
   /* ══ BADGES ═══════════════════════════════════════ */
   .badge {
@@ -273,7 +273,7 @@
   .empty-icon  { font-size: 36px; margin-bottom: 14px; }
   .empty-title { font-size: 17px; font-weight: 300; margin-bottom: 6px; color: var(--topo); }
   .empty-sub   { font-size: 13px; }
-  .loading-row { padding: 48px; text-align: center; color: var(--piedra); font-size: 12px; letter-spacing: 2px; }
+  .loading-row { padding: 48px; text-align: center; color: var(--muted); font-size: 12px; letter-spacing: 2px; }
 
   /* ══ MODAL ════════════════════════════════════════ */
   .modal-overlay {
@@ -365,7 +365,7 @@
   /* ══ DETAIL VIEW ══════════════════════════════════ */
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
   .detail-card { background: var(--sand); border-radius: var(--radius-sm); padding: 16px 18px; box-shadow: var(--neu-inset); }
-  .detail-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--piedra); margin-bottom: 5px; font-weight: 600; }
+  .detail-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
   .detail-val   { font-size: 15px; color: var(--topo); font-weight: 400; }
 
   .link-card {
@@ -425,7 +425,7 @@
 
   .error-section-title {
     font-size: 9px; font-weight: 700; letter-spacing: 2px;
-    text-transform: uppercase; color: var(--piedra); margin-bottom: 8px;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
   }
   .error-explanation { font-size: 13px; color: var(--topo); line-height: 1.7; margin-bottom: 14px; }
 
@@ -1041,29 +1041,14 @@ function openClinicDetail(id) {
       const adminPerson = c.raw?.personal?.find(p => p.isAdmin) || c.raw?.personal?.[0];
       const pwd = adminPerson?.password;
       if (!pwd) return '';
-      // SHA-256 produce 64 chars hex — si tiene esa longitud, fue cambiada por el cliente
-      const esHash = /^[a-f0-9]{64}$/i.test(pwd);
       return `
       <div style="margin-bottom:24px">
-        <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-weight:600">Acceso admin</div>
+        <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--piedra);margin-bottom:10px;font-weight:600">Acceso admin</div>
         <div style="background:rgba(255,255,255,.5);border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
           <div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Usuario · ${adminPerson.nombre || 'Administrador'}</div>
-            ${esHash
-              ? `<div style="font-size:13px;color:var(--piedra);font-style:italic">Contraseña cambiada por el cliente — usa Reset contraseña para generar una nueva</div>`
-              : `<div style="font-family:monospace;font-size:22px;letter-spacing:4px;color:var(--topo)" id="adminPwdDisplay">${pwd}</div>`
-            }
+            <div style="font-size:11px;color:var(--piedra);margin-bottom:6px">Usuario · ${adminPerson.nombre || 'Administrador'}</div>
+            <div style="font-size:13px;color:var(--piedra);font-style:italic">PIN guardado como hash seguro — usa <strong>Reset PIN</strong> para generar uno nuevo</div>
           </div>
-          ${!esHash ? `
-          <button onclick="copyToClipboard('${pwd}')" style="
-            flex-shrink:0;padding:8px 16px;background:transparent;
-            border:1.5px solid rgba(168,159,150,.2);border-radius:100px;
-            font-size:12px;color:var(--piedra);font-family:inherit;cursor:pointer;
-            transition:all 0.15s;white-space:nowrap"
-            onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
-            onmouseout="this.style.borderColor='rgba(168,159,150,.2)';this.style.color='var(--piedra)'">
-            Copiar
-          </button>` : ''}
         </div>
       </div>`;
     })()}
@@ -1543,11 +1528,12 @@ function openResetPassword(id) {
 
 async function confirmResetPassword(id, newPass) {
   try {
+    const pinHash = await adminHashPin(id, newPass);
     const doc     = await db.collection('clinicas').doc(id).get();
     const pers    = doc.data()?.personal || [];
     const updated = pers.length
-      ? pers.map((p,i) => (p.isAdmin || i===0) ? {...p, password: newPass} : p)
-      : [{ id:'1', nombre:'Administrador', isAdmin:true, password:newPass, canAccessReception:true }];
+      ? pers.map((p,i) => (p.isAdmin || i===0) ? {...p, password: pinHash, _pwHashed: true} : p)
+      : [{ id:'1', nombre:'Administrador', isAdmin:true, password:pinHash, _pwHashed:true, canAccessReception:true }];
     await db.collection('clinicas').doc(id).update({ personal: updated });
     closeModal();
     showToast('✅ PIN reseteado: ' + newPass);
