@@ -601,7 +601,6 @@ async function initApp() {
   try {
     const auth = firebase.auth();
     if (!auth.currentUser) await auth.signInAnonymously();
-    console.log('[Admin] Firebase auth OK — UID:', firebase.auth().currentUser?.uid);
   } catch(e) {
     console.warn('[Admin] Firebase auth warning:', e.message);
     showToast('⚠️ Auth: ' + e.message, 5000, '#c0392b');
@@ -1456,10 +1455,6 @@ async function adminHashPin(clinicId, pin) {
   return adminSha256(clinicId + ':' + pin);
 }
 
-function getDefaultPersonal(clinicNombre) {
-  // Legacy — now crearClinica generates a real hashed PIN
-  return [{ id:'1', nombre:'Administrador', tipo:'regular', password:'1234', isAdmin:true, canAccessReception:true }];
-}
 
 function getTrial14Days() {
   const d = new Date();
