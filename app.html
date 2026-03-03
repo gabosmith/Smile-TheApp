@@ -1729,11 +1729,49 @@
 
     <div id="modalAddProcedimiento" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><div class="modal-title">Agregar Procedimiento</div><button class="close-modal" onclick="closeModal('modalAddProcedimiento')">×</button></div>
-            <div class="form-group"><label>Descripción</label><input type="text" id="procDesc" placeholder="Ej: Resina, Limpieza..."></div>
-            <div class="form-group"><label>Cantidad</label><input type="number" id="procCant" value="1" min="1"></div>
-            <div class="form-group"><label>Precio Unitario</label><input type="number" id="procPrecio" placeholder="0.00" step="0.01"></div>
-            <button class="btn btn-submit" onclick="agregarProcedimiento()">Agregar</button>
+            <div class="modal-header">
+                <div class="modal-title">Agregar Procedimiento</div>
+                <button class="close-modal" onclick="closeModal('modalAddProcedimiento')">×</button>
+            </div>
+
+            <!-- Catalog selector — shown when procMode=lista -->
+            <div id="procCatalogWrap" class="form-group" style="display:none;">
+                <label>Seleccionar del catálogo</label>
+                <select id="procCatalogSelect" onchange="onCatalogSelect(this)"
+                    style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                           font-family:inherit;font-size:14px;background:var(--sand);
+                           color:var(--topo);box-shadow:var(--neu-inset);appearance:none;">
+                    <option value="">— Elige un procedimiento —</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Descripción</label>
+                <input type="text" id="procDesc" placeholder="Ej: Resina, Limpieza...">
+            </div>
+
+            <!-- Diente (FDI number) -->
+            <div class="form-group">
+                <label>Diente <span style="font-size:11px;color:var(--piedra);font-weight:300;">(Opcional — ej: 16, 21, 36)</span></label>
+                <input type="text" id="procDiente" placeholder="Nº diente FDI"
+                    style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                           font-family:inherit;font-size:14px;background:var(--sand);
+                           color:var(--topo);box-shadow:var(--neu-inset);"
+                    maxlength="8">
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group" style="margin:0">
+                    <label>Cantidad</label>
+                    <input type="number" id="procCant" value="1" min="1">
+                </div>
+                <div class="form-group" style="margin:0">
+                    <label>Precio Unitario</label>
+                    <input type="number" id="procPrecio" placeholder="0.00" step="0.01">
+                </div>
+            </div>
+
+            <button class="btn btn-submit" style="margin-top:8px" onclick="agregarProcedimiento()">Agregar</button>
         </div>
     </div>
 

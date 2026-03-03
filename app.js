@@ -1624,25 +1624,57 @@ function openAddProcedimiento() {
     document.getElementById('procDesc').value = '';
     document.getElementById('procCant').value = '1';
     document.getElementById('procPrecio').value = '';
+    if (document.getElementById('procDiente')) document.getElementById('procDiente').value = '';
+
+    // Show catalog selector if clinic has a catalog configured
+    const catalogWrap  = document.getElementById('procCatalogWrap');
+    const catalogSelect = document.getElementById('procCatalogSelect');
+    const items = clinicConfig.procItems || [];
+
+    if (catalogWrap && catalogSelect && items.length > 0) {
+        // Populate select with catalog items
+        catalogSelect.innerHTML = '<option value="">— Elige un procedimiento —</option>' +
+            items.map((item, idx) =>
+                `<option value="${idx}">${item.nombre} — ${formatCurrency(item.precio)}</option>`
+            ).join('');
+        catalogWrap.style.display = 'block';
+    } else if (catalogWrap) {
+        catalogWrap.style.display = 'none';
+    }
+
     openModal('modalAddProcedimiento');
+}
+
+function onCatalogSelect(sel) {
+    const idx = sel.value;
+    if (idx === '') return;
+    const item = (clinicConfig.procItems || [])[parseInt(idx)];
+    if (!item) return;
+    const descEl   = document.getElementById('procDesc');
+    const precioEl = document.getElementById('procPrecio');
+    if (descEl)   descEl.value   = item.nombre;
+    if (precioEl) precioEl.value = item.precio;
 }
 
 function agregarProcedimiento() {
     const desc   = sanitize.str(document.getElementById('procDesc')?.value, 300);
     const cant   = sanitize.int(document.getElementById('procCant')?.value, 1, 999);
     const precio = sanitize.num(document.getElementById('procPrecio')?.value, 0);
+    const diente = (document.getElementById('procDiente')?.value || '').trim();
 
     if (!desc)      { showToast('⚠️ Escribe la descripción del procedimiento'); return; }
     if (cant < 1)   { showToast('⚠️ La cantidad debe ser al menos 1'); return; }
     if (precio <= 0){ showToast('⚠️ El precio debe ser mayor a cero'); return; }
 
-    tempProcedimientos.push({
+    const proc = {
         id: generateId(),
         descripcion: desc,
         cantidad: cant,
-        precioUnitario: precio
-    });
+        precioUnitario: precio,
+    };
+    if (diente) proc.diente = diente;
 
+    tempProcedimientos.push(proc);
     updateProcedimientosList();
     closeModal('modalAddProcedimiento');
 }
@@ -1655,7 +1687,7 @@ function updateProcedimientosList() {
         list.innerHTML = tempProcedimientos.map(p => `
             <div class="procedimiento-item">
                 <div>
-                    <div style="font-weight: 600;">${p.descripcion}</div>
+                    <div style="font-weight: 600;">${p.descripcion}${p.diente ? ` <span style="font-size:11px;font-weight:400;color:var(--piedra);background:var(--sand);padding:2px 7px;border-radius:20px;margin-left:4px;">🦷 ${p.diente}</span>` : ''}</div>
                     <div style="font-size: 13px; color: #666;">${p.cantidad}x ${formatCurrency(p.precioUnitario)}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -4309,6 +4341,19 @@ async function guardarPaciente() {
     }
 }
 
+function nuevaCotizacionParaPaciente(pacienteId) {
+    const paciente = appData.pacientes.find(p => p.id === pacienteId);
+    if (!paciente) return;
+    closeModal('modalVerPaciente');
+    showTab('cobros');
+    setTimeout(() => {
+        setCobrosSubtab('nueva');
+        setTimeout(() => {
+            seleccionarPacienteFactura(paciente.nombre);
+        }, 80);
+    }, 50);
+}
+
 function verPaciente(pacienteId) {
     currentPacienteId = pacienteId;
     const paciente = appData.pacientes.find(p => p.id === pacienteId);
@@ -4772,7 +4817,7 @@ function renderTabResumen(paciente) {
                         ${formatCurrency(balance)}
                     </div>
                     <div style="font-size: 11px; color: #856404; margin-top: 2px;">
-                        ${pendientes.length} factura${pendientes.length !== 1 ? 's' : ''} sin saldar
+                        ${pendientes.length} cotización${pendientes.length !== 1 ? 'es' : ''} sin saldar
                     </div>
                 </div>
                 ${canCobrar ? `
@@ -4865,6 +4910,27 @@ function renderTabResumen(paciente) {
             ` : ''}
         </div>
 
+        <!-- Acciones rápidas -->
+        <div style="margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;">
+            ${tienePermiso('facturar') || appData.currentRole === 'admin' || appData.currentRole === 'reception' ? `
+            <button onclick="nuevaCotizacionParaPaciente('${paciente.id}')"
+                style="flex:1;min-width:160px;padding:12px 16px;
+                       background:var(--clinic-color,#C4856A);color:white;
+                       border:none;border-radius:12px;font-size:13px;font-weight:500;
+                       font-family:inherit;cursor:pointer;letter-spacing:.3px;
+                       box-shadow:0 2px 8px rgba(0,0,0,.12);">
+                📋 Nueva Cotización
+            </button>` : ''}
+            <button onclick="showTab('agenda');setTimeout(()=>abrirModalNuevaCita('','','${paciente.nombre.replace(/'/g,"\'")}'),80)"
+                style="flex:1;min-width:140px;padding:12px 16px;
+                       background:var(--sand);color:var(--topo);
+                       border:none;border-radius:12px;font-size:13px;font-weight:500;
+                       font-family:inherit;cursor:pointer;letter-spacing:.3px;
+                       box-shadow:var(--neu-raised);">
+                📅 Nueva Cita
+            </button>
+        </div>
+
         <!-- Próxima cita -->
         ${(() => {
             const citasFuturas = getCitasDePaciente(paciente)
@@ -4955,7 +5021,7 @@ function renderTabHistorial(paciente) {
             const procsHTML = (f.procedimientos || []).map(p => `
                 <div style="display:flex;justify-content:space-between;align-items:center;
                             padding:7px 0;border-bottom:1px solid #f5f5f5;">
-                    <span style="font-size:13px;color:#444;">${p.descripcion}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}</span>
+                    <span style="font-size:13px;color:#444;">${p.descripcion}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}${p.diente ? ` <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 ${p.diente}</span>` : ''}</span>
                     <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">
                         ${formatCurrency(p.precioUnitario * (p.cantidad || 1))}
                     </span>
