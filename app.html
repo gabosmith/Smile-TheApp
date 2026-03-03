@@ -1180,7 +1180,7 @@
 
             <!-- Factura Tab -->
             <div id="tab-factura" class="tab-content">
-                <div class="section-title" style="margin-bottom:4px">Nueva Factura</div>
+                <div class="section-title" style="margin-bottom:4px">Nueva Cotización</div>
                 <div class="section-sub">Crea y registra servicios prestados</div>
                 <div class="card">
                     <div class="form-group" id="selectorProfesionalFactura" style="display: none;">
@@ -1227,7 +1227,7 @@
                         <label>Notas (Opcional)</label>
                         <textarea id="notasFactura"></textarea>
                     </div>
-                    <button class="btn btn-submit" onclick="generarFactura()">Generar Factura</button>
+                    <button class="btn btn-submit" onclick="generarFactura()">Generar Cotización</button>
                 </div>
             </div>
 
@@ -1300,7 +1300,7 @@
 
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2>Facturas</h2>
+                        <h2>Cotizaciones</h2>
                         <button class="btn btn-secondary" onclick="exportarFacturasExcel()" style="font-size: 13px; padding: 8px 16px;">📥 Exportar Excel</button>
                     </div>
                     <ul class="item-list" id="facturasPendientes"></ul>
@@ -1766,7 +1766,7 @@
 
     <div id="modalFacturaCliente" class="modal">
         <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header"><div class="modal-title">Factura para Cliente</div><button class="close-modal" onclick="closeModal('modalFacturaCliente')">×</button></div>
+            <div class="modal-header"><div class="modal-title">Cotización para Cliente</div><button class="close-modal" onclick="closeModal('modalFacturaCliente')">×</button></div>
             <div id="facturaClienteContent" style="background: white; padding: 30px; border-radius: 8px; border: 2px solid var(--clinic-color);"></div>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button class="btn btn-submit" onclick="descargarFacturaImagen()" style="flex: 1; background: #25D366;">📱 Descargar para WhatsApp</button>
@@ -1784,7 +1784,7 @@
             <div class="form-group"><label>Monto</label><input type="number" id="gastoMonto" step="0.01"></div>
             <div class="form-group"><label>Proveedor</label><input type="text" id="gastoProveedor"></div>
             <div class="form-group"><label>Método de Pago</label><select id="gastoMetodo"><option value="efectivo">Efectivo</option><option value="tarjeta">Tarjeta</option><option value="transferencia">Transferencia</option></select></div>
-            <div class="form-group"><label>Factura (Opcional)</label><label for="gastoFile" class="file-input-label">📷 Adjuntar Foto</label><input type="file" id="gastoFile" accept="image/*"><img id="gastoPreview" class="image-preview hidden"></div>
+            <div class="form-group"><label>Cotización (Opcional)</label><label for="gastoFile" class="file-input-label">📷 Adjuntar Foto</label><input type="file" id="gastoFile" accept="image/*"><img id="gastoPreview" class="image-preview hidden"></div>
             <button class="btn btn-submit" onclick="registrarGasto()">Registrar Gasto</button>
         </div>
     </div>
@@ -2129,10 +2129,10 @@
 
     <div id="modalCancelarFactura" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><div class="modal-title">Cancelar Factura</div></div>
+            <div class="modal-header"><div class="modal-title">Cancelar Cotización</div></div>
             <div style="background: rgba(196,133,106,0.1); padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff9500;"><strong>⚠️ Advertencia:</strong> Esta acción cancelará la factura permanentemente.</div>
             <div class="form-group"><label>Razón de Cancelación *</label><textarea id="razonCancelacion" rows="4"></textarea></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalCancelarFactura')">Volver</button><button class="btn" style="background: #ff3b30; color: white;" onclick="confirmarCancelacionFactura()">Cancelar Factura</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalCancelarFactura')">Volver</button><button class="btn" style="background: #ff3b30; color: white;" onclick="confirmarCancelacionFactura()">Cancelar Cotización</button></div>
         </div>
     </div>
 

@@ -1829,8 +1829,8 @@ async function generarFactura() {
     }
 
     const mensaje = citaHoy
-        ? `✅ Factura generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
-        : '✅ Factura generada exitosamente';
+        ? `✅ Cotización generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
+        : '✅ Cotización generada exitosamente';
 
     const labMsg = tempOrdenesLab.length > 0 ? ` · ${tempOrdenesLab.length} orden(es) de lab creadas` : '';
     showToast(mensaje.replace('✅ ', '') + labMsg);
@@ -1847,7 +1847,7 @@ async function generarFactura() {
     updateProcedimientosList();
     updateListaOrdenesLabTemp();
     } catch(e) {
-        showError('Error al generar la factura.', e);
+        showError('Error al generar la cotización.', e);
     }
 }
 
@@ -2070,7 +2070,7 @@ async function confirmarPago() {
         return;
     }
 
-    // Generar factura para cliente
+    // Generar cotización para cliente
     generarFacturaCliente(currentFacturaToPay, monto, metodo);
 
     updateCobrarTab();
@@ -2094,7 +2094,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         <div style="border-top: 3px solid var(--clinic-color, #C4856A); border-bottom: 3px solid var(--clinic-color, #C4856A); padding: 15px 0; margin: 20px 0;">
             <div style="text-align: center;">
                 <h3 style="color: var(--clinic-color, #C4856A); margin: 0; font-size: 20px;">${esPagoTotal ? 'RECIBO DE PAGO' : 'COMPROBANTE DE ABONO'}</h3>
-                <div style="color: #666; font-size: 13px; margin-top: 5px;">Factura: ${factura.numero}</div>
+                <div style="color: #666; font-size: 13px; margin-top: 5px;">Cotización: ${factura.numero}</div>
             </div>
         </div>
 
@@ -2281,7 +2281,7 @@ function descargarFacturaImagen() {
     mensajeDiv.style.display = 'block';
     mensajeDiv.style.background = '#e3f2fd';
     mensajeDiv.style.color = '#1976d2';
-    mensajeDiv.innerHTML = '⏳ Generando imagen de la factura...';
+    mensajeDiv.innerHTML = '⏳ Generando imagen de la cotización...';
 
     // Pequeño delay para asegurar que el DOM está listo
     setTimeout(() => {
@@ -2311,7 +2311,7 @@ function descargarFacturaImagen() {
                 mensajeDiv.style.background = '#e8f5e9';
                 mensajeDiv.style.color = '#2e7d32';
                 mensajeDiv.innerHTML = `
-                    ✅ <strong>¡Factura descargada!</strong><br>
+                    ✅ <strong>¡Cotización descargada!</strong><br>
                     <span style="font-size: 13px;">Ahora puedes compartirla por WhatsApp desde tu galería de fotos</span>
                 `;
 
@@ -2335,7 +2335,7 @@ function descargarFacturaImagen() {
 
 function imprimirFactura() {
     const ventana = window.open('', '', 'height=600,width=800');
-    ventana.document.write('<html><head><title>Factura</title>');
+    ventana.document.write('<html><head><title>Cotización</title>');
     ventana.document.write('<style>body{font-family: Arial, sans-serif; padding: 20px;}</style>');
     ventana.document.write('</head><body>');
     ventana.document.write(document.getElementById('facturaClienteContent').innerHTML);
@@ -2347,7 +2347,7 @@ function imprimirFactura() {
 function copiarFactura() {
     const texto = document.getElementById('facturaClienteContent').innerText;
     navigator.clipboard.writeText(texto).then(() => {
-        showToast('✓ Factura copiada al portapapeles');
+        showToast('✓ Cotización copiada al portapapeles');
     });
 }
 
@@ -2451,7 +2451,7 @@ function updateCuadreTab() {
                         <div>
                             <span style="font-weight: 600;">${icono} ${f.paciente}</span>
                             <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
-                            <div style="font-size: 12px; color: #999;">Factura ${f.numero} - ${p.metodo}</div>
+                            <div style="font-size: 12px; color: #999;">Cotización ${f.numero} - ${p.metodo}</div>
                         </div>
                         <div style="font-weight: 500; color: var(--green,#6B8F71);">${formatCurrency(p.monto)}</div>
                     </div>
@@ -2628,7 +2628,7 @@ function updateGastosTab() {
                 </div>
                 ${g.facturaData ? `
                     <button class="btn btn-secondary" style="margin-top: 10px; padding: 8px 16px; font-size: 13px;" onclick="verComprobante('${g.facturaData}')">
-                        📎 Ver Factura
+                        📎 Ver Cotización
                     </button>
                 ` : ''}
                 ${appData.currentRole === 'admin' ? `
@@ -3111,7 +3111,7 @@ function confirmarPagoProfesional(id) {
                     <strong>Avances a descontar:</strong> -${formatCurrency(avancesPendientes)}
                 </div>` : ''}
                 <div style="font-size: 14px; color: #666;">
-                    <strong>Facturas cobradas:</strong> ${facturasPagadas.length}
+                    <strong>Cotizaciones cobradas:</strong> ${facturasPagadas.length}
                 </div>
             </div>
             <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; font-size: 13px; color: #0d47a1; text-align: center;">
@@ -3929,7 +3929,7 @@ function updatePerfilTab() {
             list.innerHTML = reversiones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(r => `
                 <li>
                     <div class="item-header">
-                        <div class="item-title">Factura ${r.facturaNumero} - ${r.paciente}</div>
+                        <div class="item-title">Cotización ${r.facturaNumero} - ${r.paciente}</div>
                         <div style="color: #ff3b30; font-weight: 700;">${formatCurrency(r.montoReversado)}</div>
                     </div>
                     <div class="item-meta">
@@ -3982,11 +3982,11 @@ function eliminarFactura(facturaId) {
                        factura.estado === 'partial' ? 'Con abono' : 'Pendiente';
 
     mostrarConfirmacion({
-        titulo: '⚠️ Eliminar Factura',
+        titulo: '⚠️ Eliminar Cotización',
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
-                    Factura ${factura.numero}
+                    Cotización ${factura.numero}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
                     <strong>Paciente:</strong> ${factura.paciente}
@@ -4009,13 +4009,13 @@ function eliminarFactura(facturaId) {
             </div>
         `,
         tipo: 'peligro',
-        confirmText: 'Sí, Eliminar Factura',
+        confirmText: 'Sí, Eliminar Cotización',
         onConfirm: async () => {
             // Registrar auditoría ANTES de eliminar
             registrarAuditoria(
                 'eliminar',
                 'factura',
-                `Factura ${factura.numero} - Paciente: ${factura.paciente} - Total: ${formatCurrency(factura.total)}`
+                `Cotización ${factura.numero} - Paciente: ${factura.paciente} - Total: ${formatCurrency(factura.total)}`
             );
 
             const backupFacturas = [...appData.facturas];
@@ -4023,10 +4023,10 @@ function eliminarFactura(facturaId) {
             try {
                 await saveData();
                 updateCobrarTab();
-                showToast('✓ Factura eliminada correctamente');
+                showToast('✓ Cotización eliminada correctamente');
             } catch(saveErr) {
                 appData.facturas = backupFacturas;
-                showError('Error al eliminar la factura.', saveErr);
+                showError('Error al eliminar la cotización.', saveErr);
             }
         }
     });
@@ -4928,7 +4928,7 @@ function renderTabHistorial(paciente) {
     const balanceHeaderHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
             <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Facturado</div>
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cotizado</div>
                 <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalFacturado)}</div>
             </div>
             <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
@@ -5957,7 +5957,7 @@ function verDetalleOrdenLab(ordenId) {
                     <div style="font-size: 14px; font-weight: 500;">${orden.laboratorio}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Factura</div>
+                    <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Cotización</div>
                     <div style="font-size: 14px; font-weight: 500;">${orden.facturaNumero}</div>
                 </div>
             </div>
@@ -6144,7 +6144,7 @@ async function avanzarEstadoLab(nuevoEstado) {
         if (balancePendiente > 0) {
             mostrarConfirmacion({
                 titulo: 'Balance pendiente',
-                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
+                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} cotización${facturasDelPaciente.length !== 1 ? 'es' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
                 tipo: 'advertencia',
                 confirmText: 'Sí, entregar',
                 onConfirm: ejecutarAvance
@@ -6240,9 +6240,9 @@ async function cambiarEstadoCita(citaId, nuevoEstado) {
     // Si hay advertencia de sin factura, confirmar primero
     if (sinFactura) {
         mostrarConfirmacion({
-            titulo: 'Sin factura asociada',
+            titulo: 'Sin cotización asociada',
             mensaje: `Esta cita no tiene factura. ¿Marcar como <strong>Completada</strong> de todas formas?<br><br>
-                     <span style="font-size:13px;color:var(--mid)">Recomendación: genera la factura antes para vincularla automáticamente.</span>`,
+                     <span style="font-size:13px;color:var(--mid)">Recomendación: genera la cotización antes para vincularla automáticamente.</span>`,
             tipo: 'advertencia',
             confirmText: 'Sí, completar',
             onConfirm: () => ejecutarCambio(notas)
@@ -7754,10 +7754,10 @@ function exportarFacturasExcel() {
     // Crear hoja de cálculo
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Facturas");
+    XLSX.utils.book_append_sheet(wb, ws, "Cotizaciones");
 
     // Generar archivo
-    const nombreArchivo = `Facturas_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const nombreArchivo = `Cotizaciones_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
 
     showToast('✓ Archivo Excel generado');
@@ -8131,7 +8131,7 @@ function updateDashboardTab() {
                 font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
                 box-shadow:0 4px 12px rgba(0,0,0,0.12);transition:opacity 0.2s"
                 onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-                <span style="font-size:18px;line-height:1">+</span> Nueva factura
+                <span style="font-size:18px;line-height:1">+</span> Nueva cotización
             </button>
             <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)" style="
                 padding:14px 16px;background:var(--white);color:var(--dark);
@@ -8215,7 +8215,7 @@ function updateDashboardTab() {
 
         document.getElementById('dashPorCobrar').textContent = formatCurrency(porCobrar);
         document.getElementById('dashFacturasPendientes').textContent =
-            `${facturasPendientes.length} factura${facturasPendientes.length !== 1 ? 's' : ''}`;
+            `${facturasPendientes.length} cotización${facturasPendientes.length !== 1 ? 'es' : ''}`;
     }
 
     // LABORATORIO ACTIVO
@@ -8242,7 +8242,7 @@ function updateDashboardTab() {
         new Date(f.fecha).getTime() < hace30Dias
     );
     if (facturasViejas.length > 0) {
-        alertas.push(`${facturasViejas.length} factura${facturasViejas.length !== 1 ? 's' : ''} pendiente${facturasViejas.length !== 1 ? 's' : ''} de más de 30 días`);
+        alertas.push(`${facturasViejas.length} cotización${facturasViejas.length !== 1 ? 'es' : ''} pendiente${facturasViejas.length !== 1 ? 's' : ''} de más de 30 días`);
     }
 
     // Pacientes sin consentimiento (solo admin — es quien puede gestionarlo globalmente)
@@ -8598,7 +8598,7 @@ function irAFactura(id) {
         setTimeout(() => openPagarFactura(id), 100);
     } else {
         showTab('ingresos');
-        showToast(`Factura ${factura.numero} ya está pagada`, 4000, '#e65100');
+        showToast(`Cotización ${factura.numero} ya está pagada`, 4000, '#e65100');
     }
 }
 
@@ -9373,7 +9373,7 @@ function renderMiPlanTab() {
                 <div>
                     <div style="font-size:13px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Plan base</div>
                     <div style="font-size:18px;font-weight:300;color:var(--dark)">${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
-                    <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
+                    <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Cotizaciones · Expediente clínico</div>
                 </div>
                 <div style="text-align:right">
                     <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">USD $${basePrice}</div>
@@ -11221,7 +11221,7 @@ async function crearSede() {
 // FUNCIONES FALTANTES — referenciadas en HTML pero no definidas
 // ═══════════════════════════════════════════════════════════
 
-// ── 1. Cancelar Factura ──────────────────────────────────
+// ── 1. Cancelar Cotización ──────────────────────────────────
 // El modal #modalCancelarFactura tiene un textarea #razonCancelacion
 // y un botón que llama confirmarCancelacionFactura().
 // Necesita saber qué factura cancelar — se guarda en _facturaACancelarId.
@@ -11259,17 +11259,17 @@ async function confirmarCancelacionFactura() {
     factura.canceladaPor   = appData.currentUser;
 
     registrarAuditoria('cancelar', 'factura',
-        `Factura ${factura.numero} — ${factura.paciente} — Razón: ${razon}`);
+        `Cotización ${factura.numero} — ${factura.paciente} — Razón: ${razon}`);
 
     try {
         await saveData('confirmarCancelacionFactura');
         closeModal('modalCancelarFactura');
         _facturaACancelarId = null;
         updateCobrarTab();
-        showToast('✓ Factura cancelada');
+        showToast('✓ Cotización cancelada');
     } catch(e) {
         appData.facturas = backup;
-        showError('Error al cancelar la factura.', e);
+        showError('Error al cancelar la cotización.', e);
     }
 }
 
