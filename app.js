@@ -93,9 +93,15 @@ let clinicConfig = {
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
     moneda:   'RD$',     // símbolo de moneda — configurable por país
-    locale:   getLocale(),   // locale para fechas y números
+    locale:   'es-419',      // locale para fechas y números (getLocale() se llama después de init)
     pais:     'República Dominicana',
 };
+// ── Locale helper — definida temprano para evitar Temporal Dead Zone ──
+function getLocale() {
+    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale)
+        ? clinicConfig.locale : 'es-419';
+}
+
 
 async function loadClinicBranding() {
     if (!CLINIC_PATH) return;
@@ -1599,12 +1605,7 @@ function formatCurrency(amount) {
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
-// ── Locale helper ───────────────────────────────────────
-// Usa el locale de la clínica para formatear fechas y números.
-// Fallback a getLocale() si clinicConfig no está listo todavía.
-function getLocale() {
-    return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
-}
+// getLocale() definida al inicio del archivo
 
 // Procedimientos
 // Helper: always find factura form elements in the visible cobros-content clone,
