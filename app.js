@@ -1,5 +1,5 @@
 // ========================================
-// MULTI-TENANT CONFIGU
+// MULTI-TENANT CONFIG
 // ========================================
 
 let CLINIC_PATH = null;
@@ -4584,6 +4584,80 @@ async function generarCotizacionDesdeFicha() {
     cambiarTabPaciente('tratamientos');
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PATIENT PICKER OVERLAY
+// Quick patient search → opens ficha directly on Tratamientos tab.
+// Used by the dashboard "Nueva cotización" button.
+// ═══════════════════════════════════════════════════════════════════════════
+
+function abrirPickerPaciente() {
+    const input = document.getElementById('pickerPacienteInput');
+    const results = document.getElementById('pickerPacienteResults');
+    if (!input || !results) return;
+    input.value = '';
+    results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Escribe para buscar</div>';
+    openModal('modalPickerPaciente');
+    setTimeout(() => input.focus(), 120);
+}
+
+function pickerBuscar(query) {
+    const results = document.getElementById('pickerPacienteResults');
+    if (!results) return;
+    const q = (query || '').toLowerCase().trim();
+    if (q.length < 1) {
+        results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Escribe para buscar</div>';
+        return;
+    }
+    const matches = (appData.pacientes || []).filter(p =>
+        p.nombre && (
+            p.nombre.toLowerCase().includes(q) ||
+            (p.cedula && p.cedula.includes(q)) ||
+            (p.telefono && p.telefono.includes(q))
+        )
+    ).slice(0, 8);
+
+    if (matches.length === 0) {
+        results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Sin resultados para <strong>' + query + '</strong></div>';
+        return;
+    }
+
+    results.innerHTML = matches.map(function(p) {
+        const balance = calcularBalancePaciente(p.nombre);
+        const pill = balance > 0
+            ? '<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:#fff3cd;color:#856404;margin-left:6px;">Debe ' + formatCurrency(balance) + '</span>'
+            : '';
+        const cedula = p.cedula ? '<span style="margin-right:8px;">📋 ' + p.cedula + '</span>' : '';
+        const tel    = p.telefono ? '📱 ' + p.telefono : '';
+        const letra  = p.nombre.charAt(0).toUpperCase();
+        return '<div onclick="pickerSeleccionar('' + p.id + '')" '
+            + 'style="display:flex;align-items:center;gap:12px;padding:13px 20px;cursor:pointer;'
+            + 'border-bottom:1px solid rgba(30,28,26,.05);transition:background .12s;" '
+            + 'onmouseover="this.style.background='var(--surface,#F5F2EE)'" '
+            + 'onmouseout="this.style.background='transparent'">'
+            + '<div style="width:38px;height:38px;border-radius:50%;background:var(--clinic-color,#C4856A);'
+            + 'color:white;display:flex;align-items:center;justify-content:center;'
+            + 'font-size:16px;font-weight:500;flex-shrink:0;">' + letra + '</div>'
+            + '<div style="flex:1;min-width:0;">'
+            + '<div style="font-size:14px;font-weight:500;color:var(--dark);">' + p.nombre + pill + '</div>'
+            + '<div style="font-size:12px;color:var(--mid);margin-top:2px;">' + cedula + tel + '</div>'
+            + '</div>'
+            + '<span style="font-size:18px;color:var(--mid);">›</span>'
+            + '</div>';
+    }).join('');
+}
+
+function pickerSeleccionar(pacienteId) {
+    closeModal('modalPickerPaciente');
+    const paciente = appData.pacientes.find(function(p) { return p.id === pacienteId; });
+    if (!paciente) return;
+    verPaciente(pacienteId);
+    setTimeout(function() {
+        cambiarTabPaciente('tratamientos');
+        setTimeout(function() { nuevaCotizacionParaPaciente(pacienteId); }, 120);
+    }, 80);
+}
+
 function nuevaCotizacionParaPaciente(pacienteId) {
     const paciente = appData.pacientes.find(p => p.id === pacienteId);
     if (!paciente) return;
@@ -5198,379 +5272,162 @@ function renderTabResumen(paciente) {
     `;
 }
 
-function renderTabHistorial(paciente) {
-    const facturasPaciente = getFacturasDePaciente(paciente)
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-    const citasPaciente = getCitasDePaciente(paciente)
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-    const ordenesPaciente = (appData.laboratorios || [])
-        .filter(o => o.paciente === paciente.nombre)
-        .sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-
-    const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
-
-    // ── Balance header ──
-    const balance = calcularBalancePaciente(paciente.nombre);
-    const totalFacturado = facturasPaciente.reduce((s, f) => s + f.total, 0);
-    const totalPagado    = facturasPaciente.reduce((s, f) =>
-        s + (f.pagos || []).reduce((sp, p) => sp + p.monto, 0), 0);
-
-    const balanceHeaderHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
-            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cotizado</div>
-                <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalFacturado)}</div>
-            </div>
-            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>
-                <div style="font-size:17px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
-            </div>
-            <div style="background:${balance > 0 ? '#fff3cd' : '#d4edda'};border:1.5px solid ${balance > 0 ? '#ffc107' : '#28a745'};border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>
-                <div style="font-size:17px;font-weight:700;color:${balance > 0 ? '#856404' : '#155724'};">${formatCurrency(balance)}</div>
-            </div>
-        </div>`;
-
-    // ── Facturas con desglose ──
-    const facturasHTML = facturasPaciente.length === 0
-        ? `<div style="text-align:center;padding:30px;color:#999;font-size:13px;">Sin procedimientos registrados</div>`
-        : facturasPaciente.map(f => {
-            const pagadoF   = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
-            const pendienteF = f.total - pagadoF;
-            const pagada     = pendienteF <= 0;
-            const estadoColor = pagada ? '#28a745' : pagadoF > 0 ? '#ff9500' : '#ff3b30';
-            const estadoLabel = pagada ? '✅ Pagada' : pagadoF > 0 ? '⏳ Con abono' : '🔴 Pendiente';
-
-            // Procedimientos desglosados
-            const procsHTML = (f.procedimientos || []).map(p => `
-                <div style="display:flex;justify-content:space-between;align-items:center;
-                            padding:7px 0;border-bottom:1px solid #f5f5f5;">
-                    <span style="font-size:13px;color:#444;">${p.descripcion}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}${p.diente ? ` <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 ${p.diente}</span>` : ''}</span>
-                    <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">
-                        ${formatCurrency(p.precioUnitario * (p.cantidad || 1))}
-                    </span>
-                </div>`).join('');
-
-            // Pagos / abonos desglosados
-            const pagosHTML = (f.pagos || []).length === 0 ? '' : `
-                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
-                    <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>
-                    ${(f.pagos || []).map(p => `
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">
-                                    ${p.metodo || 'Efectivo'}
-                                </span>
-                                <span style="font-size:11px;color:#999;">
-                                    ${p.fecha ? new Date(p.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}) : ''}
-                                </span>
-                            </div>
-                            <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(p.monto)}</span>
-                        </div>`).join('')}
-                </div>`;
-
-            // Descuento si aplica
-            const descuentoHTML = f.descuento > 0 ? `
-                <div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">
-                    <span style="font-size:12px;">Descuento ${f.descuento}%</span>
-                    <span style="font-size:12px;">-${formatCurrency(f.total / (1 - f.descuento/100) * (f.descuento/100))}</span>
-                </div>` : '';
-
-            return `
-            <div style="background:white;border-radius:14px;border:1.5px solid ${estadoColor}33;
-                        margin-bottom:14px;overflow:hidden;">
-                <!-- Header factura -->
-                <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;
-                            display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
-                        <div style="font-size:13px;color:#555;">${f.profesional}</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:11px;font-weight:600;color:${estadoColor};background:${estadoColor}18;
-                                    padding:3px 10px;border-radius:100px;margin-bottom:4px;">${estadoLabel}</div>
-                        <div style="font-size:16px;font-weight:700;color:${estadoColor};">
-                            ${pagada ? formatCurrency(f.total) : formatCurrency(pendienteF) + ' pendiente'}
-                        </div>
-                    </div>
-                </div>
-                <!-- Procedimientos + pagos -->
-                <div style="padding:12px 16px;">
-                    ${procsHTML}
-                    ${descuentoHTML}
-                    <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">
-                        <span style="font-size:13px;color:#333;">Total</span>
-                        <span style="font-size:14px;color:#333;">${formatCurrency(f.total)}</span>
-                    </div>
-                    ${pagosHTML}
-                    ${!pagada && canCobrar ? `
-                    <button onclick="openPagarFactura('${f.id}')"
-                        style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
-                               color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
-                               font-family:inherit;cursor:pointer;">
-                        💳 Cobrar esta factura
-                    </button>` : ''}
-                </div>
-            </div>`;
-        }).join('');
-
-    // ── Órdenes de lab (compactas) ──
-    const labHTML = ordenesPaciente.length === 0 ? '' : `
-        <div style="margin-bottom:20px;">
-            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
-                        text-transform:uppercase;margin-bottom:10px;">Laboratorio</div>
-            ${ordenesPaciente.map(o => `
-                <div style="background:white;border-radius:12px;padding:12px 16px;
-                            border:1.5px solid #f0f0f0;margin-bottom:8px;
-                            display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div style="font-size:13px;font-weight:500;color:#333;">${o.tipo}</div>
-                        <div style="font-size:11px;color:#999;margin-top:2px;">${o.laboratorio} · ${formatDate(o.fechaCreacion)}</div>
-                    </div>
-                    <div style="text-align:right;flex-shrink:0;margin-left:8px;">
-                        <div style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;
-                                    background:${getColorEstado(o.estadoActual)}22;
-                                    color:${getColorEstado(o.estadoActual)};margin-bottom:3px;">
-                            ${o.estadoActual}
-                        </div>
-                        <div style="font-size:13px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
-                    </div>
-                </div>`).join('')}
-        </div>`;
-
-    // ── Citas (compactas) ──
-    const citasHTML = citasPaciente.length === 0 ? '' : `
-        <div>
-            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
-                        text-transform:uppercase;margin-bottom:10px;">Citas</div>
-            ${citasPaciente.map(c => `
-                <div style="background:white;border-radius:12px;padding:12px 16px;
-                            border:1.5px solid #f0f0f0;margin-bottom:8px;
-                            display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div style="font-size:13px;font-weight:500;color:#333;">
-                            ${formatDate(c.fecha)} · ${c.hora}
-                        </div>
-                        <div style="font-size:11px;color:#999;margin-top:2px;">${c.motivo} · ${c.profesional}</div>
-                    </div>
-                    <div style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;flex-shrink:0;
-                                background:${getColorEstadoCita(c.estado||'Pendiente')}22;
-                                color:${getColorEstadoCita(c.estado||'Pendiente')};">
-                        ${c.estado || 'Pendiente'}
-                    </div>
-                </div>`).join('')}
-        </div>`;
-
-    document.getElementById('tabHistorial').innerHTML = `
-        <div style="padding-bottom:8px;">
-            ${balanceHeaderHTML}
-            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
-                        text-transform:uppercase;margin-bottom:10px;">Procedimientos y pagos</div>
-            ${facturasHTML}
-            ${labHTML}
-            ${citasHTML}
-        </div>`;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // TAB TRATAMIENTOS — central de seguimiento clínico + financiero del paciente
-// Reemplaza historial y balance. Muestra cotizaciones activas e históricas
-// con sus procedimientos, lab vinculado y estado de pago.
 // ═══════════════════════════════════════════════════════════════════════════
 function renderTabTratamientos(paciente) {
-    const canCobrar  = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+    const canCobrar   = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
     const canFacturar = tienePermiso('facturar') || appData.currentRole === 'admin' || appData.currentRole === 'reception';
 
-    const todas = getFacturasDePaciente(paciente).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-    const activas   = todas.filter(f => { const e=(f.estado||'').toLowerCase(); return e==='pendiente'||e==='pending'||e==='parcial'||e==='partial'; });
-    const pagadas   = todas.filter(f => { const e=(f.estado||'').toLowerCase(); return e==='pagada'||e==='paid'; });
-    const canceladas = todas.filter(f => { const e=(f.estado||'').toLowerCase(); return e==='cancelada'||e==='cancelled'; });
+    const todas = getFacturasDePaciente(paciente).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
+    const activas    = todas.filter(function(f){ var e=(f.estado||'').toLowerCase(); return e==='pendiente'||e==='pending'||e==='parcial'||e==='partial'; });
+    const pagadas    = todas.filter(function(f){ var e=(f.estado||'').toLowerCase(); return e==='pagada'||e==='paid'; });
+    const canceladas = todas.filter(function(f){ var e=(f.estado||'').toLowerCase(); return e==='cancelada'||e==='cancelled'; });
 
     const balance       = calcularBalancePaciente(paciente.nombre);
-    const totalCotizado = todas.reduce((s,f) => s+f.total, 0);
-    const totalPagado   = todas.reduce((s,f) => s+(f.pagos||[]).reduce((sp,p)=>sp+p.monto,0), 0);
+    const totalCotizado = todas.reduce(function(s,f){ return s+f.total; }, 0);
+    const totalPagado   = todas.reduce(function(s,f){ return s+(f.pagos||[]).reduce(function(sp,p){ return sp+p.monto; },0); }, 0);
 
-    // ── Pill renderers ──────────────────────────────────────────────────────
     function estadoPill(f) {
-        const e = (f.estado||'').toLowerCase();
-        const pagadoF = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
-        const pendienteF = f.total - pagadoF;
-        if (e==='pagada'||e==='paid')        return { label:'✅ Pagada',       color:'#28a745' };
-        if (e==='cancelada'||e==='cancelled') return { label:'❌ Cancelada',    color:'#999'    };
-        if (pagadoF>0)                        return { label:'⏳ Con abono',    color:'#ff9500' };
-        return                                       { label:'🔴 Pendiente',    color:'#ff3b30' };
+        var e = (f.estado||'').toLowerCase();
+        var pagadoF = (f.pagos||[]).reduce(function(s,p){ return s+p.monto; },0);
+        if (e==='pagada'||e==='paid')         return { label:'✅ Pagada',    color:'#28a745' };
+        if (e==='cancelada'||e==='cancelled') return { label:'❌ Cancelada', color:'#999'    };
+        if (pagadoF>0)                        return { label:'⏳ Con abono', color:'#ff9500' };
+        return                                       { label:'🔴 Pendiente', color:'#ff3b30' };
     }
 
     function renderCotizCard(f, collapsed) {
-        const { label, color } = estadoPill(f);
-        const pagadoF   = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
-        const pendienteF = f.total - pagadoF;
-        const pagada     = pendienteF <= 0;
+        var pill      = estadoPill(f);
+        var pagadoF   = (f.pagos||[]).reduce(function(s,p){ return s+p.monto; },0);
+        var pendienteF = f.total - pagadoF;
+        var pagada    = pendienteF <= 0;
+        var bodyId    = 'cotizBody_' + f.id;
+        var bodyDisplay = collapsed ? 'none' : 'block';
 
-        // ── Lab orders vinculadas a esta cotización ──────────────────────
-        const labVinculado = (appData.laboratorios||[]).filter(o => o.facturaId === f.id || (f.ordenesLab||[]).find(ol=>ol.id===o.id));
-        const labHTML = labVinculado.length === 0 ? '' :
-            labVinculado.map(o => `
-            <div style="display:flex;justify-content:space-between;align-items:center;
-                        background:rgba(91,110,128,.06);border-radius:10px;
-                        padding:9px 12px;margin-bottom:6px;">
-                <div>
-                    <div style="font-size:12px;font-weight:500;color:#333;">🔬 ${o.tipo}${o.dientes?' · Diente '+o.dientes:''}</div>
-                    <div style="font-size:11px;color:#999;margin-top:2px;">${o.laboratorio} · ${formatDate(o.fechaCreacion)}</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0;margin-left:10px;">
-                    <div style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;
-                                background:${getColorEstado(o.estadoActual)}22;
-                                color:${getColorEstado(o.estadoActual)};margin-bottom:3px;">${o.estadoActual}</div>
-                    <div style="font-size:12px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
-                </div>
-            </div>`).join('');
+        var labVinculado = (appData.laboratorios||[]).filter(function(o){
+            return o.facturaId === f.id || (f.ordenesLab||[]).find(function(ol){ return ol.id===o.id; });
+        });
 
-        // ── Procedures ──────────────────────────────────────────────────
-        const procsHTML = (f.procedimientos||[]).map(p => `
-            <div style="display:flex;justify-content:space-between;align-items:center;
-                        padding:7px 0;border-bottom:1px solid #f5f5f5;">
-                <span style="font-size:13px;color:#444;">
-                    ${p.descripcion}${p.cantidad>1?` ×${p.cantidad}`:''}${p.diente?` <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 ${p.diente}</span>`:''}
-                </span>
-                <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">
-                    ${formatCurrency(p.precioUnitario*(p.cantidad||1))}
-                </span>
-            </div>`).join('');
+        var labHTML = labVinculado.length === 0 ? '' : labVinculado.map(function(o){
+            return '<div style="display:flex;justify-content:space-between;align-items:center;'
+                + 'background:rgba(91,110,128,.06);border-radius:10px;padding:9px 12px;margin-bottom:6px;">'
+                + '<div>'
+                + '<div style="font-size:12px;font-weight:500;color:#333;">🔬 ' + o.tipo + (o.dientes?' · Diente '+o.dientes:'') + '</div>'
+                + '<div style="font-size:11px;color:#999;margin-top:2px;">' + o.laboratorio + ' · ' + formatDate(o.fechaCreacion) + '</div>'
+                + '</div>'
+                + '<div style="text-align:right;flex-shrink:0;margin-left:10px;">'
+                + '<div style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;'
+                + 'background:' + getColorEstado(o.estadoActual) + '22;color:' + getColorEstado(o.estadoActual) + ';margin-bottom:3px;">' + o.estadoActual + '</div>'
+                + '<div style="font-size:12px;font-weight:600;color:#333;">' + formatCurrency(o.precio) + '</div>'
+                + '</div></div>';
+        }).join('');
 
-        // ── Payments ────────────────────────────────────────────────────
-        const pagosHTML = (f.pagos||[]).length===0 ? '' : `
-            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>
-                ${(f.pagos||[]).map(p=>`
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">${p.metodo||'Efectivo'}</span>
-                            <span style="font-size:11px;color:#999;">${p.fecha?new Date(p.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}):''}</span>
-                        </div>
-                        <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(p.monto)}</span>
-                    </div>`).join('')}
-            </div>`;
+        var procsHTML = (f.procedimientos||[]).map(function(p){
+            var dientePill = p.diente ? ' <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 '+p.diente+'</span>' : '';
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f5f5f5;">'
+                + '<span style="font-size:13px;color:#444;">' + p.descripcion + (p.cantidad>1?' ×'+p.cantidad:'') + dientePill + '</span>'
+                + '<span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">' + formatCurrency(p.precioUnitario*(p.cantidad||1)) + '</span>'
+                + '</div>';
+        }).join('');
 
-        const descuentoHTML = f.descuento>0 ? `
-            <div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">
-                <span style="font-size:12px;">Descuento ${f.descuento}%</span>
-                <span style="font-size:12px;">-${formatCurrency(f.total/(1-f.descuento/100)*(f.descuento/100))}</span>
-            </div>` : '';
+        var pagosHTML = (f.pagos||[]).length===0 ? '' :
+            '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">'
+            + '<div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>'
+            + (f.pagos||[]).map(function(p){
+                var fecha = p.fecha ? new Date(p.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}) : '';
+                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">'
+                    + '<div style="display:flex;align-items:center;gap:6px;">'
+                    + '<span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">' + (p.metodo||'Efectivo') + '</span>'
+                    + '<span style="font-size:11px;color:#999;">' + fecha + '</span>'
+                    + '</div>'
+                    + '<span style="font-size:13px;font-weight:600;color:#28a745;">+' + formatCurrency(p.monto) + '</span>'
+                    + '</div>';
+            }).join('') + '</div>';
 
-        const bodyDisplay = collapsed ? 'none' : 'block';
-        const bodyId = 'cotizBody_' + f.id;
+        var descHTML = f.descuento>0
+            ? '<div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">'
+            + '<span style="font-size:12px;">Descuento ' + f.descuento + '%</span>'
+            + '<span style="font-size:12px;">-' + formatCurrency(f.total/(1-f.descuento/100)*(f.descuento/100)) + '</span>'
+            + '</div>' : '';
 
-        return `
-        <div style="background:white;border-radius:14px;border:1.5px solid ${color}33;
-                    margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);">
-            <!-- Header — siempre visible, click para colapsar -->
-            <div onclick="const b=document.getElementById('${bodyId}');b.style.display=b.style.display==='none'?'block':'none';"
-                style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f5f5f5;">
-                <div>
-                    <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
-                    <div style="font-size:13px;color:#555;">${f.profesional}${f.citaMotivo?' · '+f.citaMotivo:''}</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-size:11px;font-weight:600;color:${color};background:${color}18;
-                                padding:3px 10px;border-radius:100px;margin-bottom:4px;">${label}</div>
-                    <div style="font-size:16px;font-weight:700;color:${color};">
-                        ${pagada ? formatCurrency(f.total) : formatCurrency(pendienteF)+' pendiente'}
-                    </div>
-                </div>
-            </div>
-            <!-- Body — colapsable -->
-            <div id="${bodyId}" style="display:${bodyDisplay};padding:12px 16px;">
-                ${procsHTML}
-                ${labHTML ? `<div style="margin-top:12px;"><div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Laboratorio</div>${labHTML}</div>` : ''}
-                ${descuentoHTML}
-                <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">
-                    <span style="font-size:13px;color:#333;">Total</span>
-                    <span style="font-size:14px;color:#333;">${formatCurrency(f.total)}</span>
-                </div>
-                ${pagosHTML}
-                ${!pagada && canCobrar ? `
-                <button onclick="openPagarFactura('${f.id}')"
-                    style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
-                           color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
-                           font-family:inherit;cursor:pointer;">
-                    💳 Cobrar
-                </button>` : ''}
-                ${!pagada && canCobrar ? `
-                <button onclick="verComprobantesFactura('${f.id}')"
-                    style="width:100%;margin-top:8px;padding:9px;background:transparent;
-                           color:var(--topo);border:1px solid rgba(30,28,26,.12);border-radius:100px;
-                           font-size:12px;font-family:inherit;cursor:pointer;">
-                    📱 Enviar cotización al paciente
-                </button>` : ''}
-            </div>
-        </div>`;
+        var cobrarBtn = (!pagada && canCobrar)
+            ? '<button onclick="openPagarFactura('' + f.id + '')" '
+            + 'style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);'
+            + 'color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;'
+            + 'font-family:inherit;cursor:pointer;">💳 Cobrar</button>' : '';
+
+        var enviarBtn = (!pagada && canCobrar)
+            ? '<button onclick="verComprobantesFactura('' + f.id + '')" '
+            + 'style="width:100%;margin-top:8px;padding:9px;background:transparent;'
+            + 'color:var(--topo);border:1px solid rgba(30,28,26,.12);border-radius:100px;'
+            + 'font-size:12px;font-family:inherit;cursor:pointer;">📱 Enviar cotización al paciente</button>' : '';
+
+        return '<div style="background:white;border-radius:14px;border:1.5px solid ' + pill.color + '33;'
+            + 'margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);">'
+            + '<div onclick="var b=document.getElementById('' + bodyId + '');b.style.display=b.style.display==='none'?'block':'none';" '
+            + 'style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f5f5f5;">'
+            + '<div>'
+            + '<div style="font-size:12px;color:#999;margin-bottom:2px;">' + f.numero + ' · ' + formatDate(f.fecha) + '</div>'
+            + '<div style="font-size:13px;color:#555;">' + f.profesional + (f.citaMotivo?' · '+f.citaMotivo:'') + '</div>'
+            + '</div>'
+            + '<div style="text-align:right;">'
+            + '<div style="font-size:11px;font-weight:600;color:' + pill.color + ';background:' + pill.color + '18;padding:3px 10px;border-radius:100px;margin-bottom:4px;">' + pill.label + '</div>'
+            + '<div style="font-size:16px;font-weight:700;color:' + pill.color + ';">' + (pagada ? formatCurrency(f.total) : formatCurrency(pendienteF)+' pendiente') + '</div>'
+            + '</div></div>'
+            + '<div id="' + bodyId + '" style="display:' + bodyDisplay + ';padding:12px 16px;">'
+            + procsHTML
+            + (labHTML ? '<div style="margin-top:12px;"><div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Laboratorio</div>' + labHTML + '</div>' : '')
+            + descHTML
+            + '<div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">'
+            + '<span style="font-size:13px;color:#333;">Total</span>'
+            + '<span style="font-size:14px;color:#333;">' + formatCurrency(f.total) + '</span>'
+            + '</div>'
+            + pagosHTML
+            + cobrarBtn
+            + enviarBtn
+            + '</div></div>';
     }
 
-    // ── Balance summary strip ───────────────────────────────────────────────
-    const balanceHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
-            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cotizado</div>
-                <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalCotizado)}</div>
-            </div>
-            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>
-                <div style="font-size:17px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
-            </div>
-            <div style="background:${balance>0?'#fff3cd':'#d4edda'};border:1.5px solid ${balance>0?'#ffc107':'#28a745'};border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>
-                <div style="font-size:17px;font-weight:700;color:${balance>0?'#856404':'#155724'};">${formatCurrency(balance)}</div>
-            </div>
-        </div>`;
+    var balanceHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">'
+        + '<div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">'
+        + '<div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cotizado</div>'
+        + '<div style="font-size:17px;font-weight:600;color:#333;">' + formatCurrency(totalCotizado) + '</div></div>'
+        + '<div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">'
+        + '<div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>'
+        + '<div style="font-size:17px;font-weight:600;color:#34c759;">' + formatCurrency(totalPagado) + '</div></div>'
+        + '<div style="background:' + (balance>0?'#fff3cd':'#d4edda') + ';border:1.5px solid ' + (balance>0?'#ffc107':'#28a745') + ';border-radius:12px;padding:14px;text-align:center;">'
+        + '<div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>'
+        + '<div style="font-size:17px;font-weight:700;color:' + (balance>0?'#856404':'#155724') + ';">' + formatCurrency(balance) + '</div></div></div>';
 
-    // ── Section: activas ────────────────────────────────────────────────────
-    const activasHTML = activas.length === 0 ? '' : `
-        <div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">
-            EN CURSO (${activas.length})
-        </div>
-        ${activas.map(f => renderCotizCard(f, false)).join('')}`;
+    var activasHTML = activas.length === 0 ? '' :
+        '<div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">EN CURSO (' + activas.length + ')</div>'
+        + activas.map(function(f){ return renderCotizCard(f, false); }).join('');
 
-    // ── Section: pagadas (colapsadas por defecto) ────────────────────────────
-    const pagadasHTML = pagadas.length === 0 ? '' : `
-        <div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;
-                    margin-top:${activas.length>0?'24':'0'}px;margin-bottom:10px;">
-            COMPLETADAS (${pagadas.length})
-        </div>
-        ${pagadas.map(f => renderCotizCard(f, true)).join('')}`;
+    var pagadasHTML = pagadas.length === 0 ? '' :
+        '<div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-top:' + (activas.length>0?'24':'0') + 'px;margin-bottom:10px;">COMPLETADAS (' + pagadas.length + ')</div>'
+        + pagadas.map(function(f){ return renderCotizCard(f, true); }).join('');
 
-    const canceladasHTML = canceladas.length === 0 ? '' : `
-        <div style="font-size:10px;font-weight:600;color:#aaa;letter-spacing:1.5px;text-transform:uppercase;
-                    margin-top:16px;margin-bottom:10px;">
-            CANCELADAS (${canceladas.length})
-        </div>
-        ${canceladas.map(f => renderCotizCard(f, true)).join('')}`;
+    var canceladasHTML = canceladas.length === 0 ? '' :
+        '<div style="font-size:10px;font-weight:600;color:#aaa;letter-spacing:1.5px;text-transform:uppercase;margin-top:16px;margin-bottom:10px;">CANCELADAS (' + canceladas.length + ')</div>'
+        + canceladas.map(function(f){ return renderCotizCard(f, true); }).join('');
 
-    const emptyHTML = todas.length === 0 ? `
-        <div style="text-align:center;padding:48px 20px;color:#999;">
-            <div style="font-size:48px;margin-bottom:12px;">📋</div>
-            <div style="font-size:16px;font-weight:500;margin-bottom:6px;">Sin tratamientos registrados</div>
-            <div style="font-size:13px;">Usa el botón de arriba para crear la primera cotización.</div>
-        </div>` : '';
+    var emptyHTML = todas.length === 0
+        ? '<div style="text-align:center;padding:48px 20px;color:#999;">'
+        + '<div style="font-size:48px;margin-bottom:12px;">📋</div>'
+        + '<div style="font-size:16px;font-weight:500;margin-bottom:6px;">Sin tratamientos registrados</div>'
+        + '<div style="font-size:13px;">Usa el botón de arriba para crear la primera cotización.</div>'
+        + '</div>' : '';
 
-    document.getElementById('tabTratamientos').innerHTML = `
-        ${canFacturar ? `
-        <button onclick="nuevaCotizacionParaPaciente('${paciente.id}')"
-            style="width:100%;padding:13px 16px;background:var(--clinic-color,#C4856A);color:white;
-                   border:none;border-radius:12px;font-size:14px;font-weight:500;font-family:inherit;
-                   cursor:pointer;margin-bottom:20px;letter-spacing:.3px;
-                   box-shadow:0 2px 8px rgba(0,0,0,.12);">
-            + Nueva Cotización
-        </button>` : ''}
-        ${balanceHTML}
-        ${emptyHTML}
-        ${activasHTML}
-        ${pagadasHTML}
-        ${canceladasHTML}
-    `;
+    var btnNueva = canFacturar
+        ? '<button onclick="nuevaCotizacionParaPaciente('' + paciente.id + '')" '
+        + 'style="width:100%;padding:13px 16px;background:var(--clinic-color,#C4856A);color:white;'
+        + 'border:none;border-radius:12px;font-size:14px;font-weight:500;font-family:inherit;'
+        + 'cursor:pointer;margin-bottom:20px;letter-spacing:.3px;box-shadow:0 2px 8px rgba(0,0,0,.12);">'
+        + '+ Nueva Cotización</button>' : '';
+
+    document.getElementById('tabTratamientos').innerHTML = btnNueva + balanceHTML + emptyHTML + activasHTML + pagadasHTML + canceladasHTML;
 }
-
-function renderTabTratamientos_placeholder() {} // keep linter happy
 
 function renderTabRecetas(paciente) {
     const recetas = (paciente.recetas || []).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
@@ -5660,137 +5517,6 @@ function renderTabDocumentos(paciente) {
                 </button>
             </div>
         </div>
-    `;
-}
-
-function renderTabBalance(paciente) {
-    const balance = calcularBalancePaciente(paciente.nombre);
-    const facturasPaciente = getFacturasDePaciente(paciente);
-    
-    // Filtro robusto para estados (soporta inglés y español)
-    const facturasPendientes = facturasPaciente.filter(f => {
-        const estado = (f.estado || '').toLowerCase().trim();
-        return estado === 'pendiente' || estado === 'pending' ||
-               estado === 'parcial' || estado === 'partial' || estado === 'Pendiente';
-    });
-    
-    const facturasCompletadas = facturasPaciente.filter(f => {
-        const estado = (f.estado || '').toLowerCase().trim();
-        return estado === 'pagada' || estado === 'paid';
-    });
-    
-    // Calcular totales
-    const totalFacturado = facturasPaciente.reduce((sum, f) => sum + f.total, 0);
-    const totalPagado = facturasPaciente.reduce((sum, f) => {
-        const pagado = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
-        return sum + pagado;
-    }, 0);
-    
-    document.getElementById('tabBalance').innerHTML = `
-        <!-- Resumen de Balance -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-            <div style="background: ${balance > 0 ? 'var(--terracota,#C4856A)' : '#3a7a4a'}; color: white; padding: 24px; border-radius: 12px;">
-                <div style="font-size: 11px; opacity: 0.8; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;">Balance Actual</div>
-                <div style="font-size: 32px; font-weight: 300;">${formatCurrency(balance)}</div>
-            </div>
-            <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
-                <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL FACTURADO</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--clinic-color, #C4856A);">${formatCurrency(totalFacturado)}</div>
-            </div>
-            <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
-                <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL PAGADO</div>
-                <div style="font-size: 28px; font-weight: 700; color: #28a745;">${formatCurrency(totalPagado)}</div>
-            </div>
-        </div>
-        
-        ${balance > 0 ? `
-        <!-- Botón de Hacer Abono -->
-        <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <div style="font-size: 16px; font-weight: 600; color: #856404; margin-bottom: 4px;">
-                        💰 Realizar Abono al Balance
-                    </div>
-                    <div style="font-size: 14px; color: #856404;">
-                        El paciente debe: ${formatCurrency(balance)}
-                    </div>
-                </div>
-                <button class="btn btn-submit" onclick="abrirAbonoBalance('${paciente.id}')" style="font-size: 16px; padding: 12px 24px;">
-                    💵 Hacer Abono
-                </button>
-            </div>
-        </div>
-        ` : balance < 0 ? `
-        <div style="background: #d4edda; border: 2px solid #28a745; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
-            <div style="font-size: 18px; font-weight: 600; color: #155724;">
-                ✅ El paciente tiene crédito a favor: ${formatCurrency(Math.abs(balance))}
-            </div>
-        </div>
-        ` : `
-        <div style="background: #d1ecf1; border: 2px solid #17a2b8; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
-            <div style="font-size: 18px; font-weight: 600; color: #0c5460;">
-                ✅ El paciente no tiene balance pendiente
-            </div>
-        </div>
-        `}
-        
-        <!-- Facturas Pendientes -->
-        ${facturasPendientes.length > 0 ? `
-        <div style="margin-bottom: 24px;">
-            <h3 style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 16px;">
-                📋 Facturas Pendientes (${facturasPendientes.length})
-            </h3>
-            <div style="display: grid; gap: 12px;">
-                ${facturasPendientes.map(f => {
-                    const pagado = (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
-                    const pendiente = f.total - pagado;
-                    return `
-                    <div style="background: #fff; border: 2px solid #e5e5e7; border-radius: 8px; padding: 16px;">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                            <div>
-                                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
-                                <div style="font-size: 13px; color: #666; margin-top: 4px;">${formatDate(f.fecha)} • ${f.profesional}</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 18px; font-weight: 700; color: #ff3b30;">${formatCurrency(pendiente)}</div>
-                                <div style="font-size: 12px; color: #666;">de ${formatCurrency(f.total)}</div>
-                            </div>
-                        </div>
-                        ${pagado > 0 ? `<div style="font-size: 13px; color: #28a745; margin-bottom: 8px;">✓ Abonado: ${formatCurrency(pagado)}</div>` : ''}
-                        <button class="btn btn-submit" onclick="abrirPagoFactura('${f.id}', '${paciente.id}')" style="width: 100%; font-size: 14px;">
-                            💳 Pagar / Abonar
-                        </button>
-                    </div>
-                    `;
-                }).join('')}
-            </div>
-        </div>
-        ` : ''}
-        
-        <!-- Facturas Completadas -->
-        ${facturasCompletadas.length > 0 ? `
-        <div>
-            <h3 style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 16px;">
-                ✅ Facturas Pagadas (${facturasCompletadas.length})
-            </h3>
-            <div style="display: grid; gap: 12px;">
-                ${facturasCompletadas.map(f => `
-                    <div style="background: #f8f9fa; border: 2px solid #28a745; border-radius: 8px; padding: 16px; opacity: 0.8;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
-                                <div style="font-size: 12px; color: #666;">${formatDate(f.fecha)}</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 16px; font-weight: 700; color: #28a745;">${formatCurrency(f.total)}</div>
-                                <div style="font-size: 11px; color: #28a745;">✓ PAGADA</div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-        ` : ''}
     `;
 }
 
@@ -8622,7 +8348,7 @@ function updateDashboardTab() {
             if (statsGrid) statsGrid.insertAdjacentElement('beforebegin', shortEl);
         }
         shortEl.innerHTML = `
-            <button onclick="showTab('pacientes');showToast('Busca el paciente y abre su ficha → Tratamientos',3000)" style="
+            <button onclick="abrirPickerPaciente()" style="
                 padding:14px 16px;background:var(--clinic-color);color:white;border:none;
                 border-radius:var(--radius-md);font-size:12px;letter-spacing:1px;text-transform:uppercase;
                 font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
@@ -10087,29 +9813,6 @@ function renderCobrosContent(key) {
         const src = document.getElementById('tab-cobrar');
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
         if (typeof updateCobrarTab === 'function') updateCobrarTab();
-    } else if (key === 'nueva') {
-        // Copy factura tab content into cobros
-        const src = document.getElementById('tab-factura');
-        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
-
-        // Populate professional selector for admin (can't use showTab logic since we cloned)
-        if (appData.currentRole === 'admin') {
-            const container = el.querySelector('#selectorProfesionalFactura');
-            const select    = el.querySelector('#profesionalQueAtendio');
-            if (container) container.style.display = 'block';
-            if (select) {
-                const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
-                select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                    profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
-            }
-        }
-
-        // Re-init factura state
-        if (typeof initFacturaForm === 'function') initFacturaForm();
-        if (typeof updateTempProcedimientos === 'function') updateTempProcedimientos();
-        updateProcedimientosList();
-        updateListaOrdenesLabTemp();
-        updateTotal();
     } else if (key === 'ingresos') {
         const src = document.getElementById('tab-ingresos');
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';

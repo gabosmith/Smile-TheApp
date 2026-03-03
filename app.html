@@ -1179,58 +1179,6 @@
             </div>
 
             <!-- Factura Tab -->
-            <div id="tab-factura" class="tab-content">
-                <div class="section-title" style="margin-bottom:4px">Nueva Cotización</div>
-                <div class="section-sub">Crea y registra servicios prestados</div>
-                <div class="card">
-                    <div class="form-group" id="selectorProfesionalFactura" style="display: none;">
-                        <label>Profesional que atendió *</label>
-                        <select id="profesionalQueAtendio" style="width: 100%; padding: 10px; border: 2px solid #e5e5e7; border-radius: 8px; font-size: 14px;">
-                            <option value="">Seleccione el profesional...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Nombre del Paciente *</label>
-                        <input type="text" id="pacienteNombre" placeholder="Escribe para buscar..." oninput="buscarPacienteFactura()" autocomplete="off">
-                        <div id="pacienteNombreSuggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--sand); border: none; border-radius: 12px; max-height: 240px; overflow-y: auto; z-index: 2000; width: 100%; margin-top: 4px; box-shadow: var(--neu-raised-lg);"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Procedimientos</label>
-                        <div id="procedimientosList"></div>
-                        <button class="btn btn-add" onclick="openAddProcedimiento()">+ Agregar Procedimiento</button>
-                    </div>
-                    <div class="form-group">
-                        <label>Órdenes de Laboratorio (Opcional)</label>
-                        <div id="listaOrdenesLabTemp" style="margin-bottom: 10px;"></div>
-                        <button class="btn" onclick="abrirModalOrdenLab()" style="background: var(--slate); color: white; font-size: 12px; letter-spacing: 0.5px;">+ Orden de Lab</button>
-                    </div>
-                    <div class="form-group">
-                        <label>Descuento (%)</label>
-                        <input type="range" id="descuentoSlider" min="0" max="100" value="0" oninput="updateDescuento()">
-                        <div style="text-align: center; margin: 10px 0; font-weight: 400; color: var(--clinic-color);">
-                            <span id="descuentoValue">0</span>%
-                        </div>
-                        <div class="discount-buttons">
-                            <button class="discount-btn" onclick="setDescuento(5)">5%</button>
-                            <button class="discount-btn" onclick="setDescuento(10)">10%</button>
-                            <button class="discount-btn" onclick="setDescuento(15)">15%</button>
-                            <button class="discount-btn" onclick="setDescuento(20)">20%</button>
-                        </div>
-                    </div>
-                    <div class="card" style="background: var(--sand); box-shadow: var(--neu-raised);">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--piedra);">Total</span>
-                            <span style="font-size: 28px; font-weight: 200; color: var(--topo); letter-spacing: -1px;" id="totalFactura">RD$ 0.00</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Notas (Opcional)</label>
-                        <textarea id="notasFactura"></textarea>
-                    </div>
-                    <button class="btn btn-submit" onclick="generarFactura()">Generar Cotización</button>
-                </div>
-            </div>
-
             <!-- Ingresos Tab -->
             <div id="tab-ingresos" class="tab-content">
                 <div class="stat-grid">
@@ -2780,5 +2728,45 @@
     </script>
 
     <script src="app.js"></script>
+
+    <!-- ═══ PATIENT PICKER OVERLAY — "Nueva Cotización" desde dashboard ═══ -->
+    <div id="modalPickerPaciente" class="modal" style="z-index:10050;">
+        <div class="modal-content" style="max-width:480px;padding:0;overflow:hidden;border-radius:16px;">
+            <!-- Search header -->
+            <div style="padding:20px 20px 0;background:var(--sand);">
+                <div style="font-size:13px;font-weight:500;color:var(--topo);letter-spacing:.5px;margin-bottom:12px;">
+                    ¿Para qué paciente es la cotización?
+                </div>
+                <div style="position:relative;">
+                    <input id="pickerPacienteInput" type="text"
+                        placeholder="Buscar por nombre, cédula o teléfono..."
+                        oninput="pickerBuscar(this.value)"
+                        style="width:100%;padding:12px 16px 12px 40px;border:none;border-radius:12px;
+                               font-family:inherit;font-size:14px;background:white;color:var(--dark);
+                               box-shadow:0 2px 8px rgba(0,0,0,.08);box-sizing:border-box;outline:none;">
+                    <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</span>
+                </div>
+                <div style="height:16px;"></div>
+            </div>
+            <!-- Results list -->
+            <div id="pickerPacienteResults"
+                style="max-height:320px;overflow-y:auto;background:white;padding:8px 0;">
+                <div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">
+                    Escribe para buscar
+                </div>
+            </div>
+            <!-- Footer -->
+            <div style="padding:14px 20px;background:var(--sand);border-top:1px solid rgba(30,28,26,.06);
+                        display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:12px;color:var(--mid);">${appData?.pacientes?.length || 0} pacientes registrados</span>
+                <button onclick="closeModal('modalPickerPaciente')"
+                    style="padding:8px 18px;background:transparent;border:1px solid rgba(30,28,26,.15);
+                           border-radius:100px;font-size:13px;color:var(--topo);font-family:inherit;cursor:pointer;">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
