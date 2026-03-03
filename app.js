@@ -93,7 +93,7 @@ let clinicConfig = {
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
     moneda:   'RD$',     // símbolo de moneda — configurable por país
-    locale:   getLocale(),   // locale para fechas y números
+    locale:   'es-419',   // locale para fechas y números — updated by loadClinicBranding()
     pais:     'República Dominicana',
 };
 
@@ -193,71 +193,12 @@ async function loadClinicBranding() {
         const logoSrc = cfg.logoPositivo || cfg.logoNegativo || cfg.logoUrl || null;
         applyLogoEverywhere(logoSrc, cfg.nombre || '');
 
-        // ── Block / warn based on subscription state ──────────────────
-        // Priority: paused manually > subscription deleted > grace period > trial expired
-        const ahora = new Date();
-        const trialVencido = clinicConfig.trialHasta
-            ? (ahora >= new Date(clinicConfig.trialHasta))
-            : false;
-        const enGracia = cfg.gracePeriodHasta
-            ? (ahora < new Date(cfg.gracePeriodHasta))
-            : false;
-        const graceDias = cfg.gracePeriodHasta
-            ? Math.ceil((new Date(cfg.gracePeriodHasta) - ahora) / (1000 * 60 * 60 * 24))
-            : 0;
-
-        function _bloquearApp(icono, titulo, subtitulo) {
+        // ── Block access if clinic is paused ──
+        if (cfg.activa === false) {
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('appContainer').style.display = 'none';
-            const hero = document.getElementById('lsBrandHero');
-            const panel = document.getElementById('lsPhaseUsers') || document.getElementById('lsPhasePIN');
-            // Replace login content with block screen
-            const loginScreen = document.getElementById('loginScreen');
-            loginScreen.innerHTML = `
-                <div style="flex:1;display:flex;flex-direction:column;align-items:center;
-                            justify-content:center;padding:40px 24px;background:var(--sand);text-align:center;">
-                    <div style="font-size:56px;margin-bottom:20px">${icono}</div>
-                    <div style="font-size:22px;font-weight:300;color:var(--topo);margin-bottom:10px;letter-spacing:-0.5px">${titulo}</div>
-                    <div style="font-size:14px;color:var(--piedra);line-height:1.7;max-width:300px;margin-bottom:32px">${subtitulo}</div>
-                    <a href="https://wa.me/?text=${encodeURIComponent('Hola SMILE, necesito ayuda con mi clínica: ' + (CLINIC_PATH || ''))}"
-                       target="_blank"
-                       style="padding:14px 28px;background:var(--pizarra);color:white;border-radius:100px;
-                              text-decoration:none;font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                              font-family:inherit;font-weight:500;">
-                        💬 Contactar soporte
-                    </a>
-                </div>`;
-        }
-
-        // 1. Manually paused by SMILE admin
-        if (cfg.activa === false) {
-            _bloquearApp('🔒', 'Cuenta pausada', 'Tu clínica ha sido pausada. Contacta a SMILE para reactivarla.');
-            return;
-        }
-
-        // 2. Subscription deleted by Stripe (non-payment after grace period)
-        if (cfg.suspendida === true && cfg.subscripcionActiva === false) {
-            _bloquearApp('💳', 'Suscripción cancelada', 'Tu suscripción fue cancelada por falta de pago. Contacta a SMILE para reactivar tu cuenta.');
-            return;
-        }
-
-        // 3. Payment failed — in grace period (7 days) — show banner but allow access
-        if (cfg.pagoPendiente === true && enGracia) {
-            clinicConfig.pagoPendiente = true;
-            clinicConfig.graceDias = graceDias;
-            // Banner shown after login via showGracePeriodBanner()
-        }
-
-        // 4. Payment failed — grace period expired
-        if (cfg.pagoPendiente === true && !enGracia && cfg.gracePeriodHasta) {
-            _bloquearApp('⏰', 'Período de gracia vencido', 'El período de gracia de tu cuenta venció. Contacta a SMILE para regularizar tu pago y reactivar el acceso.');
-            return;
-        }
-
-        // 5. Trial expired and no subscription
-        if (trialVencido && !cfg.subscripcionActiva && cfg.activa !== false) {
-            _bloquearApp('⏳', 'Período de prueba vencido', 'Tu período de prueba de 14 días ha terminado. Activa tu suscripción para seguir usando SMILE.');
-            return;
+            const card = document.querySelector('.login-card');
+            if (card) card.innerHTML = '<div style="text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:16px">🔒</div><div style="font-weight:600;font-size:18px;margin-bottom:8px">Cuenta pausada</div><div style="color:#666;font-size:14px">Contacta a SMILE para reactivar tu clínica.</div></div>';
         }
 
     } catch(e) {
@@ -1049,34 +990,6 @@ window.addEventListener('load', async function() {
 });
 
 // ── PANTALLA DE ACCESO POR ID DE CLÍNICA ──────────────────────
-// ── GRACE PERIOD BANNER ─────────────────────────────────────────────────
-// Called after successful login if clinicConfig.pagoPendiente === true
-function showGracePeriodBanner() {
-    if (!clinicConfig.pagoPendiente) return;
-    const dias = clinicConfig.graceDias || 0;
-    const existing = document.getElementById('graceBanner');
-    if (existing) return;
-    const banner = document.createElement('div');
-    banner.id = 'graceBanner';
-    banner.innerHTML = `
-        <div style="background:#856404;color:white;padding:12px 20px;
-                    display:flex;align-items:center;justify-content:space-between;
-                    font-size:13px;gap:12px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:10px;">
-                <span style="font-size:18px">⚠️</span>
-                <span>Pago pendiente — tienes <strong>${dias} día${dias !== 1 ? 's' : ''}</strong> para regularizar antes de que se bloquee el acceso.</span>
-            </div>
-            <a href="https://wa.me/?text=${encodeURIComponent('Hola SMILE, necesito regularizar el pago de mi clínica: ' + (CLINIC_PATH || ''))}"
-               target="_blank"
-               style="color:white;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;
-                      font-weight:600;text-decoration:none;white-space:nowrap;
-                      padding:6px 14px;border:1px solid rgba(255,255,255,.4);border-radius:100px;">
-                Contactar SMILE →
-            </a>
-        </div>`;
-    document.body.insertBefore(banner, document.body.firstChild);
-}
-
 function mostrarPantallaAcceso() {
     const overlay = document.getElementById('clinicAccessOverlay');
     if (overlay) overlay.style.display = 'flex';
@@ -1544,9 +1457,6 @@ function logout() {
 async function showApp() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appContainer').style.display = 'block';
-
-    // Show grace period warning banner if payment is pending
-    showGracePeriodBanner();
 
     // Start network/Firebase connection monitor
     initConnectionMonitor();
