@@ -9442,7 +9442,7 @@ async function iniciarPago(e) {
         const res = await fetch('https://us-central1-smile-theapp.cloudfunctions.net/createCheckoutSession', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clinicId: CLINIC_PATH })
+            body: JSON.stringify({ clinicId: CLINIC_PATH, appOrigin: window.location.origin })
         });
         const data = await res.json();
         if (data.url) {

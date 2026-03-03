@@ -2624,6 +2624,34 @@
         document.getElementById('lsPhasePIN').style.display   = 'none';
     }
 
+    // ── STRIPE REDIRECT HANDLER ─────────────────────────
+    // Handles ?stripe=success and ?stripe=cancelled params after Stripe redirects back
+    (function() {
+        const stripeParam = new URLSearchParams(window.location.search).get('stripe');
+        if (!stripeParam) return;
+
+        // Clean the URL without reload
+        const cleanUrl = window.location.pathname + '?' +
+            Array.from(new URLSearchParams(window.location.search))
+                .filter(([k]) => k !== 'stripe')
+                .map(([k,v]) => k + '=' + encodeURIComponent(v))
+                .join('&');
+        window.history.replaceState({}, '', cleanUrl || window.location.pathname);
+
+        // Show toast after a short delay (app needs to finish loading first)
+        setTimeout(() => {
+            if (stripeParam === 'success') {
+                if (typeof showToast === 'function') {
+                    showToast('✅ ¡Suscripción activada! Bienvenido a SMILE.', 6000, '#3a9e5f');
+                }
+            } else if (stripeParam === 'cancelled') {
+                if (typeof showToast === 'function') {
+                    showToast('Pago cancelado. Puedes activar tu suscripción cuando quieras desde Mi Plan.', 5000, '#C4856A');
+                }
+            }
+        }, 2000);
+    })();
+
     // ── INTERCEPT loginScreen show ───────────────────────
     // app.js sets loginScreen.style.display='flex' after loadClinicBranding().
     // loadData() runs AFTER that, so appData.personal may not be ready yet.

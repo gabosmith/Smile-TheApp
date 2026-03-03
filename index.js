@@ -20,7 +20,7 @@ const PRICES = {
   usuario_adicional: 'price_1T6ADcLHxsBx9pJ7OzEjuP3f',
 };
 
-const APP_URL = 'https://smile-theapp.web.app';
+const APP_URL_FALLBACK = 'https://smile-dentalapp.vercel.app';
 
 function getClinicSettingsRef(clinicId) {
   return db().collection('clinicas').doc(clinicId).collection('config').doc('settings');
@@ -38,7 +38,8 @@ async function findClinicByStripeCustomer(customerId) {
 exports.createCheckoutSession = onRequest({ cors: true }, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   try {
-    const { clinicId } = req.body;
+    const { clinicId, appOrigin } = req.body;
+    const APP_URL = appOrigin || req.headers.origin || APP_URL_FALLBACK;
     if (!clinicId) { res.status(400).json({ error: 'clinicId requerido' }); return; }
     const cfgSnap = await getClinicSettingsRef(clinicId).get();
     if (!cfgSnap.exists) { res.status(404).json({ error: 'Clinica no encontrada' }); return; }
@@ -104,7 +105,8 @@ exports.stripeWebhook = onRequest({ cors: false }, async (req, res) => {
 exports.createPortalSession = onRequest({ cors: true }, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   try {
-    const { clinicId } = req.body;
+    const { clinicId, appOrigin } = req.body;
+    const APP_URL = appOrigin || req.headers.origin || APP_URL_FALLBACK;
     if (!clinicId) { res.status(400).json({ error: 'clinicId requerido' }); return; }
     const cfgSnap = await getClinicSettingsRef(clinicId).get();
     if (!cfgSnap.exists || !cfgSnap.data().stripeCustomerId) { res.status(400).json({ error: 'Sin suscripcion activa' }); return; }
