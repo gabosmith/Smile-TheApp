@@ -5065,28 +5065,54 @@ function renderTabHistorial(paciente) {
             </div>`;
         }).join('');
 
-    // ── Órdenes de lab (compactas) ──
+    // ── Órdenes de lab en ficha ─────────────────────────────────────────────
+    // Sin módulo → solo descripción + precio (básico, siempre visible)
+    // Con módulo → descripción + precio + estado + enlace al tab de Lab
+    const tieneModuloLab = hasModule('laboratorio');
+
     const labHTML = ordenesPaciente.length === 0 ? '' : `
         <div style="margin-bottom:20px;">
-            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
-                        text-transform:uppercase;margin-bottom:10px;">Laboratorio</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;">
+                    Trabajos de laboratorio
+                </div>
+                ${tieneModuloLab ? `
+                <button onclick="showTab('laboratorio')"
+                    style="font-size:11px;color:var(--clinic-color,#C4856A);background:none;border:none;
+                           cursor:pointer;font-family:inherit;padding:0;text-decoration:underline;">
+                    Ver módulo completo →
+                </button>` : ''}
+            </div>
             ${ordenesPaciente.map(o => `
                 <div style="background:white;border-radius:12px;padding:12px 16px;
                             border:1.5px solid #f0f0f0;margin-bottom:8px;
                             display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div style="font-size:13px;font-weight:500;color:#333;">${o.tipo}</div>
-                        <div style="font-size:11px;color:#999;margin-top:2px;">${o.laboratorio} · ${formatDate(o.fechaCreacion)}</div>
-                    </div>
-                    <div style="text-align:right;flex-shrink:0;margin-left:8px;">
-                        <div style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;
-                                    background:${getColorEstado(o.estadoActual)}22;
-                                    color:${getColorEstado(o.estadoActual)};margin-bottom:3px;">
-                            ${o.estadoActual}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:500;color:#333;margin-bottom:2px;">
+                            ${o.descripcion || o.tipo || 'Trabajo de laboratorio'}
                         </div>
-                        <div style="font-size:13px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
+                        ${tieneModuloLab ? `
+                        <div style="margin-top:4px;">
+                            <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;
+                                         background:${getColorEstado(o.estadoActual)}22;
+                                         color:${getColorEstado(o.estadoActual)};">
+                                ${o.estadoActual || 'Pendiente'}
+                            </span>
+                        </div>` : ''}
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+                        <div style="font-size:14px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
                     </div>
                 </div>`).join('')}
+            ${!tieneModuloLab ? `
+            <div style="margin-top:6px;padding:10px 14px;background:#f9f6f3;border-radius:10px;
+                        border:1px dashed #e0d5cc;display:flex;align-items:center;gap:10px;">
+                <span style="font-size:15px;">🔬</span>
+                <div style="font-size:12px;color:#9C9189;line-height:1.5;">
+                    Activa el <strong style="color:var(--clinic-color,#C4856A)">módulo de Laboratorio</strong>
+                    para ver seguimiento completo, fechas, márgenes y alertas de retrasos.
+                </div>
+            </div>` : ''}
         </div>`;
 
     // ── Citas (compactas) ──
@@ -5913,38 +5939,95 @@ function updateLaboratorioTab() {
 
     lista.innerHTML = ordenesFiltradas.map(orden => {
         const timeline = orden.timeline || [];
-        const ultimoEvento = timeline.length > 0 ? timeline[timeline.length - 1] : { fecha: orden.fechaCreacion || new Date().toISOString(), usuario: 'Sistema', notas: '' };
+        const ultimoEvento = timeline.length > 0
+            ? timeline[timeline.length - 1]
+            : { fecha: orden.fechaCreacion || new Date().toISOString(), usuario: 'Sistema', notas: '' };
         const colorEstado = getColorEstado(orden.estadoActual);
 
+        // ── Alerta de retraso ──────────────────────────────────
+        const diasDesdeUltimo = Math.floor(
+            (Date.now() - new Date(ultimoEvento.fecha).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const atrasado = diasDesdeUltimo > 7 && orden.estadoActual !== 'Entregado';
+        const alertaHTML = atrasado
+            ? `<div style="margin-top:8px;padding:6px 10px;background:#fff3cd;border-radius:8px;
+                           font-size:11px;color:#856404;display:flex;align-items:center;gap:6px;">
+                   ⚠️ Sin actualización hace <strong>${diasDesdeUltimo} días</strong>
+               </div>`
+            : '';
+
+        // ── Margen de ganancia ─────────────────────────────────
+        const margen = (orden.precio || 0) - (orden.costo || 0);
+        const margenPct = orden.precio > 0 ? Math.round((margen / orden.precio) * 100) : 0;
+        const margenHTML = orden.costo > 0
+            ? `<div style="font-size:11px;color:${margen >= 0 ? '#6B8F71' : '#C47070'};margin-top:3px;">
+                   Margen: ${formatCurrency(margen)} (${margenPct}%)
+               </div>`
+            : '';
+
+        // ── Timeline últimos 3 eventos ─────────────────────────
+        const timelineHTML = timeline.length > 0
+            ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f5f5f5;">
+                   <div style="font-size:10px;color:#bbb;letter-spacing:1px;
+                                text-transform:uppercase;margin-bottom:6px;">Historial</div>
+                   ${timeline.slice(-3).reverse().map(e => `
+                       <div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px;color:#888;">
+                           <span style="width:6px;height:6px;border-radius:50%;
+                                        background:${getColorEstado(e.estado || orden.estadoActual)};
+                                        flex-shrink:0;"></span>
+                           <span style="color:#555;font-weight:500;">${e.estado || ''}</span>
+                           <span style="color:#bbb;">${e.fecha ? formatDate(e.fecha) : ''}</span>
+                           ${e.notas ? `<span style="color:#aaa;font-style:italic;overflow:hidden;
+                                               text-overflow:ellipsis;white-space:nowrap;max-width:120px">
+                                            ${e.notas}</span>` : ''}
+                       </div>`).join('')}
+               </div>`
+            : '';
+
         return `
-            <div style="background: white; border: 1px solid #e0e0e0; border-left: 4px solid ${colorEstado}; border-radius: 8px; padding: 15px; margin-bottom: 12px; cursor: pointer;" onclick="verDetalleOrdenLab('${orden.id}')">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
-                    <div style="flex: 1;">
-                        <div style="font-size: 16px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
-                            ${orden.tipo}${orden.dientes ? ` - ${orden.dientes}` : ''}
+            <div style="background:white;border:1px solid #ece8e4;border-left:4px solid ${colorEstado};
+                        border-radius:12px;padding:16px;margin-bottom:12px;cursor:pointer;
+                        transition:box-shadow 0.15s;"
+                 onmouseenter="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'"
+                 onmouseleave="this.style.boxShadow='none'"
+                 onclick="verDetalleOrdenLab('${orden.id}')">
+
+                <!-- Cabecera -->
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:15px;font-weight:600;color:var(--dark,#1E1C1A);margin-bottom:3px;
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            ${orden.descripcion || orden.tipo}${orden.dientes ? ` · 🦷 ${orden.dientes}` : ''}
                         </div>
-                        <div style="font-size: 14px; color: #666; margin-bottom: 2px;">
+                        <div style="font-size:13px;color:#888;margin-bottom:2px;">
                             👤 ${orden.paciente}
                         </div>
-                        <div style="font-size: 13px; color: #666;">
-                            👨‍⚕️ ${orden.profesional} • 🏥 ${orden.laboratorio}
+                        <div style="font-size:12px;color:#aaa;">
+                            🏥 ${orden.laboratorio} · 👨‍⚕️ ${orden.profesional}
                         </div>
                     </div>
-                    <div style="text-align: right;">
-                        <div style="background: ${colorEstado}; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                    <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+                        <div style="background:${colorEstado};color:white;padding:4px 12px;
+                                    border-radius:100px;font-size:11px;font-weight:600;margin-bottom:6px;">
                             ${orden.estadoActual}
                         </div>
-                        <div style="font-size: 14px; font-weight: 400; color: var(--green,#6B8F71);">
+                        <div style="font-size:15px;font-weight:600;color:var(--dark,#1E1C1A);">
                             ${formatCurrency(orden.precio)}
                         </div>
+                        ${margenHTML}
                     </div>
                 </div>
-                <div style="font-size: 12px; color: #999;">
-                    📅 ${formatDate(ultimoEvento.fecha)} • ${ultimoEvento.usuario}
-                    ${ultimoEvento.notas ? ` • ${ultimoEvento.notas}` : ''}
+
+                <!-- Fechas -->
+                <div style="font-size:11px;color:#bbb;margin-bottom:2px;">
+                    📅 Creada ${formatDate(orden.fechaCreacion || ultimoEvento.fecha)}
+                    · Último mov. ${formatDate(ultimoEvento.fecha)}
+                    ${diasDesdeUltimo > 0 ? `(hace ${diasDesdeUltimo}d)` : ''}
                 </div>
-            </div>
-        `;
+
+                ${alertaHTML}
+                ${timelineHTML}
+            </div>`;
     }).join('');
 }
 
