@@ -877,6 +877,15 @@
                             cursor: default !important; pointer-events: none; }
 
     </style>
+    <script>
+        // Stub: registerActivity puede dispararse en body events ANTES de que app.js cargue.
+        // app.js redefine esta función con la lógica real una vez que carga.
+        function registerActivity() {}
+        function escapeHtml(s) {
+            if (s == null) return '';
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+    </script>
 </head><body onmousemove="registerActivity()" onclick="registerActivity()" onkeydown="registerActivity()" ontouchstart="registerActivity()">
 
     <!-- Pantalla de carga -->

@@ -1608,6 +1608,19 @@ function getLocale() {
     return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
 }
 
+// Escapa caracteres HTML para evitar XSS en innerHTML y strings dinámicos.
+// Definida también como stub en <head> para que esté disponible antes de que cargue app.js.
+function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+
 // Procedimientos
 // Helper: always find factura form elements in the visible cobros-content clone,
 // falling back to the hidden source tab. Fixes the duplicate-ID problem throughout.
@@ -4610,46 +4623,71 @@ function pickerBuscar(query) {
     const results = document.getElementById('pickerPacienteResults');
     if (!results) return;
     const q = (query || '').toLowerCase().trim();
+
     if (q.length < 1) {
         results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Escribe para buscar</div>';
         return;
     }
-    const matches = (appData.pacientes || []).filter(p =>
-        p.nombre && (
+
+    const matches = (appData.pacientes || []).filter(function(p) {
+        return p.nombre && (
             p.nombre.toLowerCase().includes(q) ||
             (p.cedula && p.cedula.includes(q)) ||
             (p.telefono && p.telefono.includes(q))
-        )
-    ).slice(0, 8);
+        );
+    }).slice(0, 8);
 
     if (matches.length === 0) {
-        results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Sin resultados para <strong>' + query + '</strong></div>';
+        results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Sin resultados para <strong>' + escapeHtml(query) + '</strong></div>';
         return;
     }
 
-    results.innerHTML = matches.map(function(p) {
+    // Build rows via DOM to avoid ALL quote-escaping issues
+    results.innerHTML = '';
+    matches.forEach(function(p) {
         const balance = calcularBalancePaciente(p.nombre);
-        const pill = balance > 0
-            ? '<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:#fff3cd;color:#856404;margin-left:6px;">Debe ' + formatCurrency(balance) + '</span>'
-            : '';
-        const cedula = p.cedula ? '<span style="margin-right:8px;">📋 ' + p.cedula + '</span>' : '';
-        const tel    = p.telefono ? '📱 ' + p.telefono : '';
-        const letra  = p.nombre.charAt(0).toUpperCase();
-        return '<div onclick="pickerSeleccionar('' + p.id + '')" '
-            + 'style="display:flex;align-items:center;gap:12px;padding:13px 20px;cursor:pointer;'
-            + 'border-bottom:1px solid rgba(30,28,26,.05);transition:background .12s;" '
-            + 'onmouseover="this.style.background='var(--surface,#F5F2EE)'" '
-            + 'onmouseout="this.style.background='transparent'">'
-            + '<div style="width:38px;height:38px;border-radius:50%;background:var(--clinic-color,#C4856A);'
-            + 'color:white;display:flex;align-items:center;justify-content:center;'
-            + 'font-size:16px;font-weight:500;flex-shrink:0;">' + letra + '</div>'
-            + '<div style="flex:1;min-width:0;">'
-            + '<div style="font-size:14px;font-weight:500;color:var(--dark);">' + p.nombre + pill + '</div>'
-            + '<div style="font-size:12px;color:var(--mid);margin-top:2px;">' + cedula + tel + '</div>'
-            + '</div>'
-            + '<span style="font-size:18px;color:var(--mid);">›</span>'
-            + '</div>';
-    }).join('');
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:13px 20px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,.05);transition:background .12s;';
+        row.onmouseover = function() { this.style.background = 'var(--surface,#F5F2EE)'; };
+        row.onmouseout  = function() { this.style.background = ''; };
+        row.onclick     = function() { pickerSeleccionar(p.id); };
+
+        // Avatar
+        const avatar = document.createElement('div');
+        avatar.style.cssText = 'width:38px;height:38px;border-radius:50%;background:var(--clinic-color,#C4856A);color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;flex-shrink:0;';
+        avatar.textContent = p.nombre.charAt(0).toUpperCase();
+
+        // Info
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0;';
+
+        const nombre = document.createElement('div');
+        nombre.style.cssText = 'font-size:14px;font-weight:500;color:var(--dark);';
+        nombre.textContent = p.nombre;
+        if (balance > 0) {
+            const pill = document.createElement('span');
+            pill.style.cssText = 'font-size:10px;padding:2px 7px;border-radius:100px;background:#fff3cd;color:#856404;margin-left:6px;';
+            pill.textContent = 'Debe ' + formatCurrency(balance);
+            nombre.appendChild(pill);
+        }
+
+        const sub = document.createElement('div');
+        sub.style.cssText = 'font-size:12px;color:var(--mid);margin-top:2px;';
+        sub.textContent = (p.cedula ? '# ' + p.cedula + '  ' : '') + (p.telefono ? p.telefono : '');
+
+        info.appendChild(nombre);
+        info.appendChild(sub);
+
+        // Arrow
+        const arrow = document.createElement('span');
+        arrow.style.cssText = 'font-size:18px;color:var(--mid);flex-shrink:0;';
+        arrow.textContent = '›';
+
+        row.appendChild(avatar);
+        row.appendChild(info);
+        row.appendChild(arrow);
+        results.appendChild(row);
+    });
 }
 
 function pickerSeleccionar(pacienteId) {
@@ -5281,157 +5319,143 @@ function renderTabResumen(paciente) {
 // TAB TRATAMIENTOS — central de seguimiento clínico + financiero del paciente
 // ═══════════════════════════════════════════════════════════════════════════
 function renderTabTratamientos(paciente) {
-    const canCobrar   = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
-    const canFacturar = tienePermiso('facturar') || appData.currentRole === 'admin' || appData.currentRole === 'reception';
+    const canCobrar   = appData.currentRole==='admin' || appData.currentRole==='reception' || tienePermiso('cobrar');
+    const canFacturar = tienePermiso('facturar') || appData.currentRole==='admin' || appData.currentRole==='reception';
 
-    const todas = getFacturasDePaciente(paciente).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
-    const activas    = todas.filter(function(f){ var e=(f.estado||'').toLowerCase(); return e==='pendiente'||e==='pending'||e==='parcial'||e==='partial'; });
-    const pagadas    = todas.filter(function(f){ var e=(f.estado||'').toLowerCase(); return e==='pagada'||e==='paid'; });
-    const canceladas = todas.filter(function(f){ var e=(f.estado||'').toLowerCase(); return e==='cancelada'||e==='cancelled'; });
+    const todas      = getFacturasDePaciente(paciente).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+    const activas    = todas.filter(f=>{ const e=(f.estado||'').toLowerCase(); return e==='pendiente'||e==='pending'||e==='parcial'||e==='partial'; });
+    const pagadas    = todas.filter(f=>{ const e=(f.estado||'').toLowerCase(); return e==='pagada'||e==='paid'; });
+    const canceladas = todas.filter(f=>{ const e=(f.estado||'').toLowerCase(); return e==='cancelada'||e==='cancelled'; });
 
     const balance       = calcularBalancePaciente(paciente.nombre);
-    const totalCotizado = todas.reduce(function(s,f){ return s+f.total; }, 0);
-    const totalPagado   = todas.reduce(function(s,f){ return s+(f.pagos||[]).reduce(function(sp,p){ return sp+p.monto; },0); }, 0);
+    const totalCotizado = todas.reduce((s,f)=>s+f.total,0);
+    const totalPagado   = todas.reduce((s,f)=>s+(f.pagos||[]).reduce((sp,p)=>sp+p.monto,0),0);
 
-    function estadoPill(f) {
-        var e = (f.estado||'').toLowerCase();
-        var pagadoF = (f.pagos||[]).reduce(function(s,p){ return s+p.monto; },0);
-        if (e==='pagada'||e==='paid')         return { label:'✅ Pagada',    color:'#28a745' };
-        if (e==='cancelada'||e==='cancelled') return { label:'❌ Cancelada', color:'#999'    };
-        if (pagadoF>0)                        return { label:'⏳ Con abono', color:'#ff9500' };
-        return                                       { label:'🔴 Pendiente', color:'#ff3b30' };
+    function pill(f) {
+        const e=( f.estado||'').toLowerCase();
+        const paid=(f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        if(e==='pagada'||e==='paid')         return {label:'✅ Pagada',    color:'#28a745'};
+        if(e==='cancelada'||e==='cancelled') return {label:'❌ Cancelada', color:'#999'};
+        if(paid>0)                           return {label:'⏳ Con abono', color:'#ff9500'};
+        return                                      {label:'🔴 Pendiente', color:'#ff3b30'};
     }
 
-    function renderCotizCard(f, collapsed) {
-        var pill      = estadoPill(f);
-        var pagadoF   = (f.pagos||[]).reduce(function(s,p){ return s+p.monto; },0);
-        var pendienteF = f.total - pagadoF;
-        var pagada    = pendienteF <= 0;
-        var bodyId    = 'cotizBody_' + f.id;
-        var bodyDisplay = collapsed ? 'none' : 'block';
+    function cotizCard(f, collapsed) {
+        const p       = pill(f);
+        const paid    = (f.pagos||[]).reduce((s,pg)=>s+pg.monto,0);
+        const pending = f.total - paid;
+        const isDone  = pending <= 0;
+        const bodyId  = 'cb_' + f.id;
 
-        var labVinculado = (appData.laboratorios||[]).filter(function(o){
-            return o.facturaId === f.id || (f.ordenesLab||[]).find(function(ol){ return ol.id===o.id; });
-        });
+        const procs = (f.procedimientos||[]).map(pr=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f5f5f5;">
+                <span style="font-size:13px;color:#444;">${escapeHtml(pr.descripcion)}${pr.cantidad>1?` ×${pr.cantidad}`:''}${pr.diente?` <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 ${pr.diente}</span>`:''}</span>
+                <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">${formatCurrency(pr.precioUnitario*(pr.cantidad||1))}</span>
+            </div>`).join('');
 
-        var labHTML = labVinculado.length === 0 ? '' : labVinculado.map(function(o){
-            return '<div style="display:flex;justify-content:space-between;align-items:center;'
-                + 'background:rgba(91,110,128,.06);border-radius:10px;padding:9px 12px;margin-bottom:6px;">'
-                + '<div>'
-                + '<div style="font-size:12px;font-weight:500;color:#333;">🔬 ' + o.tipo + (o.dientes?' · Diente '+o.dientes:'') + '</div>'
-                + '<div style="font-size:11px;color:#999;margin-top:2px;">' + o.laboratorio + ' · ' + formatDate(o.fechaCreacion) + '</div>'
-                + '</div>'
-                + '<div style="text-align:right;flex-shrink:0;margin-left:10px;">'
-                + '<div style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;'
-                + 'background:' + getColorEstado(o.estadoActual) + '22;color:' + getColorEstado(o.estadoActual) + ';margin-bottom:3px;">' + o.estadoActual + '</div>'
-                + '<div style="font-size:12px;font-weight:600;color:#333;">' + formatCurrency(o.precio) + '</div>'
-                + '</div></div>';
-        }).join('');
+        const labs = (appData.laboratorios||[]).filter(o=>o.facturaId===f.id||(f.ordenesLab||[]).find(ol=>ol.id===o.id));
+        const labsHtml = labs.length===0?'':labs.map(o=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(91,110,128,.06);border-radius:10px;padding:9px 12px;margin-bottom:6px;">
+                <div>
+                    <div style="font-size:12px;font-weight:500;color:#333;">🔬 ${escapeHtml(o.tipo)}${o.dientes?' · Diente '+o.dientes:''}</div>
+                    <div style="font-size:11px;color:#999;margin-top:2px;">${escapeHtml(o.laboratorio)} · ${formatDate(o.fechaCreacion)}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;margin-left:10px;">
+                    <div style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;background:${getColorEstado(o.estadoActual)}22;color:${getColorEstado(o.estadoActual)};margin-bottom:3px;">${o.estadoActual}</div>
+                    <div style="font-size:12px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
+                </div>
+            </div>`).join('');
 
-        var procsHTML = (f.procedimientos||[]).map(function(p){
-            var dientePill = p.diente ? ' <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 '+p.diente+'</span>' : '';
-            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f5f5f5;">'
-                + '<span style="font-size:13px;color:#444;">' + p.descripcion + (p.cantidad>1?' ×'+p.cantidad:'') + dientePill + '</span>'
-                + '<span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">' + formatCurrency(p.precioUnitario*(p.cantidad||1)) + '</span>'
-                + '</div>';
-        }).join('');
+        const pagosHtml = (f.pagos||[]).length===0?'':`
+            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>
+                ${(f.pagos||[]).map(pg=>`
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">${pg.metodo||'Efectivo'}</span>
+                        <span style="font-size:11px;color:#999;">${pg.fecha?new Date(pg.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}):''}</span>
+                    </div>
+                    <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(pg.monto)}</span>
+                </div>`).join('')}
+            </div>`;
 
-        var pagosHTML = (f.pagos||[]).length===0 ? '' :
-            '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">'
-            + '<div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>'
-            + (f.pagos||[]).map(function(p){
-                var fecha = p.fecha ? new Date(p.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}) : '';
-                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">'
-                    + '<div style="display:flex;align-items:center;gap:6px;">'
-                    + '<span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">' + (p.metodo||'Efectivo') + '</span>'
-                    + '<span style="font-size:11px;color:#999;">' + fecha + '</span>'
-                    + '</div>'
-                    + '<span style="font-size:13px;font-weight:600;color:#28a745;">+' + formatCurrency(p.monto) + '</span>'
-                    + '</div>';
-            }).join('') + '</div>';
+        const descHtml = f.descuento>0?`
+            <div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">
+                <span style="font-size:12px;">Descuento ${f.descuento}%</span>
+                <span style="font-size:12px;">-${formatCurrency(f.total/(1-f.descuento/100)*(f.descuento/100))}</span>
+            </div>`:'';
 
-        var descHTML = f.descuento>0
-            ? '<div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">'
-            + '<span style="font-size:12px;">Descuento ' + f.descuento + '%</span>'
-            + '<span style="font-size:12px;">-' + formatCurrency(f.total/(1-f.descuento/100)*(f.descuento/100)) + '</span>'
-            + '</div>' : '';
+        // Buttons use data-fid attribute — onclick wired after render via delegation
+        const cobrarBtn = (!isDone && canCobrar)
+            ? `<button data-action="cobrar" data-fid="${f.id}" style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;">💳 Cobrar</button>` : '';
+        const enviarBtn = (!isDone && canCobrar)
+            ? `<button data-action="enviar" data-fid="${f.id}" style="width:100%;margin-top:8px;padding:9px;background:transparent;color:var(--topo);border:1px solid rgba(30,28,26,.12);border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;">📱 Enviar cotización al paciente</button>` : '';
 
-        var cobrarBtn = (!pagada && canCobrar)
-            ? '<button onclick="openPagarFactura('' + f.id + '')" '
-            + 'style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);'
-            + 'color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;'
-            + 'font-family:inherit;cursor:pointer;">💳 Cobrar</button>' : '';
-
-        var enviarBtn = (!pagada && canCobrar)
-            ? '<button onclick="verComprobantesFactura('' + f.id + '')" '
-            + 'style="width:100%;margin-top:8px;padding:9px;background:transparent;'
-            + 'color:var(--topo);border:1px solid rgba(30,28,26,.12);border-radius:100px;'
-            + 'font-size:12px;font-family:inherit;cursor:pointer;">📱 Enviar cotización al paciente</button>' : '';
-
-        return '<div style="background:white;border-radius:14px;border:1.5px solid ' + pill.color + '33;'
-            + 'margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);">'
-            + '<div onclick="var b=document.getElementById('' + bodyId + '');b.style.display=b.style.display==='none'?'block':'none';" '
-            + 'style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f5f5f5;">'
-            + '<div>'
-            + '<div style="font-size:12px;color:#999;margin-bottom:2px;">' + f.numero + ' · ' + formatDate(f.fecha) + '</div>'
-            + '<div style="font-size:13px;color:#555;">' + f.profesional + (f.citaMotivo?' · '+f.citaMotivo:'') + '</div>'
-            + '</div>'
-            + '<div style="text-align:right;">'
-            + '<div style="font-size:11px;font-weight:600;color:' + pill.color + ';background:' + pill.color + '18;padding:3px 10px;border-radius:100px;margin-bottom:4px;">' + pill.label + '</div>'
-            + '<div style="font-size:16px;font-weight:700;color:' + pill.color + ';">' + (pagada ? formatCurrency(f.total) : formatCurrency(pendienteF)+' pendiente') + '</div>'
-            + '</div></div>'
-            + '<div id="' + bodyId + '" style="display:' + bodyDisplay + ';padding:12px 16px;">'
-            + procsHTML
-            + (labHTML ? '<div style="margin-top:12px;"><div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Laboratorio</div>' + labHTML + '</div>' : '')
-            + descHTML
-            + '<div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">'
-            + '<span style="font-size:13px;color:#333;">Total</span>'
-            + '<span style="font-size:14px;color:#333;">' + formatCurrency(f.total) + '</span>'
-            + '</div>'
-            + pagosHTML
-            + cobrarBtn
-            + enviarBtn
-            + '</div></div>';
+        return `
+        <div style="background:white;border-radius:14px;border:1.5px solid ${p.color}33;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+            <div data-action="toggle" data-bid="${bodyId}" style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f5f5f5;">
+                <div>
+                    <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
+                    <div style="font-size:13px;color:#555;">${escapeHtml(f.profesional)}${f.citaMotivo?' · '+escapeHtml(f.citaMotivo):''}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:11px;font-weight:600;color:${p.color};background:${p.color}18;padding:3px 10px;border-radius:100px;margin-bottom:4px;">${p.label}</div>
+                    <div style="font-size:16px;font-weight:700;color:${p.color};">${isDone?formatCurrency(f.total):formatCurrency(pending)+' pendiente'}</div>
+                </div>
+            </div>
+            <div id="${bodyId}" style="display:${collapsed?'none':'block'};padding:12px 16px;">
+                ${procs}
+                ${labsHtml?`<div style="margin-top:12px;"><div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Laboratorio</div>${labsHtml}</div>`:''}
+                ${descHtml}
+                <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">
+                    <span style="font-size:13px;color:#333;">Total</span>
+                    <span style="font-size:14px;color:#333;">${formatCurrency(f.total)}</span>
+                </div>
+                ${pagosHtml}
+                ${cobrarBtn}
+                ${enviarBtn}
+            </div>
+        </div>`;
     }
 
-    var balanceHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">'
-        + '<div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">'
-        + '<div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cotizado</div>'
-        + '<div style="font-size:17px;font-weight:600;color:#333;">' + formatCurrency(totalCotizado) + '</div></div>'
-        + '<div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">'
-        + '<div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>'
-        + '<div style="font-size:17px;font-weight:600;color:#34c759;">' + formatCurrency(totalPagado) + '</div></div>'
-        + '<div style="background:' + (balance>0?'#fff3cd':'#d4edda') + ';border:1.5px solid ' + (balance>0?'#ffc107':'#28a745') + ';border-radius:12px;padding:14px;text-align:center;">'
-        + '<div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>'
-        + '<div style="font-size:17px;font-weight:700;color:' + (balance>0?'#856404':'#155724') + ';">' + formatCurrency(balance) + '</div></div></div>';
+    const balHtml = `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cotizado</div>
+                <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalCotizado)}</div>
+            </div>
+            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>
+                <div style="font-size:17px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
+            </div>
+            <div style="background:${balance>0?'#fff3cd':'#d4edda'};border:1.5px solid ${balance>0?'#ffc107':'#28a745'};border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>
+                <div style="font-size:17px;font-weight:700;color:${balance>0?'#856404':'#155724'};">${formatCurrency(balance)}</div>
+            </div>
+        </div>`;
 
-    var activasHTML = activas.length === 0 ? '' :
-        '<div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">EN CURSO (' + activas.length + ')</div>'
-        + activas.map(function(f){ return renderCotizCard(f, false); }).join('');
+    const secActivas    = activas.length===0?'':`<div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">EN CURSO (${activas.length})</div>${activas.map(f=>cotizCard(f,false)).join('')}`;
+    const secPagadas    = pagadas.length===0?'':`<div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-top:${activas.length?'24':'0'}px;margin-bottom:10px;">COMPLETADAS (${pagadas.length})</div>${pagadas.map(f=>cotizCard(f,true)).join('')}`;
+    const secCanceladas = canceladas.length===0?'':`<div style="font-size:10px;font-weight:600;color:#aaa;letter-spacing:1.5px;text-transform:uppercase;margin-top:16px;margin-bottom:10px;">CANCELADAS (${canceladas.length})</div>${canceladas.map(f=>cotizCard(f,true)).join('')}`;
+    const emptyHtml     = todas.length===0?`<div style="text-align:center;padding:48px 20px;color:#999;"><div style="font-size:48px;margin-bottom:12px;">📋</div><div style="font-size:16px;font-weight:500;margin-bottom:6px;">Sin tratamientos registrados</div><div style="font-size:13px;">Usa el botón de arriba para crear la primera cotización.</div></div>`:'';
+    const btnNueva      = canFacturar?`<button data-action="nueva-cotiz" data-pid="${paciente.id}" style="width:100%;padding:13px 16px;background:var(--clinic-color,#C4856A);color:white;border:none;border-radius:12px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;margin-bottom:20px;letter-spacing:.3px;box-shadow:0 2px 8px rgba(0,0,0,.12);">+ Nueva Cotización</button>`:'';
 
-    var pagadasHTML = pagadas.length === 0 ? '' :
-        '<div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-top:' + (activas.length>0?'24':'0') + 'px;margin-bottom:10px;">COMPLETADAS (' + pagadas.length + ')</div>'
-        + pagadas.map(function(f){ return renderCotizCard(f, true); }).join('');
+    const container = document.getElementById('tabTratamientos');
+    container.innerHTML = btnNueva + balHtml + emptyHtml + secActivas + secPagadas + secCanceladas;
 
-    var canceladasHTML = canceladas.length === 0 ? '' :
-        '<div style="font-size:10px;font-weight:600;color:#aaa;letter-spacing:1.5px;text-transform:uppercase;margin-top:16px;margin-bottom:10px;">CANCELADAS (' + canceladas.length + ')</div>'
-        + canceladas.map(function(f){ return renderCotizCard(f, true); }).join('');
-
-    var emptyHTML = todas.length === 0
-        ? '<div style="text-align:center;padding:48px 20px;color:#999;">'
-        + '<div style="font-size:48px;margin-bottom:12px;">📋</div>'
-        + '<div style="font-size:16px;font-weight:500;margin-bottom:6px;">Sin tratamientos registrados</div>'
-        + '<div style="font-size:13px;">Usa el botón de arriba para crear la primera cotización.</div>'
-        + '</div>' : '';
-
-    var btnNueva = canFacturar
-        ? '<button onclick="nuevaCotizacionParaPaciente('' + paciente.id + '')" '
-        + 'style="width:100%;padding:13px 16px;background:var(--clinic-color,#C4856A);color:white;'
-        + 'border:none;border-radius:12px;font-size:14px;font-weight:500;font-family:inherit;'
-        + 'cursor:pointer;margin-bottom:20px;letter-spacing:.3px;box-shadow:0 2px 8px rgba(0,0,0,.12);">'
-        + '+ Nueva Cotización</button>' : '';
-
-    document.getElementById('tabTratamientos').innerHTML = btnNueva + balanceHTML + emptyHTML + activasHTML + pagadasHTML + canceladasHTML;
+    // Wire clicks via event delegation — zero inline JS
+    container.addEventListener('click', function handler(e) {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action==='nueva-cotiz') nuevaCotizacionParaPaciente(btn.dataset.pid);
+        if (action==='cobrar')      openPagarFactura(btn.dataset.fid);
+        if (action==='enviar')      verComprobantesFactura(btn.dataset.fid);
+        if (action==='toggle')      { const b=document.getElementById(btn.dataset.bid); if(b) b.style.display=b.style.display==='none'?'block':'none'; }
+        container.removeEventListener('click', handler); // re-registers on next render
+        // Re-add after first click so delegation stays alive
+        container.addEventListener('click', handler);
+    });
 }
 
 function renderTabRecetas(paciente) {
