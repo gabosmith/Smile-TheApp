@@ -999,35 +999,35 @@ body {
       <div class="step-sub">Agrega los módulos que necesites. NCF · DGII y expediente clínico van incluidos en el plan base. Puedes cambiarlos en cualquier momento.</div>
 
       <div class="modules-mini" id="modulesMini">
-        <div class="module-mini" data-price="300" data-name="Laboratorio" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="5" data-name="Laboratorio" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--pizarra)"></div>
           <div class="module-mini-name">Laboratorio</div>
-          <div class="module-mini-price">+RD$300</div>
+          <div class="module-mini-price">+USD $5</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="300" data-name="Nómina" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="5" data-name="Nómina" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--azul)"></div>
           <div class="module-mini-name">Nómina</div>
-          <div class="module-mini-price">+RD$300</div>
+          <div class="module-mini-price">+USD $5</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="300" data-name="Inventario" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="5" data-name="Inventario" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--rosa)"></div>
           <div class="module-mini-name">Inventario</div>
-          <div class="module-mini-price">+RD$300</div>
+          <div class="module-mini-price">+USD $5</div>
           <div class="module-mini-check">✓</div>
         </div>
 
-        <div class="module-mini" data-price="300" data-name="Reportes avanzados" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="5" data-name="Reportes avanzados" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--pizarra)"></div>
           <div class="module-mini-name">Reportes avanzados</div>
-          <div class="module-mini-price">+RD$300</div>
+          <div class="module-mini-price">+USD $5</div>
           <div class="module-mini-check">✓</div>
         </div>
-        <div class="module-mini" data-price="800" data-name="Sucursal adicional" onclick="toggleModuleMini(this)">
+        <div class="module-mini" data-price="15" data-name="Sucursal adicional" onclick="toggleModuleMini(this)">
           <div class="module-mini-dot" style="background:var(--azul)"></div>
           <div class="module-mini-name">Sucursal adicional</div>
-          <div class="module-mini-price">+RD$800</div>
+          <div class="module-mini-price">+USD $15</div>
           <div class="module-mini-check">✓</div>
         </div>
 
@@ -1036,16 +1036,16 @@ body {
       <div class="summary-box">
         <div class="summary-row">
           <span>Plan base</span>
-          <span>RD$1,200</span>
+          <span>USD $23</span>
         </div>
         <div id="module-summary-rows"></div>
         <div class="summary-row">
           <span>Usuarios adicionales (<span id="extra-users-count">0</span>)</span>
-          <span id="extra-users-price">RD$0</span>
+          <span id="extra-users-price">USD $0</span>
         </div>
         <div class="summary-total">
           <span>Total mensual</span>
-          <span id="step4-total">RD$1,200</span>
+          <span id="step4-total">USD $23</span>
         </div>
       </div>
 
@@ -1267,7 +1267,7 @@ const state = {
   subdomain: '',
   ciudad: '',
   pais: '',
-  moneda: 'RD$',
+  moneda: 'USD $',
   locale: 'es-DO',
   adminName: '',
   adminEmail: '',
@@ -1654,8 +1654,8 @@ function toggleModuleMini(el) {
 }
 
 function updateStep4Totals() {
-  const BASE = 1200;
-  const EXTRA_USER_PRICE = 150;
+  const BASE = state.plan === 'solo' ? 19 : 23;
+  const EXTRA_USER_PRICE = 2.5;
   const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
   const extraUsers = Math.max(0, totalUsers - 1);
   const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
@@ -1665,16 +1665,16 @@ function updateStep4Totals() {
 
   // Update extra users row
   document.getElementById('extra-users-count').textContent = extraUsers;
-  const M = state.moneda || 'RD$';
-  document.getElementById('extra-users-price').textContent = M + extraUsersCost.toLocaleString();
+  const fmt = n => 'USD $' + (n % 1 === 0 ? n : n.toFixed(2));
+  document.getElementById('extra-users-price').textContent = fmt(extraUsersCost);
 
   // Update module rows
   const rows = state.modules.map(m =>
-    `<div class="summary-row"><span>${m.name}</span><span>+${M}${m.price.toLocaleString()}</span></div>`
+    `<div class="summary-row"><span>${m.name}</span><span>+USD $${m.price}</span></div>`
   ).join('');
   document.getElementById('module-summary-rows').innerHTML = rows;
 
-  document.getElementById('step4-total').textContent = M + total.toLocaleString();
+  document.getElementById('step4-total').textContent = fmt(total);
 }
 
 // ─── STEP 5: FINAL SUMMARY ────────────────────────────
@@ -1693,17 +1693,17 @@ function buildFinalSummary() {
   if (wcEl) state.waCargo    = wcEl.value         || state.waCargo;
   if (wpEl) state.waPhone    = wpEl.value.trim()  || state.waPhone;
 
-  const BASE = 1200;
-  const EXTRA_USER_PRICE = 150;
+  const BASE = state.plan === 'solo' ? 19 : 23;
+  const EXTRA_USER_PRICE = 2.5;
   const totalUsers = (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0);
   const extraUsers = Math.max(0, totalUsers - 1);
   const extraUsersCost = extraUsers * EXTRA_USER_PRICE;
   const modulesTotal = state.modules.reduce((s, m) => s + m.price, 0);
   const total = BASE + modulesTotal + extraUsersCost;
-  const M = state.moneda || 'RD$';
+  const fmt = n => 'USD $' + (n % 1 === 0 ? n : n.toFixed(2));
 
   const moduleRows = state.modules.map(m =>
-    `<div class="summary-row"><span>+ ${m.name}</span><span>${M}${m.price.toLocaleString()}</span></div>`
+    `<div class="summary-row"><span>+ ${m.name}</span><span>USD $${m.price}</span></div>`
   ).join('');
 
   document.getElementById('final-summary').innerHTML = `
@@ -1932,7 +1932,7 @@ async function activateClinic() {
         nombre: state.clinicName,
         ciudad: state.ciudad || '',
         pais: state.pais || '',
-        moneda: state.moneda || 'RD$',
+        moneda: 'USD $',
         locale: state.locale || 'es-DO',
         color: state.color || '#C4856A',
         logoPositivo: state.logoPositivo || null,
@@ -1984,7 +1984,7 @@ async function activateClinic() {
     urlEl.dataset.fullUrl = appUrl;
     const btnIr = document.getElementById('btnIrClinica');
     btnIr.style.display = 'block';
-    btnIr.onclick = () => window.open(appUrl, '_blank');
+    btnIr.onclick = () => window.location.href = appUrl;
 
     // Build success details — clear login instructions
     document.getElementById('successDetails').innerHTML = `
@@ -1995,7 +1995,7 @@ async function activateClinic() {
       <div class="success-detail-card" style="grid-column:1/-1;border:none;box-shadow:var(--neu-pizarra);background:rgba(125,142,160,.07)">
         <div class="sd-label">🔗 Cómo entrar a tu clínica</div>
         <div style="font-size:13px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Abre <strong style="color:var(--topo)">app.html</strong> (o el link de abajo), escribe el ID de tu clínica y tu PIN.
+          Usa el botón <strong style="color:var(--topo)">Entrar a mi clínica →</strong> de arriba o el enlace que copiaste. Solo necesitas tu PIN para entrar.
         </div>
       </div>
 
@@ -2016,7 +2016,7 @@ async function activateClinic() {
 
       <div class="success-detail-card">
         <div class="sd-label">💳 Plan mensual</div>
-        <div class="sd-val" style="color:var(--pizarra)">${state.plan === 'solo' ? '$19 USD' : (state.moneda || 'RD$') + total.toLocaleString()}</div>
+        <div class="sd-val" style="color:var(--pizarra)">USD $${(() => { const b = state.plan === 'solo' ? 19 : 23; const m = (state.modules||[]).reduce((s,x)=>s+x.price,0); return b+m; })()}</div>
       </div>
 
       <div class="success-detail-card" style="grid-column:1/-1;background:var(--surface);border:none">
