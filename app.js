@@ -4174,10 +4174,10 @@ let currentPacienteId = null;
 // ── PAGINACIÓN DE PACIENTES ───────────────────────────────
 // Evita renderizar miles de pacientes de golpe en el DOM.
 // Solo muestra PAC_PAGE_SIZE a la vez, con carga progresiva al hacer scroll.
-const PAC_PAGE_SIZE = 50;
-let _pacCurrentPage   = 0;
-let _pacFiltrados     = [];   // lista filtrada activa
-let _pacSearchTimer   = null; // debounce timer
+var PAC_PAGE_SIZE = 50;
+var _pacCurrentPage   = 0;
+var _pacFiltrados     = [];
+var _pacSearchTimer   = null;
 
 function updatePacientesTab() {
     const lista = document.getElementById('listaPacientes');
