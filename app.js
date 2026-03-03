@@ -1699,6 +1699,10 @@ function agregarProcedimiento() {
         tempProcedimientos.push(proc);
         updateProcedimientosList();
     }
+
+    // Sync tooth state to odontogram when a diente number was provided
+    if (diente) registrarProcedimientoEnOdontograma(diente, desc);
+
     closeModal('modalAddProcedimiento');
 }
 
@@ -5093,6 +5097,77 @@ async function guardarEstadoDiente() {
         showError('Error al guardar el odontograma.', e);
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGISTRAR PROCEDIMIENTO EN ODONTOGRAMA
+// Cuando se agrega un procedimiento con número de diente, actualiza el
+// odontograma del paciente actual automáticamente.
+// Mapea keywords de la descripción a estados del odontograma.
+// Si no hay match claro → solo agrega nota sin cambiar estado visual.
+// ═══════════════════════════════════════════════════════════════════════════
+function registrarProcedimientoEnOdontograma(numeroDiente, descripcion) {
+    if (!numeroDiente || !currentPacienteId) return;
+
+    const num = parseInt(numeroDiente);
+    if (isNaN(num)) return;
+
+    const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+    if (!paciente) return;
+    if (!paciente.odontograma) paciente.odontograma = {};
+
+    const desc = (descripcion || '').toLowerCase();
+
+    // Keyword → estado mapping
+    // Only change estado when description is unambiguous
+    const KEYWORD_ESTADO = [
+        { keys: ['corona', 'pfm', 'porcelana', 'cerámica', 'zirconia', 'zirconio'], estado: 'corona'     },
+        { keys: ['implante', 'implantar'],                                           estado: 'implante'   },
+        { keys: ['exodoncia', 'extracción', 'extraccion', 'extraer', 'extraído'],    estado: 'extraccion' },
+        { keys: ['caries', 'cavidad'],                                               estado: 'caries'     },
+        { keys: ['resina', 'obturación', 'obturacion', 'amalgama', 'composite',
+                  'relleno', 'restauración', 'restauracion', 'sellante'],            estado: 'sano'       },
+    ];
+
+    let nuevoEstado = null;
+    for (const map of KEYWORD_ESTADO) {
+        if (map.keys.some(k => desc.includes(k))) {
+            nuevoEstado = map.estado;
+            break;
+        }
+    }
+
+    const existing = paciente.odontograma[num] || { estado: 'sano' };
+
+    // Don't downgrade a more specific state (e.g. don't set 'sano' if already 'corona')
+    const ESTADO_RANK = { sano: 0, caries: 1, extraccion: 2, corona: 3, implante: 4, ausente: 5 };
+    const currentRank = ESTADO_RANK[existing.estado] ?? 0;
+    const newRank     = nuevoEstado ? (ESTADO_RANK[nuevoEstado] ?? 0) : -1;
+
+    const shouldChangeEstado = nuevoEstado && newRank >= currentRank;
+
+    paciente.odontograma[num] = {
+        estado:      shouldChangeEstado ? nuevoEstado : existing.estado,
+        nota:        descripcion || existing.nota || null,
+        fecha:       new Date().toISOString(),
+        profesional: appData.currentUser
+    };
+
+    // Update visual immediately if odontograma tab is currently visible
+    const dienteEl = document.getElementById('diente-' + num);
+    if (dienteEl && shouldChangeEstado) {
+        const cfg = ODONTO_ESTADOS[nuevoEstado] || ODONTO_ESTADOS.sano;
+        dienteEl.style.background   = cfg.color;
+        dienteEl.style.borderColor  = cfg.border;
+        dienteEl.style.color        = cfg.text;
+        dienteEl.textContent        = cfg.symbol || '';
+        dienteEl.style.transform    = 'scale(1.3)';
+        setTimeout(() => { dienteEl.style.transform = 'scale(1)'; }, 200);
+    }
+
+    savePaciente(paciente);
+}
+
+
 
 function renderTabResumen(paciente) {
     // Calcular edad
