@@ -127,7 +127,7 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda              = cfg.moneda              || 'RD$';
+        clinicConfig.moneda              = (cfg.moneda === 'USD' ? 'US$' : cfg.moneda) || 'RD$';
         clinicConfig.locale              = cfg.locale              || getLocale();
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
@@ -1594,9 +1594,11 @@ function showTab(tabName) {
 
 // Currency format
 function formatCurrency(amount) {
-    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
-    const locale  = (typeof clinicConfig !== 'undefined' && clinicConfig.locale)  ? clinicConfig.locale  : getLocale();
-    return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    // 'USD' is a legacy value that may exist in old clinic configs — normalize to 'US$'
+    const rawMoneda = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
+    const simbolo   = rawMoneda === 'USD' ? 'US$' : rawMoneda;
+    const locale    = (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : getLocale();
+    return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 // ── Locale helper ───────────────────────────────────────
@@ -3742,10 +3744,13 @@ async function guardarIdentidadClinica() {
     try {
         const monedaVal = document.getElementById('configMoneda')?.value || clinicConfig.moneda || 'RD$';
         const LOCALES_MONEDA = {
-            '$': 'es-MX', 'RD$': 'es-DO', 'R$': 'pt-BR', 'S/': 'es-PE',
-            'Q': 'es-GT', 'L': 'es-HN', 'C$': 'es-NI', 'B/.': 'es-PA',
-            '₡': 'es-CR', 'Bs': 'es-BO', '₲': 'es-PY', 'Bs.': 'es-VE',
-            '€': 'es-ES', '£': 'en-GB',
+            'RD$':  'es-DO', 'US$':  'en-US', 'MX$':  'es-MX',
+            'COP$': 'es-CO', 'CLP$': 'es-CL', 'ARS$': 'es-AR',
+            'UYU$': 'es-UY', 'S/':   'es-PE', 'R$':   'pt-BR',
+            'Q':    'es-GT', 'L':    'es-HN', 'C$':   'es-NI',
+            'B/.':  'es-PA', '₡':    'es-CR', 'Bs':   'es-BO',
+            '₲':    'es-PY', 'Bs.':  'es-VE', '€':    'es-ES',
+            '£':    'en-GB', '$':    'es-MX',
         };
         const localeVal = LOCALES_MONEDA[monedaVal] || 'es-419';
 
