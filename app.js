@@ -127,7 +127,7 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda              = cfg.moneda              || 'USD $';
+        clinicConfig.moneda              = cfg.moneda              || 'RD$';
         clinicConfig.locale              = cfg.locale              || getLocale();
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
@@ -193,12 +193,71 @@ async function loadClinicBranding() {
         const logoSrc = cfg.logoPositivo || cfg.logoNegativo || cfg.logoUrl || null;
         applyLogoEverywhere(logoSrc, cfg.nombre || '');
 
-        // ── Block access if clinic is paused ──
-        if (cfg.activa === false) {
+        // ── Block / warn based on subscription state ──────────────────
+        // Priority: paused manually > subscription deleted > grace period > trial expired
+        const ahora = new Date();
+        const trialVencido = clinicConfig.trialHasta
+            ? (ahora >= new Date(clinicConfig.trialHasta))
+            : false;
+        const enGracia = cfg.gracePeriodHasta
+            ? (ahora < new Date(cfg.gracePeriodHasta))
+            : false;
+        const graceDias = cfg.gracePeriodHasta
+            ? Math.ceil((new Date(cfg.gracePeriodHasta) - ahora) / (1000 * 60 * 60 * 24))
+            : 0;
+
+        function _bloquearApp(icono, titulo, subtitulo) {
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('appContainer').style.display = 'none';
-            const card = document.querySelector('.login-card');
-            if (card) card.innerHTML = '<div style="text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:16px">🔒</div><div style="font-weight:600;font-size:18px;margin-bottom:8px">Cuenta pausada</div><div style="color:#666;font-size:14px">Contacta a SMILE para reactivar tu clínica.</div></div>';
+            const hero = document.getElementById('lsBrandHero');
+            const panel = document.getElementById('lsPhaseUsers') || document.getElementById('lsPhasePIN');
+            // Replace login content with block screen
+            const loginScreen = document.getElementById('loginScreen');
+            loginScreen.innerHTML = `
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;
+                            justify-content:center;padding:40px 24px;background:var(--sand);text-align:center;">
+                    <div style="font-size:56px;margin-bottom:20px">${icono}</div>
+                    <div style="font-size:22px;font-weight:300;color:var(--topo);margin-bottom:10px;letter-spacing:-0.5px">${titulo}</div>
+                    <div style="font-size:14px;color:var(--piedra);line-height:1.7;max-width:300px;margin-bottom:32px">${subtitulo}</div>
+                    <a href="https://wa.me/?text=${encodeURIComponent('Hola SMILE, necesito ayuda con mi clínica: ' + (CLINIC_PATH || ''))}"
+                       target="_blank"
+                       style="padding:14px 28px;background:var(--pizarra);color:white;border-radius:100px;
+                              text-decoration:none;font-size:11px;letter-spacing:2px;text-transform:uppercase;
+                              font-family:inherit;font-weight:500;">
+                        💬 Contactar soporte
+                    </a>
+                </div>`;
+        }
+
+        // 1. Manually paused by SMILE admin
+        if (cfg.activa === false) {
+            _bloquearApp('🔒', 'Cuenta pausada', 'Tu clínica ha sido pausada. Contacta a SMILE para reactivarla.');
+            return;
+        }
+
+        // 2. Subscription deleted by Stripe (non-payment after grace period)
+        if (cfg.suspendida === true && cfg.subscripcionActiva === false) {
+            _bloquearApp('💳', 'Suscripción cancelada', 'Tu suscripción fue cancelada por falta de pago. Contacta a SMILE para reactivar tu cuenta.');
+            return;
+        }
+
+        // 3. Payment failed — in grace period (7 days) — show banner but allow access
+        if (cfg.pagoPendiente === true && enGracia) {
+            clinicConfig.pagoPendiente = true;
+            clinicConfig.graceDias = graceDias;
+            // Banner shown after login via showGracePeriodBanner()
+        }
+
+        // 4. Payment failed — grace period expired
+        if (cfg.pagoPendiente === true && !enGracia && cfg.gracePeriodHasta) {
+            _bloquearApp('⏰', 'Período de gracia vencido', 'El período de gracia de tu cuenta venció. Contacta a SMILE para regularizar tu pago y reactivar el acceso.');
+            return;
+        }
+
+        // 5. Trial expired and no subscription
+        if (trialVencido && !cfg.subscripcionActiva && cfg.activa !== false) {
+            _bloquearApp('⏳', 'Período de prueba vencido', 'Tu período de prueba de 14 días ha terminado. Activa tu suscripción para seguir usando SMILE.');
+            return;
         }
 
     } catch(e) {
@@ -980,6 +1039,7 @@ window.addEventListener('load', async function() {
         return;
     }
 
+    console.log(`🏥 Clínica activa: ${CLINIC_PATH}`);
     initConnectionMonitor(); // ← Estado de conexión correcto desde el inicio
     await ensureFirebaseAuth(); // ← Auth ANTES de cualquier lectura Firestore
     await loadClinicBranding();
@@ -989,6 +1049,34 @@ window.addEventListener('load', async function() {
 });
 
 // ── PANTALLA DE ACCESO POR ID DE CLÍNICA ──────────────────────
+// ── GRACE PERIOD BANNER ─────────────────────────────────────────────────
+// Called after successful login if clinicConfig.pagoPendiente === true
+function showGracePeriodBanner() {
+    if (!clinicConfig.pagoPendiente) return;
+    const dias = clinicConfig.graceDias || 0;
+    const existing = document.getElementById('graceBanner');
+    if (existing) return;
+    const banner = document.createElement('div');
+    banner.id = 'graceBanner';
+    banner.innerHTML = `
+        <div style="background:#856404;color:white;padding:12px 20px;
+                    display:flex;align-items:center;justify-content:space-between;
+                    font-size:13px;gap:12px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:18px">⚠️</span>
+                <span>Pago pendiente — tienes <strong>${dias} día${dias !== 1 ? 's' : ''}</strong> para regularizar antes de que se bloquee el acceso.</span>
+            </div>
+            <a href="https://wa.me/?text=${encodeURIComponent('Hola SMILE, necesito regularizar el pago de mi clínica: ' + (CLINIC_PATH || ''))}"
+               target="_blank"
+               style="color:white;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;
+                      font-weight:600;text-decoration:none;white-space:nowrap;
+                      padding:6px 14px;border:1px solid rgba(255,255,255,.4);border-radius:100px;">
+                Contactar SMILE →
+            </a>
+        </div>`;
+    document.body.insertBefore(banner, document.body.firstChild);
+}
+
 function mostrarPantallaAcceso() {
     const overlay = document.getElementById('clinicAccessOverlay');
     if (overlay) overlay.style.display = 'flex';
@@ -1160,6 +1248,7 @@ async function migratePasswordIfNeeded(person, plaintext) {
         person.password    = hashed;
         person._pwHashed   = true;
         await saveData('saveData-init');
+        console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
     } catch(e) {
         console.warn('[Auth] No se pudo migrar contraseña:', e);
     }
@@ -1322,6 +1411,7 @@ async function ensureFirebaseAuth() {
         try {
             const cred = await intentarAuth();
             _firebaseAuthUid = cred.user.uid;
+            console.log(`[Auth] Firebase auth OK (intento ${intento}):`, _firebaseAuthUid);
             return;
         } catch(e) {
             console.warn(`[Auth] Intento ${intento}/3 fallido:`, e.message);
@@ -1454,6 +1544,9 @@ function logout() {
 async function showApp() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appContainer').style.display = 'block';
+
+    // Show grace period warning banner if payment is pending
+    showGracePeriodBanner();
 
     // Start network/Firebase connection monitor
     initConnectionMonitor();
@@ -1591,7 +1684,7 @@ function showTab(tabName) {
 
 // Currency format
 function formatCurrency(amount) {
-    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'USD $';
+    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
     const locale  = (typeof clinicConfig !== 'undefined' && clinicConfig.locale)  ? clinicConfig.locale  : getLocale();
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
@@ -3260,6 +3353,10 @@ Firma: _____________________
     }); // end mostrarConfirmacion
 }
 
+function compartirWhatsApp() {
+    const texto = encodeURIComponent(currentReciboText);
+    window.open(`https://wa.me/?text=${texto}`, '_blank');
+}
 
 // ── COMUNICACIÓN CON PACIENTE ────────────────────────────────────────────
 // Abre WhatsApp con mensaje predeterminado si hay teléfono, o genérico si no.
@@ -8909,6 +9006,11 @@ function generarVistaPrevia() {
     const totalDespuesFiltro = window.pacientesAImportar.length;
     const filtrados = totalAntesFiltro - totalDespuesFiltro;
 
+    console.log(`📊 Procesamiento CSV:
+    - Total filas: ${csvData.length}
+    - Pacientes creados: ${totalAntesFiltro}
+    - Con nombre y teléfono: ${totalDespuesFiltro}
+    - Filtrados (sin datos): ${filtrados}`);
 
     // Mostrar vista previa
     document.getElementById('paso3-preview').style.display = 'block';
@@ -8979,14 +9081,18 @@ function ejecutarImportacion() {
         tipo: 'normal',
         confirmText: 'Sí, Importar Ahora',
         onConfirm: async () => {
+            console.log(`🚀 Iniciando importación de ${window.pacientesAImportar.length} pacientes...`);
 
             // Agregar pacientes
             const cantidadAntes = appData.pacientes.length;
             appData.pacientes.push(...window.pacientesAImportar);
             const cantidadDespues = appData.pacientes.length;
 
+            console.log(`📥 Importación: ${cantidadAntes} → ${cantidadDespues} pacientes`);
+            console.log(`💾 Llamando a saveData()...`);
 
             await saveData();
+            console.log(`🔄 Actualizando tab de pacientes...`);
 
             // Actualizar tab de pacientes para reflejar los nuevos
             updatePacientesTab();
@@ -9164,8 +9270,12 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
+    console.log('📊 Debug abrirAbonoBalance:');
+    console.log('Paciente:', paciente.nombre);
     
     const todasFacturas = getFacturasDePaciente(paciente);
+    console.log('Total facturas del paciente:', todasFacturas.length);
+    console.log('Estados de facturas:', todasFacturas.map(f => ({ numero: f.numero, estado: f.estado })));
     
     // Encontrar factura más antigua pendiente (filtro robusto - ambos idiomas)
     const facturasPendientes = todasFacturas
@@ -9178,6 +9288,7 @@ function abrirAbonoBalance(pacienteId) {
         })
         .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
+    console.log('Facturas pendientes encontradas:', facturasPendientes.length);
     
     if (facturasPendientes.length === 0) {
         showToast('⚠️ No hay facturas pendientes para este paciente', 4000, '#e65100');
@@ -9185,6 +9296,7 @@ function abrirAbonoBalance(pacienteId) {
         return;
     }
     
+    console.log('Abriendo pago de factura:', facturasPendientes[0].numero);
     
     // Abrir pago de la factura más antigua
     closeModal('modalVerPaciente');
@@ -9246,7 +9358,7 @@ function renderMiPlanTab() {
     });
 
     const plan = clinicConfig.plan || 'clinica';
-    const basePrice = BASE_PRECIOS[plan] || 23;
+    const basePrice = BASE_PRECIOS[plan] || 1200;
     const activosActuales = [...(clinicConfig.modulos || [])];
     const hasta = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
     const diasTrial = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / (1000*60*60*24))) : 0;

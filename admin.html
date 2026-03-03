@@ -17,7 +17,7 @@
     --sand:     #EEEAE4;
     --sand-lt:  #F7F4EF;
     --white:    #FDFCFB;
-    --topo:     #6B635C;
+    --topo:     var(--muted);
     --piedra:   #A89F96;
     --muted:    #C8C2BB;
     --carbon:   #3A3532;
@@ -601,6 +601,7 @@ async function initApp() {
   try {
     const auth = firebase.auth();
     if (!auth.currentUser) await auth.signInAnonymously();
+    console.log('[Admin] Firebase auth OK — UID:', firebase.auth().currentUser?.uid);
   } catch(e) {
     console.warn('[Admin] Firebase auth warning:', e.message);
     showToast('⚠️ Auth: ' + e.message, 5000, '#c0392b');
@@ -655,6 +656,11 @@ async function loadClinicas() {
         modulos: config.modulos || [],
         activa: config.activa !== false,
         exonerada: config.exonerada === true,
+        suspendida: config.suspendida === true,
+        pagoPendiente: config.pagoPendiente === true,
+        subscripcionActiva: config.subscripcionActiva === true,
+        gracePeriodHasta: config.gracePeriodHasta || null,
+        proximoPago: config.proximoPago || null,
         trial: config.trialHasta ? new Date(config.trialHasta) > new Date() : false,
         trialHasta: config.trialHasta || null,
         adminEmail: config.adminEmail || '—',
@@ -749,8 +755,16 @@ function renderContactos(main) {
     </button>`).join('');
 
   const cards = lista.map(c => {
-    const statusColor = c.trial ? '#C4856A' : c.activa ? '#3a9e5f' : '#999';
-    const statusLabel = c.trial ? 'Trial' : c.activa ? 'Activa' : 'Pausada';
+    const statusColor = c.trial ? '#C4856A'
+      : !c.activa ? '#999'
+      : c.raw?.config?.suspendida ? '#c0392b'
+      : c.raw?.config?.pagoPendiente ? '#e67e22'
+      : '#3a9e5f';
+    const statusLabel = c.trial ? 'Trial'
+      : !c.activa ? 'Pausada'
+      : c.raw?.config?.suspendida ? 'Suspendida'
+      : c.raw?.config?.pagoPendiente ? 'Pago pendiente'
+      : 'Activa';
     const waLink = c.waPhone
       ? `https://wa.me/1${c.waPhone.replace(/[^0-9]/g,'')}`
       : null;
@@ -1020,12 +1034,37 @@ function openClinicDetail(id) {
       </div>
       <div class="detail-card">
         <div class="detail-label">Estado</div>
-        <div class="detail-val">${c.trial ? '🟡 Trial' : c.activa ? '🟢 Activa' : '🔴 Pausada'}</div>
+        <div class="detail-val">${
+          c.trial ? '🟡 Trial'
+          : !c.activa ? '🔴 Pausada'
+          : c.raw?.config?.suspendida ? '🔴 Suspendida (Stripe)'
+          : c.raw?.config?.pagoPendiente ? '🟠 Pago pendiente'
+          : '🟢 Activa'
+        }</div>
       </div>
       <div class="detail-card">
         <div class="detail-label">Trial vence</div>
         <div class="detail-val" style="font-size:13px">${c.trialHasta ? new Date(c.trialHasta).toLocaleDateString('es-DO', {day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
       </div>
+      <div class="detail-card">
+        <div class="detail-label">Suscripción Stripe</div>
+        <div class="detail-val" style="font-size:13px">${
+          c.subscripcionActiva ? '🟢 Activa' :
+          c.suspendida ? '🔴 Cancelada por Stripe' :
+          c.pagoPendiente ? '🟠 Pago fallido' :
+          '— Sin suscripción'
+        }</div>
+      </div>
+      ${c.proximoPago ? `
+      <div class="detail-card">
+        <div class="detail-label">Próximo cobro</div>
+        <div class="detail-val" style="font-size:13px">${new Date(c.proximoPago).toLocaleDateString('es-DO', {day:'numeric',month:'short',year:'numeric'})}</div>
+      </div>` : ''}
+      ${c.pagoPendiente && c.gracePeriodHasta ? `
+      <div class="detail-card" style="background:rgba(230,126,34,.08);border:1px solid rgba(230,126,34,.2)">
+        <div class="detail-label" style="color:#e67e22">⚠ Gracia vence</div>
+        <div class="detail-val" style="font-size:13px;color:#e67e22">${new Date(c.gracePeriodHasta).toLocaleDateString('es-DO', {day:'numeric',month:'short',year:'numeric'})}</div>
+      </div>` : ''}
       <div class="detail-card" id="plan-cambio-card-${c.id}" style="display:${c.raw?.config?.planModificadoEn ? 'block' : 'none'}">
         <div class="detail-label">Plan modificado</div>
         <div class="detail-val" style="font-size:12px;color:var(--terra)">${c.raw?.config?.planModificadoEn ? '⚠ Cambio pendiente de procesar' : ''}</div>
@@ -1455,6 +1494,10 @@ async function adminHashPin(clinicId, pin) {
   return adminSha256(clinicId + ':' + pin);
 }
 
+function getDefaultPersonal(clinicNombre) {
+  // Legacy — now crearClinica generates a real hashed PIN
+  return [{ id:'1', nombre:'Administrador', tipo:'regular', password:'1234', isAdmin:true, canAccessReception:true }];
+}
 
 function getTrial14Days() {
   const d = new Date();
@@ -1475,14 +1518,45 @@ function copyClinicLink(id) {
     .then(() => showToast('🔗 Link copiado'));
 }
 
-async function toggleStatus(id) {
+function toggleStatus(id) {
   const c = clinicas.find(x => x.id === id);
   if (!c) return;
+
+  const pausando = c.activa;
+  document.getElementById('modalTitle').textContent = pausando ? '⏸ Pausar clínica' : '▶ Reactivar clínica';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="text-align:center;padding:16px 0 8px">
+      <div style="font-size:48px;margin-bottom:16px">${pausando ? '🔒' : '🔓'}</div>
+      <div style="font-size:15px;font-weight:400;color:var(--topo);margin-bottom:10px">
+        ${pausando ? 'Pausar' : 'Reactivar'} <strong>${c.nombre}</strong>
+      </div>
+      <div style="font-size:13px;color:var(--piedra);line-height:1.7;max-width:320px;margin:0 auto 24px">
+        ${pausando
+          ? 'Los usuarios de esta clínica <strong>no podrán entrar</strong> hasta que la reactives. Sus datos se conservan intactos.'
+          : 'La clínica volverá a estar accesible para sus usuarios inmediatamente.'}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="${pausando ? 'btn-danger' : 'btn-save'}"
+              onclick="confirmToggleStatus('${id}', ${!pausando})">
+        ${pausando ? '⏸ Sí, pausar' : '▶ Sí, reactivar'}
+      </button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+async function confirmToggleStatus(id, nuevoEstado) {
   try {
     await db.collection('clinicas').doc(id)
-      .collection('config').doc('settings').set({ activa: !c.activa }, { merge: true });
+      .collection('config').doc('settings').set({
+        activa: nuevoEstado,
+        // If reactivating, also clear suspension flags from Stripe
+        ...(nuevoEstado && { suspendida: false, pagoPendiente: false, gracePeriodHasta: null })
+      }, { merge: true });
     closeModal();
-    showToast(c.activa ? '⏸ Clínica pausada' : '✅ Clínica reactivada');
+    showToast(nuevoEstado ? '✅ Clínica reactivada' : '⏸ Clínica pausada');
     await loadClinicas();
     showSection(currentSection);
   } catch(e) { showToast('❌ ' + e.message); }
