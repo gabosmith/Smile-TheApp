@@ -8469,6 +8469,13 @@ function updateDashboardTab() {
             : 'linear-gradient(135deg, #C4856A 0%, #A06448 100%)';
     }
 
+    // "Ingresos Hoy" card — solo visible para admin
+    // Profesionales y recepción no deben ver el total de cobros del día
+    const ingresosCard = document.getElementById('dashIngresosHoy')?.closest('.dash-stat');
+    if (ingresosCard) {
+        ingresosCard.style.display = dashRole === 'admin' ? '' : 'none';
+    }
+
     if (dashRole === 'admin' || dashRole === 'professional') {
         let shortEl = document.getElementById('dashShortcuts');
         if (!shortEl) {
