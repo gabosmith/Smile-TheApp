@@ -1550,7 +1550,7 @@ function showTab(tabName) {
     if (tabName === 'miplan') { renderMiPlanTab(); return; }
     if (tabName === 'cobros') { renderCobrosTab(); return; }
     // Old tab names redirect to cobros subtab for consistency
-    const cobrosMap = { 'factura': 'nueva', 'cobrar': 'cobrar', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
+    const cobrosMap = { 'cobrar': 'cobrar', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
     if (cobrosMap[tabName]) { renderCobrosTab(cobrosMap[tabName]); return; }
     // Personal, reportes go through irTab
     if (tabName === 'personal' || tabName === 'reportes') { irTab(tabName); return; }
@@ -1674,8 +1674,16 @@ function agregarProcedimiento() {
     };
     if (diente) proc.diente = diente;
 
-    tempProcedimientos.push(proc);
-    updateProcedimientosList();
+    // Route to correct state depending on which flow opened the modal
+    if (typeof _cotizAddProcMode !== 'undefined' && _cotizAddProcMode) {
+        _cotizAddProcMode = false;
+        _cotizProcedimientos.push(proc);
+        cotizRenderProcs();
+        cotizUpdateTotal();
+    } else {
+        tempProcedimientos.push(proc);
+        updateProcedimientosList();
+    }
     closeModal('modalAddProcedimiento');
 }
 
@@ -2288,8 +2296,10 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         const handler = function(e) {
             if (e.target === modalEl) {
                 modalEl.removeEventListener('click', handler);
-                showTab('pacientes');
-                setTimeout(() => verPaciente(pacienteIdRetorno), 100);
+                setTimeout(() => {
+                    verPaciente(pacienteIdRetorno);
+                    setTimeout(() => cambiarTabPaciente('tratamientos'), 80);
+                }, 80);
             }
         };
         modalEl.addEventListener('click', handler);
@@ -3006,7 +3016,7 @@ function openPersonalDetail(id) {
         const permisos = person.permisos || {};
         const PERMS = [
             { key: 'cobrar',      label: 'Procesar cobros',   icon: '💳' },
-            { key: 'facturar',    label: 'Crear facturas',    icon: '🧾' },
+            { key: 'facturar',    label: 'Nueva cotización',  icon: '📋' },
             { key: 'cuadre',      label: 'Ver cuadre diario', icon: '📊' },
             { key: 'gastos',      label: 'Registrar gastos',  icon: '💸' },
             { key: 'verIngresos', label: 'Ver ingresos',      icon: '📈' },
@@ -4341,17 +4351,243 @@ async function guardarPaciente() {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MODAL NUEVA COTIZACIÓN DESDE FICHA DEL PACIENTE
+// State is fully separate from the cobros tab to avoid ID collisions.
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _cotizPacienteId   = null;
+let _cotizProcedimientos = [];
+let _cotizOrdenesLab   = [];
+
+function abrirModalNuevaCotizacion(paciente) {
+    _cotizPacienteId     = paciente.id;
+    _cotizProcedimientos = [];
+    _cotizOrdenesLab     = [];
+
+    // Label
+    const label = document.getElementById('cotizPacienteLabel');
+    if (label) label.textContent = paciente.nombre;
+
+    // Professional selector for admin
+    const selectorDiv = document.getElementById('cotizSelectorProfesional');
+    const selectEl    = document.getElementById('cotizProfesional');
+    if (selectorDiv && selectEl) {
+        if (appData.currentRole === 'admin') {
+            const profs = appData.personal.filter(p => p.tipo !== 'empleado');
+            selectEl.innerHTML = '<option value="">Seleccione el profesional...</option>' +
+                profs.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+            selectorDiv.style.display = 'block';
+        } else {
+            selectorDiv.style.display = 'none';
+        }
+    }
+
+    // Reset form
+    const slider = document.getElementById('cotizDescuentoSlider');
+    if (slider) slider.value = '0';
+    const dv = document.getElementById('cotizDescuentoValue');
+    if (dv) dv.textContent = '0';
+    const notas = document.getElementById('cotizNotas');
+    if (notas) notas.value = '';
+
+    cotizRenderProcs();
+    cotizRenderLab();
+    cotizUpdateTotal();
+
+    openModal('modalNuevaCotizacion');
+}
+
+function cotizRenderProcs() {
+    const el = document.getElementById('cotizProcedimientosList');
+    if (!el) return;
+    if (_cotizProcedimientos.length === 0) {
+        el.innerHTML = '<div style="color:#8e8e93;padding:8px 0;font-size:13px;">Sin procedimientos</div>';
+    } else {
+        el.innerHTML = _cotizProcedimientos.map(p => `
+            <div class="procedimiento-item">
+                <div>
+                    <div style="font-weight:600;">${p.descripcion}${p.diente?` <span style="font-size:11px;font-weight:400;color:var(--piedra);background:var(--sand);padding:2px 7px;border-radius:20px;margin-left:4px;">🦷 ${p.diente}</span>`:''}
+                    </div>
+                    <div style="font-size:13px;color:#666;">${p.cantidad}x ${formatCurrency(p.precioUnitario)}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <strong style="color:var(--clinic-color,#C4856A);">${formatCurrency(p.cantidad*p.precioUnitario)}</strong>
+                    <button class="procedimiento-delete" onclick="_cotizProcedimientos=_cotizProcedimientos.filter(x=>x.id!=='${p.id}');cotizRenderProcs();cotizUpdateTotal();">×</button>
+                </div>
+            </div>`).join('');
+    }
+    cotizUpdateTotal();
+}
+
+function cotizRenderLab() {
+    const el = document.getElementById('cotizLabList');
+    if (!el) return;
+    if (_cotizOrdenesLab.length === 0) {
+        el.innerHTML = '<div style="color:#8e8e93;padding:8px 0;font-size:13px;">Sin órdenes de lab</div>';
+    } else {
+        el.innerHTML = _cotizOrdenesLab.map(o => `
+            <div style="background:var(--sand);border-radius:10px;padding:10px 14px;
+                        display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div>
+                    <div style="font-size:13px;font-weight:500;">🔬 ${o.tipo}${o.dientes?' · '+o.dientes:''}</div>
+                    <div style="font-size:11px;color:#999;">${o.laboratorio} — ${formatCurrency(o.precio)}</div>
+                </div>
+                <button class="procedimiento-delete" onclick="_cotizOrdenesLab=_cotizOrdenesLab.filter(x=>x.id!=='${o.id}');cotizRenderLab();cotizUpdateTotal();">×</button>
+            </div>`).join('');
+    }
+}
+
+function cotizUpdateTotal() {
+    const subtotal = _cotizProcedimientos.reduce((s,p)=>s+(p.cantidad*p.precioUnitario),0);
+    const labTotal = _cotizOrdenesLab.reduce((s,o)=>s+o.precio,0);
+    const slider   = document.getElementById('cotizDescuentoSlider');
+    const desc     = parseFloat(slider ? slider.value : 0)/100;
+    const total    = (subtotal+labTotal)*(1-desc);
+    const el = document.getElementById('cotizTotal');
+    if (el) el.textContent = formatCurrency(total);
+}
+
+function cotizSetDescuento(val) {
+    const s = document.getElementById('cotizDescuentoSlider');
+    const v = document.getElementById('cotizDescuentoValue');
+    if (s) s.value = val;
+    if (v) v.textContent = val;
+    cotizUpdateTotal();
+}
+
+// Reuses the same add-procedure modal but routes to cotiz state
+let _cotizAddProcMode = false;
+
+function cotizOpenAddProc() {
+    _cotizAddProcMode = true;
+    // Clear fields
+    document.getElementById('procDesc').value  = '';
+    document.getElementById('procCant').value  = '1';
+    document.getElementById('procPrecio').value = '';
+    if (document.getElementById('procDiente')) document.getElementById('procDiente').value = '';
+
+    // Populate catalog
+    const catalogWrap   = document.getElementById('procCatalogWrap');
+    const catalogSelect = document.getElementById('procCatalogSelect');
+    const items = clinicConfig.procItems || [];
+    if (catalogWrap && catalogSelect && items.length > 0) {
+        catalogSelect.innerHTML = '<option value="">— Elige un procedimiento —</option>' +
+            items.map((item,idx) => `<option value="${idx}">${item.nombre} — ${formatCurrency(item.precio)}</option>`).join('');
+        catalogWrap.style.display = 'block';
+    } else if (catalogWrap) {
+        catalogWrap.style.display = 'none';
+    }
+    openModal('modalAddProcedimiento');
+}
+
+// Override agregarProcedimiento to route to correct state
+// (original function patched below to check _cotizAddProcMode)
+
+function abrirModalOrdenLabCotiz() {
+    _cotizAddProcMode = true; // reuse flag to route lab too
+    document.getElementById('labTipo').value        = 'Corona';
+    document.getElementById('labDientes').value     = '';
+    document.getElementById('labDescripcion').value = '';
+    document.getElementById('labLaboratorio').value = '';
+    document.getElementById('labPrecio').value      = '';
+    document.getElementById('labCosto').value       = '';
+    calcularMargenLab();
+    openModal('modalOrdenLab');
+}
+
+async function generarCotizacionDesdeFicha() {
+    const paciente = appData.pacientes.find(p => p.id === _cotizPacienteId);
+    if (!paciente) { showToast('⚠️ Error: paciente no encontrado'); return; }
+
+    if (_cotizProcedimientos.length === 0 && _cotizOrdenesLab.length === 0) {
+        showToast('⚠️ Agrega al menos un procedimiento o una orden de lab');
+        return;
+    }
+
+    let profesionalQueAtendio = appData.currentUser;
+    if (appData.currentRole === 'admin') {
+        const sel = document.getElementById('cotizProfesional');
+        if (!sel || !sel.value) { showToast('⚠️ Selecciona el profesional que atendió'); return; }
+        profesionalQueAtendio = sel.value;
+    }
+
+    const slider  = document.getElementById('cotizDescuentoSlider');
+    const descuento = parseFloat(slider ? slider.value : 0);
+    const subtotal  = _cotizProcedimientos.reduce((s,p)=>s+(p.cantidad*p.precioUnitario),0);
+    const labTotal  = _cotizOrdenesLab.reduce((s,o)=>s+o.precio,0);
+    const total     = (subtotal+labTotal)*(1-descuento/100);
+    const notas     = (document.getElementById('cotizNotas')?.value||'').trim();
+
+    // Vincular cita del día si existe
+    const hoy    = new Date(); hoy.setHours(0,0,0,0);
+    const manana = new Date(hoy); manana.setDate(manana.getDate()+1);
+    const citaHoy = appData.citas.find(c => {
+        const fc = new Date(c.fecha); fc.setHours(0,0,0,0);
+        return (c.pacienteId===paciente.id||c.paciente===paciente.nombre) &&
+               fc>=hoy && fc<manana &&
+               c.profesional===profesionalQueAtendio &&
+               c.estado!=='Cancelada' && c.estado!=='Inasistencia';
+    });
+
+    const ultimoNum = appData.facturas.map(f=>parseInt(f.numero.replace('F-',''))||0).reduce((m,n)=>Math.max(m,n),0);
+    const numeroFinal = `F-${String(ultimoNum+1).padStart(4,'0')}-${Date.now().toString().slice(-3)}`;
+
+    const factura = {
+        id: generateId(),
+        numero: numeroFinal,
+        fecha: new Date().toISOString(),
+        paciente: paciente.nombre,
+        pacienteId: paciente.id,
+        procedimientos: [..._cotizProcedimientos],
+        ordenesLab: [..._cotizOrdenesLab],
+        subtotal: subtotal+labTotal,
+        descuento,
+        total,
+        profesional: profesionalQueAtendio,
+        estado: 'pendiente',
+        pagos: [],
+        notas,
+        tieneOrdenesLab: _cotizOrdenesLab.length>0,
+        citaId:    citaHoy ? citaHoy.id    : null,
+        citaHora:  citaHoy ? citaHoy.hora  : null,
+        citaMotivo:citaHoy ? citaHoy.motivo: null
+    };
+
+    const backupLen = appData.facturas.length;
+    const backupCita = citaHoy ? citaHoy.estado : null;
+    appData.facturas.push(factura);
+
+    if (citaHoy) {
+        citaHoy.estado = 'Completada';
+        citaHoy.fechaCompletada = new Date().toISOString();
+        citaHoy.procedimientosRealizados = _cotizProcedimientos.map(p=>p.descripcion).join(', ');
+    }
+
+    await crearOrdenesLabDesdeFactura(factura);
+
+    try {
+        await saveData();
+    } catch(e) {
+        appData.facturas.splice(backupLen,1);
+        if (citaHoy && backupCita) citaHoy.estado = backupCita;
+        showError('Error al guardar la cotización.', e);
+        return;
+    }
+
+    const labMsg = _cotizOrdenesLab.length>0 ? ` · ${_cotizOrdenesLab.length} orden(es) de lab creadas` : '';
+    const citaMsg = citaHoy ? ` · Cita vinculada (${citaHoy.hora})` : '';
+    showToast('Cotización generada' + labMsg + citaMsg);
+
+    closeModal('modalNuevaCotizacion');
+    // Refresh the tratamientos tab
+    cambiarTabPaciente('tratamientos');
+}
+
 function nuevaCotizacionParaPaciente(pacienteId) {
     const paciente = appData.pacientes.find(p => p.id === pacienteId);
     if (!paciente) return;
-    closeModal('modalVerPaciente');
-    showTab('cobros');
-    setTimeout(() => {
-        setCobrosSubtab('nueva');
-        setTimeout(() => {
-            seleccionarPacienteFactura(paciente.nombre);
-        }, 80);
-    }, 50);
+    abrirModalNuevaCotizacion(paciente);
 }
 
 function verPaciente(pacienteId) {
@@ -4366,16 +4602,7 @@ function verPaciente(pacienteId) {
     if (paciente.telefono) subtitulo += subtitulo ? ` • ${paciente.telefono}` : paciente.telefono;
     document.getElementById('verPacienteSubtitulo').textContent = subtitulo;
 
-    // Solo ocultar/mostrar Balance por rol — renderizado lazy al cambiar tab
-    // Ocultar tab Balance para profesionales (solo admin y recepción pueden cobrar)
-    const tabBalanceBtn = document.getElementById('tabBalanceBtn');
-    if (tabBalanceBtn) {
-        if (appData.currentRole === 'professional') {
-            tabBalanceBtn.style.display = 'none';
-        } else {
-            tabBalanceBtn.style.display = 'block';
-        }
-    }
+    // noop: balance tab removed — financial info lives inside tratamientos
 
     // Activar primer tab — cambiarTabPaciente renderizará solo ese tab
     cambiarTabPaciente('resumen');
@@ -4392,12 +4619,11 @@ function cambiarTabPaciente(tabName) {
     // Renderizado lazy: solo renderizar el tab que se activa
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente) return;
-    if (tabName === 'resumen')      renderTabResumen(paciente);
+    if (tabName === 'resumen')          renderTabResumen(paciente);
+    else if (tabName === 'tratamientos') renderTabTratamientos(paciente);
     else if (tabName === 'odontograma')  renderTabOdontograma(paciente);
-    else if (tabName === 'historial')    renderTabHistorial(paciente);
     else if (tabName === 'recetas')      renderTabRecetas(paciente);
     else if (tabName === 'documentos')   renderTabDocumentos(paciente);
-    else if (tabName === 'balance')      renderTabBalance(paciente);
 
     // Actualizar contenido
     document.querySelectorAll('.paciente-tab-content').forEach(content => {
@@ -4405,12 +4631,11 @@ function cambiarTabPaciente(tabName) {
     });
 
     const tabMap = {
-        'resumen':      'tabResumen',
-        'balance':      'tabBalance',
-        'odontograma':  'tabOdontograma',
-        'historial':    'tabHistorial',
-        'recetas':      'tabRecetas',
-        'documentos':   'tabDocumentos'
+        'resumen':       'tabResumen',
+        'tratamientos':  'tabTratamientos',
+        'odontograma':   'tabOdontograma',
+        'recetas':       'tabRecetas',
+        'documentos':    'tabDocumentos'
     };
 
     document.getElementById(tabMap[tabName]).style.display = 'block';
@@ -4912,15 +5137,14 @@ function renderTabResumen(paciente) {
 
         <!-- Acciones rápidas -->
         <div style="margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;">
-            ${tienePermiso('facturar') || appData.currentRole === 'admin' || appData.currentRole === 'reception' ? `
-            <button onclick="nuevaCotizacionParaPaciente('${paciente.id}')"
+            <button onclick="cambiarTabPaciente('tratamientos')"
                 style="flex:1;min-width:160px;padding:12px 16px;
                        background:var(--clinic-color,#C4856A);color:white;
                        border:none;border-radius:12px;font-size:13px;font-weight:500;
                        font-family:inherit;cursor:pointer;letter-spacing:.3px;
                        box-shadow:0 2px 8px rgba(0,0,0,.12);">
-                📋 Nueva Cotización
-            </button>` : ''}
+                📋 Ver Tratamientos
+            </button>
             <button onclick="showTab('agenda');setTimeout(()=>abrirModalNuevaCita('','','${paciente.nombre.replace(/'/g,"\'")}'),80)"
                 style="flex:1;min-width:140px;padding:12px 16px;
                        background:var(--sand);color:var(--topo);
@@ -5147,6 +5371,206 @@ function renderTabHistorial(paciente) {
             ${citasHTML}
         </div>`;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB TRATAMIENTOS — central de seguimiento clínico + financiero del paciente
+// Reemplaza historial y balance. Muestra cotizaciones activas e históricas
+// con sus procedimientos, lab vinculado y estado de pago.
+// ═══════════════════════════════════════════════════════════════════════════
+function renderTabTratamientos(paciente) {
+    const canCobrar  = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+    const canFacturar = tienePermiso('facturar') || appData.currentRole === 'admin' || appData.currentRole === 'reception';
+
+    const todas = getFacturasDePaciente(paciente).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+    const activas   = todas.filter(f => { const e=(f.estado||'').toLowerCase(); return e==='pendiente'||e==='pending'||e==='parcial'||e==='partial'; });
+    const pagadas   = todas.filter(f => { const e=(f.estado||'').toLowerCase(); return e==='pagada'||e==='paid'; });
+    const canceladas = todas.filter(f => { const e=(f.estado||'').toLowerCase(); return e==='cancelada'||e==='cancelled'; });
+
+    const balance       = calcularBalancePaciente(paciente.nombre);
+    const totalCotizado = todas.reduce((s,f) => s+f.total, 0);
+    const totalPagado   = todas.reduce((s,f) => s+(f.pagos||[]).reduce((sp,p)=>sp+p.monto,0), 0);
+
+    // ── Pill renderers ──────────────────────────────────────────────────────
+    function estadoPill(f) {
+        const e = (f.estado||'').toLowerCase();
+        const pagadoF = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        const pendienteF = f.total - pagadoF;
+        if (e==='pagada'||e==='paid')        return { label:'✅ Pagada',       color:'#28a745' };
+        if (e==='cancelada'||e==='cancelled') return { label:'❌ Cancelada',    color:'#999'    };
+        if (pagadoF>0)                        return { label:'⏳ Con abono',    color:'#ff9500' };
+        return                                       { label:'🔴 Pendiente',    color:'#ff3b30' };
+    }
+
+    function renderCotizCard(f, collapsed) {
+        const { label, color } = estadoPill(f);
+        const pagadoF   = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        const pendienteF = f.total - pagadoF;
+        const pagada     = pendienteF <= 0;
+
+        // ── Lab orders vinculadas a esta cotización ──────────────────────
+        const labVinculado = (appData.laboratorios||[]).filter(o => o.facturaId === f.id || (f.ordenesLab||[]).find(ol=>ol.id===o.id));
+        const labHTML = labVinculado.length === 0 ? '' :
+            labVinculado.map(o => `
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        background:rgba(91,110,128,.06);border-radius:10px;
+                        padding:9px 12px;margin-bottom:6px;">
+                <div>
+                    <div style="font-size:12px;font-weight:500;color:#333;">🔬 ${o.tipo}${o.dientes?' · Diente '+o.dientes:''}</div>
+                    <div style="font-size:11px;color:#999;margin-top:2px;">${o.laboratorio} · ${formatDate(o.fechaCreacion)}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;margin-left:10px;">
+                    <div style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;
+                                background:${getColorEstado(o.estadoActual)}22;
+                                color:${getColorEstado(o.estadoActual)};margin-bottom:3px;">${o.estadoActual}</div>
+                    <div style="font-size:12px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
+                </div>
+            </div>`).join('');
+
+        // ── Procedures ──────────────────────────────────────────────────
+        const procsHTML = (f.procedimientos||[]).map(p => `
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding:7px 0;border-bottom:1px solid #f5f5f5;">
+                <span style="font-size:13px;color:#444;">
+                    ${p.descripcion}${p.cantidad>1?` ×${p.cantidad}`:''}${p.diente?` <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 ${p.diente}</span>`:''}
+                </span>
+                <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">
+                    ${formatCurrency(p.precioUnitario*(p.cantidad||1))}
+                </span>
+            </div>`).join('');
+
+        // ── Payments ────────────────────────────────────────────────────
+        const pagosHTML = (f.pagos||[]).length===0 ? '' : `
+            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>
+                ${(f.pagos||[]).map(p=>`
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">${p.metodo||'Efectivo'}</span>
+                            <span style="font-size:11px;color:#999;">${p.fecha?new Date(p.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}):''}</span>
+                        </div>
+                        <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(p.monto)}</span>
+                    </div>`).join('')}
+            </div>`;
+
+        const descuentoHTML = f.descuento>0 ? `
+            <div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">
+                <span style="font-size:12px;">Descuento ${f.descuento}%</span>
+                <span style="font-size:12px;">-${formatCurrency(f.total/(1-f.descuento/100)*(f.descuento/100))}</span>
+            </div>` : '';
+
+        const bodyDisplay = collapsed ? 'none' : 'block';
+        const bodyId = 'cotizBody_' + f.id;
+
+        return `
+        <div style="background:white;border-radius:14px;border:1.5px solid ${color}33;
+                    margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+            <!-- Header — siempre visible, click para colapsar -->
+            <div onclick="const b=document.getElementById('${bodyId}');b.style.display=b.style.display==='none'?'block':'none';"
+                style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f5f5f5;">
+                <div>
+                    <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
+                    <div style="font-size:13px;color:#555;">${f.profesional}${f.citaMotivo?' · '+f.citaMotivo:''}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:11px;font-weight:600;color:${color};background:${color}18;
+                                padding:3px 10px;border-radius:100px;margin-bottom:4px;">${label}</div>
+                    <div style="font-size:16px;font-weight:700;color:${color};">
+                        ${pagada ? formatCurrency(f.total) : formatCurrency(pendienteF)+' pendiente'}
+                    </div>
+                </div>
+            </div>
+            <!-- Body — colapsable -->
+            <div id="${bodyId}" style="display:${bodyDisplay};padding:12px 16px;">
+                ${procsHTML}
+                ${labHTML ? `<div style="margin-top:12px;"><div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Laboratorio</div>${labHTML}</div>` : ''}
+                ${descuentoHTML}
+                <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">
+                    <span style="font-size:13px;color:#333;">Total</span>
+                    <span style="font-size:14px;color:#333;">${formatCurrency(f.total)}</span>
+                </div>
+                ${pagosHTML}
+                ${!pagada && canCobrar ? `
+                <button onclick="openPagarFactura('${f.id}')"
+                    style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
+                           color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
+                           font-family:inherit;cursor:pointer;">
+                    💳 Cobrar
+                </button>` : ''}
+                ${!pagada && canCobrar ? `
+                <button onclick="verComprobantesFactura('${f.id}')"
+                    style="width:100%;margin-top:8px;padding:9px;background:transparent;
+                           color:var(--topo);border:1px solid rgba(30,28,26,.12);border-radius:100px;
+                           font-size:12px;font-family:inherit;cursor:pointer;">
+                    📱 Enviar cotización al paciente
+                </button>` : ''}
+            </div>
+        </div>`;
+    }
+
+    // ── Balance summary strip ───────────────────────────────────────────────
+    const balanceHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cotizado</div>
+                <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalCotizado)}</div>
+            </div>
+            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>
+                <div style="font-size:17px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
+            </div>
+            <div style="background:${balance>0?'#fff3cd':'#d4edda'};border:1.5px solid ${balance>0?'#ffc107':'#28a745'};border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>
+                <div style="font-size:17px;font-weight:700;color:${balance>0?'#856404':'#155724'};">${formatCurrency(balance)}</div>
+            </div>
+        </div>`;
+
+    // ── Section: activas ────────────────────────────────────────────────────
+    const activasHTML = activas.length === 0 ? '' : `
+        <div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">
+            EN CURSO (${activas.length})
+        </div>
+        ${activas.map(f => renderCotizCard(f, false)).join('')}`;
+
+    // ── Section: pagadas (colapsadas por defecto) ────────────────────────────
+    const pagadasHTML = pagadas.length === 0 ? '' : `
+        <div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;
+                    margin-top:${activas.length>0?'24':'0'}px;margin-bottom:10px;">
+            COMPLETADAS (${pagadas.length})
+        </div>
+        ${pagadas.map(f => renderCotizCard(f, true)).join('')}`;
+
+    const canceladasHTML = canceladas.length === 0 ? '' : `
+        <div style="font-size:10px;font-weight:600;color:#aaa;letter-spacing:1.5px;text-transform:uppercase;
+                    margin-top:16px;margin-bottom:10px;">
+            CANCELADAS (${canceladas.length})
+        </div>
+        ${canceladas.map(f => renderCotizCard(f, true)).join('')}`;
+
+    const emptyHTML = todas.length === 0 ? `
+        <div style="text-align:center;padding:48px 20px;color:#999;">
+            <div style="font-size:48px;margin-bottom:12px;">📋</div>
+            <div style="font-size:16px;font-weight:500;margin-bottom:6px;">Sin tratamientos registrados</div>
+            <div style="font-size:13px;">Usa el botón de arriba para crear la primera cotización.</div>
+        </div>` : '';
+
+    document.getElementById('tabTratamientos').innerHTML = `
+        ${canFacturar ? `
+        <button onclick="nuevaCotizacionParaPaciente('${paciente.id}')"
+            style="width:100%;padding:13px 16px;background:var(--clinic-color,#C4856A);color:white;
+                   border:none;border-radius:12px;font-size:14px;font-weight:500;font-family:inherit;
+                   cursor:pointer;margin-bottom:20px;letter-spacing:.3px;
+                   box-shadow:0 2px 8px rgba(0,0,0,.12);">
+            + Nueva Cotización
+        </button>` : ''}
+        ${balanceHTML}
+        ${emptyHTML}
+        ${activasHTML}
+        ${pagadasHTML}
+        ${canceladasHTML}
+    `;
+}
+
+function renderTabTratamientos_placeholder() {} // keep linter happy
 
 function renderTabRecetas(paciente) {
     const recetas = (paciente.recetas || []).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
@@ -5802,9 +6226,16 @@ function agregarOrdenLabAFactura() {
         margen: precio - costo
     };
 
-    tempOrdenesLab.push(orden);
-    updateListaOrdenesLabTemp();
-    updateTotal();  // ← CORREGIDO: Actualizar total de la factura
+    if (typeof _cotizAddProcMode !== 'undefined' && _cotizAddProcMode) {
+        _cotizAddProcMode = false;
+        _cotizOrdenesLab.push(orden);
+        cotizRenderLab();
+        cotizUpdateTotal();
+    } else {
+        tempOrdenesLab.push(orden);
+        updateListaOrdenesLabTemp();
+        updateTotal();
+    }
     closeModal('modalOrdenLab');
 }
 
@@ -8191,7 +8622,7 @@ function updateDashboardTab() {
             if (statsGrid) statsGrid.insertAdjacentElement('beforebegin', shortEl);
         }
         shortEl.innerHTML = `
-            <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)" style="
+            <button onclick="showTab('pacientes');showToast('Busca el paciente y abre su ficha → Tratamientos',3000)" style="
                 padding:14px 16px;background:var(--clinic-color);color:white;border:none;
                 border-radius:var(--radius-md);font-size:12px;letter-spacing:1px;text-transform:uppercase;
                 font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
@@ -9286,11 +9717,8 @@ function abrirPagoFactura(facturaId, pacienteId) {
         showToast('⛔ Sin permiso para realizar cobros', 4000, '#c0392b');
         return;
     }
-    
-    closeModal('modalVerPaciente');
     openPagarFactura(facturaId);
-    
-    // Guardar pacienteId para volver a la ficha después
+    // Guardar pacienteId para volver a la ficha → tratamientos después
     window.tempPacienteIdRetorno = pacienteId;
 }
 
@@ -9600,9 +10028,9 @@ function renderCobrosTab(subtab) {
     tab.classList.add('active');
     // Pick requested subtab, or remembered one, or first one the user can access
     const _requested = subtab || tab._activeSubtab || 'cobrar';
-    const active = tienePermiso({ cobrar:'cobrar', nueva:'facturar', ingresos:'verIngresos', cuadre:'cuadre', gastos:'gastos' }[_requested] || _requested)
+    const active = tienePermiso({ cobrar:'cobrar', ingresos:'verIngresos', cuadre:'cuadre', gastos:'gastos' }[_requested] || _requested)
         ? _requested
-        : (['cobrar','nueva','ingresos','cuadre','gastos'].find(k => tienePermiso({cobrar:'cobrar',nueva:'facturar',ingresos:'verIngresos',cuadre:'cuadre',gastos:'gastos'}[k])) || 'cobrar');
+        : (['cobrar','ingresos','cuadre','gastos'].find(k => tienePermiso({cobrar:'cobrar',ingresos:'verIngresos',cuadre:'cuadre',gastos:'gastos'}[k])) || 'cobrar');
     tab._activeSubtab = active;
 
     // Highlight nav
@@ -9612,7 +10040,6 @@ function renderCobrosTab(subtab) {
 
     const subtabs = [
         { key: 'cobrar',   label: '💳 Cobrar',   permiso: 'cobrar'     },
-        { key: 'nueva',    label: '+ Nueva',     permiso: 'facturar'   },
         { key: 'ingresos', label: 'Ingresos',    permiso: 'verIngresos'},
         { key: 'cuadre',   label: 'Cuadre',      permiso: 'cuadre'     },
         { key: 'gastos',   label: 'Gastos',      permiso: 'gastos'     },
