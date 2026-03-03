@@ -5430,17 +5430,31 @@ function renderTabTratamientos(paciente) {
             </div>`).join('');
 
         const labs = (appData.laboratorios||[]).filter(o=>o.facturaId===f.id||(f.ordenesLab||[]).find(ol=>ol.id===o.id));
-        const labsHtml = labs.length===0?'':labs.map(o=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(91,110,128,.06);border-radius:10px;padding:9px 12px;margin-bottom:6px;">
-                <div>
-                    <div style="font-size:12px;font-weight:500;color:#333;">🔬 ${escapeHtml(o.tipo)}${o.dientes?' · Diente '+o.dientes:''}</div>
-                    <div style="font-size:11px;color:#999;margin-top:2px;">${escapeHtml(o.laboratorio)} · ${formatDate(o.fechaCreacion)}</div>
+        const labsHtml = labs.length===0?'':labs.map(o=>{
+            const lc = getColorEstado(o.estadoActual);
+            const isDone = o.estadoActual === 'Entregado';
+            return `
+            <div style="background:rgba(91,110,128,.05);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1.5px solid rgba(91,110,128,.1);">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:500;color:#333;">🔬 ${escapeHtml(o.tipo)}${o.dientes?' <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 '+o.dientes+'</span>':''}</div>
+                        <div style="font-size:11px;color:#999;margin-top:3px;">${escapeHtml(o.laboratorio)} · ${formatDate(o.fechaCreacion)}</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:10px;font-weight:600;padding:3px 9px;border-radius:100px;background:${lc}18;color:${lc};border:1px solid ${lc}33;white-space:nowrap;">${o.estadoActual}</div>
+                        <div style="font-size:12px;font-weight:600;color:#444;margin-top:4px;">${formatCurrency(o.precio)}</div>
+                    </div>
                 </div>
-                <div style="text-align:right;flex-shrink:0;margin-left:10px;">
-                    <div style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;background:${getColorEstado(o.estadoActual)}22;color:${getColorEstado(o.estadoActual)};margin-bottom:3px;">${o.estadoActual}</div>
-                    <div style="font-size:12px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
-                </div>
-            </div>`).join('');
+                ${!isDone ? `
+                <button data-action="ver-lab" data-oid="${o.id}"
+                    style="width:100%;padding:8px;background:white;border:1.5px solid rgba(91,110,128,.2);
+                           border-radius:100px;font-size:12px;font-family:inherit;color:var(--azul,#7B8FA1);
+                           cursor:pointer;font-weight:500;letter-spacing:.3px;">
+                    📍 Ver seguimiento →
+                </button>` : `
+                <div style="font-size:11px;color:#28a745;font-weight:500;text-align:center;padding:4px 0;">✅ Entregado</div>`}
+            </div>`;
+        }).join('');
 
         const pagosHtml = (f.pagos||[]).length===0?'':`
             <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
@@ -5527,6 +5541,7 @@ function renderTabTratamientos(paciente) {
         if (action==='nueva-cotiz') nuevaCotizacionParaPaciente(btn.dataset.pid);
         if (action==='cobrar')      openPagarFactura(btn.dataset.fid);
         if (action==='enviar')      verComprobantesFactura(btn.dataset.fid);
+        if (action==='ver-lab')     verDetalleOrdenLab(btn.dataset.oid);
         if (action==='toggle')      { const b=document.getElementById(btn.dataset.bid); if(b) b.style.display=b.style.display==='none'?'block':'none'; }
         container.removeEventListener('click', handler); // re-registers on next render
         // Re-add after first click so delegation stays alive
@@ -6451,6 +6466,17 @@ async function avanzarEstadoLab(nuevoEstado) {
             await saveData();
             verDetalleOrdenLab(orden.id);
             updateLaboratorioTab();
+            // Also refresh tratamientos tab if patient ficha is open
+            if (typeof currentPacienteId !== 'undefined' && currentPacienteId) {
+                const pac = appData.pacientes.find(p => p.id === currentPacienteId);
+                if (pac) {
+                    const tabTrat = document.getElementById('tabTratamientos');
+                    const tabBtn  = document.querySelector('.paciente-tab[data-tab="tratamientos"]');
+                    if (tabTrat && tabBtn && tabBtn.classList.contains('active')) {
+                        renderTabTratamientos(pac);
+                    }
+                }
+            }
         } catch(e) {
             // Rollback
             orden.timeline.pop();
