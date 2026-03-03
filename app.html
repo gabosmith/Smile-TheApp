@@ -2431,12 +2431,48 @@
 
     // ── helpers ─────────────────────────────────────────
     function _initials(name) {
-        return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+        // Skip common medical titles so "Dra. García" → "GA" not "DG"
+        const TITULOS = ['dr','dra','dr.','dra.','lic','lic.','ing','ing.','sr','sr.','sra','sra.'];
+        const words = (name || '?').split(/\s+/).filter(w =>
+            w.length > 0 && !TITULOS.includes(w.toLowerCase().replace('.',''))
+        );
+        if (words.length === 0) return (name || '?')[0].toUpperCase();
+        if (words.length === 1) return words[0].slice(0,2).toUpperCase();
+        return (words[0][0] + words[words.length-1][0]).toUpperCase();
+    }
+
+    // Returns the display name — skips title prefix, shows first + last name
+    function _displayName(name) {
+        const TITULOS = ['dr','dra','dr.','dra.','lic','lic.','ing','ing.','sr','sr.','sra','sra.'];
+        const words = (name || '').split(/\s+/).filter(Boolean);
+        const meaningful = words.filter(w => !TITULOS.includes(w.toLowerCase().replace('.', '')));
+        if (meaningful.length === 0) return name || '?';
+        if (meaningful.length === 1) return meaningful[0];
+        // First name + Last name (skip middle if >2)
+        return meaningful[0] + ' ' + meaningful[meaningful.length - 1];
     }
     function _roleLabel(p) {
         if (p.isAdmin) return 'Admin';
         if (p.canAccessReception) return 'Recepción';
         return 'Doctor';
+    }
+
+    // Generates a soft, consistent color for each user based on their name
+    // Same name always → same color. Looks good on the neumorphic background.
+    const _AVATAR_PALETTES = [
+        { bg: 'linear-gradient(135deg,#C4856A,#A06448)', text: 'white' },  // terracota
+        { bg: 'linear-gradient(135deg,#7B8FA1,#5A7080)', text: 'white' },  // pizarra
+        { bg: 'linear-gradient(135deg,#6B8F71,#4d6b52)', text: 'white' },  // verde
+        { bg: 'linear-gradient(135deg,#9B7BB0,#7a5a8e)', text: 'white' },  // malva
+        { bg: 'linear-gradient(135deg,#B07B7B,#8e5a5a)', text: 'white' },  // rosa oscuro
+        { bg: 'linear-gradient(135deg,#7B9BB0,#5a7a8e)', text: 'white' },  // azul suave
+        { bg: 'linear-gradient(135deg,#A8A068,#867e4f)', text: 'white' },  // dorado
+        { bg: 'linear-gradient(135deg,#808080,#5a5a5a)', text: 'white' },  // gris
+    ];
+    function _avatarPalette(name) {
+        let hash = 0;
+        for (let i = 0; i < (name||'').length; i++) hash = (hash * 31 + (name||'').charCodeAt(i)) & 0xFFFF;
+        return _AVATAR_PALETTES[hash % _AVATAR_PALETTES.length];
     }
 
     // ── CLINIC HERO ──────────────────────────────────────
@@ -2528,9 +2564,12 @@
                 const btn = document.createElement('button');
                 btn.className = 'ls-user-card';
                 const hasPin = !!(p.password);
+                const pal = _avatarPalette(p.nombre);
                 btn.innerHTML = `
-                    <div class="ls-avatar">${_initials(p.nombre)}</div>
-                    <div class="ls-user-name">${p.nombre.split(' ')[0]}</div>
+                    <div class="ls-avatar" style="background:${pal.bg};color:${pal.text};box-shadow:none;">
+                        ${_initials(p.nombre)}
+                    </div>
+                    <div class="ls-user-name">${_displayName(p.nombre)}</div>
                     <div class="ls-user-role">${_roleLabel(p)}</div>
                     ${!hasPin ? '<div style="font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1px;">SIN PIN</div>' : ''}`;
                 btn.onclick = () => lsSelectUser(p);
@@ -2549,10 +2588,13 @@
         _lsUser = person;
         _lsPin  = '';
 
-        document.getElementById('lsPinAvatar').textContent =
-            _initials(person.nombre);
-        document.getElementById('lsPinName').textContent =
-            person.nombre.split(' ').slice(0,2).join(' ');
+        const _pal = _avatarPalette(person.nombre);
+        const pinAvatar = document.getElementById('lsPinAvatar');
+        pinAvatar.textContent = _initials(person.nombre);
+        pinAvatar.style.background = _pal.bg;
+        pinAvatar.style.color      = _pal.text;
+        pinAvatar.style.boxShadow  = 'none';
+        document.getElementById('lsPinName').textContent = _displayName(person.nombre);
 
         const errEl = document.getElementById('lsPinErr');
 
