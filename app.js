@@ -93,7 +93,7 @@ let clinicConfig = {
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
     moneda:   'RD$',     // símbolo de moneda — configurable por país
-    locale:   'es-419',   // locale para fechas y números — updated by loadClinicBranding()
+    locale:   getLocale(),   // locale para fechas y números
     pais:     'República Dominicana',
 };
 
@@ -127,7 +127,7 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda              = (cfg.moneda === 'USD' ? 'US$' : cfg.moneda) || 'RD$';
+        clinicConfig.moneda              = cfg.moneda              || 'RD$';
         clinicConfig.locale              = cfg.locale              || getLocale();
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
@@ -470,9 +470,8 @@ const sanitize = {
             stock:        sanitize.num(i.stock, 0, 9999999),
             stockMinimo:  sanitize.num(i.stockMinimo, 0, 9999999),
             costo:        sanitize.num(i.costo),
-            notas:          sanitize.str(i.notas, 500),
-            codigoBarras:   sanitize.str(i.codigoBarras, 100),
-            activo:         sanitize.bool(i.activo !== false),
+            notas:        sanitize.str(i.notas, 500),
+            activo:       sanitize.bool(i.activo !== false),
             movimientos:  (i.movimientos || []).map(m => ({
                 ...m,
                 tipo:       sanitize.str(m.tipo, 20),
@@ -1551,7 +1550,7 @@ function showTab(tabName) {
     if (tabName === 'miplan') { renderMiPlanTab(); return; }
     if (tabName === 'cobros') { renderCobrosTab(); return; }
     // Old tab names redirect to cobros subtab for consistency
-    const cobrosMap = { 'cobrar': 'cobrar', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
+    const cobrosMap = { 'factura': 'nueva', 'cobrar': 'cobrar', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
     if (cobrosMap[tabName]) { renderCobrosTab(cobrosMap[tabName]); return; }
     // Personal, reportes go through irTab
     if (tabName === 'personal' || tabName === 'reportes') { irTab(tabName); return; }
@@ -1595,11 +1594,9 @@ function showTab(tabName) {
 
 // Currency format
 function formatCurrency(amount) {
-    // 'USD' is a legacy value that may exist in old clinic configs — normalize to 'US$'
-    const rawMoneda = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
-    const simbolo   = rawMoneda === 'USD' ? 'US$' : rawMoneda;
-    const locale    = (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : getLocale();
-    return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
+    const locale  = (typeof clinicConfig !== 'undefined' && clinicConfig.locale)  ? clinicConfig.locale  : getLocale();
+    return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 // ── Locale helper ───────────────────────────────────────
@@ -1608,19 +1605,6 @@ function formatCurrency(amount) {
 function getLocale() {
     return (typeof clinicConfig !== 'undefined' && clinicConfig.locale) ? clinicConfig.locale : 'es-419';
 }
-
-// Escapa caracteres HTML para evitar XSS en innerHTML y strings dinámicos.
-// Definida también como stub en <head> para que esté disponible antes de que cargue app.js.
-function escapeHtml(s) {
-    if (s == null) return '';
-    return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
 
 // Procedimientos
 // Helper: always find factura form elements in the visible cobros-content clone,
@@ -1640,70 +1624,26 @@ function openAddProcedimiento() {
     document.getElementById('procDesc').value = '';
     document.getElementById('procCant').value = '1';
     document.getElementById('procPrecio').value = '';
-    if (document.getElementById('procDiente')) document.getElementById('procDiente').value = '';
-
-    // Show catalog selector if clinic has a catalog configured
-    const catalogWrap  = document.getElementById('procCatalogWrap');
-    const catalogSelect = document.getElementById('procCatalogSelect');
-    const items = clinicConfig.procItems || [];
-
-    if (catalogWrap && catalogSelect && items.length > 0) {
-        // Populate select with catalog items
-        catalogSelect.innerHTML = '<option value="">— Elige un procedimiento —</option>' +
-            items.map((item, idx) =>
-                `<option value="${idx}">${item.nombre} — ${formatCurrency(item.precio)}</option>`
-            ).join('');
-        catalogWrap.style.display = 'block';
-    } else if (catalogWrap) {
-        catalogWrap.style.display = 'none';
-    }
-
     openModal('modalAddProcedimiento');
-}
-
-function onCatalogSelect(sel) {
-    const idx = sel.value;
-    if (idx === '') return;
-    const item = (clinicConfig.procItems || [])[parseInt(idx)];
-    if (!item) return;
-    const descEl   = document.getElementById('procDesc');
-    const precioEl = document.getElementById('procPrecio');
-    if (descEl)   descEl.value   = item.nombre;
-    if (precioEl) precioEl.value = item.precio;
 }
 
 function agregarProcedimiento() {
     const desc   = sanitize.str(document.getElementById('procDesc')?.value, 300);
     const cant   = sanitize.int(document.getElementById('procCant')?.value, 1, 999);
     const precio = sanitize.num(document.getElementById('procPrecio')?.value, 0);
-    const diente = (document.getElementById('procDiente')?.value || '').trim();
 
     if (!desc)      { showToast('⚠️ Escribe la descripción del procedimiento'); return; }
     if (cant < 1)   { showToast('⚠️ La cantidad debe ser al menos 1'); return; }
     if (precio <= 0){ showToast('⚠️ El precio debe ser mayor a cero'); return; }
 
-    const proc = {
+    tempProcedimientos.push({
         id: generateId(),
         descripcion: desc,
         cantidad: cant,
-        precioUnitario: precio,
-    };
-    if (diente) proc.diente = diente;
+        precioUnitario: precio
+    });
 
-    // Route to correct state depending on which flow opened the modal
-    if (typeof _cotizAddProcMode !== 'undefined' && _cotizAddProcMode) {
-        _cotizAddProcMode = false;
-        _cotizProcedimientos.push(proc);
-        cotizRenderProcs();
-        cotizUpdateTotal();
-    } else {
-        tempProcedimientos.push(proc);
-        updateProcedimientosList();
-    }
-
-    // Sync tooth state to odontogram when a diente number was provided
-    if (diente) registrarProcedimientoEnOdontograma(diente, desc);
-
+    updateProcedimientosList();
     closeModal('modalAddProcedimiento');
 }
 
@@ -1715,7 +1655,7 @@ function updateProcedimientosList() {
         list.innerHTML = tempProcedimientos.map(p => `
             <div class="procedimiento-item">
                 <div>
-                    <div style="font-weight: 600;">${p.descripcion}${p.diente ? ` <span style="font-size:11px;font-weight:400;color:var(--piedra);background:var(--sand);padding:2px 7px;border-radius:20px;margin-left:4px;">🦷 ${p.diente}</span>` : ''}</div>
+                    <div style="font-weight: 600;">${p.descripcion}</div>
                     <div style="font-size: 13px; color: #666;">${p.cantidad}x ${formatCurrency(p.precioUnitario)}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -1889,8 +1829,8 @@ async function generarFactura() {
     }
 
     const mensaje = citaHoy
-        ? `✅ Cotización generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
-        : '✅ Cotización generada exitosamente';
+        ? `✅ Factura generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
+        : '✅ Factura generada exitosamente';
 
     const labMsg = tempOrdenesLab.length > 0 ? ` · ${tempOrdenesLab.length} orden(es) de lab creadas` : '';
     showToast(mensaje.replace('✅ ', '') + labMsg);
@@ -1907,7 +1847,7 @@ async function generarFactura() {
     updateProcedimientosList();
     updateListaOrdenesLabTemp();
     } catch(e) {
-        showError('Error al generar la cotización.', e);
+        showError('Error al generar la factura.', e);
     }
 }
 
@@ -2027,6 +1967,54 @@ function actualizarNuevoBalance() {
     document.getElementById('nuevoBalance').style.color = nuevoBalance <= 0 ? '#34c759' : '#ff3b30';
 }
 
+// ════════════════════════════════════════════════════════
+// ENVIAR COTIZACIÓN AL PACIENTE (WhatsApp)
+// ════════════════════════════════════════════════════════
+function enviarCotizacion(facturaId) {
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) { showToast('⚠️ Factura no encontrada'); return; }
+
+    // Buscar teléfono del paciente
+    const paciente = appData.pacientes.find(p =>
+        p.id === factura.pacienteId || p.nombre === factura.paciente
+    );
+    const telefono = paciente?.telefono || '';
+    const telLimpio = telefono.replace(/\D/g, '');
+
+    // Construir mensaje de cotización
+    const clinica   = clinicConfig.nombre || 'Clínica Dental';
+    const moneda    = clinicConfig.moneda || 'RD$';
+    const fecha     = new Date(factura.fecha).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
+    const balance   = factura.total - (factura.pagos || []).reduce((s, p) => s + p.monto, 0);
+
+    // Líneas de procedimientos
+    const procs = (factura.procedimientos || [])
+        .map(p => `  • ${p.descripcion}${p.dientes ? ' (🦷 ' + p.dientes + ')' : ''}: ${moneda} ${Number(p.precio || 0).toLocaleString('es-DO')}`)
+        .join('\n');
+
+    const mensaje =
+`🦷 *${clinica}*
+━━━━━━━━━━━━━━━━━━━
+📋 *Cotización #${factura.numero}*
+📅 Fecha: ${fecha}
+👤 Paciente: ${factura.paciente}
+
+*Procedimientos:*
+${procs || '  • (Sin procedimientos detallados)'}
+
+━━━━━━━━━━━━━━━━━━━
+💰 *Total: ${moneda} ${Number(factura.total).toLocaleString('es-DO')}*
+${balance < factura.total ? `✅ Abonado: ${moneda} ${Number(factura.total - balance).toLocaleString('es-DO')}\n⏳ Pendiente: ${moneda} ${Number(balance).toLocaleString('es-DO')}` : ''}
+
+_Para confirmar su cita o realizar consultas, responda este mensaje._`;
+
+    const url = telLimpio
+        ? `https://wa.me/1${telLimpio}?text=${encodeURIComponent(mensaje)}`
+        : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+
+    window.open(url, '_blank');
+}
+
 function openPagarFactura(facturaId) {
     if (!tienePermiso('cobrar')) {
         showToast('⛔ Sin autorización para cobros', 3000, '#c0392b');
@@ -2130,7 +2118,7 @@ async function confirmarPago() {
         return;
     }
 
-    // Generar cotización para cliente
+    // Generar factura para cliente
     generarFacturaCliente(currentFacturaToPay, monto, metodo);
 
     updateCobrarTab();
@@ -2154,7 +2142,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         <div style="border-top: 3px solid var(--clinic-color, #C4856A); border-bottom: 3px solid var(--clinic-color, #C4856A); padding: 15px 0; margin: 20px 0;">
             <div style="text-align: center;">
                 <h3 style="color: var(--clinic-color, #C4856A); margin: 0; font-size: 20px;">${esPagoTotal ? 'RECIBO DE PAGO' : 'COMPROBANTE DE ABONO'}</h3>
-                <div style="color: #666; font-size: 13px; margin-top: 5px;">Cotización: ${factura.numero}</div>
+                <div style="color: #666; font-size: 13px; margin-top: 5px;">Factura: ${factura.numero}</div>
             </div>
         </div>
 
@@ -2316,10 +2304,8 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         const handler = function(e) {
             if (e.target === modalEl) {
                 modalEl.removeEventListener('click', handler);
-                setTimeout(() => {
-                    verPaciente(pacienteIdRetorno);
-                    setTimeout(() => cambiarTabPaciente('tratamientos'), 80);
-                }, 80);
+                showTab('pacientes');
+                setTimeout(() => verPaciente(pacienteIdRetorno), 100);
             }
         };
         modalEl.addEventListener('click', handler);
@@ -2343,7 +2329,7 @@ function descargarFacturaImagen() {
     mensajeDiv.style.display = 'block';
     mensajeDiv.style.background = '#e3f2fd';
     mensajeDiv.style.color = '#1976d2';
-    mensajeDiv.innerHTML = '⏳ Generando imagen de la cotización...';
+    mensajeDiv.innerHTML = '⏳ Generando imagen de la factura...';
 
     // Pequeño delay para asegurar que el DOM está listo
     setTimeout(() => {
@@ -2373,7 +2359,7 @@ function descargarFacturaImagen() {
                 mensajeDiv.style.background = '#e8f5e9';
                 mensajeDiv.style.color = '#2e7d32';
                 mensajeDiv.innerHTML = `
-                    ✅ <strong>¡Cotización descargada!</strong><br>
+                    ✅ <strong>¡Factura descargada!</strong><br>
                     <span style="font-size: 13px;">Ahora puedes compartirla por WhatsApp desde tu galería de fotos</span>
                 `;
 
@@ -2397,7 +2383,7 @@ function descargarFacturaImagen() {
 
 function imprimirFactura() {
     const ventana = window.open('', '', 'height=600,width=800');
-    ventana.document.write('<html><head><title>Cotización</title>');
+    ventana.document.write('<html><head><title>Factura</title>');
     ventana.document.write('<style>body{font-family: Arial, sans-serif; padding: 20px;}</style>');
     ventana.document.write('</head><body>');
     ventana.document.write(document.getElementById('facturaClienteContent').innerHTML);
@@ -2409,7 +2395,7 @@ function imprimirFactura() {
 function copiarFactura() {
     const texto = document.getElementById('facturaClienteContent').innerText;
     navigator.clipboard.writeText(texto).then(() => {
-        showToast('✓ Cotización copiada al portapapeles');
+        showToast('✓ Factura copiada al portapapeles');
     });
 }
 
@@ -2513,7 +2499,7 @@ function updateCuadreTab() {
                         <div>
                             <span style="font-weight: 600;">${icono} ${f.paciente}</span>
                             <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
-                            <div style="font-size: 12px; color: #999;">Cotización ${f.numero} - ${p.metodo}</div>
+                            <div style="font-size: 12px; color: #999;">Factura ${f.numero} - ${p.metodo}</div>
                         </div>
                         <div style="font-weight: 500; color: var(--green,#6B8F71);">${formatCurrency(p.monto)}</div>
                     </div>
@@ -2690,7 +2676,7 @@ function updateGastosTab() {
                 </div>
                 ${g.facturaData ? `
                     <button class="btn btn-secondary" style="margin-top: 10px; padding: 8px 16px; font-size: 13px;" onclick="verComprobante('${g.facturaData}')">
-                        📎 Ver Cotización
+                        📎 Ver Factura
                     </button>
                 ` : ''}
                 ${appData.currentRole === 'admin' ? `
@@ -3036,7 +3022,7 @@ function openPersonalDetail(id) {
         const permisos = person.permisos || {};
         const PERMS = [
             { key: 'cobrar',      label: 'Procesar cobros',   icon: '💳' },
-            { key: 'facturar',    label: 'Nueva cotización',  icon: '📋' },
+            { key: 'facturar',    label: 'Crear facturas',    icon: '🧾' },
             { key: 'cuadre',      label: 'Ver cuadre diario', icon: '📊' },
             { key: 'gastos',      label: 'Registrar gastos',  icon: '💸' },
             { key: 'verIngresos', label: 'Ver ingresos',      icon: '📈' },
@@ -3173,7 +3159,7 @@ function confirmarPagoProfesional(id) {
                     <strong>Avances a descontar:</strong> -${formatCurrency(avancesPendientes)}
                 </div>` : ''}
                 <div style="font-size: 14px; color: #666;">
-                    <strong>Cotizaciones cobradas:</strong> ${facturasPagadas.length}
+                    <strong>Facturas cobradas:</strong> ${facturasPagadas.length}
                 </div>
             </div>
             <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; font-size: 13px; color: #0d47a1; text-align: center;">
@@ -3328,80 +3314,6 @@ Firma: _____________________
 function compartirWhatsApp() {
     const texto = encodeURIComponent(currentReciboText);
     window.open(`https://wa.me/?text=${texto}`, '_blank');
-}
-
-// ── COMUNICACIÓN CON PACIENTE ────────────────────────────────────────────
-// Abre WhatsApp con mensaje predeterminado si hay teléfono, o genérico si no.
-function waLink(telefono, mensaje) {
-    const tel = (telefono || '').replace(/\D/g, '');
-    const txt = encodeURIComponent(mensaje);
-    return tel
-        ? `https://wa.me/${tel}?text=${txt}`
-        : `https://wa.me/?text=${txt}`;
-}
-
-function contactarPaciente(pacienteId, tipo) {
-    const p = appData.pacientes.find(x => x.id === pacienteId);
-    if (!p) return;
-    const clinica = getNombreClinica();
-    let msg = '';
-    switch(tipo) {
-        case 'saludo':
-            msg = `Hola ${p.nombre}, te contactamos desde ${clinica}. 😊`;
-            break;
-        case 'recordatorio':
-            const proxCita = (appData.citas || [])
-                .filter(c => c.pacienteId === pacienteId && new Date(c.fecha) >= new Date())
-                .sort((a,b) => new Date(a.fecha) - new Date(b.fecha))[0];
-            if (proxCita) {
-                msg = `Hola ${p.nombre}, te recordamos tu cita en ${clinica} el ${formatDate(proxCita.fecha)} a las ${proxCita.hora}. Por favor confírmanos tu asistencia. 🦷`;
-            } else {
-                msg = `Hola ${p.nombre}, te contactamos desde ${clinica}. ¿Cómo te has sentido? ¿Quieres agendar tu próxima cita? 😊`;
-            }
-            break;
-        case 'confirmacion':
-            msg = `Hola ${p.nombre}, ¿puedes confirmar tu asistencia a tu cita en ${clinica}? Muchas gracias. 🦷`;
-            break;
-        case 'balance':
-            const saldo = calcularSaldoPaciente(p.id);
-            msg = `Hola ${p.nombre}, te informamos que tienes un balance pendiente de ${formatCurrency(Math.abs(saldo))} en ${clinica}. Cualquier consulta estamos a la orden. 😊`;
-            break;
-    }
-    window.open(waLink(p.telefono, msg), '_blank');
-}
-
-function contactarPacienteCita(citaId, tipo) {
-    const cita = appData.citas.find(c => c.id === citaId);
-    if (!cita) return;
-    const p = appData.pacientes.find(x => x.nombre === cita.paciente || x.id === cita.pacienteId);
-    const clinica = getNombreClinica();
-    let msg = '';
-    switch(tipo) {
-        case 'recordatorio':
-            msg = `Hola ${cita.paciente}, te recordamos tu cita en ${clinica} el ${formatDate(cita.fecha)} a las ${cita.hora}. Por favor confírmanos tu asistencia. 🦷`;
-            break;
-        case 'confirmacion':
-            msg = `Hola ${cita.paciente}, ¿puedes confirmar tu asistencia a tu cita mañana a las ${cita.hora} en ${clinica}? Gracias. 🦷`;
-            break;
-    }
-    const tel = p?.telefono || '';
-    window.open(waLink(tel, msg), '_blank');
-}
-
-function avisarPacienteLab(ordenId) {
-    const orden = appData.laboratorios.find(o => o.id === ordenId);
-    if (!orden) return;
-    const p = appData.pacientes.find(x => x.nombre === orden.paciente || x.id === orden.pacienteId);
-    const clinica = getNombreClinica();
-    const msg = `Hola ${orden.paciente}, te informamos que tu trabajo de ${orden.tipo} ya está listo en ${clinica}. Por favor coordina con nosotros para tu cita de colocación. 😊🦷`;
-    window.open(waLink(p?.telefono || '', msg), '_blank');
-}
-
-function enviarReciboWhatsApp(pacienteId) {
-    const p = appData.pacientes.find(x => x.id === pacienteId);
-    const texto = encodeURIComponent(currentReciboText);
-    const tel = (p?.telefono || '').replace(/\D/g, '');
-    window.open(tel ? `https://wa.me/${tel}?text=${texto}` : `https://wa.me/?text=${texto}`, '_blank');
 }
 
 function copiarRecibo() {
@@ -3762,13 +3674,10 @@ async function guardarIdentidadClinica() {
     try {
         const monedaVal = document.getElementById('configMoneda')?.value || clinicConfig.moneda || 'RD$';
         const LOCALES_MONEDA = {
-            'RD$':  'es-DO', 'US$':  'en-US', 'MX$':  'es-MX',
-            'COP$': 'es-CO', 'CLP$': 'es-CL', 'ARS$': 'es-AR',
-            'UYU$': 'es-UY', 'S/':   'es-PE', 'R$':   'pt-BR',
-            'Q':    'es-GT', 'L':    'es-HN', 'C$':   'es-NI',
-            'B/.':  'es-PA', '₡':    'es-CR', 'Bs':   'es-BO',
-            '₲':    'es-PY', 'Bs.':  'es-VE', '€':    'es-ES',
-            '£':    'en-GB', '$':    'es-MX',
+            '$': 'es-MX', 'RD$': 'es-DO', 'R$': 'pt-BR', 'S/': 'es-PE',
+            'Q': 'es-GT', 'L': 'es-HN', 'C$': 'es-NI', 'B/.': 'es-PA',
+            '₡': 'es-CR', 'Bs': 'es-BO', '₲': 'es-PY', 'Bs.': 'es-VE',
+            '€': 'es-ES', '£': 'en-GB',
         };
         const localeVal = LOCALES_MONEDA[monedaVal] || 'es-419';
 
@@ -3994,7 +3903,7 @@ function updatePerfilTab() {
             list.innerHTML = reversiones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(r => `
                 <li>
                     <div class="item-header">
-                        <div class="item-title">Cotización ${r.facturaNumero} - ${r.paciente}</div>
+                        <div class="item-title">Factura ${r.facturaNumero} - ${r.paciente}</div>
                         <div style="color: #ff3b30; font-weight: 700;">${formatCurrency(r.montoReversado)}</div>
                     </div>
                     <div class="item-meta">
@@ -4047,11 +3956,11 @@ function eliminarFactura(facturaId) {
                        factura.estado === 'partial' ? 'Con abono' : 'Pendiente';
 
     mostrarConfirmacion({
-        titulo: '⚠️ Eliminar Cotización',
+        titulo: '⚠️ Eliminar Factura',
         mensaje: `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
-                    Cotización ${factura.numero}
+                    Factura ${factura.numero}
                 </div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
                     <strong>Paciente:</strong> ${factura.paciente}
@@ -4074,13 +3983,13 @@ function eliminarFactura(facturaId) {
             </div>
         `,
         tipo: 'peligro',
-        confirmText: 'Sí, Eliminar Cotización',
+        confirmText: 'Sí, Eliminar Factura',
         onConfirm: async () => {
             // Registrar auditoría ANTES de eliminar
             registrarAuditoria(
                 'eliminar',
                 'factura',
-                `Cotización ${factura.numero} - Paciente: ${factura.paciente} - Total: ${formatCurrency(factura.total)}`
+                `Factura ${factura.numero} - Paciente: ${factura.paciente} - Total: ${formatCurrency(factura.total)}`
             );
 
             const backupFacturas = [...appData.facturas];
@@ -4088,10 +3997,10 @@ function eliminarFactura(facturaId) {
             try {
                 await saveData();
                 updateCobrarTab();
-                showToast('✓ Cotización eliminada correctamente');
+                showToast('✓ Factura eliminada correctamente');
             } catch(saveErr) {
                 appData.facturas = backupFacturas;
-                showError('Error al eliminar la cotización.', saveErr);
+                showError('Error al eliminar la factura.', saveErr);
             }
         }
     });
@@ -4262,48 +4171,132 @@ function generateId(prefix = '') {
 
 let currentPacienteId = null;
 
+// ── PAGINACIÓN DE PACIENTES ───────────────────────────────
+// Evita renderizar miles de pacientes de golpe en el DOM.
+// Solo muestra PAC_PAGE_SIZE a la vez, con carga progresiva al hacer scroll.
+const PAC_PAGE_SIZE = 50;
+let _pacCurrentPage   = 0;
+let _pacFiltrados     = [];   // lista filtrada activa
+let _pacSearchTimer   = null; // debounce timer
+
 function updatePacientesTab() {
     const lista = document.getElementById('listaPacientes');
     if (!lista) return;
 
     if (appData.pacientes.length === 0) {
-        lista.innerHTML = '<div style="text-align: center; padding: 60px; color: #999;"><div style="font-size: 48px; margin-bottom: 16px;">👥</div><div style="font-size: 16px;">No hay pacientes registrados</div></div>';
+        lista.innerHTML = '<div style="text-align:center;padding:60px;color:#999"><div style="font-size:48px;margin-bottom:16px">👥</div><div style="font-size:16px">No hay pacientes registrados</div></div>';
         return;
     }
 
-    lista.innerHTML = appData.pacientes.map(p => {
-        const balance = calcularBalancePaciente(p.nombre);
-        const facturasPaciente = appData.facturas.filter(f => f.paciente === p.nombre);
-        // data-search incluye nombre, cédula y teléfono para filtrado preciso
-        const searchText = [p.nombre, p.cedula, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
+    // Actualizar contador total si existe
+    const contEl = document.getElementById('totalPacientesCount');
+    if (contEl) contEl.textContent = appData.pacientes.length.toLocaleString();
 
-        return `
-            <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor:pointer;padding:16px 20px;margin-bottom:12px;border-left:3px solid var(--clinic-color,#C4856A);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-size: 17px; font-weight: 600; color: var(--dark, #1E1C1A); letter-spacing: -0.2px;">${p.nombre}</div>
-                    <div>
-                        ${balance > 0 ? `<span class="badge badge-warning">${formatCurrency(balance)}</span>` :
-                          balance === 0 && facturasPaciente.length > 0 ? `<span class="badge badge-success">Al día</span>` : ''}
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
-                    ${p.telefono ? `<div style="font-size: 14px; color: #666;">📞 ${p.telefono}</div>` : ''}
-                    ${p.cedula ? `<div style="font-size: 14px; color: #666;">🆔 ${p.cedula}</div>` : ''}
-                    ${p.email ? `<div style="font-size: 14px; color: #666;">✉️ ${p.email}</div>` : ''}
+    // Iniciar con lista completa, sin filtro
+    _pacFiltrados = [...appData.pacientes];
+    _pacCurrentPage = 0;
+    lista.innerHTML = '';
+    _renderPacientesPage(lista);
+    _bindPacientesScroll(lista);
+}
+
+function _renderPacientePage(p) {
+    const balance = calcularBalancePaciente(p.nombre);
+    const facturasPaciente = appData.facturas.filter(f => f.paciente === p.nombre);
+    const searchText = [p.nombre, p.cedula, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
+    return `
+        <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor:pointer;padding:16px 20px;margin-bottom:12px;border-left:3px solid var(--clinic-color,#C4856A);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <div style="font-size:17px;font-weight:600;color:var(--dark,#1E1C1A);letter-spacing:-0.2px">${p.nombre}</div>
+                <div>
+                    ${balance > 0 ? `<span class="badge badge-warning">${formatCurrency(balance)}</span>` :
+                      balance === 0 && facturasPaciente.length > 0 ? `<span class="badge badge-success">Al día</span>` : ''}
                 </div>
             </div>
-        `;
-    }).join('');
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;">
+                ${p.telefono ? `<div style="font-size:14px;color:#666">📞 ${p.telefono}</div>` : ''}
+                ${p.cedula   ? `<div style="font-size:14px;color:#666">🆔 ${p.cedula}</div>`   : ''}
+                ${p.email    ? `<div style="font-size:14px;color:#666">✉️ ${p.email}</div>`    : ''}
+            </div>
+        </div>`;
+}
+
+function _renderPacientesPage(lista) {
+    const start = _pacCurrentPage * PAC_PAGE_SIZE;
+    const slice = _pacFiltrados.slice(start, start + PAC_PAGE_SIZE);
+    if (slice.length === 0) return;
+
+    const frag = document.createDocumentFragment();
+    slice.forEach(p => {
+        const div = document.createElement('div');
+        div.innerHTML = _renderPacientePage(p);
+        frag.appendChild(div.firstElementChild);
+    });
+    lista.appendChild(frag);
+    _pacCurrentPage++;
+
+    // Mostrar/ocultar indicador "más pacientes"
+    const total = _pacFiltrados.length;
+    const shown = Math.min(_pacCurrentPage * PAC_PAGE_SIZE, total);
+    let indicator = document.getElementById('pacientesLoadMore');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'pacientesLoadMore';
+        indicator.style.cssText = 'text-align:center;padding:16px;font-size:13px;color:#999';
+        lista.parentElement?.appendChild(indicator);
+    }
+    indicator.textContent = shown < total
+        ? `Mostrando ${shown.toLocaleString()} de ${total.toLocaleString()} pacientes — desplázate para ver más`
+        : `${total.toLocaleString()} pacientes en total`;
+}
+
+function _bindPacientesScroll(lista) {
+    // Usar el contenedor scrollable más cercano
+    const scroller = lista.closest('.tab-content, .content-area, [class*="scroll"], main') || lista.parentElement;
+    if (!scroller || scroller._pacScrollBound) return;
+    scroller._pacScrollBound = true;
+
+    scroller.addEventListener('scroll', () => {
+        const nearBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 200;
+        if (nearBottom) {
+            const shown = _pacCurrentPage * PAC_PAGE_SIZE;
+            if (shown < _pacFiltrados.length) {
+                _renderPacientesPage(lista);
+            }
+        }
+    }, { passive: true });
 }
 
 function filterPacientes() {
-    const search = document.getElementById('searchPacientes').value.toLowerCase().trim();
-    const items = document.querySelectorAll('#listaPacientes .list-item');
-    items.forEach(item => {
-        // Usar data-search para evitar falsos positivos con montos y badges
-        const text = (item.dataset.search || item.textContent).toLowerCase();
-        item.style.display = text.includes(search) ? '' : 'none';
-    });
+    // Debounce: esperar 200ms después de que el usuario deje de escribir
+    clearTimeout(_pacSearchTimer);
+    _pacSearchTimer = setTimeout(() => {
+        const search = document.getElementById('searchPacientes').value.toLowerCase().trim();
+        const lista  = document.getElementById('listaPacientes');
+        if (!lista) return;
+
+        if (!search) {
+            // Sin filtro — restaurar lista completa
+            _pacFiltrados   = [...appData.pacientes];
+        } else {
+            _pacFiltrados = appData.pacientes.filter(p => {
+                const text = [p.nombre, p.cedula, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
+                return text.includes(search);
+            });
+        }
+
+        _pacCurrentPage = 0;
+        lista.innerHTML = '';
+
+        if (_pacFiltrados.length === 0) {
+            lista.innerHTML = `<div style="text-align:center;padding:40px;color:#999">No se encontraron pacientes para "<strong>${search}</strong>"</div>`;
+            const ind = document.getElementById('pacientesLoadMore');
+            if (ind) ind.textContent = '';
+            return;
+        }
+
+        _renderPacientesPage(lista);
+    }, 200);
 }
 
 function abrirModalNuevoPaciente() {
@@ -4374,344 +4367,6 @@ async function guardarPaciente() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MODAL NUEVA COTIZACIÓN DESDE FICHA DEL PACIENTE
-// State is fully separate from the cobros tab to avoid ID collisions.
-// ═══════════════════════════════════════════════════════════════════════════
-
-let _cotizPacienteId   = null;
-let _cotizProcedimientos = [];
-let _cotizOrdenesLab   = [];
-
-function abrirModalNuevaCotizacion(paciente) {
-    _cotizPacienteId     = paciente.id;
-    _cotizProcedimientos = [];
-    _cotizOrdenesLab     = [];
-
-    // Label
-    const label = document.getElementById('cotizPacienteLabel');
-    if (label) label.textContent = paciente.nombre;
-
-    // Professional selector for admin
-    const selectorDiv = document.getElementById('cotizSelectorProfesional');
-    const selectEl    = document.getElementById('cotizProfesional');
-    if (selectorDiv && selectEl) {
-        if (appData.currentRole === 'admin') {
-            const profs = appData.personal.filter(p => p.tipo !== 'empleado');
-            selectEl.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                profs.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
-            selectorDiv.style.display = 'block';
-        } else {
-            selectorDiv.style.display = 'none';
-        }
-    }
-
-    // Reset form
-    const slider = document.getElementById('cotizDescuentoSlider');
-    if (slider) slider.value = '0';
-    const dv = document.getElementById('cotizDescuentoValue');
-    if (dv) dv.textContent = '0';
-    const notas = document.getElementById('cotizNotas');
-    if (notas) notas.value = '';
-
-    cotizRenderProcs();
-    cotizRenderLab();
-    cotizUpdateTotal();
-
-    openModal('modalNuevaCotizacion');
-}
-
-function cotizRenderProcs() {
-    const el = document.getElementById('cotizProcedimientosList');
-    if (!el) return;
-    if (_cotizProcedimientos.length === 0) {
-        el.innerHTML = '<div style="color:#8e8e93;padding:8px 0;font-size:13px;">Sin procedimientos</div>';
-    } else {
-        el.innerHTML = _cotizProcedimientos.map(p => `
-            <div class="procedimiento-item">
-                <div>
-                    <div style="font-weight:600;">${p.descripcion}${p.diente?` <span style="font-size:11px;font-weight:400;color:var(--piedra);background:var(--sand);padding:2px 7px;border-radius:20px;margin-left:4px;">🦷 ${p.diente}</span>`:''}
-                    </div>
-                    <div style="font-size:13px;color:#666;">${p.cantidad}x ${formatCurrency(p.precioUnitario)}</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <strong style="color:var(--clinic-color,#C4856A);">${formatCurrency(p.cantidad*p.precioUnitario)}</strong>
-                    <button class="procedimiento-delete" onclick="_cotizProcedimientos=_cotizProcedimientos.filter(x=>x.id!=='${p.id}');cotizRenderProcs();cotizUpdateTotal();">×</button>
-                </div>
-            </div>`).join('');
-    }
-    cotizUpdateTotal();
-}
-
-function cotizRenderLab() {
-    const el = document.getElementById('cotizLabList');
-    if (!el) return;
-    if (_cotizOrdenesLab.length === 0) {
-        el.innerHTML = '<div style="color:#8e8e93;padding:8px 0;font-size:13px;">Sin órdenes de lab</div>';
-    } else {
-        el.innerHTML = _cotizOrdenesLab.map(o => `
-            <div style="background:var(--sand);border-radius:10px;padding:10px 14px;
-                        display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <div>
-                    <div style="font-size:13px;font-weight:500;">🔬 ${o.tipo}${o.dientes?' · '+o.dientes:''}</div>
-                    <div style="font-size:11px;color:#999;">${o.laboratorio} — ${formatCurrency(o.precio)}</div>
-                </div>
-                <button class="procedimiento-delete" onclick="_cotizOrdenesLab=_cotizOrdenesLab.filter(x=>x.id!=='${o.id}');cotizRenderLab();cotizUpdateTotal();">×</button>
-            </div>`).join('');
-    }
-}
-
-function cotizUpdateTotal() {
-    const subtotal = _cotizProcedimientos.reduce((s,p)=>s+(p.cantidad*p.precioUnitario),0);
-    const labTotal = _cotizOrdenesLab.reduce((s,o)=>s+o.precio,0);
-    const slider   = document.getElementById('cotizDescuentoSlider');
-    const desc     = parseFloat(slider ? slider.value : 0)/100;
-    const total    = (subtotal+labTotal)*(1-desc);
-    const el = document.getElementById('cotizTotal');
-    if (el) el.textContent = formatCurrency(total);
-}
-
-function cotizSetDescuento(val) {
-    const s = document.getElementById('cotizDescuentoSlider');
-    const v = document.getElementById('cotizDescuentoValue');
-    if (s) s.value = val;
-    if (v) v.textContent = val;
-    cotizUpdateTotal();
-}
-
-// Reuses the same add-procedure modal but routes to cotiz state
-let _cotizAddProcMode = false;
-
-function cotizOpenAddProc() {
-    _cotizAddProcMode = true;
-    // Clear fields
-    document.getElementById('procDesc').value  = '';
-    document.getElementById('procCant').value  = '1';
-    document.getElementById('procPrecio').value = '';
-    if (document.getElementById('procDiente')) document.getElementById('procDiente').value = '';
-
-    // Populate catalog
-    const catalogWrap   = document.getElementById('procCatalogWrap');
-    const catalogSelect = document.getElementById('procCatalogSelect');
-    const items = clinicConfig.procItems || [];
-    if (catalogWrap && catalogSelect && items.length > 0) {
-        catalogSelect.innerHTML = '<option value="">— Elige un procedimiento —</option>' +
-            items.map((item,idx) => `<option value="${idx}">${item.nombre} — ${formatCurrency(item.precio)}</option>`).join('');
-        catalogWrap.style.display = 'block';
-    } else if (catalogWrap) {
-        catalogWrap.style.display = 'none';
-    }
-    openModal('modalAddProcedimiento');
-}
-
-// Override agregarProcedimiento to route to correct state
-// (original function patched below to check _cotizAddProcMode)
-
-function abrirModalOrdenLabCotiz() {
-    _cotizAddProcMode = true; // reuse flag to route lab too
-    document.getElementById('labTipo').value        = 'Corona';
-    document.getElementById('labDientes').value     = '';
-    document.getElementById('labDescripcion').value = '';
-    document.getElementById('labLaboratorio').value = '';
-    document.getElementById('labPrecio').value      = '';
-    document.getElementById('labCosto').value       = '';
-    calcularMargenLab();
-    openModal('modalOrdenLab');
-}
-
-async function generarCotizacionDesdeFicha() {
-    const paciente = appData.pacientes.find(p => p.id === _cotizPacienteId);
-    if (!paciente) { showToast('⚠️ Error: paciente no encontrado'); return; }
-
-    if (_cotizProcedimientos.length === 0 && _cotizOrdenesLab.length === 0) {
-        showToast('⚠️ Agrega al menos un procedimiento o una orden de lab');
-        return;
-    }
-
-    let profesionalQueAtendio = appData.currentUser;
-    if (appData.currentRole === 'admin') {
-        const sel = document.getElementById('cotizProfesional');
-        if (!sel || !sel.value) { showToast('⚠️ Selecciona el profesional que atendió'); return; }
-        profesionalQueAtendio = sel.value;
-    }
-
-    const slider  = document.getElementById('cotizDescuentoSlider');
-    const descuento = parseFloat(slider ? slider.value : 0);
-    const subtotal  = _cotizProcedimientos.reduce((s,p)=>s+(p.cantidad*p.precioUnitario),0);
-    const labTotal  = _cotizOrdenesLab.reduce((s,o)=>s+o.precio,0);
-    const total     = (subtotal+labTotal)*(1-descuento/100);
-    const notas     = (document.getElementById('cotizNotas')?.value||'').trim();
-
-    // Vincular cita del día si existe
-    const hoy    = new Date(); hoy.setHours(0,0,0,0);
-    const manana = new Date(hoy); manana.setDate(manana.getDate()+1);
-    const citaHoy = appData.citas.find(c => {
-        const fc = new Date(c.fecha); fc.setHours(0,0,0,0);
-        return (c.pacienteId===paciente.id||c.paciente===paciente.nombre) &&
-               fc>=hoy && fc<manana &&
-               c.profesional===profesionalQueAtendio &&
-               c.estado!=='Cancelada' && c.estado!=='Inasistencia';
-    });
-
-    const ultimoNum = appData.facturas.map(f=>parseInt(f.numero.replace('F-',''))||0).reduce((m,n)=>Math.max(m,n),0);
-    const numeroFinal = `F-${String(ultimoNum+1).padStart(4,'0')}-${Date.now().toString().slice(-3)}`;
-
-    const factura = {
-        id: generateId(),
-        numero: numeroFinal,
-        fecha: new Date().toISOString(),
-        paciente: paciente.nombre,
-        pacienteId: paciente.id,
-        procedimientos: [..._cotizProcedimientos],
-        ordenesLab: [..._cotizOrdenesLab],
-        subtotal: subtotal+labTotal,
-        descuento,
-        total,
-        profesional: profesionalQueAtendio,
-        estado: 'pendiente',
-        pagos: [],
-        notas,
-        tieneOrdenesLab: _cotizOrdenesLab.length>0,
-        citaId:    citaHoy ? citaHoy.id    : null,
-        citaHora:  citaHoy ? citaHoy.hora  : null,
-        citaMotivo:citaHoy ? citaHoy.motivo: null
-    };
-
-    const backupLen = appData.facturas.length;
-    const backupCita = citaHoy ? citaHoy.estado : null;
-    appData.facturas.push(factura);
-
-    if (citaHoy) {
-        citaHoy.estado = 'Completada';
-        citaHoy.fechaCompletada = new Date().toISOString();
-        citaHoy.procedimientosRealizados = _cotizProcedimientos.map(p=>p.descripcion).join(', ');
-    }
-
-    await crearOrdenesLabDesdeFactura(factura);
-
-    try {
-        await saveData();
-    } catch(e) {
-        appData.facturas.splice(backupLen,1);
-        if (citaHoy && backupCita) citaHoy.estado = backupCita;
-        showError('Error al guardar la cotización.', e);
-        return;
-    }
-
-    const labMsg = _cotizOrdenesLab.length>0 ? ` · ${_cotizOrdenesLab.length} orden(es) de lab creadas` : '';
-    const citaMsg = citaHoy ? ` · Cita vinculada (${citaHoy.hora})` : '';
-    showToast('Cotización generada' + labMsg + citaMsg);
-
-    closeModal('modalNuevaCotizacion');
-    // Refresh the tratamientos tab
-    cambiarTabPaciente('tratamientos');
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PATIENT PICKER OVERLAY
-// Quick patient search → opens ficha directly on Tratamientos tab.
-// Used by the dashboard "Nueva cotización" button.
-// ═══════════════════════════════════════════════════════════════════════════
-
-function abrirPickerPaciente() {
-    const input = document.getElementById('pickerPacienteInput');
-    const results = document.getElementById('pickerPacienteResults');
-    if (!input || !results) return;
-    input.value = '';
-    results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Escribe para buscar</div>';
-    openModal('modalPickerPaciente');
-    setTimeout(() => input.focus(), 120);
-}
-
-function pickerBuscar(query) {
-    const results = document.getElementById('pickerPacienteResults');
-    if (!results) return;
-    const q = (query || '').toLowerCase().trim();
-
-    if (q.length < 1) {
-        results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Escribe para buscar</div>';
-        return;
-    }
-
-    const matches = (appData.pacientes || []).filter(function(p) {
-        return p.nombre && (
-            p.nombre.toLowerCase().includes(q) ||
-            (p.cedula && p.cedula.includes(q)) ||
-            (p.telefono && p.telefono.includes(q))
-        );
-    }).slice(0, 8);
-
-    if (matches.length === 0) {
-        results.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--mid);font-size:13px;">Sin resultados para <strong>' + escapeHtml(query) + '</strong></div>';
-        return;
-    }
-
-    // Build rows via DOM to avoid ALL quote-escaping issues
-    results.innerHTML = '';
-    matches.forEach(function(p) {
-        const balance = calcularBalancePaciente(p.nombre);
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:13px 20px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,.05);transition:background .12s;';
-        row.onmouseover = function() { this.style.background = 'var(--surface,#F5F2EE)'; };
-        row.onmouseout  = function() { this.style.background = ''; };
-        row.onclick     = function() { pickerSeleccionar(p.id); };
-
-        // Avatar
-        const avatar = document.createElement('div');
-        avatar.style.cssText = 'width:38px;height:38px;border-radius:50%;background:var(--clinic-color,#C4856A);color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;flex-shrink:0;';
-        avatar.textContent = p.nombre.charAt(0).toUpperCase();
-
-        // Info
-        const info = document.createElement('div');
-        info.style.cssText = 'flex:1;min-width:0;';
-
-        const nombre = document.createElement('div');
-        nombre.style.cssText = 'font-size:14px;font-weight:500;color:var(--dark);';
-        nombre.textContent = p.nombre;
-        if (balance > 0) {
-            const pill = document.createElement('span');
-            pill.style.cssText = 'font-size:10px;padding:2px 7px;border-radius:100px;background:#fff3cd;color:#856404;margin-left:6px;';
-            pill.textContent = 'Debe ' + formatCurrency(balance);
-            nombre.appendChild(pill);
-        }
-
-        const sub = document.createElement('div');
-        sub.style.cssText = 'font-size:12px;color:var(--mid);margin-top:2px;';
-        sub.textContent = (p.cedula ? '# ' + p.cedula + '  ' : '') + (p.telefono ? p.telefono : '');
-
-        info.appendChild(nombre);
-        info.appendChild(sub);
-
-        // Arrow
-        const arrow = document.createElement('span');
-        arrow.style.cssText = 'font-size:18px;color:var(--mid);flex-shrink:0;';
-        arrow.textContent = '›';
-
-        row.appendChild(avatar);
-        row.appendChild(info);
-        row.appendChild(arrow);
-        results.appendChild(row);
-    });
-}
-
-function pickerSeleccionar(pacienteId) {
-    closeModal('modalPickerPaciente');
-    const paciente = appData.pacientes.find(function(p) { return p.id === pacienteId; });
-    if (!paciente) return;
-    verPaciente(pacienteId);
-    setTimeout(function() {
-        cambiarTabPaciente('tratamientos');
-        setTimeout(function() { nuevaCotizacionParaPaciente(pacienteId); }, 120);
-    }, 80);
-}
-
-function nuevaCotizacionParaPaciente(pacienteId) {
-    const paciente = appData.pacientes.find(p => p.id === pacienteId);
-    if (!paciente) return;
-    abrirModalNuevaCotizacion(paciente);
-}
-
 function verPaciente(pacienteId) {
     currentPacienteId = pacienteId;
     const paciente = appData.pacientes.find(p => p.id === pacienteId);
@@ -4724,7 +4379,16 @@ function verPaciente(pacienteId) {
     if (paciente.telefono) subtitulo += subtitulo ? ` • ${paciente.telefono}` : paciente.telefono;
     document.getElementById('verPacienteSubtitulo').textContent = subtitulo;
 
-    // noop: balance tab removed — financial info lives inside tratamientos
+    // Solo ocultar/mostrar Balance por rol — renderizado lazy al cambiar tab
+    // Ocultar tab Balance para profesionales (solo admin y recepción pueden cobrar)
+    const tabBalanceBtn = document.getElementById('tabBalanceBtn');
+    if (tabBalanceBtn) {
+        if (appData.currentRole === 'professional') {
+            tabBalanceBtn.style.display = 'none';
+        } else {
+            tabBalanceBtn.style.display = 'block';
+        }
+    }
 
     // Activar primer tab — cambiarTabPaciente renderizará solo ese tab
     cambiarTabPaciente('resumen');
@@ -4741,11 +4405,12 @@ function cambiarTabPaciente(tabName) {
     // Renderizado lazy: solo renderizar el tab que se activa
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente) return;
-    if (tabName === 'resumen')          renderTabResumen(paciente);
-    else if (tabName === 'tratamientos') renderTabTratamientos(paciente);
+    if (tabName === 'resumen')      renderTabResumen(paciente);
     else if (tabName === 'odontograma')  renderTabOdontograma(paciente);
+    else if (tabName === 'historial')    renderTabHistorial(paciente);
     else if (tabName === 'recetas')      renderTabRecetas(paciente);
     else if (tabName === 'documentos')   renderTabDocumentos(paciente);
+    else if (tabName === 'balance')      renderTabBalance(paciente);
 
     // Actualizar contenido
     document.querySelectorAll('.paciente-tab-content').forEach(content => {
@@ -4753,11 +4418,12 @@ function cambiarTabPaciente(tabName) {
     });
 
     const tabMap = {
-        'resumen':       'tabResumen',
-        'tratamientos':  'tabTratamientos',
-        'odontograma':   'tabOdontograma',
-        'recetas':       'tabRecetas',
-        'documentos':    'tabDocumentos'
+        'resumen':      'tabResumen',
+        'balance':      'tabBalance',
+        'odontograma':  'tabOdontograma',
+        'historial':    'tabHistorial',
+        'recetas':      'tabRecetas',
+        'documentos':   'tabDocumentos'
     };
 
     document.getElementById(tabMap[tabName]).style.display = 'block';
@@ -5099,77 +4765,6 @@ async function guardarEstadoDiente() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// REGISTRAR PROCEDIMIENTO EN ODONTOGRAMA
-// Cuando se agrega un procedimiento con número de diente, actualiza el
-// odontograma del paciente actual automáticamente.
-// Mapea keywords de la descripción a estados del odontograma.
-// Si no hay match claro → solo agrega nota sin cambiar estado visual.
-// ═══════════════════════════════════════════════════════════════════════════
-function registrarProcedimientoEnOdontograma(numeroDiente, descripcion) {
-    if (!numeroDiente || !currentPacienteId) return;
-
-    const num = parseInt(numeroDiente);
-    if (isNaN(num)) return;
-
-    const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
-    if (!paciente) return;
-    if (!paciente.odontograma) paciente.odontograma = {};
-
-    const desc = (descripcion || '').toLowerCase();
-
-    // Keyword → estado mapping
-    // Only change estado when description is unambiguous
-    const KEYWORD_ESTADO = [
-        { keys: ['corona', 'pfm', 'porcelana', 'cerámica', 'zirconia', 'zirconio'], estado: 'corona'     },
-        { keys: ['implante', 'implantar'],                                           estado: 'implante'   },
-        { keys: ['exodoncia', 'extracción', 'extraccion', 'extraer', 'extraído'],    estado: 'extraccion' },
-        { keys: ['caries', 'cavidad'],                                               estado: 'caries'     },
-        { keys: ['resina', 'obturación', 'obturacion', 'amalgama', 'composite',
-                  'relleno', 'restauración', 'restauracion', 'sellante'],            estado: 'sano'       },
-    ];
-
-    let nuevoEstado = null;
-    for (const map of KEYWORD_ESTADO) {
-        if (map.keys.some(k => desc.includes(k))) {
-            nuevoEstado = map.estado;
-            break;
-        }
-    }
-
-    const existing = paciente.odontograma[num] || { estado: 'sano' };
-
-    // Don't downgrade a more specific state (e.g. don't set 'sano' if already 'corona')
-    const ESTADO_RANK = { sano: 0, caries: 1, extraccion: 2, corona: 3, implante: 4, ausente: 5 };
-    const currentRank = ESTADO_RANK[existing.estado] ?? 0;
-    const newRank     = nuevoEstado ? (ESTADO_RANK[nuevoEstado] ?? 0) : -1;
-
-    const shouldChangeEstado = nuevoEstado && newRank >= currentRank;
-
-    paciente.odontograma[num] = {
-        estado:      shouldChangeEstado ? nuevoEstado : existing.estado,
-        nota:        descripcion || existing.nota || null,
-        fecha:       new Date().toISOString(),
-        profesional: appData.currentUser
-    };
-
-    // Update visual immediately if odontograma tab is currently visible
-    const dienteEl = document.getElementById('diente-' + num);
-    if (dienteEl && shouldChangeEstado) {
-        const cfg = ODONTO_ESTADOS[nuevoEstado] || ODONTO_ESTADOS.sano;
-        dienteEl.style.background   = cfg.color;
-        dienteEl.style.borderColor  = cfg.border;
-        dienteEl.style.color        = cfg.text;
-        dienteEl.textContent        = cfg.symbol || '';
-        dienteEl.style.transform    = 'scale(1.3)';
-        setTimeout(() => { dienteEl.style.transform = 'scale(1)'; }, 200);
-    }
-
-    savePaciente(paciente);
-}
-
-
-
 function renderTabResumen(paciente) {
     // Calcular edad
     let edad = '';
@@ -5235,7 +4830,7 @@ function renderTabResumen(paciente) {
                         ${formatCurrency(balance)}
                     </div>
                     <div style="font-size: 11px; color: #856404; margin-top: 2px;">
-                        ${pendientes.length} cotización${pendientes.length !== 1 ? 'es' : ''} sin saldar
+                        ${pendientes.length} factura${pendientes.length !== 1 ? 's' : ''} sin saldar
                     </div>
                 </div>
                 ${canCobrar ? `
@@ -5296,23 +4891,6 @@ function renderTabResumen(paciente) {
                 ` : ''}
             </div>
 
-            ${paciente.telefono ? `
-            <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(30,28,26,0.07);display:flex;gap:8px;flex-wrap:wrap;">
-                <button onclick="contactarPaciente('${paciente.id}','saludo')"
-                    style="flex:1;min-width:120px;padding:9px 12px;background:#25D366;color:white;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
-                    💬 Contactar
-                </button>
-                <button onclick="contactarPaciente('${paciente.id}','recordatorio')"
-                    style="flex:1;min-width:120px;padding:9px 12px;background:rgba(37,211,102,0.1);color:#1a7a40;border:1px solid rgba(37,211,102,0.3);border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
-                    📅 Recordar cita
-                </button>
-                ${balance > 0 ? `<button onclick="contactarPaciente('${paciente.id}','balance')"
-                    style="flex:1;min-width:120px;padding:9px 12px;background:rgba(196,133,106,0.1);color:#856404;border:1px solid rgba(196,133,106,0.3);border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
-                    💰 Recordar pago
-                </button>` : ''}
-            </div>
-            ` : ''}
-
             ${paciente.alergias ? `
                 <div style="background: #ffe5e5; padding: 12px; border-radius: 8px; margin-top: 16px; border-left: 3px solid #dc3545;">
                     <div style="font-size: 11px; color: #721c24; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">🚨 ALERGIAS</div>
@@ -5326,26 +4904,6 @@ function renderTabResumen(paciente) {
                     <div style="font-size: 14px; font-weight: 500; color: #1d1d1f;">${paciente.condiciones}</div>
                 </div>
             ` : ''}
-        </div>
-
-        <!-- Acciones rápidas -->
-        <div style="margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;">
-            <button onclick="cambiarTabPaciente('tratamientos')"
-                style="flex:1;min-width:160px;padding:12px 16px;
-                       background:var(--clinic-color,#C4856A);color:white;
-                       border:none;border-radius:12px;font-size:13px;font-weight:500;
-                       font-family:inherit;cursor:pointer;letter-spacing:.3px;
-                       box-shadow:0 2px 8px rgba(0,0,0,.12);">
-                📋 Ver Tratamientos
-            </button>
-            <button onclick="showTab('agenda');setTimeout(()=>abrirModalNuevaCita('','','${paciente.nombre.replace(/'/g,"\'")}'),80)"
-                style="flex:1;min-width:140px;padding:12px 16px;
-                       background:var(--sand);color:var(--topo);
-                       border:none;border-radius:12px;font-size:13px;font-weight:500;
-                       font-family:inherit;cursor:pointer;letter-spacing:.3px;
-                       box-shadow:var(--neu-raised);">
-                📅 Nueva Cita
-            </button>
         </div>
 
         <!-- Próxima cita -->
@@ -5391,162 +4949,178 @@ function renderTabResumen(paciente) {
     `;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TAB TRATAMIENTOS — central de seguimiento clínico + financiero del paciente
-// ═══════════════════════════════════════════════════════════════════════════
-function renderTabTratamientos(paciente) {
-    const canCobrar   = appData.currentRole==='admin' || appData.currentRole==='reception' || tienePermiso('cobrar');
-    const canFacturar = tienePermiso('facturar') || appData.currentRole==='admin' || appData.currentRole==='reception';
+function renderTabHistorial(paciente) {
+    const facturasPaciente = getFacturasDePaciente(paciente)
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    const citasPaciente = getCitasDePaciente(paciente)
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    const ordenesPaciente = (appData.laboratorios || [])
+        .filter(o => o.paciente === paciente.nombre)
+        .sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
 
-    const todas      = getFacturasDePaciente(paciente).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
-    const activas    = todas.filter(f=>{ const e=(f.estado||'').toLowerCase(); return e==='pendiente'||e==='pending'||e==='parcial'||e==='partial'; });
-    const pagadas    = todas.filter(f=>{ const e=(f.estado||'').toLowerCase(); return e==='pagada'||e==='paid'; });
-    const canceladas = todas.filter(f=>{ const e=(f.estado||'').toLowerCase(); return e==='cancelada'||e==='cancelled'; });
+    const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
 
-    const balance       = calcularBalancePaciente(paciente.nombre);
-    const totalCotizado = todas.reduce((s,f)=>s+f.total,0);
-    const totalPagado   = todas.reduce((s,f)=>s+(f.pagos||[]).reduce((sp,p)=>sp+p.monto,0),0);
+    // ── Balance header ──
+    const balance = calcularBalancePaciente(paciente.nombre);
+    const totalFacturado = facturasPaciente.reduce((s, f) => s + f.total, 0);
+    const totalPagado    = facturasPaciente.reduce((s, f) =>
+        s + (f.pagos || []).reduce((sp, p) => sp + p.monto, 0), 0);
 
-    function pill(f) {
-        const e=( f.estado||'').toLowerCase();
-        const paid=(f.pagos||[]).reduce((s,p)=>s+p.monto,0);
-        if(e==='pagada'||e==='paid')         return {label:'✅ Pagada',    color:'#28a745'};
-        if(e==='cancelada'||e==='cancelled') return {label:'❌ Cancelada', color:'#999'};
-        if(paid>0)                           return {label:'⏳ Con abono', color:'#ff9500'};
-        return                                      {label:'🔴 Pendiente', color:'#ff3b30'};
-    }
-
-    function cotizCard(f, collapsed) {
-        const p       = pill(f);
-        const paid    = (f.pagos||[]).reduce((s,pg)=>s+pg.monto,0);
-        const pending = f.total - paid;
-        const isDone  = pending <= 0;
-        const bodyId  = 'cb_' + f.id;
-
-        const procs = (f.procedimientos||[]).map(pr=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f5f5f5;">
-                <span style="font-size:13px;color:#444;">${escapeHtml(pr.descripcion)}${pr.cantidad>1?` ×${pr.cantidad}`:''}${pr.diente?` <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 ${pr.diente}</span>`:''}</span>
-                <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">${formatCurrency(pr.precioUnitario*(pr.cantidad||1))}</span>
-            </div>`).join('');
-
-        const labs = (appData.laboratorios||[]).filter(o=>o.facturaId===f.id||(f.ordenesLab||[]).find(ol=>ol.id===o.id));
-        const labsHtml = labs.length===0?'':labs.map(o=>{
-            const lc = getColorEstado(o.estadoActual);
-            const isDone = o.estadoActual === 'Entregado';
-            return `
-            <div style="background:rgba(91,110,128,.05);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1.5px solid rgba(91,110,128,.1);">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-size:13px;font-weight:500;color:#333;">🔬 ${escapeHtml(o.tipo)}${o.dientes?' <span style="font-size:11px;color:var(--piedra);background:#f5f5f5;padding:1px 6px;border-radius:20px;">🦷 '+o.dientes+'</span>':''}</div>
-                        <div style="font-size:11px;color:#999;margin-top:3px;">${escapeHtml(o.laboratorio)} · ${formatDate(o.fechaCreacion)}</div>
-                    </div>
-                    <div style="text-align:right;flex-shrink:0;">
-                        <div style="font-size:10px;font-weight:600;padding:3px 9px;border-radius:100px;background:${lc}18;color:${lc};border:1px solid ${lc}33;white-space:nowrap;">${o.estadoActual}</div>
-                        <div style="font-size:12px;font-weight:600;color:#444;margin-top:4px;">${formatCurrency(o.precio)}</div>
-                    </div>
-                </div>
-                ${!isDone ? `
-                <button data-action="ver-lab" data-oid="${o.id}"
-                    style="width:100%;padding:8px;background:white;border:1.5px solid rgba(91,110,128,.2);
-                           border-radius:100px;font-size:12px;font-family:inherit;color:var(--azul,#7B8FA1);
-                           cursor:pointer;font-weight:500;letter-spacing:.3px;">
-                    📍 Ver seguimiento →
-                </button>` : `
-                <div style="font-size:11px;color:#28a745;font-weight:500;text-align:center;padding:4px 0;">✅ Entregado</div>`}
-            </div>`;
-        }).join('');
-
-        const pagosHtml = (f.pagos||[]).length===0?'':`
-            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>
-                ${(f.pagos||[]).map(pg=>`
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">${pg.metodo||'Efectivo'}</span>
-                        <span style="font-size:11px;color:#999;">${pg.fecha?new Date(pg.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}):''}</span>
-                    </div>
-                    <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(pg.monto)}</span>
-                </div>`).join('')}
-            </div>`;
-
-        const descHtml = f.descuento>0?`
-            <div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">
-                <span style="font-size:12px;">Descuento ${f.descuento}%</span>
-                <span style="font-size:12px;">-${formatCurrency(f.total/(1-f.descuento/100)*(f.descuento/100))}</span>
-            </div>`:'';
-
-        // Buttons use data-fid attribute — onclick wired after render via delegation
-        const cobrarBtn = (!isDone && canCobrar)
-            ? `<button data-action="cobrar" data-fid="${f.id}" style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;">💳 Cobrar</button>` : '';
-        const enviarBtn = (!isDone && canCobrar)
-            ? `<button data-action="enviar" data-fid="${f.id}" style="width:100%;margin-top:8px;padding:9px;background:transparent;color:var(--topo);border:1px solid rgba(30,28,26,.12);border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;">📱 Enviar cotización al paciente</button>` : '';
-
-        return `
-        <div style="background:white;border-radius:14px;border:1.5px solid ${p.color}33;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);">
-            <div data-action="toggle" data-bid="${bodyId}" style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f5f5f5;">
-                <div>
-                    <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
-                    <div style="font-size:13px;color:#555;">${escapeHtml(f.profesional)}${f.citaMotivo?' · '+escapeHtml(f.citaMotivo):''}</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-size:11px;font-weight:600;color:${p.color};background:${p.color}18;padding:3px 10px;border-radius:100px;margin-bottom:4px;">${p.label}</div>
-                    <div style="font-size:16px;font-weight:700;color:${p.color};">${isDone?formatCurrency(f.total):formatCurrency(pending)+' pendiente'}</div>
-                </div>
-            </div>
-            <div id="${bodyId}" style="display:${collapsed?'none':'block'};padding:12px 16px;">
-                ${procs}
-                ${labsHtml?`<div style="margin-top:12px;"><div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Laboratorio</div>${labsHtml}</div>`:''}
-                ${descHtml}
-                <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">
-                    <span style="font-size:13px;color:#333;">Total</span>
-                    <span style="font-size:14px;color:#333;">${formatCurrency(f.total)}</span>
-                </div>
-                ${pagosHtml}
-                ${cobrarBtn}
-                ${enviarBtn}
-            </div>
-        </div>`;
-    }
-
-    const balHtml = `
+    const balanceHeaderHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
             <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Cotizado</div>
-                <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalCotizado)}</div>
+                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Facturado</div>
+                <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalFacturado)}</div>
             </div>
             <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
                 <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>
                 <div style="font-size:17px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
             </div>
-            <div style="background:${balance>0?'#fff3cd':'#d4edda'};border:1.5px solid ${balance>0?'#ffc107':'#28a745'};border-radius:12px;padding:14px;text-align:center;">
+            <div style="background:${balance > 0 ? '#fff3cd' : '#d4edda'};border:1.5px solid ${balance > 0 ? '#ffc107' : '#28a745'};border-radius:12px;padding:14px;text-align:center;">
                 <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>
-                <div style="font-size:17px;font-weight:700;color:${balance>0?'#856404':'#155724'};">${formatCurrency(balance)}</div>
+                <div style="font-size:17px;font-weight:700;color:${balance > 0 ? '#856404' : '#155724'};">${formatCurrency(balance)}</div>
             </div>
         </div>`;
 
-    const secActivas    = activas.length===0?'':`<div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">EN CURSO (${activas.length})</div>${activas.map(f=>cotizCard(f,false)).join('')}`;
-    const secPagadas    = pagadas.length===0?'':`<div style="font-size:10px;font-weight:600;color:var(--piedra);letter-spacing:1.5px;text-transform:uppercase;margin-top:${activas.length?'24':'0'}px;margin-bottom:10px;">COMPLETADAS (${pagadas.length})</div>${pagadas.map(f=>cotizCard(f,true)).join('')}`;
-    const secCanceladas = canceladas.length===0?'':`<div style="font-size:10px;font-weight:600;color:#aaa;letter-spacing:1.5px;text-transform:uppercase;margin-top:16px;margin-bottom:10px;">CANCELADAS (${canceladas.length})</div>${canceladas.map(f=>cotizCard(f,true)).join('')}`;
-    const emptyHtml     = todas.length===0?`<div style="text-align:center;padding:48px 20px;color:#999;"><div style="font-size:48px;margin-bottom:12px;">📋</div><div style="font-size:16px;font-weight:500;margin-bottom:6px;">Sin tratamientos registrados</div><div style="font-size:13px;">Usa el botón de arriba para crear la primera cotización.</div></div>`:'';
-    const btnNueva      = canFacturar?`<button data-action="nueva-cotiz" data-pid="${paciente.id}" style="width:100%;padding:13px 16px;background:var(--clinic-color,#C4856A);color:white;border:none;border-radius:12px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;margin-bottom:20px;letter-spacing:.3px;box-shadow:0 2px 8px rgba(0,0,0,.12);">+ Nueva Cotización</button>`:'';
+    // ── Facturas con desglose ──
+    const facturasHTML = facturasPaciente.length === 0
+        ? `<div style="text-align:center;padding:30px;color:#999;font-size:13px;">Sin procedimientos registrados</div>`
+        : facturasPaciente.map(f => {
+            const pagadoF   = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
+            const pendienteF = f.total - pagadoF;
+            const pagada     = pendienteF <= 0;
+            const estadoColor = pagada ? '#28a745' : pagadoF > 0 ? '#ff9500' : '#ff3b30';
+            const estadoLabel = pagada ? '✅ Pagada' : pagadoF > 0 ? '⏳ Con abono' : '🔴 Pendiente';
 
-    const container = document.getElementById('tabTratamientos');
-    container.innerHTML = btnNueva + balHtml + emptyHtml + secActivas + secPagadas + secCanceladas;
+            // Procedimientos desglosados
+            const procsHTML = (f.procedimientos || []).map(p => `
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            padding:7px 0;border-bottom:1px solid #f5f5f5;">
+                    <span style="font-size:13px;color:#444;">${p.descripcion}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}</span>
+                    <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">
+                        ${formatCurrency(p.precioUnitario * (p.cantidad || 1))}
+                    </span>
+                </div>`).join('');
 
-    // Wire clicks via event delegation — zero inline JS
-    container.addEventListener('click', function handler(e) {
-        const btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        const action = btn.dataset.action;
-        if (action==='nueva-cotiz') nuevaCotizacionParaPaciente(btn.dataset.pid);
-        if (action==='cobrar')      openPagarFactura(btn.dataset.fid);
-        if (action==='enviar')      verComprobantesFactura(btn.dataset.fid);
-        if (action==='ver-lab')     verDetalleOrdenLab(btn.dataset.oid);
-        if (action==='toggle')      { const b=document.getElementById(btn.dataset.bid); if(b) b.style.display=b.style.display==='none'?'block':'none'; }
-        container.removeEventListener('click', handler); // re-registers on next render
-        // Re-add after first click so delegation stays alive
-        container.addEventListener('click', handler);
-    });
+            // Pagos / abonos desglosados
+            const pagosHTML = (f.pagos || []).length === 0 ? '' : `
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
+                    <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>
+                    ${(f.pagos || []).map(p => `
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">
+                                    ${p.metodo || 'Efectivo'}
+                                </span>
+                                <span style="font-size:11px;color:#999;">
+                                    ${p.fecha ? new Date(p.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}) : ''}
+                                </span>
+                            </div>
+                            <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(p.monto)}</span>
+                        </div>`).join('')}
+                </div>`;
+
+            // Descuento si aplica
+            const descuentoHTML = f.descuento > 0 ? `
+                <div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">
+                    <span style="font-size:12px;">Descuento ${f.descuento}%</span>
+                    <span style="font-size:12px;">-${formatCurrency(f.total / (1 - f.descuento/100) * (f.descuento/100))}</span>
+                </div>` : '';
+
+            return `
+            <div style="background:white;border-radius:14px;border:1.5px solid ${estadoColor}33;
+                        margin-bottom:14px;overflow:hidden;">
+                <!-- Header factura -->
+                <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;
+                            display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
+                        <div style="font-size:13px;color:#555;">${f.profesional}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px;font-weight:600;color:${estadoColor};background:${estadoColor}18;
+                                    padding:3px 10px;border-radius:100px;margin-bottom:4px;">${estadoLabel}</div>
+                        <div style="font-size:16px;font-weight:700;color:${estadoColor};">
+                            ${pagada ? formatCurrency(f.total) : formatCurrency(pendienteF) + ' pendiente'}
+                        </div>
+                    </div>
+                </div>
+                <!-- Procedimientos + pagos -->
+                <div style="padding:12px 16px;">
+                    ${procsHTML}
+                    ${descuentoHTML}
+                    <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">
+                        <span style="font-size:13px;color:#333;">Total</span>
+                        <span style="font-size:14px;color:#333;">${formatCurrency(f.total)}</span>
+                    </div>
+                    ${pagosHTML}
+                    ${!pagada && canCobrar ? `
+                    <button onclick="openPagarFactura('${f.id}')"
+                        style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
+                               color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
+                               font-family:inherit;cursor:pointer;">
+                        💳 Cobrar esta factura
+                    </button>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+
+    // ── Órdenes de lab (compactas) ──
+    const labHTML = ordenesPaciente.length === 0 ? '' : `
+        <div style="margin-bottom:20px;">
+            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
+                        text-transform:uppercase;margin-bottom:10px;">Laboratorio</div>
+            ${ordenesPaciente.map(o => `
+                <div style="background:white;border-radius:12px;padding:12px 16px;
+                            border:1.5px solid #f0f0f0;margin-bottom:8px;
+                            display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:13px;font-weight:500;color:#333;">${o.tipo}</div>
+                        <div style="font-size:11px;color:#999;margin-top:2px;">${o.laboratorio} · ${formatDate(o.fechaCreacion)}</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;margin-left:8px;">
+                        <div style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;
+                                    background:${getColorEstado(o.estadoActual)}22;
+                                    color:${getColorEstado(o.estadoActual)};margin-bottom:3px;">
+                            ${o.estadoActual}
+                        </div>
+                        <div style="font-size:13px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
+                    </div>
+                </div>`).join('')}
+        </div>`;
+
+    // ── Citas (compactas) ──
+    const citasHTML = citasPaciente.length === 0 ? '' : `
+        <div>
+            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
+                        text-transform:uppercase;margin-bottom:10px;">Citas</div>
+            ${citasPaciente.map(c => `
+                <div style="background:white;border-radius:12px;padding:12px 16px;
+                            border:1.5px solid #f0f0f0;margin-bottom:8px;
+                            display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:13px;font-weight:500;color:#333;">
+                            ${formatDate(c.fecha)} · ${c.hora}
+                        </div>
+                        <div style="font-size:11px;color:#999;margin-top:2px;">${c.motivo} · ${c.profesional}</div>
+                    </div>
+                    <div style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;flex-shrink:0;
+                                background:${getColorEstadoCita(c.estado||'Pendiente')}22;
+                                color:${getColorEstadoCita(c.estado||'Pendiente')};">
+                        ${c.estado || 'Pendiente'}
+                    </div>
+                </div>`).join('')}
+        </div>`;
+
+    document.getElementById('tabHistorial').innerHTML = `
+        <div style="padding-bottom:8px;">
+            ${balanceHeaderHTML}
+            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
+                        text-transform:uppercase;margin-bottom:10px;">Procedimientos y pagos</div>
+            ${facturasHTML}
+            ${labHTML}
+            ${citasHTML}
+        </div>`;
 }
 
 function renderTabRecetas(paciente) {
@@ -5637,6 +5211,137 @@ function renderTabDocumentos(paciente) {
                 </button>
             </div>
         </div>
+    `;
+}
+
+function renderTabBalance(paciente) {
+    const balance = calcularBalancePaciente(paciente.nombre);
+    const facturasPaciente = getFacturasDePaciente(paciente);
+    
+    // Filtro robusto para estados (soporta inglés y español)
+    const facturasPendientes = facturasPaciente.filter(f => {
+        const estado = (f.estado || '').toLowerCase().trim();
+        return estado === 'pendiente' || estado === 'pending' ||
+               estado === 'parcial' || estado === 'partial' || estado === 'Pendiente';
+    });
+    
+    const facturasCompletadas = facturasPaciente.filter(f => {
+        const estado = (f.estado || '').toLowerCase().trim();
+        return estado === 'pagada' || estado === 'paid';
+    });
+    
+    // Calcular totales
+    const totalFacturado = facturasPaciente.reduce((sum, f) => sum + f.total, 0);
+    const totalPagado = facturasPaciente.reduce((sum, f) => {
+        const pagado = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
+        return sum + pagado;
+    }, 0);
+    
+    document.getElementById('tabBalance').innerHTML = `
+        <!-- Resumen de Balance -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+            <div style="background: ${balance > 0 ? 'var(--terracota,#C4856A)' : '#3a7a4a'}; color: white; padding: 24px; border-radius: 12px;">
+                <div style="font-size: 11px; opacity: 0.8; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;">Balance Actual</div>
+                <div style="font-size: 32px; font-weight: 300;">${formatCurrency(balance)}</div>
+            </div>
+            <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
+                <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL FACTURADO</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--clinic-color, #C4856A);">${formatCurrency(totalFacturado)}</div>
+            </div>
+            <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
+                <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL PAGADO</div>
+                <div style="font-size: 28px; font-weight: 700; color: #28a745;">${formatCurrency(totalPagado)}</div>
+            </div>
+        </div>
+        
+        ${balance > 0 ? `
+        <!-- Botón de Hacer Abono -->
+        <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-size: 16px; font-weight: 600; color: #856404; margin-bottom: 4px;">
+                        💰 Realizar Abono al Balance
+                    </div>
+                    <div style="font-size: 14px; color: #856404;">
+                        El paciente debe: ${formatCurrency(balance)}
+                    </div>
+                </div>
+                <button class="btn btn-submit" onclick="abrirAbonoBalance('${paciente.id}')" style="font-size: 16px; padding: 12px 24px;">
+                    💵 Hacer Abono
+                </button>
+            </div>
+        </div>
+        ` : balance < 0 ? `
+        <div style="background: #d4edda; border: 2px solid #28a745; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
+            <div style="font-size: 18px; font-weight: 600; color: #155724;">
+                ✅ El paciente tiene crédito a favor: ${formatCurrency(Math.abs(balance))}
+            </div>
+        </div>
+        ` : `
+        <div style="background: #d1ecf1; border: 2px solid #17a2b8; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
+            <div style="font-size: 18px; font-weight: 600; color: #0c5460;">
+                ✅ El paciente no tiene balance pendiente
+            </div>
+        </div>
+        `}
+        
+        <!-- Facturas Pendientes -->
+        ${facturasPendientes.length > 0 ? `
+        <div style="margin-bottom: 24px;">
+            <h3 style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 16px;">
+                📋 Facturas Pendientes (${facturasPendientes.length})
+            </h3>
+            <div style="display: grid; gap: 12px;">
+                ${facturasPendientes.map(f => {
+                    const pagado = (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
+                    const pendiente = f.total - pagado;
+                    return `
+                    <div style="background: #fff; border: 2px solid #e5e5e7; border-radius: 8px; padding: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div>
+                                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
+                                <div style="font-size: 13px; color: #666; margin-top: 4px;">${formatDate(f.fecha)} • ${f.profesional}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 18px; font-weight: 700; color: #ff3b30;">${formatCurrency(pendiente)}</div>
+                                <div style="font-size: 12px; color: #666;">de ${formatCurrency(f.total)}</div>
+                            </div>
+                        </div>
+                        ${pagado > 0 ? `<div style="font-size: 13px; color: #28a745; margin-bottom: 8px;">✓ Abonado: ${formatCurrency(pagado)}</div>` : ''}
+                        <button class="btn btn-submit" onclick="abrirPagoFactura('${f.id}', '${paciente.id}')" style="width: 100%; font-size: 14px;">
+                            💳 Pagar / Abonar
+                        </button>
+                    </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+        ` : ''}
+        
+        <!-- Facturas Completadas -->
+        ${facturasCompletadas.length > 0 ? `
+        <div>
+            <h3 style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 16px;">
+                ✅ Facturas Pagadas (${facturasCompletadas.length})
+            </h3>
+            <div style="display: grid; gap: 12px;">
+                ${facturasCompletadas.map(f => `
+                    <div style="background: #f8f9fa; border: 2px solid #28a745; border-radius: 8px; padding: 16px; opacity: 0.8;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
+                                <div style="font-size: 12px; color: #666;">${formatDate(f.fecha)}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 16px; font-weight: 700; color: #28a745;">${formatCurrency(f.total)}</div>
+                                <div style="font-size: 11px; color: #28a745;">✓ PAGADA</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
     `;
 }
 
@@ -5825,21 +5530,6 @@ function verDetalleCita(citaId) {
             <div style="font-size: 14px; font-weight: 500; color: #1d1d1f;">${cita.notasProcedimiento}</div>
         </div>
         ` : ''}
-
-        <!-- CONTACTAR PACIENTE -->
-        <div style="margin-top:20px;padding:14px;background:var(--surface,#F5F2EE);border-radius:10px;">
-            <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Contactar paciente</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button onclick="contactarPacienteCita('${cita.id}','recordatorio')"
-                    style="flex:1;min-width:120px;padding:10px 12px;background:#25D366;color:white;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-                    💬 Recordatorio
-                </button>
-                <button onclick="contactarPacienteCita('${cita.id}','confirmacion')"
-                    style="flex:1;min-width:120px;padding:10px 12px;background:rgba(37,211,102,0.12);color:#1a7a40;border:1px solid rgba(37,211,102,0.3);border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-                    ✅ Pedir confirmación
-                </button>
-            </div>
-        </div>
     `;
 
     document.getElementById('detalleCitaContent').innerHTML = html;
@@ -6072,16 +5762,9 @@ function agregarOrdenLabAFactura() {
         margen: precio - costo
     };
 
-    if (typeof _cotizAddProcMode !== 'undefined' && _cotizAddProcMode) {
-        _cotizAddProcMode = false;
-        _cotizOrdenesLab.push(orden);
-        cotizRenderLab();
-        cotizUpdateTotal();
-    } else {
-        tempOrdenesLab.push(orden);
-        updateListaOrdenesLabTemp();
-        updateTotal();
-    }
+    tempOrdenesLab.push(orden);
+    updateListaOrdenesLabTemp();
+    updateTotal();  // ← CORREGIDO: Actualizar total de la factura
     closeModal('modalOrdenLab');
 }
 
@@ -6280,7 +5963,6 @@ function verDetalleOrdenLab(ordenId) {
     const orden = appData.laboratorios.find(o => o.id === ordenId);
     if (!orden) return;
 
-    window._currentLabOrdenId = ordenId;
     document.getElementById('detalleLabInfo').innerHTML = `
         <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
@@ -6300,7 +5982,7 @@ function verDetalleOrdenLab(ordenId) {
                     <div style="font-size: 14px; font-weight: 500;">${orden.laboratorio}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Cotización</div>
+                    <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Factura</div>
                     <div style="font-size: 14px; font-weight: 500;">${orden.facturaNumero}</div>
                 </div>
             </div>
@@ -6466,17 +6148,6 @@ async function avanzarEstadoLab(nuevoEstado) {
             await saveData();
             verDetalleOrdenLab(orden.id);
             updateLaboratorioTab();
-            // Also refresh tratamientos tab if patient ficha is open
-            if (typeof currentPacienteId !== 'undefined' && currentPacienteId) {
-                const pac = appData.pacientes.find(p => p.id === currentPacienteId);
-                if (pac) {
-                    const tabTrat = document.getElementById('tabTratamientos');
-                    const tabBtn  = document.querySelector('.paciente-tab[data-tab="tratamientos"]');
-                    if (tabTrat && tabBtn && tabBtn.classList.contains('active')) {
-                        renderTabTratamientos(pac);
-                    }
-                }
-            }
         } catch(e) {
             // Rollback
             orden.timeline.pop();
@@ -6498,7 +6169,7 @@ async function avanzarEstadoLab(nuevoEstado) {
         if (balancePendiente > 0) {
             mostrarConfirmacion({
                 titulo: 'Balance pendiente',
-                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} cotización${facturasDelPaciente.length !== 1 ? 'es' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
+                mensaje: `<strong>${orden.paciente}</strong> tiene ${formatCurrency(balancePendiente)} pendiente en ${facturasDelPaciente.length} factura${facturasDelPaciente.length !== 1 ? 's' : ''}.<br><br>¿Marcar la orden como entregada de todas formas?`,
                 tipo: 'advertencia',
                 confirmText: 'Sí, entregar',
                 onConfirm: ejecutarAvance
@@ -6594,9 +6265,9 @@ async function cambiarEstadoCita(citaId, nuevoEstado) {
     // Si hay advertencia de sin factura, confirmar primero
     if (sinFactura) {
         mostrarConfirmacion({
-            titulo: 'Sin cotización asociada',
+            titulo: 'Sin factura asociada',
             mensaje: `Esta cita no tiene factura. ¿Marcar como <strong>Completada</strong> de todas formas?<br><br>
-                     <span style="font-size:13px;color:var(--mid)">Recomendación: genera la cotización antes para vincularla automáticamente.</span>`,
+                     <span style="font-size:13px;color:var(--mid)">Recomendación: genera la factura antes para vincularla automáticamente.</span>`,
             tipo: 'advertencia',
             confirmText: 'Sí, completar',
             onConfirm: () => ejecutarCambio(notas)
@@ -8108,10 +7779,10 @@ function exportarFacturasExcel() {
     // Crear hoja de cálculo
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Cotizaciones");
+    XLSX.utils.book_append_sheet(wb, ws, "Facturas");
 
     // Generar archivo
-    const nombreArchivo = `Cotizaciones_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const nombreArchivo = `Facturas_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
 
     showToast('✓ Archivo Excel generado');
@@ -8469,13 +8140,6 @@ function updateDashboardTab() {
             : 'linear-gradient(135deg, #C4856A 0%, #A06448 100%)';
     }
 
-    // "Ingresos Hoy" card — solo visible para admin
-    // Profesionales y recepción no deben ver el total de cobros del día
-    const ingresosCard = document.getElementById('dashIngresosHoy')?.closest('.dash-stat');
-    if (ingresosCard) {
-        ingresosCard.style.display = dashRole === 'admin' ? '' : 'none';
-    }
-
     if (dashRole === 'admin' || dashRole === 'professional') {
         let shortEl = document.getElementById('dashShortcuts');
         if (!shortEl) {
@@ -8486,13 +8150,13 @@ function updateDashboardTab() {
             if (statsGrid) statsGrid.insertAdjacentElement('beforebegin', shortEl);
         }
         shortEl.innerHTML = `
-            <button onclick="abrirPickerPaciente()" style="
+            <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)" style="
                 padding:14px 16px;background:var(--clinic-color);color:white;border:none;
                 border-radius:var(--radius-md);font-size:12px;letter-spacing:1px;text-transform:uppercase;
                 font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
                 box-shadow:0 4px 12px rgba(0,0,0,0.12);transition:opacity 0.2s"
                 onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-                <span style="font-size:18px;line-height:1">+</span> Nueva cotización
+                <span style="font-size:18px;line-height:1">+</span> Nueva factura
             </button>
             <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)" style="
                 padding:14px 16px;background:var(--white);color:var(--dark);
@@ -8576,7 +8240,7 @@ function updateDashboardTab() {
 
         document.getElementById('dashPorCobrar').textContent = formatCurrency(porCobrar);
         document.getElementById('dashFacturasPendientes').textContent =
-            `${facturasPendientes.length} cotización${facturasPendientes.length !== 1 ? 'es' : ''}`;
+            `${facturasPendientes.length} factura${facturasPendientes.length !== 1 ? 's' : ''}`;
     }
 
     // LABORATORIO ACTIVO
@@ -8603,7 +8267,7 @@ function updateDashboardTab() {
         new Date(f.fecha).getTime() < hace30Dias
     );
     if (facturasViejas.length > 0) {
-        alertas.push(`${facturasViejas.length} cotización${facturasViejas.length !== 1 ? 'es' : ''} pendiente${facturasViejas.length !== 1 ? 's' : ''} de más de 30 días`);
+        alertas.push(`${facturasViejas.length} factura${facturasViejas.length !== 1 ? 's' : ''} pendiente${facturasViejas.length !== 1 ? 's' : ''} de más de 30 días`);
     }
 
     // Pacientes sin consentimiento (solo admin — es quien puede gestionarlo globalmente)
@@ -8959,7 +8623,7 @@ function irAFactura(id) {
         setTimeout(() => openPagarFactura(id), 100);
     } else {
         showTab('ingresos');
-        showToast(`Cotización ${factura.numero} ya está pagada`, 4000, '#e65100');
+        showToast(`Factura ${factura.numero} ya está pagada`, 4000, '#e65100');
     }
 }
 
@@ -9581,8 +9245,11 @@ function abrirPagoFactura(facturaId, pacienteId) {
         showToast('⛔ Sin permiso para realizar cobros', 4000, '#c0392b');
         return;
     }
+    
+    closeModal('modalVerPaciente');
     openPagarFactura(facturaId);
-    // Guardar pacienteId para volver a la ficha → tratamientos después
+    
+    // Guardar pacienteId para volver a la ficha después
     window.tempPacienteIdRetorno = pacienteId;
 }
 
@@ -9597,13 +9264,13 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // ═══════════════════════════════════════════════
 
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 5,   soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',              precio: 5,   soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',          precio: 5,   soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 5,   soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 15,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',              precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',          precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
-const BASE_PRECIOS = { clinica: 23, solo: 19 };
+const BASE_PRECIOS = { clinica: 1200, solo: 990 };
 
 function renderMiPlanTab() {
     // Deactivate other tabs, activate miplan
@@ -9682,59 +9349,16 @@ function renderMiPlanTab() {
         }</div>
         ${clinicConfig.enTrial ? `<div style="margin-top:6px;padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;font-size:12px;color:var(--mid);border-left:3px solid var(--terracota)">💡 Durante el trial puedes agregar módulos y explorar SMILE. Solo pagas los módulos activos al finalizar.</div>` : ''}
 
-        <!-- SUSCRIPCIÓN: estado y botón de pago -->
-        <div class="card" style="margin-bottom:20px;margin-top:16px">
-            <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px">Estado de suscripción</div>
-
-            ${clinicConfig.enTrial ? `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <div>
-                    <div style="font-size:13px;color:var(--dark)">Período de prueba activo</div>
-                    <div style="font-size:12px;color:var(--mid);margin-top:3px">Vence el ${hasta ? hasta.toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div>
-                </div>
-                <div style="text-align:right">
-                    <div style="font-size:26px;font-weight:200;color:var(--terracota)">${diasTrial}</div>
-                    <div style="font-size:10px;color:var(--light)">día${diasTrial!==1?'s':''} restante${diasTrial!==1?'s':''}</div>
-                </div>
-            </div>
-            <div style="font-size:12px;color:var(--mid);padding:10px 14px;background:rgba(196,133,106,0.06);border-radius:8px;margin-bottom:16px;line-height:1.6">
-                Al finalizar el trial, activa tu suscripción para continuar usando SMILE.
-            </div>
-            <button onclick="iniciarPago(event)" style="
-                width:100%;padding:14px;background:var(--clinic-color);color:white;
-                border:none;border-radius:var(--radius-sm);font-size:12px;
-                letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;
-                cursor:pointer;transition:opacity 0.2s;"
-                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                Activar suscripción →
-            </button>
-            ` : `
-            <div style="display:flex;justify-content:space-between;align-items:center">
-                <div>
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                        <div style="width:8px;height:8px;border-radius:50%;background:#4a7a50"></div>
-                        <div style="font-size:13px;color:var(--dark)">Suscripción activa</div>
-                    </div>
-                    ${clinicConfig.proximoPago ? `<div style="font-size:12px;color:var(--mid);margin-top:4px">Próximo cobro: <strong>${new Date(clinicConfig.proximoPago).toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'})}</strong></div>` : ''}
-                </div>
-                <div style="text-align:right">
-                    <div style="font-size:20px;font-weight:200;color:var(--dark)">USD $${calcTotal()}</div>
-                    <div style="font-size:10px;color:var(--light)">/mes</div>
-                </div>
-            </div>
-            `}
-        </div>
-
         <!-- Plan base -->
         <div class="card" style="margin-bottom:14px">
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <div>
                     <div style="font-size:13px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Plan base</div>
                     <div style="font-size:18px;font-weight:300;color:var(--dark)">${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
-                    <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Cotizaciones · Expediente clínico</div>
+                    <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
                 </div>
                 <div style="text-align:right">
-                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">USD $${basePrice}</div>
+                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">${clinicConfig.moneda || "RD$"}${basePrice.toLocaleString()}</div>
                     <div style="font-size:10px;color:var(--light)">/mes</div>
                 </div>
             </div>
@@ -9749,10 +9373,10 @@ function renderMiPlanTab() {
         </div>
 
         <!-- Total y guardar -->
-        <div class="card" style="margin-top:20px;border:1.5px solid rgba(30,28,26,0.07)">
+        <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
-                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">USD $${calcTotal()}</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${clinicConfig.moneda || "RD$"}${calcTotal().toLocaleString()}</div>
             </div>
             <button onclick="guardarCambiosPlan()" style="
                 width:100%;padding:14px;background:var(--clinic-color);color:white;
@@ -9764,7 +9388,7 @@ function renderMiPlanTab() {
                 Guardar cambios
             </button>
             <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
-                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica a partir del próximo ciclo de cobro.
+                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica a partir del próximo ciclo de cobro.<br>Contacta a SMILE por WhatsApp para coordinar el pago.
             </div>
         </div>
     `;
@@ -9790,28 +9414,7 @@ function togglePlanModulo(key) {
     document.getElementById('miplan-modulos').innerHTML =
         MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(clinicConfig.plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
     document.getElementById('miplan-total').textContent =
-        'USD $' + tab._calcTotal();
-}
-
-async function iniciarPago(e) {
-    const btn = (e && e.currentTarget) || document.querySelector('[onclick^="iniciarPago"]');
-    if (btn) { btn.textContent = 'Redirigiendo a Stripe...'; btn.disabled = true; }
-    try {
-        const res = await fetch('https://us-central1-smile-theapp.cloudfunctions.net/createCheckoutSession', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clinicId: CLINIC_PATH, appOrigin: window.location.origin })
-        });
-        const data = await res.json();
-        if (data.url) {
-            window.location.href = data.url;
-        } else {
-            throw new Error(data.error || 'No se pudo crear la sesión de pago');
-        }
-    } catch(err) {
-        showToast('❌ Error al iniciar el pago: ' + err.message, 4000, '#c0392b');
-        if (btn) { btn.textContent = 'Activar suscripción →'; btn.disabled = false; }
-    }
+        (clinicConfig.moneda || 'RD$') + tab._calcTotal().toLocaleString();
 }
 
 async function guardarCambiosPlan() {
@@ -9826,7 +9429,7 @@ async function guardarCambiosPlan() {
     try {
         const nuevosModulos = [...tab._pendientes];
         const plan = clinicConfig.plan || 'clinica';
-        const basePrice = BASE_PRECIOS[plan] || 23;
+        const basePrice = BASE_PRECIOS[plan] || 1200;
         const nuevoMRR = nuevosModulos.reduce((s, k) => {
             const m = MODULOS_DISPONIBLES.find(x => x.key === k);
             return s + (m ? m.precio : 0);
@@ -9835,14 +9438,13 @@ async function guardarCambiosPlan() {
         // Guardia antes de escribir
         if (!canWriteToFirebase('guardarModulosPlan')) return;
 
-        // Guardar en doc principal — config/settings es solo-admin por Firestore Rules
-        await db.collection('clinicas').doc(CLINIC_PATH).set({
-            planPendiente: {
+        // Update Firebase config
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings').set({
                 modulos: nuevosModulos,
                 mrr: nuevoMRR,
-                solicitadoEn: new Date().toISOString(),
-            }
-        }, { merge: true });
+                planModificadoEn: new Date().toISOString(),
+            }, { merge: true });
 
         // Update local state
         clinicConfig.modulos = nuevosModulos;
@@ -9892,9 +9494,9 @@ function renderCobrosTab(subtab) {
     tab.classList.add('active');
     // Pick requested subtab, or remembered one, or first one the user can access
     const _requested = subtab || tab._activeSubtab || 'cobrar';
-    const active = tienePermiso({ cobrar:'cobrar', ingresos:'verIngresos', cuadre:'cuadre', gastos:'gastos' }[_requested] || _requested)
+    const active = tienePermiso({ cobrar:'cobrar', nueva:'facturar', ingresos:'verIngresos', cuadre:'cuadre', gastos:'gastos' }[_requested] || _requested)
         ? _requested
-        : (['cobrar','ingresos','cuadre','gastos'].find(k => tienePermiso({cobrar:'cobrar',ingresos:'verIngresos',cuadre:'cuadre',gastos:'gastos'}[k])) || 'cobrar');
+        : (['cobrar','nueva','ingresos','cuadre','gastos'].find(k => tienePermiso({cobrar:'cobrar',nueva:'facturar',ingresos:'verIngresos',cuadre:'cuadre',gastos:'gastos'}[k])) || 'cobrar');
     tab._activeSubtab = active;
 
     // Highlight nav
@@ -9904,6 +9506,7 @@ function renderCobrosTab(subtab) {
 
     const subtabs = [
         { key: 'cobrar',   label: '💳 Cobrar',   permiso: 'cobrar'     },
+        { key: 'nueva',    label: '+ Nueva',     permiso: 'facturar'   },
         { key: 'ingresos', label: 'Ingresos',    permiso: 'verIngresos'},
         { key: 'cuadre',   label: 'Cuadre',      permiso: 'cuadre'     },
         { key: 'gastos',   label: 'Gastos',      permiso: 'gastos'     },
@@ -9951,6 +9554,29 @@ function renderCobrosContent(key) {
         const src = document.getElementById('tab-cobrar');
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
         if (typeof updateCobrarTab === 'function') updateCobrarTab();
+    } else if (key === 'nueva') {
+        // Copy factura tab content into cobros
+        const src = document.getElementById('tab-factura');
+        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+
+        // Populate professional selector for admin (can't use showTab logic since we cloned)
+        if (appData.currentRole === 'admin') {
+            const container = el.querySelector('#selectorProfesionalFactura');
+            const select    = el.querySelector('#profesionalQueAtendio');
+            if (container) container.style.display = 'block';
+            if (select) {
+                const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
+                select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
+                    profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+            }
+        }
+
+        // Re-init factura state
+        if (typeof initFacturaForm === 'function') initFacturaForm();
+        if (typeof updateTempProcedimientos === 'function') updateTempProcedimientos();
+        updateProcedimientosList();
+        updateListaOrdenesLabTemp();
+        updateTotal();
     } else if (key === 'ingresos') {
         const src = document.getElementById('tab-ingresos');
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
@@ -10604,255 +10230,6 @@ function updateReportesTab() {
 // MÓDULO DE INVENTARIO
 // ═══════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ESCÁNER DE CÓDIGO DE BARRAS — Módulo Inventario
-// Usa ZXing-js via CDN (carga lazy al primer uso).
-// Dos modos:
-//   invEscanearEnCampo(fieldId) → escanea y pone el resultado en un input
-//   invEscanearMovimiento()     → escanea y abre movimiento del producto
-// ═══════════════════════════════════════════════════════════════════════════
-
-let _scannerInstance  = null;
-let _scannerModal     = null;
-let _scannerCallback  = null;
-let _zxingLoaded      = false;
-
-// Lazy-load ZXing and return promise that resolves when ready
-function _loadZXing() {
-    if (_zxingLoaded && window.ZXingBrowser) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-        const existing = document.querySelector('script[data-zxing-loaded]');
-        if (existing) { resolve(); return; }
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@zxing/browser@0.1.4/umd/index.min.js';
-        script.setAttribute('data-zxing-loaded', '1');
-        script.onload  = () => { _zxingLoaded = true; resolve(); };
-        script.onerror = () => reject(new Error('No se pudo cargar el escáner. Verifica tu conexión.'));
-        document.head.appendChild(script);
-    });
-}
-
-// Opens the scanner modal and calls callback(codigoString) on success
-async function _abrirScanner(callback) {
-    // Close any existing scanner
-    _cerrarScanner();
-
-    showToast('⏳ Cargando escáner…', 1500);
-    try {
-        await _loadZXing();
-    } catch(e) {
-        showToast('❌ ' + e.message, 4000, '#e65100');
-        return;
-    }
-
-    _scannerCallback = callback;
-
-    // Build modal
-    const overlay = document.createElement('div');
-    overlay.id = 'scannerModal';
-    overlay.style.cssText = `
-        position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:20000;
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-    `;
-    overlay.innerHTML = `
-        <div style="width:100%;max-width:480px;padding:0 16px;box-sizing:border-box;">
-            <!-- Title -->
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <div style="color:white;font-size:16px;font-weight:400;letter-spacing:0.5px;">Escanear código de barras</div>
-                <button onclick="_cerrarScanner()" style="background:rgba(255,255,255,.15);border:none;color:white;
-                    width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer;
-                    display:flex;align-items:center;justify-content:center;">✕</button>
-            </div>
-
-            <!-- Viewfinder -->
-            <div style="position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:4/3;">
-                <video id="scannerVideo" style="width:100%;height:100%;object-fit:cover;display:block;"></video>
-                <!-- Scan line animation -->
-                <div style="position:absolute;inset:0;pointer-events:none;">
-                    <!-- Corner brackets -->
-                    <div style="position:absolute;top:16px;left:16px;width:32px;height:32px;
-                        border-top:3px solid white;border-left:3px solid white;border-radius:4px 0 0 0;opacity:.8;"></div>
-                    <div style="position:absolute;top:16px;right:16px;width:32px;height:32px;
-                        border-top:3px solid white;border-right:3px solid white;border-radius:0 4px 0 0;opacity:.8;"></div>
-                    <div style="position:absolute;bottom:16px;left:16px;width:32px;height:32px;
-                        border-bottom:3px solid white;border-left:3px solid white;border-radius:0 0 0 4px;opacity:.8;"></div>
-                    <div style="position:absolute;bottom:16px;right:16px;width:32px;height:32px;
-                        border-bottom:3px solid white;border-right:3px solid white;border-radius:0 0 4px 0;opacity:.8;"></div>
-                    <!-- Scan line -->
-                    <div id="scanLine" style="position:absolute;left:16px;right:16px;height:2px;
-                        background:linear-gradient(to right,transparent,var(--clinic-color,#C4856A),transparent);
-                        animation:scanMove 2s ease-in-out infinite;top:50%;"></div>
-                </div>
-            </div>
-
-            <!-- Manual input fallback -->
-            <div style="margin-top:14px;background:rgba(255,255,255,.08);border-radius:12px;padding:14px;">
-                <div style="font-size:11px;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">
-                    También puedes escribirlo manualmente
-                </div>
-                <div style="display:flex;gap:8px;">
-                    <input id="scannerManualInput" type="text" placeholder="Código de barras…"
-                        style="flex:1;padding:10px 14px;border:none;border-radius:10px;font-size:14px;
-                               font-family:inherit;background:rgba(255,255,255,.12);color:white;outline:none;"
-                        onkeydown="if(event.key==='Enter')_scannerConfirmarManual()">
-                    <button onclick="_scannerConfirmarManual()" style="padding:10px 16px;background:var(--clinic-color,#C4856A);
-                        color:white;border:none;border-radius:10px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;">
-                        OK
-                    </button>
-                </div>
-            </div>
-
-            <div id="scannerStatus" style="text-align:center;color:rgba(255,255,255,.5);font-size:12px;margin-top:10px;">
-                Apunta la cámara al código de barras
-            </div>
-        </div>
-    `;
-
-    // Inject scan animation CSS if not already there
-    if (!document.getElementById('scannerCSS')) {
-        const style = document.createElement('style');
-        style.id = 'scannerCSS';
-        style.textContent = `
-            @keyframes scanMove {
-                0%   { top: 20%; }
-                50%  { top: 80%; }
-                100% { top: 20%; }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    document.body.appendChild(overlay);
-    _scannerModal = overlay;
-
-    // Start ZXing
-    try {
-        const hints = new Map();
-        const formats = [
-            window.ZXingBrowser.BarcodeFormat.CODE_128,
-            window.ZXingBrowser.BarcodeFormat.CODE_39,
-            window.ZXingBrowser.BarcodeFormat.EAN_13,
-            window.ZXingBrowser.BarcodeFormat.EAN_8,
-            window.ZXingBrowser.BarcodeFormat.UPC_A,
-            window.ZXingBrowser.BarcodeFormat.UPC_E,
-            window.ZXingBrowser.BarcodeFormat.QR_CODE,
-            window.ZXingBrowser.BarcodeFormat.DATA_MATRIX,
-        ];
-        hints.set(window.ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, formats);
-
-        const codeReader = new window.ZXingBrowser.BrowserMultiFormatReader(hints);
-        _scannerInstance = codeReader;
-
-        const videoEl = document.getElementById('scannerVideo');
-
-        await codeReader.decodeFromVideoDevice(null, videoEl, (result, err) => {
-            if (result) {
-                const code = result.getText();
-                _scannerExito(code);
-            }
-            // err is expected when no barcode in frame — suppress it
-        });
-    } catch(e) {
-        const status = document.getElementById('scannerStatus');
-        if (status) {
-            if (e.name === 'NotAllowedError') {
-                status.textContent = '📷 Permiso de cámara denegado — usa el campo manual de abajo';
-                status.style.color = 'rgba(255,150,100,.8)';
-            } else {
-                status.textContent = 'Cámara no disponible — usa el campo manual';
-                status.style.color = 'rgba(255,150,100,.8)';
-            }
-        }
-    }
-}
-
-function _cerrarScanner() {
-    try {
-        if (_scannerInstance) {
-            _scannerInstance.reset();
-            _scannerInstance = null;
-        }
-    } catch(e) {}
-    if (_scannerModal) {
-        _scannerModal.remove();
-        _scannerModal = null;
-    }
-    _scannerCallback = null;
-}
-
-function _scannerExito(codigo) {
-    // Visual feedback
-    const line = document.getElementById('scanLine');
-    if (line) { line.style.background = 'linear-gradient(to right,transparent,#28a745,transparent)'; }
-
-    // Vibrate on mobile if available
-    if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
-
-    setTimeout(() => {
-        _cerrarScanner();
-        if (_scannerCallback) _scannerCallback(codigo);
-    }, 300);
-}
-
-function _scannerConfirmarManual() {
-    const val = (document.getElementById('scannerManualInput')?.value || '').trim();
-    if (!val) { showToast('⚠️ Escribe el código primero'); return; }
-    _scannerExito(val);
-}
-
-// ── Public API ────────────────────────────────────────────────────────────────
-
-// Mode 1: Scan and fill an input field (used in create/edit product form)
-function invEscanearEnCampo(fieldId) {
-    _abrirScanner(function(codigo) {
-        const field = document.getElementById(fieldId);
-        if (field) {
-            field.value = codigo;
-            field.style.borderColor = 'var(--clinic-color)';
-            setTimeout(() => { field.style.borderColor = 'rgba(30,28,26,0.12)'; }, 1500);
-        }
-        showToast('✓ Código escaneado: ' + codigo, 3000);
-    });
-}
-
-// Mode 2: Scan and find product → open movement modal (quick stock operation)
-function invEscanearMovimiento() {
-    _abrirScanner(function(codigo) {
-        const item = (appData.inventario || []).find(function(i) {
-            return i.codigoBarras && i.codigoBarras.trim() === codigo.trim() && i.activo !== false;
-        });
-
-        if (item) {
-            showToast('✓ ' + item.nombre, 2000);
-            setTimeout(function() { abrirModalMovimiento(item.id, 'entrada'); }, 400);
-        } else {
-            // Product not found — offer to create it
-            mostrarModal({
-                titulo: 'Producto no encontrado',
-                body: `
-                    <div style="text-align:center;padding:16px 0;">
-                        <div style="font-size:40px;margin-bottom:12px;">📦</div>
-                        <div style="font-size:14px;color:var(--dark);margin-bottom:6px;">No hay ningún producto con el código:</div>
-                        <div style="font-size:18px;font-weight:500;color:var(--dark);letter-spacing:2px;background:rgba(30,28,26,0.05);
-                             border-radius:10px;padding:10px 16px;margin-bottom:16px;">${escapeHtml(codigo)}</div>
-                        <div style="font-size:13px;color:var(--mid);">¿Quieres agregar este producto al inventario?</div>
-                    </div>
-                `,
-                confirmText: '+ Crear producto',
-                onConfirm: function() {
-                    cerrarModal();
-                    abrirModalItem(null);
-                    // Pre-fill the barcode field after modal opens
-                    setTimeout(function() {
-                        const f = document.getElementById('invCodigoBarras');
-                        if (f) { f.value = codigo; }
-                    }, 120);
-                }
-            });
-        }
-    });
-}
-
 const INV_CATEGORIAS = [
     'Materiales dentales', 'Anestesia', 'Instrumental', 'Equipos',
     'Higiene y desinfección', 'Papelería', 'Medicamentos', 'Otros'
@@ -10902,8 +10279,7 @@ function updateInventarioTab() {
         lista = lista.filter(i =>
             (i.nombre || '').toLowerCase().includes(q) ||
             (i.categoria || '').toLowerCase().includes(q) ||
-            (i.proveedor || '').toLowerCase().includes(q) ||
-            (i.codigoBarras || '').toLowerCase().includes(q)
+            (i.proveedor || '').toLowerCase().includes(q)
         );
     }
     lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
@@ -10915,21 +10291,12 @@ function updateInventarioTab() {
                 <div class="section-title" style="margin:0">Inventario</div>
                 <div class="section-sub" style="margin-top:2px">${stats.total} producto${stats.total!==1?'s':''} · ${formatCurrency(stats.valorTotal)} en stock</div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
-                <button onclick="invEscanearMovimiento()"
-                    title="Escanear código de barras"
-                    style="padding:10px 14px;background:rgba(30,28,26,0.07);color:var(--dark);
-                           border:none;border-radius:100px;font-size:18px;cursor:pointer;line-height:1;display:flex;align-items:center;gap:6px">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="17" y="2" width="5" height="5" rx="1"/><rect x="2" y="17" width="5" height="5" rx="1"/><path d="M17 17h5v5"/><path d="M22 17v.01"/><path d="M2 12h5"/><path d="M9 12h4"/><path d="M17 12h.01"/><path d="M9 2v5"/><path d="M9 17v5"/></svg>
-                    <span style="font-size:11px;font-family:inherit;letter-spacing:0.5px;font-weight:500">Escanear</span>
-                </button>
-                <button onclick="abrirModalItem(null)" style="
-                    padding:10px 20px;background:var(--dark,#1E1C1A);color:white;
-                    border:none;border-radius:100px;font-size:12px;font-family:inherit;
-                    letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap">
-                    + Producto
-                </button>
-            </div>
+            <button onclick="abrirModalItem(null)" style="
+                padding:10px 20px;background:var(--dark,#1E1C1A);color:white;
+                border:none;border-radius:100px;font-size:12px;font-family:inherit;
+                letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap">
+                + Producto
+            </button>
         </div>
 
         <!-- Stats rápidas -->
@@ -11025,7 +10392,6 @@ function _invRenderItem(item) {
                 </div>
                 <div style="font-size:12px;color:var(--mid)">
                     ${item.proveedor ? `${item.proveedor} · ` : ''}${formatCurrency(item.costo)} / ${item.unidad || 'unidad'}
-                    ${item.codigoBarras ? `<span style="margin-left:6px;font-size:11px;color:var(--mid);background:rgba(30,28,26,0.05);padding:1px 7px;border-radius:100px;letter-spacing:0.5px;">▋ ${item.codigoBarras}</span>` : ''}
                 </div>
             </div>
 
@@ -11100,19 +10466,6 @@ function abrirModalItem(idONull) {
                         style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
                         onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
                 </div>
-                <div>
-                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Código de barras <span style="font-weight:300;text-transform:none;letter-spacing:0;">(opcional)</span></label>
-                    <div style="display:flex;gap:8px;align-items:center">
-                        <input type="text" id="invCodigoBarras" value="${item?.codigoBarras || ''}" placeholder="Escanea o escribe el código"
-                            style="flex:1;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:14px;font-family:inherit;outline:none;box-sizing:border-box;letter-spacing:1px"
-                            onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
-                        <button type="button" onclick="invEscanearEnCampo('invCodigoBarras')"
-                            style="padding:11px 14px;background:var(--dark,#1E1C1A);color:white;border:none;border-radius:10px;font-size:18px;cursor:pointer;flex-shrink:0;line-height:1"
-                            title="Escanear con cámara">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="17" y="2" width="5" height="5" rx="1"/><rect x="2" y="17" width="5" height="5" rx="1"/><path d="M17 17h5v5"/><path d="M22 17v.01"/><path d="M2 12h5"/><path d="M9 12h4"/><path d="M17 12h.01"/><path d="M9 2v5"/><path d="M9 17v5"/></svg>
-                        </button>
-                    </div>
-                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                     <div>
                         <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Categoría</label>
@@ -11184,9 +10537,8 @@ async function guardarItem(idONull) {
     const stock      = parseFloat(document.getElementById('invStock')?.value) || 0;
     const stockMin   = parseFloat(document.getElementById('invStockMinimo')?.value) || 0;
     const costo      = parseFloat(document.getElementById('invCosto')?.value) || 0;
-    const proveedor      = document.getElementById('invProveedor')?.value.trim();
-    const notas          = document.getElementById('invNotas')?.value.trim();
-    const codigoBarras   = (document.getElementById('invCodigoBarras')?.value || '').trim();
+    const proveedor  = document.getElementById('invProveedor')?.value.trim();
+    const notas      = document.getElementById('invNotas')?.value.trim();
 
     if (!nombre) { showToast('⚠️ El nombre es obligatorio', 3000, '#e65100'); return; }
     if (!appData.inventario) appData.inventario = [];
@@ -11196,7 +10548,7 @@ async function guardarItem(idONull) {
         const idx = appData.inventario.findIndex(i => i.id === idONull);
         if (idx < 0) return;
         const backup = { ...appData.inventario[idx] };
-        appData.inventario[idx] = { ...appData.inventario[idx], nombre, categoria, unidad, stockMinimo: stockMin, costo, proveedor, notas, codigoBarras: codigoBarras || null };
+        appData.inventario[idx] = { ...appData.inventario[idx], nombre, categoria, unidad, stockMinimo: stockMin, costo, proveedor, notas };
         try {
             await saveData('editarItem');
             cerrarModal();
@@ -11211,7 +10563,6 @@ async function guardarItem(idONull) {
         const nuevoItem = {
             id: generateId('INV-'), nombre, categoria, unidad,
             stock, stockMinimo: stockMin, costo, proveedor, notas,
-            codigoBarras: codigoBarras || null,
             activo: true,
             movimientos: stock > 0 ? [{
                 tipo: 'entrada', cantidad: stock, motivo: 'Stock inicial',
@@ -11830,7 +11181,7 @@ async function crearSede() {
 // FUNCIONES FALTANTES — referenciadas en HTML pero no definidas
 // ═══════════════════════════════════════════════════════════
 
-// ── 1. Cancelar Cotización ──────────────────────────────────
+// ── 1. Cancelar Factura ──────────────────────────────────
 // El modal #modalCancelarFactura tiene un textarea #razonCancelacion
 // y un botón que llama confirmarCancelacionFactura().
 // Necesita saber qué factura cancelar — se guarda en _facturaACancelarId.
@@ -11868,17 +11219,17 @@ async function confirmarCancelacionFactura() {
     factura.canceladaPor   = appData.currentUser;
 
     registrarAuditoria('cancelar', 'factura',
-        `Cotización ${factura.numero} — ${factura.paciente} — Razón: ${razon}`);
+        `Factura ${factura.numero} — ${factura.paciente} — Razón: ${razon}`);
 
     try {
         await saveData('confirmarCancelacionFactura');
         closeModal('modalCancelarFactura');
         _facturaACancelarId = null;
         updateCobrarTab();
-        showToast('✓ Cotización cancelada');
+        showToast('✓ Factura cancelada');
     } catch(e) {
         appData.facturas = backup;
-        showError('Error al cancelar la cotización.', e);
+        showError('Error al cancelar la factura.', e);
     }
 }
 
