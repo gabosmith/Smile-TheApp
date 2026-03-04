@@ -4391,6 +4391,12 @@ function verPaciente(pacienteId) {
         }
     }
 
+    // Mostrar botón eliminar solo para admin
+    const btnEliminar = document.getElementById('btnEliminarPaciente');
+    if (btnEliminar) {
+        btnEliminar.style.display = appData.currentRole === 'admin' ? 'flex' : 'none';
+    }
+
     // Activar primer tab — cambiarTabPaciente renderizará solo ese tab
     cambiarTabPaciente('resumen');
 
@@ -6003,14 +6009,14 @@ async function guardarCita() {
         return;
     }
 
-    // VALIDAR SOLAPAMIENTO
+    // VALIDAR SOLAPAMIENTO — mismo consultorio
     const duracionMin = (appData.settings && appData.settings.duracionCita) || 30;
     const fechaHoraNueva = new Date(fecha + 'T' + hora);
     const finNueva = new Date(fechaHoraNueva.getTime() + duracionMin * 60000);
 
-    // Buscar citas que se solapen en el mismo consultorio
-    // Una cita se solapa si su inicio está antes del fin de la nueva, y su fin está después del inicio de la nueva
     const estadosIgnorar = ['Cancelada', 'Inasistencia', 'Completada'];
+
+    // Chequeo 1: solapamiento en el mismo consultorio
     const citasSolapadas = appData.citas.filter(c => {
         if (c.consultorio !== consultorio) return false;
         if (estadosIgnorar.includes(c.estado)) return false;
@@ -6019,13 +6025,34 @@ async function guardarCita() {
         const durCita = (c.duracionMin) || duracionMin;
         const finCita = new Date(inicioCita.getTime() + durCita * 60000);
 
-        // Solapamiento real: las dos se superponen en el tiempo
         return fechaHoraNueva < finCita && finNueva > inicioCita;
     });
 
     if (citasSolapadas.length > 0) {
         const citaSolapada = citasSolapadas[0];
         showToast(`⚠️ Consultorio ${consultorio} ocupado a las ${citaSolapada.hora} — elige otra hora`, 5000, '#e65100');
+        return;
+    }
+
+    // Chequeo 2: mismo paciente ya tiene cita en ese horario (cualquier consultorio)
+    const pacienteIdNuevo = document.getElementById('citaPacienteInput').dataset.pacienteId;
+    const citasMismoPaciente = appData.citas.filter(c => {
+        if (estadosIgnorar.includes(c.estado)) return false;
+        const coincidePaciente = pacienteIdNuevo
+            ? c.pacienteId === pacienteIdNuevo
+            : c.paciente === paciente;
+        if (!coincidePaciente) return false;
+
+        const inicioCita = new Date(c.fecha);
+        const durCita = (c.duracionMin) || duracionMin;
+        const finCita = new Date(inicioCita.getTime() + durCita * 60000);
+
+        return fechaHoraNueva < finCita && finNueva > inicioCita;
+    });
+
+    if (citasMismoPaciente.length > 0) {
+        const dup = citasMismoPaciente[0];
+        showToast(`⚠️ ${paciente} ya tiene cita a las ${dup.hora} (Consultorio ${dup.consultorio})`, 5000, '#e65100');
         return;
     }
 
@@ -6044,17 +6071,21 @@ async function guardarCita() {
         fechaCreacion: new Date().toISOString()
     };
 
-    const backupCitas = appData.citas.length;
+    // Actualizar UI de inmediato — no esperar a Firebase
     appData.citas.push(cita);
-    try {
-        await saveData();
-    } catch(saveErr) {
-        appData.citas.splice(backupCitas, 1); // revertir
-        throw saveErr;
-    }
     closeModal('modalNuevaCita');
     updateAgendaTab();
     showToast('✅ Cita creada exitosamente');
+
+    // Guardar en background — revertir si falla
+    try {
+        await saveData();
+    } catch(saveErr) {
+        appData.citas = appData.citas.filter(c => c.id !== cita.id);
+        updateAgendaTab();
+        showToast('⚠️ Error al guardar — la cita fue revertida', 4000, '#e65100');
+        throw saveErr;
+    }
     } catch(e) {
         showError('Error al guardar la cita.', e);
     }
@@ -9034,7 +9065,7 @@ function irAFactura(id) {
     const factura = appData.facturas.find(f => f.id === id);
     if (factura && factura.estado !== 'pagada') {
         showTab('cobros');
-        setTimeout(() => openPagarFactura(id), 100);
+        openPagarFactura(id);
     } else {
         showTab('ingresos');
         showToast(`Factura ${factura.numero} ya está pagada`, 4000, '#e65100');
