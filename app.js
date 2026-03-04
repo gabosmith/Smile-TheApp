@@ -5143,14 +5143,207 @@ function renderTabHistorial(paciente) {
 
     const _tabHistEl = document.getElementById('tabTratamientos') || document.getElementById('tabHistorial');
     _tabHistEl.innerHTML = `
-        <div style="padding-bottom:8px;">
+        <div style="padding-bottom:24px;">
             ${balanceHeaderHTML}
+
+            <!-- Botón principal agregar -->
+            <button onclick="abrirModalAgregarItem()"
+                style="width:100%;padding:14px;margin-bottom:20px;
+                       background:var(--clinic-color,#C4856A);color:white;border:none;
+                       border-radius:14px;font-size:14px;font-weight:500;font-family:inherit;
+                       cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+                       box-shadow:0 2px 12px rgba(0,0,0,0.12);">
+                <span style="font-size:20px;line-height:1;">+</span> Agregar procedimiento / lab
+            </button>
+
             <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
-                        text-transform:uppercase;margin-bottom:10px;">Procedimientos y pagos</div>
+                        text-transform:uppercase;margin-bottom:10px;">Cotización del paciente</div>
             ${facturasHTML}
             ${labHTML}
             ${citasHTML}
         </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COTIZACIÓN DESDE FICHA DEL PACIENTE
+// Permite agregar procedimientos y órdenes de lab directamente
+// al paciente. Se acumulan en una factura abierta (pendiente).
+// ═══════════════════════════════════════════════════════════════
+
+let _cotizTipo = 'procedimiento';
+
+function abrirModalAgregarItem() {
+    if (!currentPacienteId) return;
+    _cotizSetTipo('procedimiento');
+    const fields = ['cotizProcDesc','cotizProcCant','cotizProcPrecio','cotizProcDiente',
+                    'cotizLabDesc','cotizLabLab','cotizLabPrecio','cotizLabDientes'];
+    fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = id === 'cotizProcCant' ? '1' : ''; });
+    const labTipoEl = document.getElementById('cotizLabTipo');
+    if (labTipoEl) labTipoEl.value = 'Corona';
+
+    const wrap = document.getElementById('cotizCatalogWrap');
+    const sel  = document.getElementById('cotizCatalogSelect');
+    if (wrap && sel && clinicConfig.procMode === 'lista' && (clinicConfig.procItems || []).length > 0) {
+        sel.innerHTML = '<option value="">— Elige del catálogo —</option>' +
+            (clinicConfig.procItems || []).map((it, i) =>
+                `<option value="${i}">${it.nombre} — ${formatCurrency(it.precio)}</option>`
+            ).join('');
+        wrap.style.display = 'block';
+    } else if (wrap) {
+        wrap.style.display = 'none';
+    }
+
+    openModal('modalCotizItem');
+}
+
+function _cotizSetTipo(tipo) {
+    _cotizTipo = tipo;
+    const btnProc = document.getElementById('cotizTabProc');
+    const btnLab  = document.getElementById('cotizTabLab');
+    const fProc   = document.getElementById('cotizFormProc');
+    const fLab    = document.getElementById('cotizFormLab');
+    if (btnProc) {
+        btnProc.style.background = tipo === 'procedimiento' ? 'var(--clinic-color,#C4856A)' : 'transparent';
+        btnProc.style.color      = tipo === 'procedimiento' ? 'white' : 'var(--topo,#6B635C)';
+    }
+    if (btnLab) {
+        btnLab.style.background = tipo === 'lab' ? 'var(--clinic-color,#C4856A)' : 'transparent';
+        btnLab.style.color      = tipo === 'lab' ? 'white' : 'var(--topo,#6B635C)';
+    }
+    if (fProc) fProc.style.display = tipo === 'procedimiento' ? 'block' : 'none';
+    if (fLab)  fLab.style.display  = tipo === 'lab'           ? 'block' : 'none';
+}
+
+function _cotizOnCatalogSelect(sel) {
+    const idx = sel.value;
+    if (idx === '' || !clinicConfig.procItems) return;
+    const item = clinicConfig.procItems[parseInt(idx)];
+    if (!item) return;
+    const d = document.getElementById('cotizProcDesc');
+    const p = document.getElementById('cotizProcPrecio');
+    if (d) d.value = item.nombre;
+    if (p) p.value = item.precio;
+}
+
+async function guardarItemCotizacion() {
+    const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+    if (!paciente) return;
+    if (_cotizTipo === 'procedimiento') {
+        await _cotizGuardarProcedimiento(paciente);
+    } else {
+        await _cotizGuardarLab(paciente);
+    }
+}
+
+async function _cotizGuardarProcedimiento(paciente) {
+    const desc   = (document.getElementById('cotizProcDesc')?.value || '').trim();
+    const cant   = parseInt(document.getElementById('cotizProcCant')?.value) || 1;
+    const precio = parseFloat(document.getElementById('cotizProcPrecio')?.value) || 0;
+    const diente = (document.getElementById('cotizProcDiente')?.value || '').trim();
+
+    if (!desc)       { showToast('⚠️ Escribe la descripción del procedimiento'); return; }
+    if (precio <= 0) { showToast('⚠️ El precio debe ser mayor a cero'); return; }
+
+    const proc = { id: generateId(), descripcion: desc, cantidad: cant, precioUnitario: precio, dientes: diente || null };
+
+    if (diente) _cotizActualizarOdontograma(paciente, diente);
+
+    await _cotizAgregarAFactura(paciente, [proc], []);
+}
+
+async function _cotizGuardarLab(paciente) {
+    const desc        = (document.getElementById('cotizLabDesc')?.value || '').trim();
+    const laboratorio = (document.getElementById('cotizLabLab')?.value || '').trim();
+    const precio      = parseFloat(document.getElementById('cotizLabPrecio')?.value) || 0;
+    const dientes     = (document.getElementById('cotizLabDientes')?.value || '').trim();
+    const tipo        = document.getElementById('cotizLabTipo')?.value || 'Otro';
+
+    if (!desc)        { showToast('⚠️ Escribe la descripción del trabajo'); return; }
+    if (!laboratorio) { showToast('⚠️ Escribe el nombre del laboratorio'); return; }
+    if (precio <= 0)  { showToast('⚠️ El precio debe ser mayor a cero'); return; }
+
+    const labItem = { id: generateId('TEMP-LAB-'), tipo, dientes: dientes || null, descripcion: desc, laboratorio, precio, costo: 0, margen: precio };
+
+    await _cotizAgregarAFactura(paciente, [], [labItem]);
+}
+
+function _cotizActualizarOdontograma(paciente, dienteStr) {
+    const numDiente = parseInt(dienteStr);
+    if (!numDiente || isNaN(numDiente)) return;
+    if (!paciente.odontograma) paciente.odontograma = {};
+    const actual = paciente.odontograma[numDiente];
+    if (!actual || actual.estado === 'sano') {
+        paciente.odontograma[numDiente] = {
+            estado:      'caries',
+            nota:        null,
+            fecha:       new Date().toISOString(),
+            profesional: appData.currentUser
+        };
+    }
+}
+
+async function _cotizAgregarAFactura(paciente, procedimientos, ordenesLab) {
+    try {
+        // Buscar factura abierta (pendiente, sin pagar totalmente)
+        const facturaAbierta = appData.facturas.find(f =>
+            (f.pacienteId === paciente.id || f.paciente === paciente.nombre) &&
+            f.estado !== 'cancelada' &&
+            (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)) > 0
+        );
+
+        if (facturaAbierta) {
+            procedimientos.forEach(p => facturaAbierta.procedimientos.push(p));
+            const nuevasOrdenesLab = _cotizRegistrarOrdenesLab(ordenesLab, facturaAbierta, paciente);
+            if (!facturaAbierta.ordenesLab) facturaAbierta.ordenesLab = [];
+            nuevasOrdenesLab.forEach(o => facturaAbierta.ordenesLab.push(o));
+            const subtotalProcs = (facturaAbierta.procedimientos || []).reduce((s, p) => s + (p.precioUnitario * (p.cantidad || 1)), 0);
+            const subtotalLab   = (facturaAbierta.ordenesLab || []).reduce((s, o) => s + (o.precio || 0), 0);
+            facturaAbierta.subtotal = subtotalProcs + subtotalLab;
+            facturaAbierta.total    = facturaAbierta.subtotal * (1 - (facturaAbierta.descuento || 0) / 100);
+        } else {
+            const ultimoNumero = appData.facturas.map(f => parseInt((f.numero || '').replace('F-','')) || 0).reduce((max, n) => Math.max(max, n), 0);
+            const sufijo = Date.now().toString().slice(-3);
+            const subtotal = procedimientos.reduce((s, p) => s + (p.precioUnitario * (p.cantidad || 1)), 0)
+                           + ordenesLab.reduce((s, o) => s + (o.precio || 0), 0);
+
+            const nuevaFactura = {
+                id: generateId(), numero: `F-${String(ultimoNumero + 1).padStart(4,'0')}-${sufijo}`,
+                fecha: new Date().toISOString(), paciente: paciente.nombre, pacienteId: paciente.id,
+                procedimientos: [...procedimientos], ordenesLab: [], subtotal, descuento: 0, total: subtotal,
+                profesional: appData.currentUser, estado: 'pendiente', pagos: [], notas: '',
+                tieneOrdenesLab: ordenesLab.length > 0,
+            };
+            appData.facturas.push(nuevaFactura);
+            const nuevasOrdenesLab = _cotizRegistrarOrdenesLab(ordenesLab, nuevaFactura, paciente);
+            nuevasOrdenesLab.forEach(o => nuevaFactura.ordenesLab.push(o));
+        }
+
+        await saveData('cotizAgregarAFactura');
+        await savePaciente(paciente);
+        closeModal('modalCotizItem');
+        cambiarTabPaciente('tratamientos');
+        showToast('✓ Agregado a la cotización del paciente');
+    } catch(e) {
+        showError('Error al guardar en la cotización.', e);
+    }
+}
+
+function _cotizRegistrarOrdenesLab(ordenesLab, factura, paciente) {
+    if (!ordenesLab || ordenesLab.length === 0) return [];
+    if (!appData.laboratorios) appData.laboratorios = [];
+    return ordenesLab.map(temp => {
+        const orden = {
+            id: generateId('LAB-'), facturaId: factura.id, facturaNumero: factura.numero,
+            paciente: paciente.nombre, pacienteId: paciente.id, profesional: appData.currentUser,
+            tipo: temp.tipo || 'Otro', dientes: temp.dientes || null, descripcion: temp.descripcion,
+            laboratorio: temp.laboratorio, precio: temp.precio, costo: 0, margen: temp.precio,
+            estadoActual: 'Pendiente', fechaCreacion: new Date().toISOString(),
+            timeline: [{ estado: 'Pendiente', fecha: new Date().toISOString(), usuario: appData.currentUser, notas: '' }],
+            abonos: [],
+        };
+        appData.laboratorios.push(orden);
+        return orden;
+    });
 }
 
 function renderTabRecetas(paciente) {

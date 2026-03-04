@@ -2007,6 +2007,126 @@
         </div>
     </div>
 
+    <!-- ══ MODAL: AGREGAR ITEM A COTIZACIÓN DEL PACIENTE ══ -->
+    <div id="modalCotizItem" class="modal" style="z-index:10015;">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header">
+                <div class="modal-title">Agregar a cotización</div>
+                <button class="close-modal" onclick="closeModal('modalCotizItem')">×</button>
+            </div>
+
+            <!-- Selector tipo: Procedimiento / Lab -->
+            <div style="display:flex;gap:8px;margin-bottom:20px;padding:4px;background:var(--sand,#F5F2EE);border-radius:12px;">
+                <button id="cotizTabProc"
+                    onclick="_cotizSetTipo('procedimiento')"
+                    style="flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:500;
+                           font-family:inherit;cursor:pointer;transition:all 0.2s;
+                           background:var(--clinic-color,#C4856A);color:white;">
+                    📋 Procedimiento
+                </button>
+                <button id="cotizTabLab"
+                    onclick="_cotizSetTipo('lab')"
+                    style="flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:500;
+                           font-family:inherit;cursor:pointer;transition:all 0.2s;
+                           background:transparent;color:var(--topo,#6B635C);">
+                    🔬 Laboratorio
+                </button>
+            </div>
+
+            <!-- FORM PROCEDIMIENTO -->
+            <div id="cotizFormProc">
+                <!-- Catálogo (solo si procMode=lista) -->
+                <div id="cotizCatalogWrap" class="form-group" style="display:none;">
+                    <label>Seleccionar del catálogo</label>
+                    <select id="cotizCatalogSelect" onchange="_cotizOnCatalogSelect(this)"
+                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
+                               color:var(--topo,#6B635C);box-shadow:var(--neu-inset);appearance:none;">
+                        <option value="">— Elige un procedimiento —</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <input type="text" id="cotizProcDesc" placeholder="Ej: Resina, Limpieza, Extracción...">
+                </div>
+
+                <div class="form-group">
+                    <label>Diente <span style="font-size:11px;color:var(--piedra,#9C9189);font-weight:300;">(Opcional — ej: 16, 21, 36 — actualiza el odontograma)</span></label>
+                    <input type="text" id="cotizProcDiente" placeholder="Nº FDI"
+                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
+                               color:var(--topo,#6B635C);box-shadow:var(--neu-inset);"
+                        maxlength="8">
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Cantidad</label>
+                        <input type="number" id="cotizProcCant" value="1" min="1">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Precio Unitario</label>
+                        <input type="number" id="cotizProcPrecio" placeholder="0.00" step="0.01">
+                    </div>
+                </div>
+            </div>
+
+            <!-- FORM LAB -->
+            <div id="cotizFormLab" style="display:none;">
+                <div class="form-group">
+                    <label>Tipo de Trabajo</label>
+                    <select id="cotizLabTipo"
+                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
+                               color:var(--topo,#6B635C);box-shadow:var(--neu-inset);appearance:none;">
+                        <option value="Corona">Corona</option>
+                        <option value="Puente">Puente</option>
+                        <option value="Prótesis Parcial">Prótesis Parcial</option>
+                        <option value="Prótesis Total">Prótesis Total</option>
+                        <option value="Ortodoncia">Ortodoncia (Aparato)</option>
+                        <option value="Placa Miorrelajante">Placa Miorrelajante</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Descripción del trabajo</label>
+                    <input type="text" id="cotizLabDesc" placeholder="Ej: Corona metal porcelana diente 16">
+                </div>
+
+                <div class="form-group">
+                    <label>Dientes <span style="font-size:11px;color:var(--piedra,#9C9189);font-weight:300;">(Opcional — ej: 11, 12)</span></label>
+                    <input type="text" id="cotizLabDientes" placeholder="Nº FDI"
+                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
+                               color:var(--topo,#6B635C);box-shadow:var(--neu-inset);">
+                </div>
+
+                <div class="form-group">
+                    <label>Laboratorio externo</label>
+                    <input type="text" id="cotizLabLab" placeholder="Nombre del laboratorio">
+                </div>
+
+                <div class="form-group">
+                    <label>Precio cobrado al paciente</label>
+                    <input type="number" id="cotizLabPrecio" placeholder="0.00" step="0.01">
+                </div>
+
+                <div style="background:var(--sand-lt,#FAF8F5);padding:10px 14px;border-radius:10px;
+                            font-size:12px;color:var(--piedra,#9C9189);line-height:1.5;">
+                    🔬 El detalle completo (costo, margen, estado, timeline) se gestiona en el
+                    <strong style="color:var(--clinic-color,#C4856A);">módulo de Laboratorio</strong>.
+                </div>
+            </div>
+
+            <div class="modal-footer" style="margin-top:20px;">
+                <button class="btn btn-cancel" onclick="closeModal('modalCotizItem')">Cancelar</button>
+                <button class="btn btn-submit" onclick="guardarItemCotizacion()">Agregar a cotización</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalDetalleOrdenLab" class="modal" style="z-index:10020;">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header"><div class="modal-title">🔬 Detalle de Orden de Laboratorio</div></div>
