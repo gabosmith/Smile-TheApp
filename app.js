@@ -5896,7 +5896,7 @@ function verDetalleCita(citaId) {
                 style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid rgba(30,28,26,0.1);
                        border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:60px;
                        background:var(--white);color:var(--dark)"></textarea>
-            <button class="btn btn-submit" style="margin-top: 8px; width: 100%;" onclick="cambiarEstadoCita('${cita.id}', document.getElementById('nuevoEstadoCita').value)">
+            <button class="btn btn-submit" style="margin-top: 8px; width: 100%;" onclick="withGuard(this, () => cambiarEstadoCita('${cita.id}', document.getElementById('nuevoEstadoCita').value))">
                 Actualizar estado
             </button>
         </div>
@@ -6707,20 +6707,21 @@ function getIconoEstadoCita(estado) {
 }
 
 async function cambiarEstadoCita(citaId, nuevoEstado) {
-    try {
     const cita = appData.citas.find(c => c.id === citaId);
     if (!cita) {
-        showToast('⚠️ Cita no encontrada', 3000, '#e65100'); console.error('[Citas] cambiarEstadoCita: ID no encontrado:', citaId);
+        showToast('⚠️ Cita no encontrada', 3000, '#e65100');
         return;
     }
 
     const estadoAnterior = cita.estado || 'Pendiente';
+    if (estadoAnterior === nuevoEstado) {
+        closeModal('modalDetalleCita');
+        return;
+    }
 
-    // Advertencia sin bloquear si se completa sin factura
-    const sinFactura = nuevoEstado === 'Completada' && !cita.facturaId;
+    const notas = (document.getElementById('notasCambioEstado')?.value || '').trim();
 
-    const ejecutarCambio = async (notas) => {
-        // Inicializar historial si no existe
+    const _aplicarCambio = async () => {
         if (!cita.historialEstados) {
             cita.historialEstados = [{
                 estado: estadoAnterior,
@@ -6733,39 +6734,41 @@ async function cambiarEstadoCita(citaId, nuevoEstado) {
             estado: nuevoEstado,
             fecha: new Date().toISOString(),
             usuario: appData.currentUser,
-            notas: notas || ''
+            notas
         });
-        cita.estado = nuevoEstado;
+        cita.estado             = nuevoEstado;
         cita.ultimaModificacion = new Date().toISOString();
-        cita.modificadoPor = appData.currentUser;
+        cita.modificadoPor      = appData.currentUser;
         if (notas) cita.notasProcedimiento = notas;
 
-        await saveData();
-        updateAgendaTab();
-        closeModal('modalDetalleCita');
-        showToast(`✓ Estado: ${nuevoEstado}`);
+        try {
+            await saveData();
+            closeModal('modalDetalleCita');
+            updateAgendaTab();
+            showToast('✓ Cita: ' + nuevoEstado);
+        } catch(e) {
+            cita.estado = estadoAnterior;
+            cita.historialEstados?.pop();
+            showError('Error al actualizar la cita.', e);
+        }
     };
 
-    const notasEl = document.getElementById('notasCambioEstado');
-    const notas = notasEl ? notasEl.value.trim() : '';
-
-    // Si hay advertencia de sin factura, confirmar primero
-    if (sinFactura) {
+    // Completada sin factura → confirmar
+    if (nuevoEstado === 'Completada' && !cita.facturaId) {
         mostrarConfirmacion({
             titulo: 'Sin factura asociada',
-            mensaje: `Esta cita no tiene factura. ¿Marcar como <strong>Completada</strong> de todas formas?<br><br>
-                     <span style="font-size:13px;color:var(--mid)">Recomendación: genera la factura antes para vincularla automáticamente.</span>`,
+            mensaje: 'Esta cita no tiene factura vinculada. ¿Marcarla como Completada de todas formas?',
             tipo: 'advertencia',
             confirmText: 'Sí, completar',
-            onConfirm: () => ejecutarCambio(notas)
+            onConfirm: _aplicarCambio
         });
-    } else {
-        await ejecutarCambio(notas);
+        return;
     }
-    } catch(e) {
-        showError('Error al cambiar el estado de la cita.', e);
-    }
+
+    // Cualquier otro estado — aplicar directo
+    await _aplicarCambio();
 }
+
 
 // Función para inicializar estados en citas existentes
 function inicializarEstadosCitas() {
@@ -8948,10 +8951,12 @@ function mostrarConfirmacion(opciones) {
     openModal('modalConfirmacion');
 }
 
-function ejecutarConfirmacion() {
-    if (accionConfirmacion) {
-        accionConfirmacion();
-    }
+async function ejecutarConfirmacion() {
+    if (!accionConfirmacion) return;
+    const btn = document.getElementById('confirmacionBtnConfirmar');
+    await withGuard(btn, async () => {
+        await accionConfirmacion();
+    });
     cerrarConfirmacion();
 }
 
@@ -9628,56 +9633,38 @@ function cancelarCita() {
         showToast('⚠️ No se puede identificar la cita', 3000, '#e65100');
         return;
     }
-    
     const cita = appData.citas.find(c => c.id === currentCitaIdDetalle);
     if (!cita) {
         showToast('⚠️ Cita no encontrada', 3000, '#e65100');
         return;
     }
-    
+    if (cita.estado === 'Cancelada') {
+        showToast('Esta cita ya está cancelada', 3000);
+        return;
+    }
+
     mostrarConfirmacion({
         titulo: '❌ Cancelar Cita',
         mensaje: `
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
-                    ${cita.paciente}
-                </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
-                    <strong>Fecha:</strong> ${formatDate(cita.fecha)} ${cita.hora}
-                </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
-                    <strong>Profesional:</strong> ${cita.profesional}
-                </div>
-                <div style="font-size: 14px; color: #666;">
-                    <strong>Motivo:</strong> ${cita.motivo}
-                </div>
+            <div style="background:rgba(30,28,26,0.04);padding:14px;border-radius:10px;margin-bottom:12px">
+                <div style="font-size:15px;font-weight:500;color:var(--dark)">${cita.paciente}</div>
+                <div style="font-size:13px;color:var(--mid);margin-top:4px">${formatDate(cita.fecha)} · ${cita.hora} · ${cita.profesional}</div>
+                <div style="font-size:13px;color:var(--mid);margin-top:2px">${cita.motivo}</div>
             </div>
-            <div style="background: #fff3cd; padding: 12px; border-radius: 6px; border-left: 3px solid #ffc107;">
-                <div style="color: #856404; font-size: 13px;">
-                    ⚠️ La cita se marcará como <strong>Cancelada</strong>
-                </div>
-            </div>
-        `,
-        tipo: 'advertencia',
-        confirmText: 'Sí, Cancelar Cita',
+            <div style="font-size:13px;color:#856404;background:#fff3cd;padding:10px 12px;border-radius:8px">
+                ⚠️ La cita se marcará como <strong>Cancelada</strong> y no contará en el historial activo.
+            </div>`,
+        tipo: 'peligro',
+        confirmText: 'Sí, cancelar cita',
         onConfirm: async () => {
-            const estadoOriginal = cita.estado;
-            cita.estado = 'Cancelada';
-            cita.ultimaModificacion = new Date().toISOString();
-            cita.modificadoPor = appData.currentUser;
-            try {
-                await saveData();
-                closeModal('modalDetalleCita');
-                updateAgendaTab();
-                showToast('✓ Cita cancelada');
-            } catch(e) {
-                cita.estado = estadoOriginal; // rollback
-                showError('Error al cancelar la cita.', e);
-            }
+            // Reusar la lógica centralizada
+            // Inyectamos el select en 'Cancelada' para que cambiarEstadoCita la tome
+            const selectEl = document.getElementById('nuevoEstadoCita');
+            if (selectEl) selectEl.value = 'Cancelada';
+            await cambiarEstadoCita(currentCitaIdDetalle, 'Cancelada');
         }
     });
 }
-
 
 // Abrir modal de abono desde ficha del paciente
 function abrirAbonoBalance(pacienteId) {
