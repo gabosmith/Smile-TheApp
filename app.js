@@ -5125,12 +5125,22 @@ function renderTabHistorial(paciente) {
         if (f.id === facturaAbierta?.id) return; // ya está en cotización
         const pagadoF = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
         const pagada  = pagadoF >= f.total;
+        const procsDetalle = (f.procedimientos||[]).length > 0
+            ? (f.procedimientos||[]).map(p =>
+                `${p.descripcion}${p.cantidad>1?' ×'+p.cantidad:''}${p.dientes?' · 🦷'+p.dientes:''}`
+              ).join(' · ')
+            : null;
+        const labsDetalle = (f.ordenesLab||[]).length > 0
+            ? (f.ordenesLab||[]).map(o => `🔬 ${o.descripcion||o.tipo||'Lab'}`).join(' · ')
+            : null;
+        const detalleCompleto = [procsDetalle, labsDetalle].filter(Boolean).join('  ·  ');
         eventos.push({
             fecha:  f.fecha,
             tipo:   'factura',
             icon:   pagada ? '✅' : '⏳',
             titulo: `${f.numero}${pagada?' · Pagada':' · Abono parcial'}`,
-            sub:    `${f.profesional} · ${(f.procedimientos||[]).length} procedimiento${(f.procedimientos||[]).length!==1?'s':''}${(f.ordenesLab||[]).length>0?' · '+(f.ordenesLab||[]).length+' lab':''}`,
+            sub:    f.profesional,
+            detalle: detalleCompleto || null,
             monto:  pagada ? formatCurrency(f.total) : `${formatCurrency(pagadoF)} / ${formatCurrency(f.total)}`,
             color:  pagada ? '#34c759' : '#ff9500',
             data:   f,
@@ -5222,6 +5232,7 @@ function renderTabHistorial(paciente) {
                                             ${ev.icon} ${ev.titulo}
                                         </div>
                                         <div style="font-size:11px;color:#aaa;">${ev.sub}</div>
+                                        ${ev.detalle ? `<div style="font-size:11px;color:#888;margin-top:4px;line-height:1.5;white-space:normal;">${ev.detalle}</div>` : ''}
                                         ${ev.badge?`
                                         <span style="display:inline-block;margin-top:5px;font-size:10px;font-weight:600;
                                                      padding:2px 8px;border-radius:100px;
@@ -5334,13 +5345,27 @@ function _cotizOnCatalogSelect(sel) {
     if (p) p.value = item.precio;
 }
 
+let _guardandoCotiz = false;
+
 async function guardarItemCotizacion() {
+    if (_guardandoCotiz) return;
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente) return;
-    if (_cotizTipo === 'procedimiento') {
-        await _cotizGuardarProcedimiento(paciente);
-    } else {
-        await _cotizGuardarLab(paciente);
+
+    // Deshabilitar botón visualmente durante el guardado
+    const btn = document.querySelector('#modalCotizItem .btn-submit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; btn.style.opacity = '0.6'; }
+    _guardandoCotiz = true;
+
+    try {
+        if (_cotizTipo === 'procedimiento') {
+            await _cotizGuardarProcedimiento(paciente);
+        } else {
+            await _cotizGuardarLab(paciente);
+        }
+    } finally {
+        _guardandoCotiz = false;
+        if (btn) { btn.disabled = false; btn.textContent = 'Agregar a cotización'; btn.style.opacity = '1'; }
     }
 }
 
