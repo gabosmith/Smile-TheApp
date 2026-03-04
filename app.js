@@ -10693,7 +10693,8 @@ function updateInventarioTab() {
         lista = lista.filter(i =>
             (i.nombre || '').toLowerCase().includes(q) ||
             (i.categoria || '').toLowerCase().includes(q) ||
-            (i.proveedor || '').toLowerCase().includes(q)
+            (i.proveedor || '').toLowerCase().includes(q) ||
+            (i.codigoBarras || '').toLowerCase().includes(q)
         );
     }
     lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
@@ -10807,6 +10808,7 @@ function _invRenderItem(item) {
                 <div style="font-size:12px;color:var(--mid)">
                     ${item.proveedor ? `${item.proveedor} · ` : ''}${formatCurrency(item.costo)} / ${item.unidad || 'unidad'}
                 </div>
+                ${item.codigoBarras ? `<div style="font-size:11px;color:var(--mid);margin-top:3px;font-family:monospace;letter-spacing:0.5px">▌▌ ${item.codigoBarras}</div>` : ''}
             </div>
 
             <!-- Stock badge -->
@@ -10879,6 +10881,24 @@ function abrirModalItem(idONull) {
                     <input type="text" id="invNombre" value="${item?.nombre || ''}" placeholder="Ej: Guantes de látex"
                         style="width:100%;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
                         onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:500;color:var(--mid);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px">Código de barras <span style="font-weight:300;text-transform:none;letter-spacing:0;color:var(--mid);font-size:10px">(opcional)</span></label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input type="text" id="invCodigoBarras" value="${item?.codigoBarras || ''}" placeholder="Escaneá o escribí el código"
+                            style="flex:1;padding:11px 14px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;font-size:14px;font-family:monospace;outline:none;box-sizing:border-box"
+                            onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='rgba(30,28,26,0.12)'"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('invNombre').focus();}">
+                        <button type="button" onclick="invAbrirScannerCamara()" title="Escanear con cámara"
+                            style="flex-shrink:0;width:42px;height:42px;border:1.5px solid rgba(30,28,26,0.12);border-radius:10px;
+                                   background:white;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;
+                                   transition:all 0.15s"
+                            onmouseover="this.style.borderColor='var(--clinic-color)';this.style.background='rgba(196,133,106,0.06)'"
+                            onmouseout="this.style.borderColor='rgba(30,28,26,0.12)';this.style.background='white'">
+                            📷
+                        </button>
+                    </div>
+                    <div style="font-size:11px;color:var(--mid);margin-top:5px">También funciona con scanner USB — solo haz clic en el campo y escanea</div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                     <div>
@@ -10953,6 +10973,7 @@ async function guardarItem(idONull) {
     const costo      = parseFloat(document.getElementById('invCosto')?.value) || 0;
     const proveedor  = document.getElementById('invProveedor')?.value.trim();
     const notas      = document.getElementById('invNotas')?.value.trim();
+    const codigoBarras = (document.getElementById('invCodigoBarras')?.value || '').trim();
 
     if (!nombre) { showToast('⚠️ El nombre es obligatorio', 3000, '#e65100'); return; }
     if (!appData.inventario) appData.inventario = [];
@@ -10962,7 +10983,7 @@ async function guardarItem(idONull) {
         const idx = appData.inventario.findIndex(i => i.id === idONull);
         if (idx < 0) return;
         const backup = { ...appData.inventario[idx] };
-        appData.inventario[idx] = { ...appData.inventario[idx], nombre, categoria, unidad, stockMinimo: stockMin, costo, proveedor, notas };
+        appData.inventario[idx] = { ...appData.inventario[idx], nombre, categoria, unidad, stockMinimo: stockMin, costo, proveedor, notas, codigoBarras: codigoBarras || null };
         try {
             await saveData('editarItem');
             cerrarModal();
@@ -10977,6 +10998,7 @@ async function guardarItem(idONull) {
         const nuevoItem = {
             id: generateId('INV-'), nombre, categoria, unidad,
             stock, stockMinimo: stockMin, costo, proveedor, notas,
+            codigoBarras: codigoBarras || null,
             activo: true,
             movimientos: stock > 0 ? [{
                 tipo: 'entrada', cantidad: stock, motivo: 'Stock inicial',
@@ -11174,6 +11196,282 @@ function confirmarEliminarItem(itemId) {
     });
 }
 
+
+
+// ═══════════════════════════════════════════════════════════
+// SCANNER DE CÓDIGO DE BARRAS — Inventario
+// Soporta dos modos:
+//   1. Cámara: usa ZXing (cargado lazy). Abre modal con preview.
+//   2. Scanner USB físico: detecta entrada rápida en el campo de código.
+// ═══════════════════════════════════════════════════════════
+
+let _scannerActivo = false;
+let _zxingReader   = null;
+
+// ── Modo cámara ─────────────────────────────────────────
+async function invAbrirScannerCamara() {
+    const loaded = await _loadZxing();
+    if (!loaded) {
+        showToast('⚠️ No se pudo cargar el scanner. Verificá tu conexión.', 3500, '#e65100');
+        return;
+    }
+    if (_scannerActivo) return;
+    _scannerActivo = true;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'scannerOverlay';
+    overlay.style.cssText = `
+        position:fixed;inset:0;z-index:9999;
+        background:rgba(0,0,0,0.85);
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:16px;padding:24px;box-sizing:border-box;
+    `;
+    overlay.innerHTML = `
+        <div style="color:white;font-size:13px;font-weight:500;letter-spacing:1px;text-transform:uppercase;opacity:0.7">
+            Apuntá la cámara al código de barras
+        </div>
+        <div style="position:relative;width:100%;max-width:400px;border-radius:16px;overflow:hidden;background:#000">
+            <video id="scannerVideo" style="width:100%;display:block;border-radius:16px" playsinline></video>
+            <div style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center">
+                <div style="width:72%;height:30%;border:2px solid rgba(255,255,255,0.7);border-radius:8px;
+                            box-shadow:0 0 0 2000px rgba(0,0,0,0.4)"></div>
+            </div>
+        </div>
+        <div id="scannerStatus" style="color:rgba(255,255,255,0.6);font-size:13px">Iniciando cámara…</div>
+        <button onclick="invCerrarScanner()"
+            style="padding:12px 32px;background:white;color:#1E1C1A;border:none;border-radius:100px;
+                   font-size:14px;font-family:inherit;font-weight:500;cursor:pointer">
+            Cancelar
+        </button>
+    `;
+    document.body.appendChild(overlay);
+
+    try {
+        _zxingReader = new window.ZXingBrowser.BrowserMultiFormatReader();
+        const videoEl  = document.getElementById('scannerVideo');
+        const statusEl = document.getElementById('scannerStatus');
+
+        const devices   = await window.ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
+        const backCam   = devices.find(d => /back|rear|trasera|environment/i.test(d.label)) || devices[0];
+        const deviceId  = backCam?.deviceId;
+
+        if (statusEl) statusEl.textContent = 'Buscando código…';
+
+        await _zxingReader.decodeFromVideoDevice(deviceId, videoEl, (result, err) => {
+            if (result) {
+                const codigo = result.getText();
+                invCerrarScanner();
+                _invAplicarCodigoEscaneado(codigo);
+            }
+        });
+    } catch(e) {
+        console.warn('[Scanner cámara]', e);
+        const statusEl = document.getElementById('scannerStatus');
+        if (statusEl) statusEl.textContent = '⚠️ No se pudo acceder a la cámara';
+        showToast('⚠️ Permiso de cámara denegado o no disponible', 3500, '#e65100');
+        setTimeout(() => invCerrarScanner(), 2500);
+    }
+}
+
+function invCerrarScanner() {
+    _scannerActivo = false;
+    try { _zxingReader?.reset(); } catch(e) {}
+    _zxingReader = null;
+    document.getElementById('scannerOverlay')?.remove();
+}
+
+function _invAplicarCodigoEscaneado(codigo) {
+    // Si el modal de nuevo/editar producto está abierto, llenar el campo
+    const campoModal = document.getElementById('invCodigoBarras');
+    if (campoModal) {
+        campoModal.value = codigo;
+        campoModal.style.borderColor = 'var(--clinic-color)';
+        setTimeout(() => { campoModal.style.borderColor = 'rgba(30,28,26,0.12)'; }, 1500);
+        showToast(`✓ Código leído: ${codigo}`);
+        return;
+    }
+
+    // Si no hay modal abierto, buscar el producto en inventario
+    const encontrado = (appData.inventario || []).find(
+        i => i.codigoBarras === codigo && i.activo !== false
+    );
+    if (encontrado) {
+        _invMostrarAccionesEscaneado(encontrado);
+    } else {
+        showToast(`Código ${codigo} no registrado — creando producto…`, 2500);
+        setTimeout(() => {
+            abrirModalItem(null);
+            setTimeout(() => {
+                const c = document.getElementById('invCodigoBarras');
+                if (c) { c.value = codigo; }
+            }, 150);
+        }, 700);
+    }
+}
+
+// Mini overlay de acción tras scan exitoso — aparece 300ms, no necesita tap si
+// el usuario ya sabe qué quiere; tiene dos botones claros: Agregar / Descontar.
+function _invMostrarAccionesEscaneado(item) {
+    // Remover overlay previo si existiera
+    document.getElementById('scanActionOverlay')?.remove();
+
+    const stockColor = item.stock <= item.stockMinimo
+        ? (item.stock === 0 ? '#C47070' : '#E8A838')
+        : '#6B8F71';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'scanActionOverlay';
+    overlay.style.cssText = `
+        position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+        z-index:9998;width:calc(100% - 48px);max-width:420px;
+        background:white;border-radius:20px;
+        box-shadow:0 8px 40px rgba(0,0,0,0.18),0 2px 8px rgba(0,0,0,0.08);
+        padding:20px;box-sizing:border-box;
+        animation:slideUp 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    `;
+
+    // Añadir animación si no existe
+    if (!document.getElementById('scanActionAnim')) {
+        const style = document.createElement('style');
+        style.id = 'scanActionAnim';
+        style.textContent = `
+            @keyframes slideUp {
+                from { opacity:0; transform:translateX(-50%) translateY(16px); }
+                to   { opacity:1; transform:translateX(-50%) translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    overlay.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+            <div style="flex:1;min-width:0">
+                <div style="font-size:15px;font-weight:500;color:#1E1C1A;
+                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    📦 ${item.nombre}
+                </div>
+                <div style="font-size:12px;margin-top:3px">
+                    <span style="color:${stockColor};font-weight:500">
+                        Stock: ${item.stock} ${item.unidad || 'uds'}
+                    </span>
+                    ${item.proveedor ? `<span style="color:#B0A89E"> · ${item.proveedor}</span>` : ''}
+                </div>
+            </div>
+            <button onclick="document.getElementById('scanActionOverlay')?.remove()"
+                style="flex-shrink:0;background:none;border:none;font-size:18px;
+                       color:#C8C2BB;cursor:pointer;padding:0 0 0 12px;line-height:1">✕</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <button onclick="_invScanAccion('${item.id}','entrada')"
+                style="padding:13px 10px;border:1.5px solid rgba(107,143,113,0.35);
+                       border-radius:12px;background:rgba(107,143,113,0.07);
+                       color:#3d6b43;font-size:14px;font-family:inherit;
+                       font-weight:500;cursor:pointer;transition:all 0.15s"
+                onmouseover="this.style.background='rgba(107,143,113,0.14)'"
+                onmouseout="this.style.background='rgba(107,143,113,0.07)'">
+                + Agregar stock
+            </button>
+            <button onclick="_invScanAccion('${item.id}','salida')"
+                style="padding:13px 10px;border:1.5px solid rgba(196,113,113,0.35);
+                       border-radius:12px;background:rgba(196,113,113,0.07);
+                       color:#9a3a3a;font-size:14px;font-family:inherit;
+                       font-weight:500;cursor:pointer;transition:all 0.15s"
+                onmouseover="this.style.background='rgba(196,113,113,0.14)'"
+                onmouseout="this.style.background='rgba(196,113,113,0.07)'">
+                − Descontar
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Auto-cerrar tras 8 segundos si no hay interacción
+    setTimeout(() => {
+        const el = document.getElementById('scanActionOverlay');
+        if (el) { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }
+    }, 8000);
+}
+
+function _invScanAccion(itemId, tipo) {
+    document.getElementById('scanActionOverlay')?.remove();
+    abrirModalMovimiento(itemId, tipo);
+}
+
+// ── Carga lazy de ZXing ─────────────────────────────────
+function _loadZxing() {
+    return new Promise(resolve => {
+        if (window.ZXingBrowser) { resolve(true); return; }
+        const tag = document.getElementById('zxing-script');
+        const src = tag?.dataset?.src || 'https://unpkg.com/@zxing/browser@0.1.4/umd/index.min.js';
+        const s   = document.createElement('script');
+        s.src     = src;
+        s.onload  = () => resolve(true);
+        s.onerror = () => resolve(false);
+        document.head.appendChild(s);
+    });
+}
+
+// ── Scanner USB físico ──────────────────────────────────
+// Los scanners USB simulan teclado: escriben muy rápido + Enter.
+// Detectamos esa velocidad para diferenciarlo del tipeo humano.
+(function _initScannerUSB() {
+    let _buf = '', _t = 0;
+
+    document.addEventListener('keydown', function(e) {
+        const campo = document.activeElement;
+        if (!campo || campo.id !== 'invCodigoBarras') return;
+
+        const now   = Date.now();
+        const delta = now - _t;
+        _t = now;
+
+        if (e.key === 'Enter') {
+            if (_buf.length >= 4 && delta < 150) {
+                // Parece scan USB — aplicar
+                e.preventDefault();
+                const codigo = _buf.trim();
+                _buf = '';
+                campo.value = codigo;
+                campo.dispatchEvent(new Event('input'));
+                const modalAbierto = !!document.getElementById('invNombre');
+                if (!modalAbierto) {
+                    _invAplicarCodigoEscaneado(codigo);
+                } else {
+                    showToast(`✓ Código leído: ${codigo}`);
+                    document.getElementById('invNombre')?.focus();
+                }
+            }
+            _buf = '';
+            return;
+        }
+
+        if (delta < 50 && e.key.length === 1) {
+            _buf += e.key;
+        } else {
+            _buf = e.key.length === 1 ? e.key : '';
+        }
+    });
+})();
+
+// ── Scanner USB en campo de búsqueda global ─────────────
+(function _initScannerUSBBusqueda() {
+    let _buf = '', _t = 0;
+    document.addEventListener('keydown', function(e) {
+        const campo = document.activeElement;
+        if (!campo || campo.id !== 'invBusqueda') return;
+        const now = Date.now();
+        if (e.key === 'Enter' && _buf.length >= 4 && (now - _t) < 200) {
+            e.preventDefault();
+            _invBusqueda = _buf.trim();
+            _buf = '';
+            updateInventarioTab();
+            return;
+        }
+        if ((now - _t) < 50 && e.key.length === 1) { _buf += e.key; }
+        else { _buf = e.key.length === 1 ? e.key : ''; }
+        _t = now;
+    });
+})();
 
 // ═══════════════════════════════════════════════════════════
 // MÓDULO MULTISUCURSAL
