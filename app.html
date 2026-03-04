@@ -1603,7 +1603,7 @@
                                 <option value="£">£ — Libra esterlina</option>
                             </select>
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarIdentidadClinica()">Guardar Identidad</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="withGuard(this, guardarIdentidadClinica)">Guardar Identidad</button>
                     </div>
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
@@ -1619,7 +1619,7 @@
                             <label>Confirmar contraseña</label>
                             <input type="password" id="configConfirmPassword" placeholder="Repite la contraseña" autocomplete="new-password">
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarContrasenaAdmin()">Cambiar Contraseña</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="withGuard(this, guardarContrasenaAdmin)">Cambiar Contraseña</button>
                     </div>
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
@@ -1635,7 +1635,7 @@
                             <label>Especialista (%)</label>
                             <input type="number" id="configComisionEspecialista" min="0" max="100" step="1" placeholder="50">
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarTasasComision()">Guardar Tasas</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="withGuard(this, guardarTasasComision)">Guardar Tasas</button>
                     </div>
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
@@ -1659,7 +1659,7 @@
                                 <option value="semanal">Semanal</option>
                             </select>
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarConfigNomina()">Guardar Modelo de Nómina</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="withGuard(this, guardarConfigNomina)">Guardar Modelo de Nómina</button>
                     </div>
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
@@ -1700,7 +1700,7 @@
                                 <option value="120">2 horas</option>
                             </select>
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="guardarConfigAgenda()">Guardar Agenda</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="withGuard(this, guardarConfigAgenda)">Guardar Agenda</button>
                     </div>
                 </div>
             </div>
@@ -1756,7 +1756,7 @@
                 </div>
             </div>
 
-            <button class="btn btn-submit" style="margin-top:8px" onclick="agregarProcedimiento()">Agregar</button>
+            <button class="btn btn-submit" style="margin-top:8px" onclick="withGuard(this, agregarProcedimiento)">Agregar</button>
         </div>
     </div>
 
@@ -1853,7 +1853,7 @@
             <div style="background: rgba(0, 35, 102, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 5px;"><span>Nuevo Balance:</span><strong id="nuevoBalance" style="color: var(--clinic-color);">RD$ 0.00</strong></div>
             </div>
-            <button class="btn btn-submit" onclick="confirmarPago()">Confirmar Pago</button>
+            <button class="btn btn-submit" onclick="withGuard(this, confirmarPago)">Confirmar Pago</button>
         </div>
     </div>
 
@@ -1878,7 +1878,7 @@
             <div class="form-group"><label>Proveedor</label><input type="text" id="gastoProveedor"></div>
             <div class="form-group"><label>Método de Pago</label><select id="gastoMetodo"><option value="efectivo">Efectivo</option><option value="tarjeta">Tarjeta</option><option value="transferencia">Transferencia</option></select></div>
             <div class="form-group"><label>Cotización (Opcional)</label><label for="gastoFile" class="file-input-label">📷 Adjuntar Foto</label><input type="file" id="gastoFile" accept="image/*"><img id="gastoPreview" class="image-preview hidden"></div>
-            <button class="btn btn-submit" onclick="registrarGasto()">Registrar Gasto</button>
+            <button class="btn btn-submit" onclick="withGuard(this, registrarGasto)">Registrar Gasto</button>
         </div>
     </div>
 
@@ -1924,7 +1924,7 @@
             </div>
 
             <div class="form-group" id="passwordGroup"><label>Contraseña (Opcional)</label><input type="password" id="personalPassword" placeholder="Mínimo 4 caracteres"></div>
-            <button class="btn btn-submit" onclick="agregarPersonal()">Agregar Personal</button>
+            <button class="btn btn-submit" onclick="withGuard(this, agregarPersonal)">Agregar Personal</button>
         </div>
     </div>
 
@@ -1940,7 +1940,7 @@
             <div class="modal-header"><div class="modal-title">Avance de Salario</div><button class="close-modal" onclick="closeModal('modalAvance')">×</button></div>
             <div class="form-group"><label>Monto</label><input type="number" id="avanceMonto" step="0.01"></div>
             <div class="form-group"><label>Notas</label><input type="text" id="avanceNotas" placeholder="Ej: Avance semanal, emergencia..."></div>
-            <button class="btn btn-submit" onclick="registrarAvance()">Registrar Avance</button>
+            <button class="btn btn-submit" onclick="withGuard(this, registrarAvance)">Registrar Avance</button>
         </div>
     </div>
 
@@ -2005,7 +2005,7 @@
             <div class="form-group" id="editPasswordGroup"><label>Nueva Contraseña</label><input type="password" id="editPassword" placeholder="Dejar vacío para no cambiar"></div>
             <div class="form-group hidden" id="editReceptionGroup"><label>Acceso a Recepción</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Permitir acceso al módulo de Recepción</span></label></div>
             <div class="form-group hidden" id="editPayDateGroup"><label>Próxima Fecha de Pago</label><input type="date" id="editPayDate"></div>
-            <button class="btn btn-submit" onclick="guardarEdicion()">Guardar Cambios</button>
+            <button class="btn btn-submit" onclick="withGuard(this, guardarEdicion)">Guardar Cambios</button>
         </div>
     </div>
 
@@ -2031,7 +2031,7 @@
             <div class="form-group"><label>Precio (cobrado al paciente)</label><input type="number" id="labPrecio" value="0" min="0" step="100" oninput="calcularMargenLab()"></div>
             <div class="form-group"><label>Costo (a la clínica)</label><input type="number" id="labCosto" value="0" min="0" step="100" oninput="calcularMargenLab()"></div>
             <div style="background: var(--sand); padding: 15px; border-radius: 8px; text-align: center;"><div style="font-size: 12px; color: var(--topo); margin-bottom: 4px;">MARGEN DE GANANCIA</div><div style="font-size: 24px; font-weight: 400;" id="labMargen">RD$ 0.00</div></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalOrdenLab')">Cancelar</button><button class="btn btn-submit" onclick="agregarOrdenLabAFactura()">Agregar</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalOrdenLab')">Cancelar</button><button class="btn btn-submit" onclick="withGuard(this, agregarOrdenLabAFactura)">Agregar</button></div>
         </div>
     </div>
 
@@ -2150,7 +2150,7 @@
 
             <div class="modal-footer" style="margin-top:20px;">
                 <button class="btn btn-cancel" onclick="closeModal('modalCotizItem')">Cancelar</button>
-                <button class="btn btn-submit" onclick="guardarItemCotizacion()">Agregar a cotización</button>
+                <button class="btn btn-submit" onclick="withGuard(this, guardarItemCotizacion)">Agregar a cotización</button>
             </div>
         </div>
     </div>
@@ -2188,7 +2188,7 @@
                 <p style="font-size: 14px; line-height: 1.6; color: var(--topo); text-align: justify; margin-bottom: 20px;">Por la presente, declaro que he sido informado de forma clara sobre el diagnóstico, los riesgos, beneficios y alternativas del tratamiento dental propuesto. Autorizo voluntariamente al personal de esta clínica a realizar los procedimientos necesarios, incluyendo la administración de anestesia local si se requiere.</p>
                 <div style="margin-bottom: 10px;"><label style="font-weight: 400; color: var(--topo);">Firma del Paciente (o Tutor) *</label><div style="margin-top: 8px;"><canvas id="canvasFirma" width="600" height="150" style="border: 2px solid #ddd; border-radius: 8px; background: white; cursor: crosshair; display: block; width: 100%;"></canvas></div><button type="button" class="btn" onclick="limpiarFirma()" style="margin-top: 10px; background: #ff3b30; color: white; padding: 8px 16px;">🗑️ Limpiar Firma</button></div>
             </div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevoPaciente')">Cancelar</button><button class="btn btn-save" onclick="guardarPaciente()">Guardar Paciente</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevoPaciente')">Cancelar</button><button class="btn btn-save" onclick="withGuard(this, guardarPaciente)">Guardar Paciente</button></div>
         </div>
     </div>
 
@@ -2249,7 +2249,7 @@
                 <!-- Botones -->
                 <div id="modalDienteBotones" style="display: flex; gap: 10px;">
                     <button onclick="closeModal('modalDiente')" style="flex:1;padding:12px;background:none;border:1.5px solid #e0e0e0;border-radius:100px;font-size:14px;font-family:inherit;cursor:pointer;">Cancelar</button>
-                    <button onclick="guardarEstadoDiente()" id="btnGuardarDiente" class="btn-primary" style="flex:1;padding:12px;border-radius:100px;font-size:14px;border:none;cursor:pointer;">Guardar</button>
+                    <button onclick="withGuard(this, guardarEstadoDiente)" id="btnGuardarDiente" class="btn-primary" style="flex:1;padding:12px;border-radius:100px;font-size:14px;border:none;cursor:pointer;">Guardar</button>
                 </div>
             </div>
         </div>
@@ -2268,7 +2268,7 @@
             <div class="form-group"><label>Condiciones Médicas</label><textarea id="editPacienteCondiciones" rows="2"></textarea></div>
             <div class="form-group"><label>Seguro Médico</label><input type="text" id="editPacienteSeguro"></div>
             <div style="background: var(--sand); padding: 15px; border-radius: 8px; margin-top: 15px;"><h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--clinic-color);">Contacto de Emergencia</h4><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group" style="margin: 0;"><label>Nombre</label><input type="text" id="editPacienteContactoNombre"></div><div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="tel" id="editPacienteContactoTel"></div></div></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarPaciente')">Cancelar</button><button class="btn btn-submit" onclick="guardarEdicionPaciente()">💾 Guardar Cambios</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarPaciente')">Cancelar</button><button class="btn btn-submit" onclick="withGuard(this, guardarEdicionPaciente)">💾 Guardar Cambios</button></div>
         </div>
     </div>
 
@@ -2279,7 +2279,7 @@
             <div style="background: var(--sand); padding: 15px; border-radius: 8px; margin-bottom: 20px;"><div style="font-size: 12px; color: var(--topo); margin-bottom: 4px;">Paciente:</div><div style="font-size: 18px; font-weight: 400; margin-bottom: 8px;" id="consentimientoNombre"></div><div style="font-size: 14px; color: var(--topo);">Cédula: <span id="consentimientoCedula"></span></div></div>
             <div style="background: white; padding: 20px; border: 2px solid var(--clinic-color); border-radius: 8px; margin-bottom: 20px;"><h3 style="color: var(--clinic-color); margin-bottom: 15px;">Consentimiento Informado</h3><p style="font-size: 13px; line-height: 1.6; color: #1d1d1f; text-align: justify;">He sido informado sobre mi diagnóstico, tratamiento propuesto, riesgos, beneficios y alternativas. <strong>Autorizo voluntariamente</strong> los procedimientos odontológicos necesarios, incluyendo anestesia local. Entiendo que la odontología no garantiza resultados específicos. <strong>Me comprometo</strong> a seguir indicaciones médicas y asistir a controles.</p></div>
             <div style="background: var(--sand); padding: 15px; border-radius: var(--radius-sm);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><div style="font-size: 14px; color: var(--topo); font-weight: 400;">Firma del Paciente (o Tutor):</div><button class="btn btn-secondary" onclick="limpiarFirma()" style="padding: 8px 16px;">🗑️ Limpiar</button></div><canvas id="signatureCanvas" width="600" height="200" style="border: 2px solid #ddd; border-radius: 8px; background: white; width: 100%; cursor: crosshair;"></canvas></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalConsentimiento')">Cancelar</button><button class="btn btn-submit" onclick="guardarConsentimiento()">💾 Guardar Consentimiento</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalConsentimiento')">Cancelar</button><button class="btn btn-submit" onclick="withGuard(this, guardarConsentimiento)">💾 Guardar Consentimiento</button></div>
         </div>
     </div>
 
@@ -2302,7 +2302,7 @@
             <div class="form-group"><label>Hora Fin *</label><input type="time" id="citaHoraFin"></div>
             <div class="form-group"><label>Consultorio *</label><select id="citaConsultorio"><option value="1">Consultorio 1</option><option value="2">Consultorio 2</option><option value="3">Consultorio 3</option><option value="4">Consultorio 4</option></select></div>
             <div class="form-group"><label>Motivo *</label><input type="text" id="citaMotivo" placeholder="Ej: Limpieza, Revisión"></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevaCita')">Cancelar</button><button class="btn btn-save" onclick="guardarCita()">Guardar</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevaCita')">Cancelar</button><button class="btn btn-save" onclick="withGuard(this, guardarCita)">Guardar</button></div>
         </div>
     </div>
 
@@ -2334,7 +2334,7 @@
             <div class="form-group"><label>Descripción/Indicaciones</label><textarea id="editOrdenDescripcion" rows="4"></textarea></div>
             <div class="form-group"><label>Laboratorio</label><input type="text" id="editOrdenLaboratorio"></div>
             <div class="form-group"><label>Precio</label><input type="number" id="editOrdenPrecio" min="0" step="100"></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarOrden')">Cancelar</button><button class="btn btn-save" onclick="guardarEdicionOrden()">Guardar</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarOrden')">Cancelar</button><button class="btn btn-save" onclick="withGuard(this, guardarEdicionOrden)">Guardar</button></div>
         </div>
     </div>
 
@@ -2354,7 +2354,7 @@
             <div class="form-group"><label>Monto del Abono *</label><input type="number" id="abonoMonto" placeholder="0" min="0" step="100"></div>
             <div class="form-group"><label>Fecha del Abono</label><input type="date" id="abonoFecha"></div>
             <div class="form-group"><label>Notas</label><textarea id="abonoNotas" rows="2"></textarea></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalAbonoLab')">Cancelar</button><button class="btn btn-save" onclick="guardarAbonoLab()">Registrar Abono</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalAbonoLab')">Cancelar</button><button class="btn btn-save" onclick="withGuard(this, guardarAbonoLab)">Registrar Abono</button></div>
         </div>
     </div>
 
@@ -2375,7 +2375,7 @@
             <div class="form-group"><label>Notas / Observaciones</label><textarea id="placaNotas" rows="3"></textarea></div>
             <div class="form-group"><label>Imagen *</label><input type="file" id="placaInput" accept="image/*" onchange="previsualizarPlaca()" style="display: none;"><button type="button" class="btn btn-secondary" onclick="document.getElementById('placaInput').click()" style="width: 100%; padding: 15px;">📁 Seleccionar Imagen</button><div id="placaNombreArchivo" style="font-size: 13px; color: var(--topo); text-align: center; margin-top: 8px;"></div></div>
             <img id="placaPreview" class="hidden" style="max-width: 100%; border-radius: 8px; border: 2px solid #e5e5e7;">
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalSubirPlaca')">Cancelar</button><button class="btn btn-submit" onclick="guardarPlaca()">💾 Guardar Placa</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalSubirPlaca')">Cancelar</button><button class="btn btn-submit" onclick="withGuard(this, guardarPlaca)">💾 Guardar Placa</button></div>
         </div>
     </div>
 
@@ -2398,7 +2398,7 @@
             <input type="hidden" id="editPlacaId">
             <div class="form-group"><label>Tipo de Placa *</label><select id="editPlacaTipo"><option value="Periapical">Periapical</option><option value="Bite-wing">Bite-wing</option><option value="Panorámica">Panorámica</option><option value="Cefalométrica">Cefalométrica</option><option value="Oclusal">Oclusal</option><option value="Cone Beam">Cone Beam (CBCT)</option><option value="Otra">Otra</option></select></div>
             <div class="form-group"><label>Notas / Observaciones</label><textarea id="editPlacaNotas" rows="4"></textarea></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarPlaca')">Cancelar</button><button class="btn btn-submit" onclick="guardarEdicionPlaca()">💾 Guardar Cambios</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarPlaca')">Cancelar</button><button class="btn btn-submit" onclick="withGuard(this, guardarEdicionPlaca)">💾 Guardar Cambios</button></div>
         </div>
     </div>
 
@@ -2425,7 +2425,7 @@
                 <div id="medicamentosListaTemp" style="margin-top: 16px;"></div>
             </div>
             <div class="form-group"><label>Indicaciones Generales (Opcional)</label><textarea id="recetaIndicaciones" rows="3"></textarea></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevaReceta')">Cancelar</button><button class="btn btn-submit" onclick="guardarReceta()">💾 Guardar Receta</button></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalNuevaReceta')">Cancelar</button><button class="btn btn-submit" onclick="withGuard(this, guardarReceta)">💾 Guardar Receta</button></div>
         </div>
     </div>
 

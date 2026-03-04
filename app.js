@@ -311,6 +311,48 @@ function lightenColor(hex, percent) {
 
 // Show sync indicator
 // ═══════════════════════════════════════════════════════════
+// GUARD — previene doble ejecución en botones de guardado
+// Uso: onclick="withGuard(this, guardarPaciente)"
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Envuelve una función async para:
+ *  1. Deshabilitar el botón inmediatamente al primer click
+ *  2. Mostrar texto "Guardando…" mientras se ejecuta
+ *  3. Restaurar el botón al terminar (éxito o error)
+ *
+ * Uso desde HTML:  onclick="withGuard(this, guardarPaciente)"
+ * Uso desde JS:    await withGuard(btnEl, () => miFuncion(args))
+ */
+async function withGuard(btnEl, fn) {
+    if (!btnEl || btnEl._guarding) return;
+    btnEl._guarding = true;
+
+    const originalText    = btnEl.textContent;
+    const originalDisabled = btnEl.disabled;
+    const originalOpacity = btnEl.style.opacity;
+
+    btnEl.disabled     = true;
+    btnEl.style.opacity = '0.65';
+    // Solo cambiar texto si no hay ícono complejo (emoji solo)
+    if (btnEl.textContent && !btnEl.querySelector('svg')) {
+        btnEl.textContent = 'Guardando…';
+    }
+
+    try {
+        await fn();
+    } catch(e) {
+        // El error ya debe ser manejado dentro de fn()
+        // Solo restauramos el botón
+    } finally {
+        btnEl._guarding    = false;
+        btnEl.disabled     = originalDisabled;
+        btnEl.style.opacity = originalOpacity;
+        btnEl.textContent  = originalText;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
 // ESTADO DE RED Y SINCRONIZACIÓN
 // ═══════════════════════════════════════════════════════════
 
@@ -4206,7 +4248,7 @@ function _renderPacientePage(p) {
     const facturasPaciente = appData.facturas.filter(f => f.paciente === p.nombre);
     const searchText = [p.nombre, p.cedula, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
     return `
-        <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor:pointer;padding:16px 20px;margin-bottom:12px;border-left:3px solid var(--clinic-color,#C4856A);">
+        <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor:pointer;padding:16px 20px;margin-bottom:12px;border-left:3px solid var(--clinic-color,#C4856A);background:white;border-top:1px solid rgba(60,50,40,.07);border-right:1px solid rgba(60,50,40,.07);border-bottom:1px solid rgba(60,50,40,.07);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                 <div style="font-size:17px;font-weight:600;color:var(--dark,#1E1C1A);letter-spacing:-0.2px">${p.nombre}</div>
                 <div>
@@ -4843,7 +4885,7 @@ function renderTabResumen(paciente) {
                     </div>
                 </div>
                 ${canCobrar ? `
-                <button onclick="openPagarFactura('${primeraFactura.id}')"
+                <button onclick="withGuard(this,()=>openPagarFactura('${primeraFactura.id}'))"
                     style="flex-shrink:0; padding: 12px 18px; background: #856404; color: white; border: none;
                            border-radius: 100px; font-size: 13px; font-weight: 500; font-family: inherit;
                            cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
@@ -5096,7 +5138,7 @@ function renderTabHistorial(paciente) {
                         <span style="font-size:12px;font-weight:700;color:#ff6b35;">${formatCurrency(pendienteF)}</span>
                     </div>`:''}
                     ${canCobrar&&pendienteF>0?`
-                    <button onclick="openPagarFactura('${facturaAbierta.id}')"
+                    <button onclick="withGuard(this,()=>openPagarFactura('${facturaAbierta.id}'))"
                         style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
                                color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
                                font-family:inherit;cursor:pointer;">
@@ -8863,8 +8905,9 @@ function cerrarModal() {
 }
 
 function _ejecutarModal() {
+    const btn = document.getElementById('genericModalConfirmBtn');
     if (_modalOnConfirm) {
-        _modalOnConfirm();
+        withGuard(btn || { _guarding: false, disabled: false, style: {}, textContent: '' }, _modalOnConfirm);
     }
 }
 
@@ -9823,7 +9866,7 @@ function renderMiPlanTab() {
                 <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
                 <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${clinicConfig.moneda || "RD$"}${calcTotal().toLocaleString()}</div>
             </div>
-            <button onclick="guardarCambiosPlan()" style="
+            <button onclick="withGuard(this, guardarCambiosPlan)" style="
                 width:100%;padding:14px;background:var(--clinic-color);color:white;
                 border:none;border-radius:var(--radius-sm);font-size:12px;
                 letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;
@@ -9867,7 +9910,7 @@ async function guardarCambiosPlan() {
     const tab = document.getElementById('tab-miplan');
     if (!tab) return;
 
-    const btn = tab.querySelector('button[onclick="guardarCambiosPlan()"]');
+    const btn = tab.querySelector('button[onclick="withGuard(this, guardarCambiosPlan)"]');
     btn.textContent = 'Guardando...';
     btn.disabled = true;
 
