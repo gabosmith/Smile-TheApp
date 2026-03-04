@@ -4407,9 +4407,9 @@ function cambiarTabPaciente(tabName) {
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente) return;
     if (tabName === 'resumen')           renderTabResumen(paciente);
-    else if (tabName === 'odontograma')  renderTabOdontograma(paciente);
     else if (tabName === 'tratamientos') renderTabHistorial(paciente);
-    else if (tabName === 'historial')    renderTabHistorial(paciente);  // compatibilidad
+    else if (tabName === 'historial')    renderTabHistorial(paciente);
+    else if (tabName === 'odontograma')  renderTabOdontograma(paciente);
     else if (tabName === 'recetas')      renderTabRecetas(paciente);
     else if (tabName === 'documentos')   renderTabDocumentos(paciente);
     else if (tabName === 'balance')      renderTabBalance(paciente);
@@ -4420,16 +4420,16 @@ function cambiarTabPaciente(tabName) {
     });
 
     const tabMap = {
-        'resumen':        'tabResumen',
-        'tratamientos':   'tabTratamientos',
-        'historial':      'tabTratamientos',  // compatibilidad
-        'odontograma':    'tabOdontograma',
-        'recetas':        'tabRecetas',
-        'documentos':     'tabDocumentos'
+        'resumen':       'tabResumen',
+        'tratamientos':  'tabTratamientos',
+        'balance':       'tabBalance',
+        'odontograma':   'tabOdontograma',
+        'historial':     'tabHistorial',
+        'recetas':       'tabRecetas',
+        'documentos':    'tabDocumentos'
     };
 
-    const tabEl = document.getElementById(tabMap[tabName]);
-    if (tabEl) tabEl.style.display = 'block';
+    document.getElementById(tabMap[tabName]).style.display = 'block';
 }
 
 // ═══════════════════════════════════════════════
@@ -5141,7 +5141,8 @@ function renderTabHistorial(paciente) {
                 </div>`).join('')}
         </div>`;
 
-    document.getElementById('tabTratamientos').innerHTML = `
+    const _tabHistEl = document.getElementById('tabTratamientos') || document.getElementById('tabHistorial');
+    _tabHistEl.innerHTML = `
         <div style="padding-bottom:8px;">
             ${balanceHeaderHTML}
             <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
