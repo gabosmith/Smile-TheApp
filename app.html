@@ -24,10 +24,10 @@
         /* ── Palette ── */
         --sand:       #EEEAE4;
         --sand-lt:    #F7F4EF;
-        --white:      #FDFCFB;
-        --topo:       #6B635C;
-        --piedra:     #A89F96;
-        --muted:      #C8C2BB;
+        --white:      #FFFFFF;
+        --topo:       #3D3830;
+        --piedra:     #7A7068;
+        --muted:      #A89F96;
         --terra:      #C4856A;
         --salvia:     #6B8F71;
         --pizarra:    #7D8EA0;
@@ -143,13 +143,13 @@
     }
     .cs-input {
         width: 100%; padding: 16px 20px;
-        border: none; border-radius: 16px;
+        border: 1.5px solid rgba(60,50,40,.15); border-radius: 16px;
         font-size: 16px; font-family: inherit; font-weight: 300;
-        background: var(--sand); color: var(--topo);
-        box-shadow: var(--neu-inset); outline: none;
-        transition: box-shadow .2s;
+        background: var(--white); color: var(--topo);
+        box-shadow: 0 1px 2px rgba(60,50,40,.04); outline: none;
+        transition: border-color .2s, box-shadow .2s;
     }
-    .cs-input:focus { box-shadow: var(--neu-inset-lg), 0 0 0 2px rgba(125,142,160,.2); }
+    .cs-input:focus { border-color: var(--pizarra); box-shadow: 0 0 0 3px rgba(125,142,160,.15); }
     .cs-results {
         position: absolute; top: calc(100% + 8px); left: 0; right: 0;
         background: var(--sand); border-radius: 16px;
@@ -376,10 +376,10 @@
         font-size: 9px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase;
     }
     .input-group input, .input-group select {
-        width: 100%; padding: 13px 16px; border: none; border-radius: var(--radius-sm);
+        width: 100%; padding: 13px 16px; border: 1.5px solid rgba(60,50,40,.15); border-radius: var(--radius-sm);
         font-size: 15px; font-family: inherit; font-weight: 300;
-        background: var(--sand); color: var(--topo);
-        box-shadow: var(--neu-inset); transition: box-shadow .2s;
+        background: var(--white); color: var(--topo);
+        box-shadow: 0 1px 2px rgba(60,50,40,.04); transition: border-color .2s, box-shadow .2s;
         -webkit-appearance: none; outline: none;
     }
 
@@ -424,10 +424,11 @@
 
     /* ── CARDS ────────────────────────────────────── */
     .card {
-        background: var(--sand);
+        background: var(--white);
         border-radius: var(--radius-md);
         padding: 20px; margin-bottom: 14px;
-        box-shadow: var(--neu-raised);
+        box-shadow: 0 1px 3px rgba(60,50,40,.07), 0 4px 16px rgba(60,50,40,.06);
+        border: 1px solid rgba(60,50,40,.07);
     }
     .card h2 {
         font-size: 14px; font-weight: 400;
@@ -441,12 +442,13 @@
         gap: 12px; margin-bottom: 16px;
     }
     .stat-card {
-        background: var(--sand);
+        background: var(--white);
         padding: 18px 16px; border-radius: var(--radius-md);
-        box-shadow: var(--neu-raised);
+        box-shadow: 0 1px 3px rgba(60,50,40,.07), 0 4px 16px rgba(60,50,40,.06);
+        border: 1px solid rgba(60,50,40,.07);
     }
     .stat-label {
-        font-size: 9px; color: var(--muted);
+        font-size: 9px; color: var(--piedra);
         margin-bottom: 8px; letter-spacing: 1.5px;
         text-transform: uppercase; font-weight: 600;
     }
@@ -462,24 +464,25 @@
     .form-group { margin-bottom: 18px; position: relative; }
     .form-group label {
         display: block; margin-bottom: 7px;
-        font-weight: 600; color: var(--piedra);
+        font-weight: 600; color: var(--topo);
         font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase;
     }
     .form-group input,
     .form-group select,
     .form-group textarea {
         width: 100%; padding: 12px 14px;
-        border: none; border-radius: var(--radius-sm);
+        border: 1.5px solid rgba(60,50,40,.15); border-radius: var(--radius-sm);
         font-size: 14px; font-family: inherit; font-weight: 300;
-        background: var(--sand); color: var(--topo);
-        box-shadow: var(--neu-inset);
-        transition: box-shadow .2s;
+        background: var(--white); color: var(--topo);
+        box-shadow: 0 1px 2px rgba(60,50,40,.04);
+        transition: border-color .2s, box-shadow .2s;
         -webkit-appearance: none; outline: none;
     }
     .form-group input:focus,
     .form-group select:focus,
     .form-group textarea:focus {
-        box-shadow: var(--neu-inset-lg), 0 0 0 2px rgba(125,142,160,.18);
+        border-color: var(--clinic-color, #7D8EA0);
+        box-shadow: 0 0 0 3px rgba(125,142,160,.15);
     }
     .form-group textarea { min-height: 80px; resize: vertical; }
 
@@ -491,14 +494,15 @@
         cursor: pointer; transition: all .2s; letter-spacing: .3px;
     }
     .btn-add {
-        background: var(--sand);
+        background: var(--white);
         color: var(--topo);
         width: 100%; margin-bottom: 14px; padding: 13px;
         border-radius: var(--radius-sm);
         font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
-        box-shadow: var(--neu-raised);
+        border: 1.5px dashed rgba(60,50,40,.2);
+        box-shadow: none;
     }
-    .btn-add:hover { box-shadow: var(--neu-pizarra); color: var(--pizarra); }
+    .btn-add:hover { border-color: var(--pizarra); color: var(--pizarra); background: rgba(125,142,160,.05); }
 
     .btn-submit {
         background: linear-gradient(145deg, #8b9eb2, var(--pizarra));
@@ -512,13 +516,14 @@
     }
 
     .btn-secondary {
-        background: var(--sand); color: var(--piedra);
-        box-shadow: var(--neu-flat);
+        background: var(--white); color: var(--piedra);
+        border: 1.5px solid rgba(60,50,40,.15);
+        box-shadow: none;
     }
-    .btn-secondary:hover { box-shadow: var(--neu-raised); color: var(--topo); }
+    .btn-secondary:hover { border-color: rgba(60,50,40,.3); color: var(--topo); }
 
     .btn-danger  { background: #c0392b; color: white; }
-    .btn-cancel  { background: var(--sand); color: var(--piedra); box-shadow: var(--neu-flat); }
+    .btn-cancel  { background: var(--white); color: var(--piedra); border: 1.5px solid rgba(60,50,40,.15); box-shadow: none; }
     .btn-save    {
         background: linear-gradient(145deg, #8b9eb2, var(--pizarra));
         color: white; box-shadow: var(--neu-pizarra);
@@ -551,16 +556,39 @@
     .nav-item svg    { width: 22px; height: 22px; }
     .nav-item span   { font-size: 10px; font-weight: 400; letter-spacing: .3px; }
 
+    /* ── SECTION TITLES ───────────────────────────── */
+    .section-title {
+        font-size: 18px; font-weight: 300;
+        color: var(--topo); letter-spacing: -.4px; margin-bottom: 4px;
+    }
+    .section-sub {
+        font-size: 12px; color: var(--piedra); font-weight: 300;
+        margin-bottom: 16px;
+    }
+
     /* ── ITEM LIST ────────────────────────────────── */
+    .list-item {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(60,50,40,.07);
+        box-shadow: 0 1px 3px rgba(60,50,40,.06);
+        transition: box-shadow .2s, border-color .2s;
+    }
+    .list-item:hover {
+        box-shadow: 0 4px 16px rgba(60,50,40,.10);
+        border-color: rgba(60,50,40,.12);
+    }
+
     .item-list { list-style: none; }
     .item-list li {
-        background: var(--sand);
+        background: var(--white);
         padding: 16px; margin-bottom: 8px;
         border-radius: var(--radius-md);
-        box-shadow: var(--neu-raised);
+        box-shadow: 0 1px 3px rgba(60,50,40,.07), 0 4px 16px rgba(60,50,40,.06);
+        border: 1px solid rgba(60,50,40,.07);
         cursor: pointer; transition: box-shadow .2s, transform .2s;
     }
-    .item-list li:hover { transform: translateY(-1px); box-shadow: var(--neu-raised-lg); }
+    .item-list li:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(60,50,40,.12); border-color: rgba(60,50,40,.12); }
     .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
     .item-title  { font-weight: 400; color: var(--topo); font-size: 14px; }
     .item-amount { font-size: 16px; font-weight: 400; color: var(--pizarra); letter-spacing: -.3px; }
@@ -578,7 +606,7 @@
     .modal.active { display: flex; }
 
     .modal-content {
-        background: var(--sand);
+        background: var(--white);
         border-radius: var(--radius-lg) var(--radius-lg) 0 0;
         max-width: 500px; width: 100%;
         max-height: 92vh; overflow-y: auto;
