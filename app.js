@@ -4953,215 +4953,324 @@ function renderTabResumen(paciente) {
 }
 
 function renderTabHistorial(paciente) {
-    const facturasPaciente = getFacturasDePaciente(paciente)
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-    const citasPaciente = getCitasDePaciente(paciente)
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-    const ordenesPaciente = (appData.laboratorios || [])
-        .filter(o => o.paciente === paciente.nombre)
-        .sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-
     const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+    const tieneModuloLab = hasModule('laboratorio');
 
-    // ── Balance header ──
-    const balance = calcularBalancePaciente(paciente.nombre);
-    const totalFacturado = facturasPaciente.reduce((s, f) => s + f.total, 0);
-    const totalPagado    = facturasPaciente.reduce((s, f) =>
-        s + (f.pagos || []).reduce((sp, p) => sp + p.monto, 0), 0);
+    // ── Datos ──────────────────────────────────────────────
+    const todasFacturas  = getFacturasDePaciente(paciente).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+    const citasPaciente  = getCitasDePaciente(paciente).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+    const ordenesLab     = (appData.laboratorios||[]).filter(o=>o.paciente===paciente.nombre||o.pacienteId===paciente.id)
+                           .sort((a,b)=>new Date(b.fechaCreacion)-new Date(a.fechaCreacion));
 
-    const balanceHeaderHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
-            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Facturado</div>
-                <div style="font-size:17px;font-weight:600;color:#333;">${formatCurrency(totalFacturado)}</div>
+    // Factura "abierta" = la pendiente más reciente (cotización activa)
+    const facturaAbierta = todasFacturas.find(f => {
+        if ((f.estado||'').toLowerCase()==='cancelada') return false;
+        const pagado = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        return pagado < f.total;
+    });
+
+    // ── Balance banner ─────────────────────────────────────
+    const balance        = calcularBalancePaciente(paciente.nombre);
+    const totalFacturado = todasFacturas.reduce((s,f)=>s+f.total,0);
+    const totalPagado    = todasFacturas.reduce((s,f)=>s+(f.pagos||[]).reduce((sp,p)=>sp+p.monto,0),0);
+
+    const bannerColor  = balance > 0 ? '#C4856A' : '#6B8F71';
+    const bannerBg     = balance > 0 ? 'rgba(196,133,106,0.08)' : 'rgba(107,143,113,0.08)';
+    const bannerBorder = balance > 0 ? 'rgba(196,133,106,0.25)' : 'rgba(107,143,113,0.25)';
+
+    const balanceBanner = `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+            <div style="background:${bannerBg};border:1.5px solid ${bannerBorder};border-radius:12px;padding:12px 14px;">
+                <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Facturado</div>
+                <div style="font-size:16px;font-weight:600;color:#333;">${formatCurrency(totalFacturado)}</div>
             </div>
-            <div style="background:white;border:1.5px solid #f0f0f0;border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Pagado</div>
-                <div style="font-size:17px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
+            <div style="background:rgba(52,199,89,0.07);border:1.5px solid rgba(52,199,89,0.2);border-radius:12px;padding:12px 14px;">
+                <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Pagado</div>
+                <div style="font-size:16px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
             </div>
-            <div style="background:${balance > 0 ? '#fff3cd' : '#d4edda'};border:1.5px solid ${balance > 0 ? '#ffc107' : '#28a745'};border-radius:12px;padding:14px;text-align:center;">
-                <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Balance</div>
-                <div style="font-size:17px;font-weight:700;color:${balance > 0 ? '#856404' : '#155724'};">${formatCurrency(balance)}</div>
+            <div style="background:${bannerBg};border:1.5px solid ${bannerBorder};border-radius:12px;padding:12px 14px;">
+                <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Balance</div>
+                <div style="font-size:16px;font-weight:700;color:${bannerColor};">${formatCurrency(balance)}</div>
             </div>
         </div>`;
 
-    // ── Facturas con desglose ──
-    const facturasHTML = facturasPaciente.length === 0
-        ? `<div style="text-align:center;padding:30px;color:#999;font-size:13px;">Sin procedimientos registrados</div>`
-        : facturasPaciente.map(f => {
-            const pagadoF   = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
-            const pendienteF = f.total - pagadoF;
-            const pagada     = pendienteF <= 0;
-            const estadoColor = pagada ? '#28a745' : pagadoF > 0 ? '#ff9500' : '#ff3b30';
-            const estadoLabel = pagada ? '✅ Pagada' : pagadoF > 0 ? '⏳ Con abono' : '🔴 Pendiente';
+    // ── Toggle interno ──────────────────────────────────────
+    const toggleHTML = `
+        <div style="display:flex;gap:6px;padding:4px;background:var(--sand,#F5F2EE);
+                    border-radius:12px;margin-bottom:16px;" id="tratToggleBar">
+            <button id="tratBtnCotiz" onclick="_tratSwitch('cotiz')"
+                style="flex:1;padding:9px 12px;border:none;border-radius:9px;font-size:13px;font-weight:500;
+                       font-family:inherit;cursor:pointer;transition:all 0.18s;
+                       background:var(--clinic-color,#C4856A);color:white;">
+                📋 Cotización activa
+            </button>
+            <button id="tratBtnHist" onclick="_tratSwitch('hist')"
+                style="flex:1;padding:9px 12px;border:none;border-radius:9px;font-size:13px;font-weight:500;
+                       font-family:inherit;cursor:pointer;transition:all 0.18s;
+                       background:transparent;color:var(--topo,#6B635C);">
+                🕐 Historial
+            </button>
+        </div>`;
 
-            // Procedimientos desglosados
-            const procsHTML = (f.procedimientos || []).map(p => `
+    // ════════════════════════════════════════════════════════
+    // PANEL A — COTIZACIÓN ACTIVA
+    // ════════════════════════════════════════════════════════
+    let panelCotiz = '';
+
+    if (!facturaAbierta) {
+        panelCotiz = `
+            <div style="text-align:center;padding:32px 20px;color:#bbb;">
+                <div style="font-size:36px;margin-bottom:10px;">📋</div>
+                <div style="font-size:14px;color:#999;margin-bottom:6px;">Sin cotización activa</div>
+                <div style="font-size:12px;color:#bbb;">Agrega un procedimiento para iniciar</div>
+            </div>`;
+    } else {
+        const pagadoF    = (facturaAbierta.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        const pendienteF = facturaAbierta.total - pagadoF;
+
+        const procsHTML = (facturaAbierta.procedimientos||[]).length === 0 ? '' :
+            (facturaAbierta.procedimientos||[]).map(p => `
                 <div style="display:flex;justify-content:space-between;align-items:center;
-                            padding:7px 0;border-bottom:1px solid #f5f5f5;">
-                    <span style="font-size:13px;color:#444;">${p.descripcion}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}</span>
-                    <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:8px;">
-                        ${formatCurrency(p.precioUnitario * (p.cantidad || 1))}
+                            padding:8px 0;border-bottom:1px solid #f5f5f5;">
+                    <div>
+                        <div style="font-size:13px;color:#333;">
+                            ${p.descripcion}${p.cantidad>1?` ×${p.cantidad}`:''}
+                            ${p.dientes?`<span style="font-size:11px;color:#aaa;margin-left:6px;">🦷 ${p.dientes}</span>`:''}
+                        </div>
+                    </div>
+                    <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:12px;">
+                        ${formatCurrency(p.precioUnitario*(p.cantidad||1))}
                     </span>
                 </div>`).join('');
 
-            // Pagos / abonos desglosados
-            const pagosHTML = (f.pagos || []).length === 0 ? '' : `
-                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e0e0e0;">
-                    <div style="font-size:10px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pagos recibidos</div>
-                    ${(f.pagos || []).map(p => `
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:100px;">
-                                    ${p.metodo || 'Efectivo'}
-                                </span>
-                                <span style="font-size:11px;color:#999;">
-                                    ${p.fecha ? new Date(p.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short',year:'2-digit'}) : ''}
-                                </span>
-                            </div>
-                            <span style="font-size:13px;font-weight:600;color:#28a745;">+${formatCurrency(p.monto)}</span>
-                        </div>`).join('')}
-                </div>`;
+        const labsHTML = (facturaAbierta.ordenesLab||[]).length === 0 ? '' :
+            (facturaAbierta.ordenesLab||[]).map(o => `
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            padding:8px 0;border-bottom:1px solid #f5f5f5;">
+                    <div>
+                        <div style="font-size:13px;color:#333;">🔬 ${o.descripcion||o.tipo||'Lab'}</div>
+                        <div style="font-size:11px;color:#aaa;margin-top:1px;">${o.laboratorio||''}</div>
+                    </div>
+                    <span style="font-size:13px;font-weight:500;color:#333;flex-shrink:0;margin-left:12px;">
+                        ${formatCurrency(o.precio||0)}
+                    </span>
+                </div>`).join('');
 
-            // Descuento si aplica
-            const descuentoHTML = f.descuento > 0 ? `
-                <div style="display:flex;justify-content:space-between;padding:5px 0;color:#999;">
-                    <span style="font-size:12px;">Descuento ${f.descuento}%</span>
-                    <span style="font-size:12px;">-${formatCurrency(f.total / (1 - f.descuento/100) * (f.descuento/100))}</span>
-                </div>` : '';
+        const descuentoHTML = facturaAbierta.descuento > 0 ? `
+            <div style="display:flex;justify-content:space-between;padding:6px 0;color:#aaa;">
+                <span style="font-size:12px;">Descuento ${facturaAbierta.descuento}%</span>
+                <span style="font-size:12px;">−${formatCurrency(facturaAbierta.subtotal*(facturaAbierta.descuento/100))}</span>
+            </div>` : '';
 
-            return `
-            <div style="background:white;border-radius:14px;border:1.5px solid ${estadoColor}33;
-                        margin-bottom:14px;overflow:hidden;">
-                <!-- Header factura -->
-                <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;
+        panelCotiz = `
+            <div style="background:white;border-radius:14px;border:1.5px solid rgba(196,133,106,0.2);overflow:hidden;margin-bottom:12px;">
+                <div style="padding:12px 16px;border-bottom:1px solid #f5f5f5;
                             display:flex;justify-content:space-between;align-items:center;">
                     <div>
-                        <div style="font-size:12px;color:#999;margin-bottom:2px;">${f.numero} · ${formatDate(f.fecha)}</div>
-                        <div style="font-size:13px;color:#555;">${f.profesional}</div>
+                        <div style="font-size:11px;color:#aaa;margin-bottom:1px;">${facturaAbierta.numero} · ${formatDate(facturaAbierta.fecha)}</div>
+                        <div style="font-size:12px;color:#888;">${facturaAbierta.profesional}</div>
                     </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:11px;font-weight:600;color:${estadoColor};background:${estadoColor}18;
-                                    padding:3px 10px;border-radius:100px;margin-bottom:4px;">${estadoLabel}</div>
-                        <div style="font-size:16px;font-weight:700;color:${estadoColor};">
-                            ${pagada ? formatCurrency(f.total) : formatCurrency(pendienteF) + ' pendiente'}
-                        </div>
-                    </div>
+                    <span style="font-size:11px;font-weight:600;color:#ff6b35;background:#ff6b3515;
+                                 padding:3px 10px;border-radius:100px;">🔴 Pendiente</span>
                 </div>
-                <!-- Procedimientos + pagos -->
                 <div style="padding:12px 16px;">
-                    ${procsHTML}
+                    ${procsHTML}${labsHTML}
                     ${descuentoHTML}
-                    <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:600;">
-                        <span style="font-size:13px;color:#333;">Total</span>
-                        <span style="font-size:14px;color:#333;">${formatCurrency(f.total)}</span>
+                    <div style="display:flex;justify-content:space-between;padding:10px 0 4px;border-top:1px solid #f0f0f0;margin-top:4px;">
+                        <span style="font-size:13px;font-weight:600;color:#333;">Total</span>
+                        <span style="font-size:15px;font-weight:700;color:#333;">${formatCurrency(facturaAbierta.total)}</span>
                     </div>
-                    ${pagosHTML}
-                    ${!pagada && canCobrar ? `
-                    <button onclick="openPagarFactura('${f.id}')"
+                    ${pagadoF>0?`
+                    <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                        <span style="font-size:12px;color:#34c759;">Abonado</span>
+                        <span style="font-size:12px;font-weight:600;color:#34c759;">+${formatCurrency(pagadoF)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                        <span style="font-size:12px;color:#ff6b35;font-weight:600;">Pendiente</span>
+                        <span style="font-size:12px;font-weight:700;color:#ff6b35;">${formatCurrency(pendienteF)}</span>
+                    </div>`:''}
+                    ${canCobrar&&pendienteF>0?`
+                    <button onclick="openPagarFactura('${facturaAbierta.id}')"
                         style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
                                color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
                                font-family:inherit;cursor:pointer;">
-                        💳 Cobrar esta factura
-                    </button>` : ''}
+                        💳 Cobrar esta cotización
+                    </button>`:''}
                 </div>
             </div>`;
-        }).join('');
+    }
 
-    // ── Órdenes de lab en ficha ─────────────────────────────────────────────
-    // Sin módulo → solo descripción + precio (básico, siempre visible)
-    // Con módulo → descripción + precio + estado + enlace al tab de Lab
-    const tieneModuloLab = hasModule('laboratorio');
+    // Botón agregar siempre visible en cotización
+    panelCotiz = `
+        <button onclick="abrirModalAgregarItem()"
+            style="width:100%;padding:13px;margin-bottom:14px;
+                   background:var(--clinic-color,#C4856A);color:white;border:none;
+                   border-radius:12px;font-size:13px;font-weight:500;font-family:inherit;
+                   cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+                   box-shadow:0 2px 10px rgba(196,133,106,0.3);">
+            <span style="font-size:18px;line-height:1;">+</span> Agregar procedimiento / lab
+        </button>
+        ${panelCotiz}`;
 
-    const labHTML = ordenesPaciente.length === 0 ? '' : `
-        <div style="margin-bottom:20px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;">
-                    Trabajos de laboratorio
+    // ════════════════════════════════════════════════════════
+    // PANEL B — HISTORIAL CRONOLÓGICO
+    // Mezcla facturas pagadas + órdenes de lab + citas en timeline
+    // ════════════════════════════════════════════════════════
+
+    // Construir eventos unificados
+    const eventos = [];
+
+    // Facturas ya cobradas (o parcialmente abonadas distintas a la abierta)
+    todasFacturas.forEach(f => {
+        if (f.id === facturaAbierta?.id) return; // ya está en cotización
+        const pagadoF = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        const pagada  = pagadoF >= f.total;
+        eventos.push({
+            fecha:  f.fecha,
+            tipo:   'factura',
+            icon:   pagada ? '✅' : '⏳',
+            titulo: `${f.numero}${pagada?' · Pagada':' · Abono parcial'}`,
+            sub:    `${f.profesional} · ${(f.procedimientos||[]).length} procedimiento${(f.procedimientos||[]).length!==1?'s':''}${(f.ordenesLab||[]).length>0?' · '+(f.ordenesLab||[]).length+' lab':''}`,
+            monto:  pagada ? formatCurrency(f.total) : `${formatCurrency(pagadoF)} / ${formatCurrency(f.total)}`,
+            color:  pagada ? '#34c759' : '#ff9500',
+            data:   f,
+        });
+        // Cada pago recibido como sub-evento
+        (f.pagos||[]).forEach(p => {
+            eventos.push({
+                fecha:  p.fecha || f.fecha,
+                tipo:   'pago',
+                icon:   '💳',
+                titulo: `Pago — ${p.metodo||'Efectivo'}`,
+                sub:    `Factura ${f.numero}`,
+                monto:  `+${formatCurrency(p.monto)}`,
+                color:  '#34c759',
+                data:   p,
+            });
+        });
+    });
+
+    // Órdenes de lab
+    ordenesLab.forEach(o => {
+        eventos.push({
+            fecha:  o.fechaCreacion,
+            tipo:   'lab',
+            icon:   '🔬',
+            titulo: o.descripcion || o.tipo || 'Trabajo de laboratorio',
+            sub:    `${o.laboratorio}${o.dientes?' · 🦷 '+o.dientes:''}`,
+            monto:  formatCurrency(o.precio||0),
+            color:  getColorEstado(o.estadoActual) || '#888',
+            badge:  o.estadoActual || 'Pendiente',
+            data:   o,
+        });
+    });
+
+    // Citas
+    citasPaciente.forEach(c => {
+        eventos.push({
+            fecha:  c.fecha,
+            tipo:   'cita',
+            icon:   '📅',
+            titulo: c.motivo || 'Cita',
+            sub:    `${c.hora||''} · ${c.profesional||''}`,
+            monto:  null,
+            color:  getColorEstadoCita(c.estado||'Pendiente'),
+            badge:  c.estado||'Pendiente',
+            data:   c,
+        });
+    });
+
+    // Ordenar por fecha descendente
+    eventos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+    let panelHist = '';
+    if (eventos.length === 0) {
+        panelHist = `
+            <div style="text-align:center;padding:40px 20px;color:#bbb;">
+                <div style="font-size:36px;margin-bottom:10px;">🕐</div>
+                <div style="font-size:13px;color:#bbb;">Sin historial aún</div>
+            </div>`;
+    } else {
+        // Agrupar por mes/año
+        const porMes = {};
+        eventos.forEach(ev => {
+            const d   = new Date(ev.fecha);
+            const key = isNaN(d) ? 'Sin fecha' : d.toLocaleDateString(getLocale(),{month:'long',year:'numeric'});
+            if (!porMes[key]) porMes[key] = [];
+            porMes[key].push(ev);
+        });
+
+        panelHist = Object.entries(porMes).map(([mes, evs]) => `
+            <div style="margin-bottom:20px;">
+                <div style="font-size:10px;font-weight:600;color:#bbb;letter-spacing:1.5px;
+                            text-transform:uppercase;margin-bottom:10px;padding-left:4px;">${mes}</div>
+                <div style="position:relative;padding-left:24px;">
+                    <!-- línea vertical -->
+                    <div style="position:absolute;left:7px;top:8px;bottom:8px;width:1.5px;background:#f0f0f0;"></div>
+                    ${evs.map(ev => `
+                        <div style="position:relative;margin-bottom:10px;">
+                            <!-- dot -->
+                            <div style="position:absolute;left:-20px;top:10px;width:10px;height:10px;
+                                        border-radius:50%;background:${ev.color};border:2px solid white;
+                                        box-shadow:0 0 0 1.5px ${ev.color}44;"></div>
+                            <div style="background:white;border-radius:12px;padding:11px 14px;
+                                        border:1.5px solid #f5f5f5;">
+                                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                                    <div style="flex:1;min-width:0;">
+                                        <div style="font-size:13px;font-weight:500;color:#222;margin-bottom:2px;
+                                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                            ${ev.icon} ${ev.titulo}
+                                        </div>
+                                        <div style="font-size:11px;color:#aaa;">${ev.sub}</div>
+                                        ${ev.badge?`
+                                        <span style="display:inline-block;margin-top:5px;font-size:10px;font-weight:600;
+                                                     padding:2px 8px;border-radius:100px;
+                                                     background:${ev.color}18;color:${ev.color};">
+                                            ${ev.badge}
+                                        </span>`:''}
+                                    </div>
+                                    <div style="text-align:right;flex-shrink:0;">
+                                        ${ev.monto?`<div style="font-size:13px;font-weight:600;color:${ev.color};">${ev.monto}</div>`:''}
+                                        <div style="font-size:10px;color:#ccc;margin-top:2px;">
+                                            ${new Date(ev.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'})}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`).join('')}
                 </div>
-                ${tieneModuloLab ? `
-                <button onclick="showTab('laboratorio')"
-                    style="font-size:11px;color:var(--clinic-color,#C4856A);background:none;border:none;
-                           cursor:pointer;font-family:inherit;padding:0;text-decoration:underline;">
-                    Ver módulo completo →
-                </button>` : ''}
-            </div>
-            ${ordenesPaciente.map(o => `
-                <div style="background:white;border-radius:12px;padding:12px 16px;
-                            border:1.5px solid #f0f0f0;margin-bottom:8px;
-                            display:flex;justify-content:space-between;align-items:center;">
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-size:13px;font-weight:500;color:#333;margin-bottom:2px;">
-                            ${o.descripcion || o.tipo || 'Trabajo de laboratorio'}
-                        </div>
-                        ${tieneModuloLab ? `
-                        <div style="margin-top:4px;">
-                            <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;
-                                         background:${getColorEstado(o.estadoActual)}22;
-                                         color:${getColorEstado(o.estadoActual)};">
-                                ${o.estadoActual || 'Pendiente'}
-                            </span>
-                        </div>` : ''}
-                    </div>
-                    <div style="text-align:right;flex-shrink:0;margin-left:12px;">
-                        <div style="font-size:14px;font-weight:600;color:#333;">${formatCurrency(o.precio)}</div>
-                    </div>
-                </div>`).join('')}
-            ${!tieneModuloLab ? `
-            <div style="margin-top:6px;padding:10px 14px;background:#f9f6f3;border-radius:10px;
-                        border:1px dashed #e0d5cc;display:flex;align-items:center;gap:10px;">
-                <span style="font-size:15px;">🔬</span>
-                <div style="font-size:12px;color:#9C9189;line-height:1.5;">
-                    Activa el <strong style="color:var(--clinic-color,#C4856A)">módulo de Laboratorio</strong>
-                    para ver seguimiento completo, fechas, márgenes y alertas de retrasos.
-                </div>
-            </div>` : ''}
-        </div>`;
+            </div>`).join('');
+    }
 
-    // ── Citas (compactas) ──
-    const citasHTML = citasPaciente.length === 0 ? '' : `
-        <div>
-            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
-                        text-transform:uppercase;margin-bottom:10px;">Citas</div>
-            ${citasPaciente.map(c => `
-                <div style="background:white;border-radius:12px;padding:12px 16px;
-                            border:1.5px solid #f0f0f0;margin-bottom:8px;
-                            display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div style="font-size:13px;font-weight:500;color:#333;">
-                            ${formatDate(c.fecha)} · ${c.hora}
-                        </div>
-                        <div style="font-size:11px;color:#999;margin-top:2px;">${c.motivo} · ${c.profesional}</div>
-                    </div>
-                    <div style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;flex-shrink:0;
-                                background:${getColorEstadoCita(c.estado||'Pendiente')}22;
-                                color:${getColorEstadoCita(c.estado||'Pendiente')};">
-                        ${c.estado || 'Pendiente'}
-                    </div>
-                </div>`).join('')}
-        </div>`;
-
-    const _tabHistEl = document.getElementById('tabTratamientos') || document.getElementById('tabHistorial');
-    _tabHistEl.innerHTML = `
+    // ── Render final ────────────────────────────────────────
+    const _tabEl = document.getElementById('tabTratamientos') || document.getElementById('tabHistorial');
+    _tabEl.innerHTML = `
         <div style="padding-bottom:24px;">
-            ${balanceHeaderHTML}
-
-            <!-- Botón principal agregar -->
-            <button onclick="abrirModalAgregarItem()"
-                style="width:100%;padding:14px;margin-bottom:20px;
-                       background:var(--clinic-color,#C4856A);color:white;border:none;
-                       border-radius:14px;font-size:14px;font-weight:500;font-family:inherit;
-                       cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
-                       box-shadow:0 2px 12px rgba(0,0,0,0.12);">
-                <span style="font-size:20px;line-height:1;">+</span> Agregar procedimiento / lab
-            </button>
-
-            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;
-                        text-transform:uppercase;margin-bottom:10px;">Cotización del paciente</div>
-            ${facturasHTML}
-            ${labHTML}
-            ${citasHTML}
+            ${balanceBanner}
+            ${toggleHTML}
+            <div id="tratPanelCotiz">${panelCotiz}</div>
+            <div id="tratPanelHist" style="display:none;">${panelHist}</div>
         </div>`;
+}
+
+// Cambia entre sub-paneles Cotización / Historial
+function _tratSwitch(panel) {
+    const btnC = document.getElementById('tratBtnCotiz');
+    const btnH = document.getElementById('tratBtnHist');
+    const pC   = document.getElementById('tratPanelCotiz');
+    const pH   = document.getElementById('tratPanelHist');
+    if (!btnC || !btnH || !pC || !pH) return;
+
+    const active   = 'background:var(--clinic-color,#C4856A);color:white;';
+    const inactive = 'background:transparent;color:var(--topo,#6B635C);';
+
+    if (panel === 'cotiz') {
+        btnC.style.cssText += active;   btnH.style.cssText += inactive;
+        pC.style.display = 'block';     pH.style.display = 'none';
+    } else {
+        btnH.style.cssText += active;   btnC.style.cssText += inactive;
+        pH.style.display = 'block';     pC.style.display = 'none';
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
