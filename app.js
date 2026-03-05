@@ -4376,6 +4376,7 @@ async function guardarPaciente() {
             telefono: sanitize.phone(document.getElementById('nuevoPacienteEmergenciaTelefono')?.value),
         },
         condiciones:  val('nuevoPacienteCondiciones'),
+        condicionesMedicas: val('nuevoPacienteCondiciones'), // alias for legacy compat
         fechaRegistro: new Date().toISOString()
     };
 
@@ -4408,6 +4409,32 @@ async function guardarPaciente() {
     } catch(e) {
         showError('Error al guardar el paciente.', e);
     }
+}
+
+
+// ── Contactar paciente por WhatsApp ────────────────────────────
+function contactarPaciente(pacienteId, tipo) {
+    const paciente = appData.pacientes.find(p => p.id === pacienteId);
+    if (!paciente) return;
+    
+    const tel = (paciente.telefono || '').replace(/\D/g, '');
+    if (!tel) {
+        showToast('⚠️ El paciente no tiene teléfono registrado', 3000, '#e65100');
+        return;
+    }
+
+    const clinica = clinicConfig.nombre || 'la clínica';
+    let mensaje = '';
+    if (tipo === 'saludo') {
+        mensaje = `Hola ${paciente.nombre}, le contactamos desde ${clinica}. ¿En qué podemos ayudarle?`;
+    } else if (tipo === 'recordatorio') {
+        mensaje = `Hola ${paciente.nombre}, le recordamos que tiene una cita próxima en ${clinica}. Por favor confirme su asistencia.`;
+    } else {
+        mensaje = `Hola ${paciente.nombre}, le contactamos desde ${clinica}.`;
+    }
+
+    const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, '_blank');
 }
 
 function verPaciente(pacienteId) {
@@ -4446,39 +4473,46 @@ function verPaciente(pacienteId) {
 }
 
 function cambiarTabPaciente(tabName) {
-    // Actualizar botones
-    document.querySelectorAll('.paciente-tab').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
-    // Renderizado lazy: solo renderizar el tab que se activa
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente) return;
-    if (tabName === 'resumen')           renderTabResumen(paciente);
-    else if (tabName === 'tratamientos') renderTabHistorial(paciente);
-    else if (tabName === 'historial')    renderTabHistorial(paciente);
-    else if (tabName === 'odontograma')  renderTabOdontograma(paciente);
-    else if (tabName === 'recetas')      renderTabRecetas(paciente);
-    else if (tabName === 'documentos')   renderTabDocumentos(paciente);
-    else if (tabName === 'balance')      renderTabBalance(paciente);
 
-    // Actualizar contenido
-    document.querySelectorAll('.paciente-tab-content').forEach(content => {
-        content.style.display = 'none';
+    // ── Render the right tab ──
+    if      (tabName === 'resumen')       renderTabResumen(paciente);
+    else if (tabName === 'tratamientos')  renderTabHistorial(paciente);
+    else if (tabName === 'odontograma')   renderTabOdontograma(paciente);
+    else if (tabName === 'recetas')       renderTabRecetas(paciente);
+    else if (tabName === 'documentos')    renderTabDocumentos(paciente);
+    else if (tabName === 'balance')       renderTabBalance(paciente);
+
+    // ── Tab button active state (handle inline style override) ──
+    document.querySelectorAll('.paciente-tab').forEach(btn => {
+        const isActive = btn.getAttribute('data-tab') === tabName;
+        btn.classList.toggle('active', isActive);
+        // Override inline style so border-bottom shows correctly
+        btn.style.borderBottomColor = isActive ? 'var(--clinic-color, #C4856A)' : 'transparent';
+        btn.style.color     = isActive ? 'var(--clinic-color, #C4856A)' : 'var(--topo)';
+        btn.style.fontWeight = isActive ? '500' : '400';
     });
 
+    // ── Show the right content div, hide others ──
     const tabMap = {
-        'resumen':       'tabResumen',
-        'tratamientos':  'tabTratamientos',
-        'balance':       'tabBalance',
-        'odontograma':   'tabOdontograma',
-        'historial':     'tabHistorial',
-        'recetas':       'tabRecetas',
-        'documentos':    'tabDocumentos'
+        'resumen':      'tabResumen',
+        'tratamientos': 'tabTratamientos',
+        'odontograma':  'tabOdontograma',
+        'recetas':      'tabRecetas',
+        'documentos':   'tabDocumentos',
+        'balance':      'tabBalance',
     };
-
-    document.getElementById(tabMap[tabName]).style.display = 'block';
+    document.querySelectorAll('.paciente-tab-content').forEach(el => {
+        el.style.display = 'none';
+    });
+    const targetId = tabMap[tabName];
+    if (targetId) {
+        const el = document.getElementById(targetId);
+        if (el) el.style.display = 'block';
+    }
 }
+
 
 // ═══════════════════════════════════════════════
 // ODONTOGRAMA INTERACTIVO
@@ -4960,7 +4994,10 @@ function renderTabResumen(paciente) {
         <!-- Próxima cita -->
         ${(() => {
             const citasFuturas = getCitasDePaciente(paciente)
-                .filter(c => new Date(c.fecha) >= new Date())
+                .filter(c => new Date(c.fecha) >= new Date()
+                    && c.estado !== 'Cancelada'
+                    && c.estado !== 'Inasistencia'
+                    && c.estado !== 'Completada')
                 .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
             if (citasFuturas.length > 0) {
@@ -9584,43 +9621,51 @@ function editarPacienteActual() {
     openModal('modalEditarPaciente');
 }
 
-function guardarEdicionPaciente() {
+async function guardarEdicionPaciente() {
     if (!currentPacienteId) return;
 
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente) return;
 
-    // Actualizar datos
-    paciente.nombre = document.getElementById('editPacienteNombre').value.trim();
-    paciente.telefono = document.getElementById('editPacienteTelefono').value.trim();
-    paciente.cedula = document.getElementById('editPacienteCedula').value.trim();
-    paciente.email = document.getElementById('editPacienteEmail').value.trim();
-    paciente.fechaNacimiento = document.getElementById('editPacienteFechaNac').value;
-    paciente.sexo = document.getElementById('editPacienteSexo').value;
-    paciente.grupoSanguineo = document.getElementById('editPacienteGrupoSang').value.trim();
-    paciente.direccion = document.getElementById('editPacienteDireccion').value.trim();
-    paciente.alergias = document.getElementById('editPacienteAlergias').value.trim();
-    paciente.condicionesMedicas = document.getElementById('editPacienteCondiciones').value.trim();
-    paciente.seguroMedico = document.getElementById('editPacienteSeguro').value.trim();
+    const nombre   = document.getElementById('editPacienteNombre').value.trim();
+    const telefono = document.getElementById('editPacienteTelefono').value.trim();
 
-    if (!paciente.contactoEmergencia) paciente.contactoEmergencia = {};
-    paciente.contactoEmergencia.nombre = document.getElementById('editPacienteContactoNombre').value.trim();
-    paciente.contactoEmergencia.telefono = document.getElementById('editPacienteContactoTel').value.trim();
-
-    // Validar campos requeridos
-    if (!paciente.nombre || !paciente.telefono) {
+    if (!nombre || !telefono) {
         showToast('⚠️ Nombre y teléfono son obligatorios', 3000, '#e65100');
         return;
     }
 
-    savePaciente(paciente);
-    updatePacientesTab();
-    closeModal('modalEditarPaciente');
+    // Snapshot for rollback
+    const backup = JSON.parse(JSON.stringify(paciente));
 
-    showToast('✓ Paciente actualizado correctamente');
+    paciente.nombre           = nombre;
+    paciente.telefono         = telefono;
+    paciente.cedula           = document.getElementById('editPacienteCedula').value.trim();
+    paciente.email            = document.getElementById('editPacienteEmail').value.trim();
+    paciente.fechaNacimiento  = document.getElementById('editPacienteFechaNac').value;
+    paciente.sexo             = document.getElementById('editPacienteSexo').value;
+    paciente.grupoSanguineo   = document.getElementById('editPacienteGrupoSang').value.trim();
+    paciente.direccion        = document.getElementById('editPacienteDireccion').value.trim();
+    paciente.alergias         = document.getElementById('editPacienteAlergias').value.trim();
+    paciente.condiciones      = document.getElementById('editPacienteCondiciones').value.trim(); // unified field name
+    paciente.condicionesMedicas = paciente.condiciones; // keep legacy alias in sync
+    paciente.seguroMedico     = document.getElementById('editPacienteSeguro').value.trim();
 
-    // Volver a abrir ficha actualizada
-    verPaciente(currentPacienteId);
+    if (!paciente.contactoEmergencia) paciente.contactoEmergencia = {};
+    paciente.contactoEmergencia.nombre   = document.getElementById('editPacienteContactoNombre').value.trim();
+    paciente.contactoEmergencia.telefono = document.getElementById('editPacienteContactoTel').value.trim();
+    paciente.ultimaModificacion = new Date().toISOString();
+
+    try {
+        await saveData();
+        closeModal('modalEditarPaciente');
+        showToast('✓ Paciente actualizado');
+        verPaciente(currentPacienteId); // reabrir ficha actualizada
+    } catch(e) {
+        // Rollback
+        Object.assign(paciente, backup);
+        showError('Error al guardar el paciente.', e);
+    }
 }
 
 // Variable global para guardar cita actual en detalle
@@ -9715,17 +9760,14 @@ function abrirAbonoBalance(pacienteId) {
 
 // Abrir pago de factura desde ficha del paciente
 function abrirPagoFactura(facturaId, pacienteId) {
-    // VALIDAR PERMISO: Solo admin y recepción pueden cobrar
     if (appData.currentRole === 'professional') {
         showToast('⛔ Sin permiso para realizar cobros', 4000, '#c0392b');
         return;
     }
-    
+    // Store return target BEFORE closing
+    window.tempPacienteIdRetorno = pacienteId || currentPacienteId || null;
     closeModal('modalVerPaciente');
     openPagarFactura(facturaId);
-    
-    // Guardar pacienteId para volver a la ficha después
-    window.tempPacienteIdRetorno = pacienteId;
 }
 
 

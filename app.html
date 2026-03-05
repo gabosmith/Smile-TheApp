@@ -717,6 +717,7 @@
     .paciente-tab.active {
         color: var(--pizarra) !important;
         border-bottom-color: var(--pizarra) !important;
+        border-bottom-color: var(--clinic-color, #C4856A);
     }
     .paciente-tab:hover { background: var(--sand-lt); }
     .paciente-tab-content { animation: fadeIn .25s ease; }
@@ -2213,6 +2214,7 @@
                 <button class="paciente-tab" data-tab="odontograma" onclick="cambiarTabPaciente('odontograma')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">🦷 Odontograma</button>
                 <button class="paciente-tab" data-tab="recetas" onclick="cambiarTabPaciente('recetas')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">💊 Recetas</button>
                 <button class="paciente-tab" data-tab="documentos" onclick="cambiarTabPaciente('documentos')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">📄 Documentos</button>
+                <button id="tabBalanceBtn" class="paciente-tab" data-tab="balance" onclick="cambiarTabPaciente('balance')" style="border: none; background: none; padding: 16px 20px; cursor: pointer; font-weight: 400; color: var(--topo); border-bottom: 3px solid transparent;">💰 Balance</button>
             </div>
             <div style="flex: 1; overflow-y: auto; padding: 24px;">
                 <div id="tabResumen" class="paciente-tab-content active"></div>
@@ -2220,6 +2222,8 @@
                 <div id="tabOdontograma" class="paciente-tab-content" style="display: none;"></div>
                 <div id="tabRecetas" class="paciente-tab-content" style="display: none;"></div>
                 <div id="tabDocumentos" class="paciente-tab-content" style="display: none;"></div>
+                <div id="tabBalance" class="paciente-tab-content" style="display: none;"></div>
+                <div id="tabHistorial" class="paciente-tab-content" style="display: none;"></div>
             </div>
         </div>
     </div>
@@ -2262,7 +2266,7 @@
             <div class="form-group"><label>Nombre Completo *</label><input type="text" id="editPacienteNombre"></div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group"><label>Teléfono *</label><input type="tel" id="editPacienteTelefono"></div><div class="form-group"><label>Cédula</label><input type="text" id="editPacienteCedula"></div></div>
             <div class="form-group"><label>Email</label><input type="email" id="editPacienteEmail"></div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;"><div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="editPacienteFechaNac"></div><div class="form-group"><label>Sexo</label><select id="editPacienteSexo"><option value="">Seleccione...</option><option value="M">Masculino</option><option value="F">Femenino</option></select></div><div class="form-group"><label>Grupo Sanguíneo</label><input type="text" id="editPacienteGrupoSang"></div></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;"><div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="editPacienteFechaNac"></div><div class="form-group"><label>Sexo</label><select id="editPacienteSexo"><option value="">Seleccionar...</option><option value="Masculino">Masculino</option><option value="Femenino">Femenino</option></select></div><div class="form-group"><label>Grupo Sanguíneo</label><input type="text" id="editPacienteGrupoSang"></div></div>
             <div class="form-group"><label>Dirección</label><input type="text" id="editPacienteDireccion"></div>
             <div class="form-group"><label>Alergias</label><textarea id="editPacienteAlergias" rows="2"></textarea></div>
             <div class="form-group"><label>Condiciones Médicas</label><textarea id="editPacienteCondiciones" rows="2"></textarea></div>
