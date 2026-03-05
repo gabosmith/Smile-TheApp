@@ -797,7 +797,14 @@ async function loadData() {
     }
 }
 
+let _cacheDebounceTimer = null;
 function updateLocalCache() {
+    // Debounce: only write localStorage after 800ms of inactivity
+    // Prevents serializing the entire dataset on every keystroke
+    clearTimeout(_cacheDebounceTimer);
+    _cacheDebounceTimer = setTimeout(_doUpdateLocalCache, 800);
+}
+function _doUpdateLocalCache() {
     try {
         // Guardar copia en localStorage (sin placas para no llenar)
         const dataToCache = {
@@ -912,6 +919,7 @@ async function saveData(context = '') {
                 await batch.commit();
             }
         }
+        invalidateBalanceCache();
         updateLocalCache();
         setConnectionState('online');
     } catch (error) {
@@ -926,20 +934,122 @@ async function savePaciente(paciente) {
         console.warn('savePaciente: paciente sin ID, fallback a saveData()');
         return saveData('savePaciente-fallback');
     }
-    // Guardia: validar estado antes de escribir
     if (!canWriteToFirebase('savePaciente')) return;
 
+    setConnectionState('saving');
     try {
-        setConnectionState('saving');
         const safe = sanitize.paciente(paciente) || paciente;
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('pacientes').doc(paciente.id)
-            .set(safe);
+            .set(safe, { merge: true }); // merge:true = only update changed fields
         updateLocalCache();
         setConnectionState('online');
     } catch (error) {
         showError('Error al guardar el paciente.', error);
+        throw error; // re-throw so callers can rollback
     }
+}
+
+
+// ── GRANULAR SAVE FUNCTIONS ──────────────────────────────────────────
+// Each saves only its own field via .update() — orders of magnitude
+// faster than saveData() which re-uploads the entire database.
+// Always call these instead of saveData() when only one collection changed.
+
+async function saveCitas() {
+    if (!canWriteToFirebase('saveCitas')) return;
+    try {
+        setConnectionState('saving');
+        const safe = (appData.citas || []).map(c => sanitize.cita(c)).filter(Boolean);
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ citas: safe, lastUpdated: new Date().toISOString() });
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar citas.', e); }
+}
+
+async function saveFacturas() {
+    if (!canWriteToFirebase('saveFacturas')) return;
+    try {
+        setConnectionState('saving');
+        const safe = (appData.facturas || []).map(f => sanitize.factura(f)).filter(Boolean);
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ facturas: safe, lastUpdated: new Date().toISOString() });
+        invalidateBalanceCache();
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar facturas.', e); }
+}
+
+async function saveGastos() {
+    if (!canWriteToFirebase('saveGastos')) return;
+    try {
+        setConnectionState('saving');
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ gastos: appData.gastos || [], lastUpdated: new Date().toISOString() });
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar gastos.', e); }
+}
+
+async function savePersonal() {
+    if (!canWriteToFirebase('savePersonal')) return;
+    try {
+        setConnectionState('saving');
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ personal: appData.personal || [], lastUpdated: new Date().toISOString() });
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar personal.', e); }
+}
+
+async function saveLaboratorios() {
+    if (!canWriteToFirebase('saveLaboratorios')) return;
+    try {
+        setConnectionState('saving');
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ laboratorios: appData.laboratorios || [], lastUpdated: new Date().toISOString() });
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar laboratorios.', e); }
+}
+
+async function saveInventario() {
+    if (!canWriteToFirebase('saveInventario')) return;
+    try {
+        setConnectionState('saving');
+        const safe = (appData.inventario || []).map(i => sanitize.item(i)).filter(Boolean);
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ inventario: safe, lastUpdated: new Date().toISOString() });
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar inventario.', e); }
+}
+
+async function saveAvances() {
+    if (!canWriteToFirebase('saveAvances')) return;
+    try {
+        setConnectionState('saving');
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ avances: appData.avances || [], lastUpdated: new Date().toISOString() });
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar avances.', e); }
+}
+
+async function saveSettings() {
+    if (!canWriteToFirebase('saveSettings')) return;
+    try {
+        setConnectionState('saving');
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ settings: appData.settings || {}, lastUpdated: new Date().toISOString() });
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar configuración.', e); }
+}
+
+async function saveCuadres() {
+    if (!canWriteToFirebase('saveCuadres')) return;
+    try {
+        setConnectionState('saving');
+        await db.collection('clinicas').doc(CLINIC_PATH).update({ cuadresDiarios: appData.cuadresDiarios || {}, lastUpdated: new Date().toISOString() });
+        setConnectionState('online');
+    } catch(e) { showError('Error al guardar cuadre.', e); }
+}
+
+async function deletePacienteDoc(pacienteId) {
+    // Deletes ONLY the patient doc - no saveData needed
+    if (!canWriteToFirebase('deletePaciente')) return;
+    try {
+        setConnectionState('saving');
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('pacientes').doc(pacienteId).delete();
+        setConnectionState('online');
+    } catch(e) { showError('Error al eliminar el paciente.', e); }
 }
 
 // Default personnel data — generic for any new SMILE clinic
@@ -1875,7 +1985,9 @@ async function generarFactura() {
     await crearOrdenesLabDesdeFactura(factura);
 
     try {
-        await saveData();
+        invalidateBalanceCache();
+        await saveFacturas();
+        await saveLaboratorios(); // crearOrdenesLabDesdeFactura may have added labs
     } catch(saveErr) {
         // Revertir mutaciones locales si Firebase rechazó la escritura
         appData.facturas.splice(backupFacturas, 1);
@@ -2162,9 +2274,10 @@ async function confirmarPago() {
     } else if (totalPagado > 0) {
         currentFacturaToPay.estado = 'parcial';
     }
+    invalidateBalanceCache();
 
     try {
-        await saveData();
+        await saveFacturas();
     } catch(saveErr) {
         // Rollback: quitar el pago y restaurar estado
         currentFacturaToPay.pagos.pop();
@@ -2609,7 +2722,7 @@ function guardarCuadreDiario(fechaKey, cuadre) {
         return; // Sin cambios, no guardar
     }
     appData.cuadresDiarios[fechaKey] = cuadre;
-    saveData();
+    saveCuadres();
 }
 
 // Mostrar historial de última semana
@@ -2705,7 +2818,7 @@ function registrarGasto() {
 
     const backupGastos = appData.gastos.length;
     appData.gastos.push(gasto);
-    saveData().catch(() => {
+    saveGastos().catch(() => {
         appData.gastos.splice(backupGastos, 1); // revertir
         updateGastosTab();
         showToast('❌ No se pudo guardar el gasto. Intenta de nuevo.', 4000, '#c0392b');
@@ -2754,7 +2867,7 @@ function eliminarGasto(id) {
         onConfirm: () => {
             const backup = [...appData.gastos];
             appData.gastos = appData.gastos.filter(g => g.id !== id);
-            saveData().catch(() => {
+            saveGastos().catch(() => {
                 appData.gastos = backup;
                 updateGastosTab();
                 showToast('❌ No se pudo eliminar. Intenta de nuevo.', 4000, '#c0392b');
@@ -2866,7 +2979,7 @@ async function agregarPersonal() {
     const backupPersonal = appData.personal.length;
     appData.personal.push(person);
     try {
-        await saveData();
+        await savePersonal();
     } catch(saveErr) {
         appData.personal.splice(backupPersonal, 1); // revertir
         showError('Error al agregar personal. Intenta de nuevo.', saveErr);
@@ -3157,7 +3270,7 @@ function confirmarPagoSalarioFijo(person) {
             currentReciboText = recibo;
             document.getElementById('reciboContent').textContent = recibo;
             try {
-                await saveData();
+                await savePersonal();
                 closeModal('modalPersonalDetail');
                 openModal('modalRecibo');
                 updatePersonalTab();
@@ -3268,7 +3381,7 @@ Firma: _____________________
             currentReciboText = recibo;
             document.getElementById('reciboContent').textContent = recibo;
 
-            saveData().then(() => {
+            savePersonal().then(() => {
                 closeModal('modalPersonalDetail');
                 openModal('modalRecibo');
                 updatePersonalTab();
@@ -3354,7 +3467,7 @@ Firma: _____________________
     document.getElementById('reciboContent').textContent = recibo;
 
     try {
-        await saveData();
+        await savePersonal();
         closeModal('modalPersonalDetail');
         openModal('modalRecibo');
         updatePersonalTab();
@@ -3453,7 +3566,7 @@ async function guardarEdicion() {
     }
 
     try {
-        await saveData();
+        await savePersonal();
     } catch(e) {
         showError('Error al guardar los cambios. Intenta de nuevo.', e);
         return;
@@ -3504,8 +3617,8 @@ function registrarAvance() {
 
     const backupAvances = appData.avances.length;
     appData.avances.push(avance);
-    saveData().then(() => {
-        closeModal('modalAvance');
+    closeModal('modalAvance');
+    saveAvances().then(() => {
         updatePersonalTab();
         showToast('✓ Avance registrado exitosamente');
     }).catch(e => {
@@ -3531,7 +3644,7 @@ function togglePermiso(personId, key, valorActual) {
         btn.setAttribute('onclick', `togglePermiso('${personId}', '${key}', ${nuevoValor})`);
     }
 
-    saveData();
+    savePersonal();
     registrarAuditoria('editar', 'permiso', `${key}: ${nuevoValor ? 'activado' : 'desactivado'} para ${person.nombre}`);
 }
 
@@ -3549,7 +3662,7 @@ function guardarComisionPersonal(personId) {
     }
 
     person.comisionPct = val;
-    saveData();
+    savePersonal();
     showToast(`✓ Comisión de ${person.nombre} actualizada a ${val}%`);
 
     // Refresh the modal to show the individual badge
@@ -3561,7 +3674,7 @@ function resetearComisionPersonal(personId) {
     if (!person) return;
 
     delete person.comisionPct;
-    saveData();
+    savePersonal();
     showToast('✓ Comisión reseteada a tasa global');
     openPersonalDetail(personId);
 }
@@ -3632,8 +3745,8 @@ function eliminarPersonal(id) {
             appData.personal = appData.personal.filter(p => p.id !== id);
             appData.avances  = appData.avances.filter(a => a.personalId !== id);
             try {
-                await saveData();
                 closeModal('modalPersonalDetail');
+                await Promise.all([savePersonal(), saveAvances()]);
                 closeModal('modalEditPersonal');
                 updatePersonalTab();
                 updateProfessionalPicker();
@@ -3791,7 +3904,7 @@ async function guardarContrasenaAdmin() {
     admin._pwHashed = true;
 
     try {
-        await saveData();
+        await savePersonal();
         document.getElementById('configNewPassword').value  = '';
         document.getElementById('configConfirmPassword').value = '';
         showToast('✓ Contraseña actualizada');
@@ -3817,7 +3930,7 @@ async function guardarTasasComision() {
     appData.settings.comisionEspecialista = especialista;
 
     try {
-        await saveData();
+        await saveSettings();
         showToast('✓ Tasas de comisión guardadas');
     } catch(e) {
         console.error(e);
@@ -3856,7 +3969,7 @@ async function guardarConfigAgenda() {
     appData.settings.duracionCita = duracion;
 
     try {
-        await saveData();
+        await saveSettings();
         showToast('✓ Configuración de agenda guardada');
     } catch(e) {
         console.error(e);
@@ -4050,8 +4163,9 @@ function eliminarFactura(facturaId) {
             const backupFacturas = [...appData.facturas];
             appData.facturas = appData.facturas.filter(f => f.id !== facturaId);
             try {
-                await saveData();
                 updateCobrarTab();
+                invalidateBalanceCache();
+                await saveFacturas();
                 showToast('✓ Factura eliminada correctamente');
             } catch(saveErr) {
                 appData.facturas = backupFacturas;
@@ -4144,9 +4258,16 @@ async function confirmarReversion() {
     };
 
     appData.reversiones.push(reversion);
+    invalidateBalanceCache();
 
     try {
-        await saveData();
+        // Facturas and reversiones both changed
+        await db.collection('clinicas').doc(CLINIC_PATH).update({
+            facturas: (appData.facturas || []).map(f => sanitize.factura(f)).filter(Boolean),
+            reversiones: appData.reversiones || [],
+            lastUpdated: new Date().toISOString()
+        });
+        setConnectionState('online');
     } catch(saveErr) {
         // Rollback: restaurar el pago y recalcular estado
         factura.pagos.splice(pagoIdx, 0, pagoReversado);
@@ -4392,17 +4513,16 @@ async function guardarPaciente() {
         fechaRegistro: new Date().toISOString()
     };
 
-    const backupPacientes = appData.pacientes.length;
     appData.pacientes.push(paciente);
-    try {
-        await saveData();
-    } catch(saveErr) {
-        appData.pacientes.splice(backupPacientes, 1);
-        showError('Error al guardar el paciente. Intenta de nuevo.', saveErr);
-        return;
-    }
+    // Close and update UI immediately (optimistic)
     closeModal('modalNuevoPaciente');
     updatePacientesTab();
+    // Sync only this patient to Firebase in background
+    savePaciente(paciente).catch(saveErr => {
+        appData.pacientes = appData.pacientes.filter(p => p.id !== paciente.id);
+        updatePacientesTab();
+        showError('Error al guardar el paciente. Intenta de nuevo.', saveErr);
+    });
 
     // Limpiar formulario
     document.getElementById('nuevoPacienteNombre').value = '';
@@ -5549,7 +5669,8 @@ async function _cotizAgregarAFactura(paciente, procedimientos, ordenesLab) {
             nuevasOrdenesLab.forEach(o => nuevaFactura.ordenesLab.push(o));
         }
 
-        await saveData('cotizAgregarAFactura');
+        invalidateBalanceCache();
+        await saveFacturas();
         await savePaciente(paciente);
         closeModal('modalCotizItem');
         cambiarTabPaciente('tratamientos');
@@ -6168,9 +6289,9 @@ async function guardarCita() {
     updateAgendaTab();
     showToast('✅ Cita creada exitosamente');
 
-    // Guardar en background — revertir si falla
+    // Save only citas — optimistic (UI already updated)
     try {
-        await saveData();
+        await saveCitas();
     } catch(saveErr) {
         appData.citas = appData.citas.filter(c => c.id !== cita.id);
         updateAgendaTab();
@@ -6681,7 +6802,7 @@ async function avanzarEstadoLab(nuevoEstado) {
         orden.estadoActual = nuevoEstado;
 
         try {
-            await saveData();
+            await saveLaboratorios();
             verDetalleOrdenLab(orden.id);
             updateLaboratorioTab();
         } catch(e) {
@@ -6790,16 +6911,16 @@ async function cambiarEstadoCita(citaId, nuevoEstado) {
         cita.modificadoPor      = appData.currentUser;
         if (notas) cita.notasProcedimiento = notas;
 
-        try {
-            await saveData();
-            closeModal('modalDetalleCita');
-            updateAgendaTab();
-            showToast('✓ Cita: ' + nuevoEstado);
-        } catch(e) {
+        // Optimistic: update UI first
+        closeModal('modalDetalleCita');
+        updateAgendaTab();
+        showToast('✓ Cita: ' + nuevoEstado);
+        saveCitas().catch(e => {
             cita.estado = estadoAnterior;
             cita.historialEstados?.pop();
+            updateAgendaTab();
             showError('Error al actualizar la cita.', e);
-        }
+        });
     };
 
     // Completada sin factura → confirmar
@@ -6829,7 +6950,7 @@ function inicializarEstadosCitas() {
         }
     });
     if (actualizadas > 0) {
-        saveData();
+        saveCitas(); // only citas changed
     }
 }
 
@@ -7502,7 +7623,7 @@ async function guardarPlaca() {
                 }
 
                 currentPacienteGaleria.placas.push(placa);
-                await saveData();
+                await savePaciente(currentPacienteGaleria);
 
                 closeModal('modalSubirPlaca');
                 renderizarGaleriaPlacas();
@@ -7992,22 +8113,34 @@ function getCitasDePaciente(paciente) {
     );
 }
 
+// Balance cache: invalidated when facturas change
+let _balanceCache = new Map();
+let _balanceCacheVersion = 0;
+
+function invalidateBalanceCache() {
+    _balanceCacheVersion++;
+    _balanceCache.clear();
+}
+
 function calcularBalancePaciente(nombrePaciente) {
+    const key = (nombrePaciente || '').toLowerCase() + ':' + _balanceCacheVersion;
+    if (_balanceCache.has(key)) return _balanceCache.get(key);
+
     const paciente = appData.pacientes.find(p =>
         (p.nombre || '').toLowerCase() === (nombrePaciente || '').toLowerCase()
     );
-    // Always use getFacturasDePaciente when we have the patient object (searches by ID + name)
-    // Fallback (patient not in appData yet) uses case-insensitive name match
     const facturasPaciente = paciente
         ? getFacturasDePaciente(paciente)
         : appData.facturas.filter(f =>
             (f.paciente || '').toLowerCase() === (nombrePaciente || '').toLowerCase()
           );
 
-    return facturasPaciente.reduce((sum, f) => {
+    const balance = facturasPaciente.reduce((sum, f) => {
         const totalPagado = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
         return sum + (f.total - totalPagado);
     }, 0);
+    _balanceCache.set(key, balance);
+    return balance;
 }
 
 // ========================================
@@ -8499,7 +8632,7 @@ async function guardarZonaHoraria() {
     const tzAnterior = appData.settings.timezone;
     appData.settings.timezone = timezone;
     try {
-        await saveData();
+        await saveSettings();
         showToast('✓ Zona horaria actualizada');
     } catch(e) {
         appData.settings.timezone = tzAnterior; // rollback
@@ -9566,9 +9699,9 @@ function ejecutarImportacion() {
             const cantidadDespues = appData.pacientes.length;
 
             console.log(`📥 Importación: ${cantidadAntes} → ${cantidadDespues} pacientes`);
-            console.log(`💾 Llamando a saveData()...`);
+            console.log(`💾 Guardando configuración de plan...`);
 
-            await saveData();
+            await saveSettings();
             console.log(`🔄 Actualizando tab de pacientes...`);
 
             // Actualizar tab de pacientes para reflejar los nuevos
@@ -9668,16 +9801,17 @@ async function guardarEdicionPaciente() {
     paciente.contactoEmergencia.telefono = document.getElementById('editPacienteContactoTel').value.trim();
     paciente.ultimaModificacion = new Date().toISOString();
 
-    try {
-        await saveData();
-        closeModal('modalEditarPaciente');
-        showToast('✓ Paciente actualizado');
-        verPaciente(currentPacienteId); // reabrir ficha actualizada
-    } catch(e) {
-        // Rollback
+    // OPTIMISTIC UI: close immediately, sync in background
+    closeModal('modalEditarPaciente');
+    showToast('✓ Paciente actualizado');
+    verPaciente(currentPacienteId);
+
+    savePaciente(paciente).catch(e => {
+        // Rollback on failure
         Object.assign(paciente, backup);
         showError('Error al guardar el paciente.', e);
-    }
+        verPaciente(currentPacienteId); // re-render with rolled back data
+    });
 }
 
 // Variable global para guardar cita actual en detalle
@@ -11223,7 +11357,7 @@ async function guardarItem(idONull) {
         const backup = { ...appData.inventario[idx] };
         appData.inventario[idx] = { ...appData.inventario[idx], nombre, categoria, unidad, stockMinimo: stockMin, costo, proveedor, notas, codigoBarras: codigoBarras || null };
         try {
-            await saveData('editarItem');
+            await saveInventario();
             cerrarModal();
             updateInventarioTab();
             showToast('✓ Producto actualizado');
@@ -11245,7 +11379,7 @@ async function guardarItem(idONull) {
         };
         appData.inventario.push(nuevoItem);
         try {
-            await saveData('crearItem');
+            await saveInventario();
             cerrarModal();
             updateInventarioTab();
             showToast('✓ Producto agregado');
@@ -11392,7 +11526,7 @@ async function registrarMovimiento(itemId) {
     });
 
     try {
-        await saveData('movimientoInventario');
+        await saveInventario();
         cerrarModal();
         updateInventarioTab();
         const etiqueta = tipo === 'entrada' ? 'Entrada registrada' : tipo === 'salida' ? 'Salida registrada' : 'Stock ajustado';
@@ -11423,7 +11557,7 @@ function confirmarEliminarItem(itemId) {
             const backup = [...appData.inventario];
             appData.inventario = appData.inventario.filter(i => i.id !== itemId);
             try {
-                await saveData('eliminarItem');
+                await saveInventario();
                 updateInventarioTab();
                 showToast('✓ Producto eliminado');
             } catch(e) {
@@ -12172,7 +12306,7 @@ async function confirmarCancelacionFactura() {
         `Factura ${factura.numero} — ${factura.paciente} — Razón: ${razon}`);
 
     try {
-        await saveData('confirmarCancelacionFactura');
+        await saveFacturas();
         closeModal('modalCancelarFactura');
         _facturaACancelarId = null;
         updateCobrarTab();
@@ -12221,22 +12355,21 @@ async function eliminarPacienteActual() {
             appData.pacientes = appData.pacientes.filter(p => p.id !== pacienteId);
             registrarAuditoria('eliminar', 'paciente',
                 `${paciente.nombre}${paciente.cedula ? ' · Cédula: ' + paciente.cedula : ''}`);
-            try {
-                // Eliminar de subcollección
-                await db.collection('clinicas').doc(CLINIC_PATH)
-                    .collection('pacientes').doc(pacienteId).delete().catch(() => {});
-                await saveData('eliminarPacienteActual');
-                // Cerrar cualquier modal de detalle abierto
-                ['modalDetallePaciente','modalPacienteDetalle','modalVerPaciente'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el && el.classList.contains('active')) closeModal(id);
+            // Close UI immediately (optimistic)
+            ['modalDetallePaciente','modalPacienteDetalle','modalVerPaciente'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && el.classList.contains('active')) closeModal(id);
+            });
+            updatePacientesTab();
+            showToast('✓ Paciente eliminado');
+            // Delete from subcollection only (no full saveData needed)
+            db.collection('clinicas').doc(CLINIC_PATH)
+                .collection('pacientes').doc(pacienteId).delete()
+                .catch(e => {
+                    appData.pacientes = backupPacientes;
+                    updatePacientesTab();
+                    showError('Error al eliminar el paciente.', e);
                 });
-                updatePacientesTab();
-                showToast('✓ Paciente eliminado');
-            } catch(e) {
-                appData.pacientes = backupPacientes;
-                showError('Error al eliminar el paciente.', e);
-            }
         }
     });
 }
@@ -12282,8 +12415,8 @@ async function guardarEdicionOrden() {
     appData.laboratorios[idx].margen      = precio - (appData.laboratorios[idx].costo || 0);
 
     try {
-        await saveData('guardarEdicionOrden');
         closeModal('modalEditarOrden');
+        await saveLaboratorios();
         updateLaboratorioTab();
         showToast('✓ Orden actualizada');
     } catch(e) {
@@ -12354,7 +12487,7 @@ async function guardarAbonoLab() {
     appData.laboratorios[idx].abonos.push(abono);
 
     try {
-        await saveData('guardarAbonoLab');
+        await saveLaboratorios();
         closeModal('modalAbonoLab');
         updateLaboratorioTab();
         showToast(`✓ Abono de ${formatCurrency(monto)} registrado`);
