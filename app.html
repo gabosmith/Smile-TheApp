@@ -2885,31 +2885,42 @@
     }
 
     // ── STRIPE REDIRECT HANDLER ─────────────────────────
-    // Handles ?stripe=success and ?stripe=cancelled params after Stripe redirects back
+    // Handles ?stripe=success and ?stripe=cancelled after Stripe redirects back
     (function() {
-        const stripeParam = new URLSearchParams(window.location.search).get('stripe');
+        const params      = new URLSearchParams(window.location.search);
+        const stripeParam = params.get('stripe');
         if (!stripeParam) return;
 
-        // Clean the URL without reload
-        const cleanUrl = window.location.pathname + '?' +
-            Array.from(new URLSearchParams(window.location.search))
-                .filter(([k]) => k !== 'stripe')
-                .map(([k,v]) => k + '=' + encodeURIComponent(v))
-                .join('&');
-        window.history.replaceState({}, '', cleanUrl || window.location.pathname);
+        // Limpiar la URL sin recargar
+        params.delete('stripe');
+        const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', cleanUrl);
 
-        // Show toast after a short delay (app needs to finish loading first)
-        setTimeout(() => {
+        // Esperar a que la app termine de cargar y entonces actuar
+        setTimeout(async () => {
             if (stripeParam === 'success') {
+                // Refrescar estado Stripe desde Firebase (el webhook ya actualizó los campos)
+                if (typeof refrescarEstadoStripe === 'function') {
+                    await refrescarEstadoStripe();
+                }
+                // Quitar banner de pago pendiente si estaba visible
+                const bannerViejo = document.getElementById('bannerPagoStripe');
+                if (bannerViejo) bannerViejo.remove();
+
                 if (typeof showToast === 'function') {
                     showToast('✅ ¡Suscripción activada! Bienvenido a SMILE.', 6000, '#3a9e5f');
                 }
+                // Re-renderizar Mi Plan si está abierto
+                if (typeof renderMiPlanTab === 'function') {
+                    const miplan = document.getElementById('tab-miplan');
+                    if (miplan && miplan.classList.contains('active')) renderMiPlanTab();
+                }
             } else if (stripeParam === 'cancelled') {
                 if (typeof showToast === 'function') {
-                    showToast('Pago cancelado. Puedes activar tu suscripción cuando quieras desde Mi Plan.', 5000, '#C4856A');
+                    showToast('Pago cancelado. Podés activar tu suscripción cuando quieras desde Mi Plan.', 5000, '#C4856A');
                 }
             }
-        }, 2000);
+        }, 2500); // Dar tiempo para que loadData() y loadClinicBranding() terminen
     })();
 
     // ── INTERCEPT loginScreen show ───────────────────────

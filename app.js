@@ -144,6 +144,15 @@ async function loadClinicBranding() {
             ? (new Date() < new Date(clinicConfig.trialHasta))
             : false;
 
+        // ── Stripe subscription state ──
+        clinicConfig.subscripcionActiva   = cfg.subscripcionActiva   || false;
+        clinicConfig.suspendida           = cfg.suspendida           || false;
+        clinicConfig.pagoPendiente        = cfg.pagoPendiente        || false;
+        clinicConfig.gracePeriodHasta     = cfg.gracePeriodHasta     || null;
+        clinicConfig.proximoPago          = cfg.proximoPago          || null;
+        clinicConfig.stripeCustomerId     = cfg.stripeCustomerId     || null;
+        clinicConfig.stripeSubscriptionId = cfg.stripeSubscriptionId || null;
+
         // ── Apply branding ──
         if (cfg.nombre) {
             document.title = cfg.nombre;
@@ -1528,6 +1537,9 @@ async function showApp() {
         : 'pacientes';
     showTab(tabInicial);
     updatePerfilTab();
+
+    // Mostrar banner de pago si hay suspensión o grace period activo
+    mostrarBannerPagoStripe();
 }
 
 // Build navigation
@@ -4352,60 +4364,13 @@ function abrirModalNuevoPaciente() {
 
 async function guardarPaciente() {
     try {
-        const nombre   = sanitize.str(document.getElementById('nuevoPacienteNombre')?.value, 120);
-        const telefono = sanitize.phone(document.getElementById('nuevoPacienteTelefono')?.value);
-
-        if (!nombre)   { showToast('⚠️ El nombre del paciente es obligatorio'); return; }
-        if (!telefono) { showToast('⚠️ El teléfono es obligatorio'); return; }
-
-        // ── Teléfono: bloqueo duro — un número pertenece a una sola persona ──
-        const telNorm    = telefono.replace(/\D/g, '');
-        const porTelefono = appData.pacientes.find(p =>
-            p.telefono && p.telefono.replace(/\D/g, '') === telNorm
-        );
-        if (porTelefono) {
-            showToast(`⚠️ El teléfono ${telefono} ya está registrado para "${porTelefono.nombre}"`, 4500, '#e65100');
-            return;
-        }
-
-        // ── Nombre: advertencia — pueden existir dos personas con el mismo nombre ──
-        const nombreNorm = nombre.toLowerCase().trim();
-        const porNombre  = appData.pacientes.find(p =>
-            (p.nombre || '').toLowerCase().trim() === nombreNorm
-        );
-        if (porNombre) {
-            mostrarConfirmacion({
-                titulo: '⚠️ Nombre similar encontrado',
-                mensaje: `
-                    <div style="background:rgba(30,28,26,0.04);padding:14px;border-radius:10px;margin-bottom:12px">
-                        <div style="font-size:12px;color:var(--mid);margin-bottom:4px">Ya existe un paciente con ese nombre:</div>
-                        <div style="font-size:15px;font-weight:500;color:var(--dark)">${porNombre.nombre}</div>
-                        <div style="font-size:13px;color:var(--mid);margin-top:3px">
-                            ${porNombre.cedula ? 'Cédula: ' + porNombre.cedula + ' · ' : ''}Tel: ${porNombre.telefono || 'no registrado'}
-                        </div>
-                    </div>
-                    <div style="font-size:13px;color:#856404;background:#fff3cd;padding:10px 12px;border-radius:8px">
-                        Si es una persona diferente, podés continuar. Si es el mismo paciente, cancelá y abrí su ficha existente.
-                    </div>`,
-                tipo: 'advertencia',
-                confirmText: 'Sí, crear de todas formas',
-                onConfirm: () => _ejecutarGuardarPaciente()
-            });
-            return;
-        }
-
-        await _ejecutarGuardarPaciente();
-
-    } catch(e) {
-        showError('Error al guardar el paciente.', e);
-    }
-}
-
-async function _ejecutarGuardarPaciente() {
-    const val = id => sanitize.str(document.getElementById(id)?.value, 300);
     const nombre   = sanitize.str(document.getElementById('nuevoPacienteNombre')?.value, 120);
     const telefono = sanitize.phone(document.getElementById('nuevoPacienteTelefono')?.value);
 
+    if (!nombre)   { showToast('⚠️ El nombre del paciente es obligatorio'); return; }
+    if (!telefono) { showToast('⚠️ El teléfono es obligatorio'); return; }
+
+    const val = id => sanitize.str(document.getElementById(id)?.value, 300);
     const paciente = {
         id:              generateId('PAC-'),
         nombre,
@@ -4422,8 +4387,8 @@ async function _ejecutarGuardarPaciente() {
             nombre:   sanitize.str(document.getElementById('nuevoPacienteEmergenciaNombre')?.value, 120),
             telefono: sanitize.phone(document.getElementById('nuevoPacienteEmergenciaTelefono')?.value),
         },
-        condiciones:        val('nuevoPacienteCondiciones'),
-        condicionesMedicas: val('nuevoPacienteCondiciones'),
+        condiciones:  val('nuevoPacienteCondiciones'),
+        condicionesMedicas: val('nuevoPacienteCondiciones'), // alias for legacy compat
         fechaRegistro: new Date().toISOString()
     };
 
@@ -4439,15 +4404,23 @@ async function _ejecutarGuardarPaciente() {
     closeModal('modalNuevoPaciente');
     updatePacientesTab();
 
-    ['nuevoPacienteNombre','nuevoPacienteCedula','nuevoPacienteTelefono','nuevoPacienteEmail',
-     'nuevoPacienteFechaNacimiento','nuevoPacienteGrupoSanguineo','nuevoPacienteDireccion',
-     'nuevoPacienteAlergias','nuevoPacienteSeguro','nuevoPacienteEmergenciaNombre',
-     'nuevoPacienteEmergenciaTelefono','nuevoPacienteCondiciones'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    const sexoEl = document.getElementById('nuevoPacienteSexo');
-    if (sexoEl) sexoEl.value = '';
+    // Limpiar formulario
+    document.getElementById('nuevoPacienteNombre').value = '';
+    document.getElementById('nuevoPacienteCedula').value = '';
+    document.getElementById('nuevoPacienteTelefono').value = '';
+    document.getElementById('nuevoPacienteEmail').value = '';
+    document.getElementById('nuevoPacienteFechaNacimiento').value = '';
+    document.getElementById('nuevoPacienteSexo').value = '';
+    document.getElementById('nuevoPacienteGrupoSanguineo').value = '';
+    document.getElementById('nuevoPacienteDireccion').value = '';
+    document.getElementById('nuevoPacienteAlergias').value = '';
+    document.getElementById('nuevoPacienteSeguro').value = '';
+    document.getElementById('nuevoPacienteEmergenciaNombre').value = '';
+    document.getElementById('nuevoPacienteEmergenciaTelefono').value = '';
+    document.getElementById('nuevoPacienteCondiciones').value = '';
+    } catch(e) {
+        showError('Error al guardar el paciente.', e);
+    }
 }
 
 
@@ -9819,21 +9792,117 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // MI PLAN TAB
 // ═══════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// MI PLAN — STRIPE BILLING
+// ═══════════════════════════════════════════════════════════════
+
+// URL base de Firebase Functions — actualizar si cambia el proyecto
+const FUNCTIONS_BASE_URL = 'https://us-east1-smile-theapp.cloudfunctions.net';
+
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',              precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',          precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados',  precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional',  precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',        precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',             precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados', precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional', precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
 const BASE_PRECIOS = { clinica: 1200, solo: 990 };
 
+// ─── Helpers Stripe ──────────────────────────────────────────────────────────
+
+async function abrirCheckoutStripe() {
+    if (!CLINIC_PATH) { showToast('⚠️ No se identificó la clínica', 3000, '#e65100'); return; }
+    try {
+        showToast('Conectando con Stripe...', 3000);
+        const res  = await fetch(`${FUNCTIONS_BASE_URL}/createCheckoutSession`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clinicId: CLINIC_PATH }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.url) throw new Error(data.error || 'Sin URL de checkout');
+        window.location.href = data.url;
+    } catch(e) {
+        showError('No se pudo iniciar el pago. Intenta de nuevo.', e);
+    }
+}
+
+async function abrirPortalStripe() {
+    if (!CLINIC_PATH) return;
+    try {
+        showToast('Abriendo portal de facturación...', 3000);
+        const res  = await fetch(`${FUNCTIONS_BASE_URL}/createPortalSession`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clinicId: CLINIC_PATH }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.url) throw new Error(data.error || 'Sin URL de portal');
+        window.location.href = data.url;
+    } catch(e) {
+        showError('No se pudo abrir el portal de facturación.', e);
+    }
+}
+
+// Refresca solo los campos de Stripe desde Firebase (tras redirect ?stripe=success)
+async function refrescarEstadoStripe() {
+    if (!CLINIC_PATH) return;
+    try {
+        const snap = await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('config').doc('settings').get();
+        if (!snap.exists) return;
+        const cfg = snap.data();
+        clinicConfig.subscripcionActiva   = cfg.subscripcionActiva   || false;
+        clinicConfig.suspendida           = cfg.suspendida           || false;
+        clinicConfig.pagoPendiente        = cfg.pagoPendiente        || false;
+        clinicConfig.gracePeriodHasta     = cfg.gracePeriodHasta     || null;
+        clinicConfig.proximoPago          = cfg.proximoPago          || null;
+        clinicConfig.stripeCustomerId     = cfg.stripeCustomerId     || null;
+        clinicConfig.stripeSubscriptionId = cfg.stripeSubscriptionId || null;
+        clinicConfig.enTrial = cfg.trialHasta
+            ? (new Date() < new Date(cfg.trialHasta)) : false;
+    } catch(e) { /* silencioso — no crítico */ }
+}
+
+// Banner de advertencia en la app cuando hay pago fallido o suspensión
+function mostrarBannerPagoStripe() {
+    if (!clinicConfig.pagoPendiente && !clinicConfig.suspendida) return;
+    if (document.getElementById('bannerPagoStripe')) return; // ya visible
+
+    const grace = clinicConfig.gracePeriodHasta ? new Date(clinicConfig.gracePeriodHasta) : null;
+    const dias  = grace ? Math.max(0, Math.ceil((grace - new Date()) / 86400000)) : 0;
+
+    const banner = document.createElement('div');
+    banner.id = 'bannerPagoStripe';
+
+    if (clinicConfig.suspendida) {
+        banner.style.cssText = 'background:#c0392b;color:white;padding:10px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:9000;';
+        banner.innerHTML = `
+            <span>⛔ Suscripción suspendida. Reactivá para continuar usando SMILE.</span>
+            <button onclick="withGuard(this, abrirCheckoutStripe)"
+                style="padding:7px 18px;background:white;color:#c0392b;border:none;border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;">
+                Reactivar ahora
+            </button>`;
+    } else {
+        banner.style.cssText = 'background:#e65100;color:white;padding:10px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:9000;';
+        banner.innerHTML = `
+            <span>⚠️ Pago pendiente · ${dias} día${dias !== 1 ? 's' : ''} de gracia restante${dias !== 1 ? 's' : ''}. Regularizá para evitar la suspensión.</span>
+            <button onclick="withGuard(this, abrirCheckoutStripe)"
+                style="padding:7px 18px;background:white;color:#e65100;border:none;border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;">
+                Pagar ahora
+            </button>`;
+    }
+
+    const appShell = document.querySelector('.app-shell') || document.querySelector('.content-area') || document.body;
+    appShell.prepend(banner);
+}
+
+// ─── Render Mi Plan ───────────────────────────────────────────────────────────
+
 function renderMiPlanTab() {
-    // Deactivate other tabs, activate miplan
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-    // Get or create the tab container
     let tab = document.getElementById('tab-miplan');
     if (!tab) {
         tab = document.createElement('div');
@@ -9842,68 +9911,141 @@ function renderMiPlanTab() {
         document.querySelector('.content-area').appendChild(tab);
     }
     tab.classList.add('active');
-
-    // Highlight nav button
     document.querySelectorAll('.nav-item').forEach(btn => {
         if (btn.getAttribute('onclick') === "showTab('miplan')") btn.classList.add('active');
     });
 
-    const plan = clinicConfig.plan || 'clinica';
-    const basePrice = BASE_PRECIOS[plan] || 1200;
-    const activosActuales = [...(clinicConfig.modulos || [])];
-    const hasta = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
-    const diasTrial = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / (1000*60*60*24))) : 0;
+    const plan       = clinicConfig.plan || 'clinica';
+    const basePrice  = BASE_PRECIOS[plan] || 1200;
+    const moneda     = clinicConfig.moneda || 'RD$';
+    const enTrial    = clinicConfig.enTrial;
+    const suspendida = clinicConfig.suspendida;
+    const pagoPend   = clinicConfig.pagoPendiente;
+    const suscActiva = clinicConfig.subscripcionActiva;
+    const proxPago   = clinicConfig.proximoPago;
+    const hasta      = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
+    const diasTrial  = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / 86400000)) : 0;
 
-    // Build toggles state — starts at current contracted modules
-    let pendientes = [...activosActuales];
+    let pendientes = [...(clinicConfig.modulos || [])];
 
     function calcTotal() {
-        const extraModulos = pendientes.reduce((s, k) => {
+        return basePrice + pendientes.reduce((s, k) => {
             const m = MODULOS_DISPONIBLES.find(x => x.key === k);
             return s + (m ? m.precio : 0);
         }, 0);
-        return basePrice + extraModulos;
     }
 
     function renderToggle(modulo) {
         const activo = pendientes.includes(modulo.key);
         return `
         <div class="miplan-modulo" id="mpmod-${modulo.key}" style="
-            display:flex; align-items:center; justify-content:space-between;
-            padding:16px 20px; background:var(--white); border-radius:var(--radius-md);
-            margin-bottom:10px; border:1.5px solid ${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.07)'};
-            transition:border-color 0.2s; cursor:pointer;
+            display:flex;align-items:center;justify-content:space-between;
+            padding:16px 20px;background:var(--white);border-radius:var(--radius-md);
+            margin-bottom:10px;border:1.5px solid ${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.07)'};
+            transition:border-color 0.2s;cursor:pointer;
         " onclick="togglePlanModulo('${modulo.key}')">
             <div>
                 <div style="font-size:14px;font-weight:400;color:var(--dark);margin-bottom:2px">${modulo.nombre}</div>
                 <div style="font-size:12px;color:var(--light)">${modulo.desc}</div>
             </div>
             <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
-                <div style="font-size:13px;color:var(--mid)">${formatCurrency(modulo.precio).replace(' ', '')}<span style="font-size:10px;color:var(--light)">/mes</span></div>
-                <div style="
-                    width:44px;height:24px;border-radius:100px;
-                    background:${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.15)'};
-                    transition:background 0.2s;position:relative;
-                ">
-                    <div style="
-                        width:18px;height:18px;border-radius:50%;background:white;
-                        position:absolute;top:3px;
-                        left:${activo ? '23px' : '3px'};
-                        transition:left 0.2s;
-                        box-shadow:0 1px 4px rgba(0,0,0,0.2);
-                    "></div>
+                <div style="font-size:13px;color:var(--mid)">${moneda}${modulo.precio.toLocaleString()}<span style="font-size:10px;color:var(--light)">/mes</span></div>
+                <div style="width:44px;height:24px;border-radius:100px;background:${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.15)'};transition:background 0.2s;position:relative;">
+                    <div style="width:18px;height:18px;border-radius:50%;background:white;position:absolute;top:3px;left:${activo ? '23px' : '3px'};transition:left 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
                 </div>
             </div>
         </div>`;
     }
 
+    // ── Badge de estado ──────────────────────────────────────────
+    let badge = '';
+    if      (suspendida)  badge = `<span style="background:#c0392b;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⛔ Suspendida</span>`;
+    else if (pagoPend)    badge = `<span style="background:#e65100;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⚠️ Pago pendiente</span>`;
+    else if (enTrial)     badge = `<span style="background:var(--terracota,#C4856A);color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⏳ Trial · ${diasTrial}d</span>`;
+    else if (suscActiva)  badge = `<span style="background:#3a7a4a;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">✓ Activa</span>`;
+    else                  badge = `<span style="background:var(--muted,#aaa);color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">Sin suscripción</span>`;
+
+    // ── Subtítulo ────────────────────────────────────────────────
+    let subtitulo = '';
+    if      (enTrial)    subtitulo = `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial !== 1 ? 's' : ''} restante${diasTrial !== 1 ? 's' : ''}</strong>`;
+    else if (suscActiva) subtitulo = proxPago ? `Próximo cobro: <strong>${new Date(proxPago).toLocaleDateString(getLocale(), {day:'2-digit', month:'long', year:'numeric'})}</strong>` : 'Plan activo';
+    else if (suspendida) subtitulo = 'Suscripción suspendida por falta de pago';
+    else                 subtitulo = 'Sin suscripción activa';
+
+    // ── Alertas contextuales ─────────────────────────────────────
+    let alertas = '';
+    if (suspendida) {
+        alertas = `<div style="padding:12px 16px;background:rgba(192,57,43,0.08);border-radius:10px;border-left:3px solid #c0392b;font-size:13px;color:#c0392b;margin-bottom:16px;">
+            ⛔ Tu suscripción fue suspendida por falta de pago. Reactivá para recuperar el acceso completo.
+        </div>`;
+    } else if (pagoPend) {
+        const grace = clinicConfig.gracePeriodHasta ? new Date(clinicConfig.gracePeriodHasta) : null;
+        const dias  = grace ? Math.max(0, Math.ceil((grace - new Date()) / 86400000)) : 0;
+        alertas = `<div style="padding:12px 16px;background:rgba(230,81,0,0.08);border-radius:10px;border-left:3px solid #e65100;font-size:13px;color:#e65100;margin-bottom:16px;">
+            ⚠️ Hay un pago fallido. Tenés <strong>${dias} día${dias !== 1 ? 's' : ''}</strong> de gracia antes de la suspensión.
+        </div>`;
+    } else if (enTrial) {
+        alertas = `<div style="padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;border-left:3px solid var(--terracota,#C4856A);font-size:12px;color:var(--mid);margin-bottom:16px;">
+            💡 Durante el trial podés explorar todos los módulos. Al activar, solo pagás los que tengas encendidos.
+        </div>`;
+    }
+
+    // ── Botón de acción principal según estado ───────────────────
+    let accion = '';
+    if (suspendida) {
+        accion = `
+            <button onclick="withGuard(this, abrirCheckoutStripe)" style="
+                width:100%;padding:15px;background:#c0392b;color:white;border:none;
+                border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
+                text-transform:uppercase;font-family:inherit;cursor:pointer;">
+                Reactivar suscripción
+            </button>`;
+    } else if (!suscActiva || enTrial) {
+        // Trial activo o sin suscripción: mostrar checkout
+        accion = `
+            <button onclick="withGuard(this, abrirCheckoutStripe)" style="
+                width:100%;padding:15px;background:var(--clinic-color);color:white;border:none;
+                border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
+                text-transform:uppercase;font-family:inherit;cursor:pointer;transition:opacity 0.2s;"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                ${enTrial ? '🔒 Activar suscripción' : '💳 Suscribirme ahora'}
+            </button>
+            <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
+                ${enTrial
+                    ? `Trial vence en <strong>${diasTrial} día${diasTrial !== 1 ? 's' : ''}</strong>. Activar no interrumpe el acceso.`
+                    : 'Pago mensual. Podés cancelar cuando quieras desde el portal.'}
+            </div>`;
+    } else {
+        // Suscripción activa: guardar módulos + portal de facturación
+        accion = `
+            <button onclick="withGuard(this, guardarCambiosPlan)" style="
+                width:100%;padding:14px;background:var(--clinic-color);color:white;border:none;
+                border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
+                text-transform:uppercase;font-family:inherit;cursor:pointer;margin-bottom:10px;
+                transition:opacity 0.2s;"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                Guardar módulos
+            </button>
+            <button onclick="withGuard(this, abrirPortalStripe)" style="
+                width:100%;padding:12px;background:transparent;color:var(--mid);
+                border:1.5px solid rgba(30,28,26,0.15);border-radius:var(--radius-sm);
+                font-size:12px;letter-spacing:1px;text-transform:uppercase;
+                font-family:inherit;cursor:pointer;transition:border-color 0.2s;"
+                onmouseover="this.style.borderColor='var(--clinic-color)'" onmouseout="this.style.borderColor='rgba(30,28,26,0.15)'">
+                ⚙️ Gestionar facturación / cambiar tarjeta
+            </button>
+            <div style="font-size:11px;color:var(--light);text-align:center;margin-top:8px;line-height:1.6">
+                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica en el próximo ciclo.
+            </div>`;
+    }
+
     tab.innerHTML = `
-        <div class="section-title" style="margin-bottom:4px">Mi plan</div>
-        <div class="section-sub">${clinicConfig.enTrial
-            ? `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial!==1?'s':''} restante${diasTrial!==1?'s':''}</strong>`
-            : 'Plan activo · Solo módulos contratados'
-        }</div>
-        ${clinicConfig.enTrial ? `<div style="margin-top:6px;padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;font-size:12px;color:var(--mid);border-left:3px solid var(--terracota)">💡 Durante el trial puedes agregar módulos y explorar SMILE. Solo pagas los módulos activos al finalizar.</div>` : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div class="section-title">Mi plan</div>
+            ${badge}
+        </div>
+        <div class="section-sub" style="margin-bottom:16px">${subtitulo}</div>
+        ${alertas}
 
         <!-- Plan base -->
         <div class="card" style="margin-bottom:14px">
@@ -9914,13 +10056,13 @@ function renderMiPlanTab() {
                     <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
                 </div>
                 <div style="text-align:right">
-                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">${clinicConfig.moneda || "RD$"}${basePrice.toLocaleString()}</div>
+                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">${moneda}${basePrice.toLocaleString()}</div>
                     <div style="font-size:10px;color:var(--light)">/mes</div>
                 </div>
             </div>
         </div>
 
-        <!-- Módulos -->
+        <!-- Módulos adicionales -->
         <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding:0 2px">
             Módulos adicionales
         </div>
@@ -9928,109 +10070,63 @@ function renderMiPlanTab() {
             ${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
         </div>
 
-        <!-- Total y guardar -->
+        <!-- Total + acción -->
         <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
-                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${clinicConfig.moneda || "RD$"}${calcTotal().toLocaleString()}</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${moneda}${calcTotal().toLocaleString()}</div>
             </div>
-            <button onclick="withGuard(this, guardarCambiosPlan)" style="
-                width:100%;padding:14px;background:var(--clinic-color);color:white;
-                border:none;border-radius:var(--radius-sm);font-size:12px;
-                letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;
-                cursor:pointer;transition:background 0.2s;
-            " onmouseover="this.style.background='var(--terracota)'"
-               onmouseout="this.style.background='var(--clinic-color)'">
-                Guardar cambios
-            </button>
-            <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
-                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica a partir del próximo ciclo de cobro.<br>Contacta a SMILE por WhatsApp para coordinar el pago.
-            </div>
+            ${accion}
         </div>
     `;
 
-    // Store pendientes reference for toggles
-    tab._pendientes = pendientes;
-    tab._calcTotal = calcTotal;
+    tab._pendientes   = pendientes;
+    tab._calcTotal    = calcTotal;
     tab._renderToggle = renderToggle;
+    tab._plan         = plan;
+    tab._moneda       = moneda;
 }
 
 function togglePlanModulo(key) {
     const tab = document.getElementById('tab-miplan');
     if (!tab) return;
-
     const idx = tab._pendientes.indexOf(key);
-    if (idx >= 0) {
-        tab._pendientes.splice(idx, 1);
-    } else {
-        tab._pendientes.push(key);
-    }
-
-    // Re-render just the toggles and total
+    if (idx >= 0) tab._pendientes.splice(idx, 1);
+    else          tab._pendientes.push(key);
     document.getElementById('miplan-modulos').innerHTML =
-        MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(clinicConfig.plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
+        MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(tab._plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
     document.getElementById('miplan-total').textContent =
-        (clinicConfig.moneda || 'RD$') + tab._calcTotal().toLocaleString();
+        (tab._moneda || 'RD$') + tab._calcTotal().toLocaleString();
 }
 
 async function guardarCambiosPlan() {
-    try {
     const tab = document.getElementById('tab-miplan');
     if (!tab) return;
-
-    const btn = tab.querySelector('button[onclick="withGuard(this, guardarCambiosPlan)"]');
-    btn.textContent = 'Guardando...';
-    btn.disabled = true;
-
     try {
         const nuevosModulos = [...tab._pendientes];
-        const plan = clinicConfig.plan || 'clinica';
-        const basePrice = BASE_PRECIOS[plan] || 1200;
-        const nuevoMRR = nuevosModulos.reduce((s, k) => {
+        const plan          = clinicConfig.plan || 'clinica';
+        const nuevoMRR      = (BASE_PRECIOS[plan] || 1200) + nuevosModulos.reduce((s, k) => {
             const m = MODULOS_DISPONIBLES.find(x => x.key === k);
             return s + (m ? m.precio : 0);
-        }, basePrice);
+        }, 0);
 
-        // Guardia antes de escribir
         if (!canWriteToFirebase('guardarModulosPlan')) return;
 
-        // Update Firebase config
         await db.collection('clinicas').doc(CLINIC_PATH)
             .collection('config').doc('settings').set({
-                modulos: nuevosModulos,
-                mrr: nuevoMRR,
+                modulos:          nuevosModulos,
+                mrr:              nuevoMRR,
                 planModificadoEn: new Date().toISOString(),
             }, { merge: true });
 
-        // Update local state
         clinicConfig.modulos = nuevosModulos;
-
-        btn.textContent = '✓ Cambios guardados';
-        btn.style.background = 'var(--green, #6B8F71)';
-        setTimeout(() => {
-            btn.textContent = 'Guardar cambios';
-            btn.style.background = '';
-            btn.disabled = false;
-        }, 2500);
-
-        // Rebuild navigation to reflect new modules
+        showToast('✓ Módulos actualizados. Aplican en el próximo ciclo de cobro.');
         buildNavigation();
 
     } catch(e) {
-        console.error(e);
-        btn.textContent = 'Error — intenta de nuevo';
-        btn.style.background = '#c0392b';
-        setTimeout(() => {
-            btn.textContent = 'Guardar cambios';
-            btn.style.background = '';
-            btn.disabled = false;
-        }, 2500);
-    }
-    } catch(e) {
-        showError('Error al guardar los cambios del plan.', e);
+        showError('Error al guardar los módulos.', e);
     }
 }
-
 
 // ═══════════════════════════════════════════════
 // COBROS TAB — unifies factura, pendientes, ingresos, cuadre, gastos
@@ -12096,8 +12192,10 @@ async function eliminarPacienteActual() {
         showToast('⛔ Solo el administrador puede eliminar pacientes', 3000, '#c0392b');
         return;
     }
-    // Usar la variable global que verPaciente siempre setea
-    const pacienteId = currentPacienteId || window._pacienteDetalleId;
+    // Buscar qué paciente está abierto actualmente
+    const idEl = document.getElementById('detallePacienteId') ||
+                 document.getElementById('pacienteDetalleId');
+    const pacienteId = idEl?.value || window._pacienteDetalleId;
     if (!pacienteId) {
         showToast('⚠️ No se identificó el paciente', 3000, '#e65100');
         return;
