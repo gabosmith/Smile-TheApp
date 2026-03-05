@@ -905,11 +905,415 @@
     .ls-key-empty         { background: transparent !important; box-shadow: none !important;
                             cursor: default !important; pointer-events: none; }
 
+    /* ══════════════════════════════════════════════════
+       SMILE — RESPONSIVE STYLES
+       Mobile-first overrides. Touches CSS only — no JS, no HTML changed.
+    ══════════════════════════════════════════════════ */
+
+    /* ── HEADER: hide search on small screens, show icon ── */
+    @media (max-width: 540px) {
+        .app-header {
+            padding: 10px 14px;
+            gap: 8px;
+        }
+        /* Search bar wrapper — collapse to icon-only on mobile */
+        .app-header > div:nth-child(2) {
+            flex: 0 0 36px;
+            max-width: 36px;
+            margin: 0;
+            overflow: visible;
+        }
+        .app-header > div:nth-child(2) input#busquedaGlobal {
+            position: absolute;
+            top: 52px;
+            left: 8px;
+            right: 8px;
+            width: calc(100vw - 16px);
+            max-width: none;
+            border-radius: var(--radius-md);
+            background: var(--sand) !important;
+            color: var(--topo) !important;
+            border: none !important;
+            box-shadow: var(--neu-raised-lg) !important;
+            z-index: 200;
+            display: none;
+            font-size: 15px;
+            padding: 13px 18px;
+        }
+        .app-header > div:nth-child(2)::before {
+            content: '🔍';
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.15);
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .app-header > div:nth-child(2).search-open input#busquedaGlobal {
+            display: block;
+        }
+        .app-header h1 {
+            font-size: 8px;
+            letter-spacing: 3px;
+        }
+        .logout-btn {
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+        #resultadosBusqueda {
+            position: fixed !important;
+            top: 96px !important;
+            left: 8px !important;
+            right: 8px !important;
+            width: auto !important;
+        }
+    }
+
+    /* ── CONTENT AREA ── */
+    @media (max-width: 540px) {
+        .content-area {
+            padding: 14px 10px;
+        }
+    }
+
+    /* ── STAT GRIDS: 2 cols on mobile ── */
+    @media (max-width: 540px) {
+        .stat-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+        }
+        .stat-card { padding: 14px 12px; }
+        .stat-value { font-size: 18px; }
+    }
+
+    /* ── DASHBOARD COLORED CARDS: stack on tiny screens ── */
+    @media (max-width: 400px) {
+        /* The inline grid with minmax(240px) collapses to 1 col */
+        #tab-dashboard > div:first-child > div[style*="minmax(240px"] {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+        }
+        .dash-stat { padding: 16px 14px; }
+        #dashIngresosHoy,
+        #dashCitasHoy,
+        #dashPorCobrar,
+        #dashLabActivo { font-size: 22px !important; }
+    }
+
+    /* ── AGENDA FILTERS: stack on mobile ── */
+    @media (max-width: 540px) {
+        #tab-agenda > div:first-child {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+        }
+        #tab-agenda > div:first-child > div:last-child {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .week-nav {
+            padding: 12px 14px;
+            gap: 10px;
+        }
+        #agendaSemanaTexto {
+            font-size: 13px !important;
+            min-width: 0 !important;
+        }
+    }
+
+    /* ── REPORTES DATE RANGE: stack ── */
+    @media (max-width: 540px) {
+        /* 1fr 1fr auto → stacked */
+        #tab-reportes div[style*="1fr 1fr auto"] {
+            grid-template-columns: 1fr 1fr !important;
+        }
+        #tab-reportes div[style*="1fr 1fr auto"] > button {
+            grid-column: 1 / -1;
+            width: 100%;
+        }
+    }
+
+    /* ── PATIENT MODAL: full-screen on mobile ── */
+    @media (max-width: 700px) {
+        #modalVerPaciente .modal-content {
+            max-width: 100% !important;
+            width: 100% !important;
+            max-height: 100dvh !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+        }
+        /* Header actions: wrap on mobile */
+        #modalVerPaciente .modal-header > div > div:last-child {
+            gap: 6px !important;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        #btnContactarPaciente,
+        #btnEliminarPaciente {
+            padding: 7px 10px !important;
+            font-size: 12px !important;
+        }
+        #modalVerPaciente [onclick*="editarPacienteActual"] {
+            padding: 7px 10px !important;
+            font-size: 12px !important;
+        }
+        /* Patient tabs: horizontal scroll */
+        #modalVerPaciente > div > div:nth-child(2) {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            gap: 0 !important;
+            padding: 0 8px !important;
+        }
+        #modalVerPaciente > div > div:nth-child(2)::-webkit-scrollbar { display: none; }
+        .paciente-tab {
+            padding: 14px 12px !important;
+            font-size: 12px !important;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        #modalVerPaciente > div > div:nth-child(3) {
+            padding: 16px 14px !important;
+        }
+        /* Patient name in header */
+        #verPacienteNombre { font-size: 18px !important; }
+    }
+
+    /* ── EDIT PATIENT MODAL: 2-col grids → 1-col on mobile ── */
+    @media (max-width: 540px) {
+        /* Teléfono + cédula */
+        #modalEditarPaciente div[style*="1fr 1fr"][style*="gap: 15px"],
+        #modalEditarPaciente div[style*="1fr 1fr"][style*="gap:15px"] {
+            grid-template-columns: 1fr !important;
+        }
+        /* FechaNac + Sexo + GrupoSanguineo */
+        #modalEditarPaciente div[style*="1fr 1fr 1fr"] {
+            grid-template-columns: 1fr 1fr !important;
+        }
+        /* Contacto emergencia */
+        #modalEditarPaciente div[style*="grid-template-columns: 1fr 1fr"][style*="15px"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    /* ── NEW PATIENT MODAL: same ── */
+    @media (max-width: 540px) {
+        #modalNuevoPaciente div[style*="1fr 1fr"][style*="gap: 16px"],
+        #modalNuevoPaciente div[style*="1fr 1fr"][style*="gap:12px"] {
+            grid-template-columns: 1fr !important;
+        }
+        /* Emergency contact */
+        #modalNuevoPaciente div[style*="2fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    /* ── EXPORTAR BUTTONS: stack ── */
+    @media (max-width: 400px) {
+        #exportarCard div[style*="1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    /* ── GALERIA PLACAS: reduce min size ── */
+    @media (max-width: 540px) {
+        #galeriaPlacasContainer {
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+            gap: 12px !important;
+        }
+    }
+
+    /* ── DISCOUNT BUTTONS: 4→2 cols ── */
+    @media (max-width: 400px) {
+        .discount-buttons {
+            grid-template-columns: repeat(2, 1fr) !important;
+        }
+    }
+
+    /* ── ODONTOGRAM: scale down to fit ── */
+    @media (max-width: 540px) {
+        /* Odontogram arch container */
+        #tabOdontograma > div,
+        [id*="odontogram"],
+        [id*="Odontograma"] {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        /* Tooth buttons shrink */
+        .tooth-btn, [class*="diente"], [id*="diente-"] {
+            min-width: 28px !important;
+            min-height: 28px !important;
+            font-size: 9px !important;
+            padding: 2px !important;
+        }
+    }
+
+    /* ── MODALS general: full-width on mobile ── */
+    @media (max-width: 540px) {
+        .modal-content {
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+        }
+        /* Wide modals (cotizaciones, facturas, lab) go fullscreen */
+        .modal-content[style*="max-width: 7"],
+        .modal-content[style*="max-width: 8"],
+        .modal-content[style*="max-width: 9"],
+        .modal-content[style*="max-width: 1"] {
+            max-width: 100% !important;
+            width: 100% !important;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+        }
+        .modal-title { font-size: 16px !important; }
+    }
+
+    /* ── FORMULARIOS en modales: padding reducido ── */
+    @media (max-width: 540px) {
+        .modal-content { padding: 20px 16px 32px !important; }
+        .modal-header { margin-bottom: 18px !important; }
+    }
+
+    /* ── BOTTOM NAV: ensure safe area on all devices ── */
+    @media (max-width: 540px) {
+        .bottom-nav {
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+        }
+        .nav-item span { font-size: 9px; letter-spacing: 0; }
+        .nav-item svg  { width: 20px; height: 20px; }
+    }
+
+    /* ── SECTION TITLES on mobile ── */
+    @media (max-width: 540px) {
+        .section-title { font-size: 18px !important; }
+    }
+
+    /* ── CARDS: reduce padding on mobile ── */
+    @media (max-width: 540px) {
+        .card { padding: 16px 14px; }
+        .filter-card { padding: 14px; }
+    }
+
+    /* ── AGENDA WEEK CALENDAR: horizontal scroll if needed ── */
+    @media (max-width: 600px) {
+        #calendarioAgenda {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 12px !important;
+        }
+        #calendarioAgenda > * {
+            min-width: 560px;
+        }
+    }
+
+    /* ── PERSONAL + COBRAR TABS: filter grids ── */
+    @media (max-width: 540px) {
+        #tab-cobrar .filter-card div[style*="minmax(200px"] {
+            grid-template-columns: 1fr 1fr !important;
+        }
+        #tab-cobrar .filter-card div[style*="minmax(200px"] > div:last-child {
+            grid-column: 1 / -1;
+        }
+    }
+
+    /* ── PERSONAL TAB: button row ── */
+    @media (max-width: 400px) {
+        #tab-personal > div:first-child {
+            flex-direction: column;
+        }
+        #tab-personal > div:first-child > * {
+            width: 100%;
+        }
+    }
+
+    /* ── CUADRE TAB: tighter layout ── */
+    @media (max-width: 540px) {
+        #tab-cuadre .card { padding: 16px 14px; }
+        #balanceDia { font-size: 26px !important; }
+        #efectivoCaja { font-size: 20px !important; }
+    }
+
+    /* ── RECETAS/LAB MODALS: 2-col form grids ── */
+    @media (max-width: 540px) {
+        #modalReceta div[style*="1fr 1fr"],
+        #modalNuevaOrdenLab div[style*="1fr 1fr"],
+        #modalEditarOrden div[style*="1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    /* ── DIENTE MODAL: ensure fits ── */
+    @media (max-width: 400px) {
+        #modalDiente .modal-content { max-width: 100% !important; }
+        #modalDienteEstados {
+            grid-template-columns: 1fr 1fr !important;
+        }
+    }
+
+    /* ── SYNC INDICATOR: keep visible ── */
+    @media (max-width: 540px) {
+        #syncIndicator {
+            font-size: 11px !important;
+            padding: 5px 12px !important;
+            bottom: calc(68px + env(safe-area-inset-bottom)) !important;
+        }
+    }
+
+    /* ── TOUCH TARGETS: minimum 44px ── */
+    @media (max-width: 700px) {
+        .btn, button, .nav-item, .list-item,
+        input[type="checkbox"], input[type="radio"] {
+            min-height: 44px;
+        }
+        .close-modal {
+            width: 38px !important;
+            height: 38px !important;
+        }
+    }
+
+    /* ── LOGIN SCREEN: ensure PIN keypad fits ── */
+    @media (max-width: 380px) {
+        .ls-key { padding: 14px 0 !important; font-size: 20px !important; }
+        .ls-avatar { width: 44px !important; height: 44px !important; }
+    }
+
     </style>
     <script>
         // Stub: registerActivity puede dispararse en body events ANTES de que app.js cargue.
         // app.js redefine esta función con la lógica real una vez que carga.
         function registerActivity() {}
+
+        // Mobile search bar toggle — tap the 🔍 icon to expand/collapse
+        document.addEventListener('DOMContentLoaded', function() {
+            var searchWrap = document.querySelector('.app-header > div:nth-child(2)');
+            var searchInput = document.getElementById('busquedaGlobal');
+            if (!searchWrap || !searchInput) return;
+
+            // Only activate on small screens
+            function isMobile() { return window.innerWidth <= 540; }
+
+            searchWrap.addEventListener('click', function(e) {
+                if (!isMobile()) return;
+                if (e.target === searchInput) return; // let input receive click normally
+                searchWrap.classList.toggle('search-open');
+                if (searchWrap.classList.contains('search-open')) {
+                    setTimeout(function() { searchInput.focus(); }, 50);
+                } else {
+                    searchInput.blur();
+                    searchInput.value = '';
+                    var results = document.getElementById('resultadosBusqueda');
+                    if (results) results.style.display = 'none';
+                }
+            });
+
+            // Close search when tapping outside
+            document.addEventListener('click', function(e) {
+                if (!isMobile()) return;
+                if (!searchWrap.contains(e.target)) {
+                    searchWrap.classList.remove('search-open');
+                }
+            });
+        });
+
         function escapeHtml(s) {
             if (s == null) return '';
             return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -2885,42 +3289,31 @@
     }
 
     // ── STRIPE REDIRECT HANDLER ─────────────────────────
-    // Handles ?stripe=success and ?stripe=cancelled after Stripe redirects back
+    // Handles ?stripe=success and ?stripe=cancelled params after Stripe redirects back
     (function() {
-        const params      = new URLSearchParams(window.location.search);
-        const stripeParam = params.get('stripe');
+        const stripeParam = new URLSearchParams(window.location.search).get('stripe');
         if (!stripeParam) return;
 
-        // Limpiar la URL sin recargar
-        params.delete('stripe');
-        const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-        window.history.replaceState({}, '', cleanUrl);
+        // Clean the URL without reload
+        const cleanUrl = window.location.pathname + '?' +
+            Array.from(new URLSearchParams(window.location.search))
+                .filter(([k]) => k !== 'stripe')
+                .map(([k,v]) => k + '=' + encodeURIComponent(v))
+                .join('&');
+        window.history.replaceState({}, '', cleanUrl || window.location.pathname);
 
-        // Esperar a que la app termine de cargar y entonces actuar
-        setTimeout(async () => {
+        // Show toast after a short delay (app needs to finish loading first)
+        setTimeout(() => {
             if (stripeParam === 'success') {
-                // Refrescar estado Stripe desde Firebase (el webhook ya actualizó los campos)
-                if (typeof refrescarEstadoStripe === 'function') {
-                    await refrescarEstadoStripe();
-                }
-                // Quitar banner de pago pendiente si estaba visible
-                const bannerViejo = document.getElementById('bannerPagoStripe');
-                if (bannerViejo) bannerViejo.remove();
-
                 if (typeof showToast === 'function') {
                     showToast('✅ ¡Suscripción activada! Bienvenido a SMILE.', 6000, '#3a9e5f');
                 }
-                // Re-renderizar Mi Plan si está abierto
-                if (typeof renderMiPlanTab === 'function') {
-                    const miplan = document.getElementById('tab-miplan');
-                    if (miplan && miplan.classList.contains('active')) renderMiPlanTab();
-                }
             } else if (stripeParam === 'cancelled') {
                 if (typeof showToast === 'function') {
-                    showToast('Pago cancelado. Podés activar tu suscripción cuando quieras desde Mi Plan.', 5000, '#C4856A');
+                    showToast('Pago cancelado. Puedes activar tu suscripción cuando quieras desde Mi Plan.', 5000, '#C4856A');
                 }
             }
-        }, 2500); // Dar tiempo para que loadData() y loadClinicBranding() terminen
+        }, 2000);
     })();
 
     // ── INTERCEPT loginScreen show ───────────────────────
