@@ -12329,10 +12329,13 @@ async function eliminarPacienteActual() {
         showToast('⛔ Solo el administrador puede eliminar pacientes', 3000, '#c0392b');
         return;
     }
-    // Buscar qué paciente está abierto actualmente
+    // Buscar el paciente abierto: primero la variable global más confiable,
+    // luego fallbacks DOM por compatibilidad
     const idEl = document.getElementById('detallePacienteId') ||
                  document.getElementById('pacienteDetalleId');
-    const pacienteId = idEl?.value || window._pacienteDetalleId;
+    const pacienteId = currentPacienteId
+                    || window._pacienteDetalleId
+                    || idEl?.value;
     if (!pacienteId) {
         showToast('⚠️ No se identificó el paciente', 3000, '#e65100');
         return;
