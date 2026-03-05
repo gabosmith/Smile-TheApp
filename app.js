@@ -4352,13 +4352,60 @@ function abrirModalNuevoPaciente() {
 
 async function guardarPaciente() {
     try {
+        const nombre   = sanitize.str(document.getElementById('nuevoPacienteNombre')?.value, 120);
+        const telefono = sanitize.phone(document.getElementById('nuevoPacienteTelefono')?.value);
+
+        if (!nombre)   { showToast('⚠️ El nombre del paciente es obligatorio'); return; }
+        if (!telefono) { showToast('⚠️ El teléfono es obligatorio'); return; }
+
+        // ── Teléfono: bloqueo duro — un número pertenece a una sola persona ──
+        const telNorm    = telefono.replace(/\D/g, '');
+        const porTelefono = appData.pacientes.find(p =>
+            p.telefono && p.telefono.replace(/\D/g, '') === telNorm
+        );
+        if (porTelefono) {
+            showToast(`⚠️ El teléfono ${telefono} ya está registrado para "${porTelefono.nombre}"`, 4500, '#e65100');
+            return;
+        }
+
+        // ── Nombre: advertencia — pueden existir dos personas con el mismo nombre ──
+        const nombreNorm = nombre.toLowerCase().trim();
+        const porNombre  = appData.pacientes.find(p =>
+            (p.nombre || '').toLowerCase().trim() === nombreNorm
+        );
+        if (porNombre) {
+            mostrarConfirmacion({
+                titulo: '⚠️ Nombre similar encontrado',
+                mensaje: `
+                    <div style="background:rgba(30,28,26,0.04);padding:14px;border-radius:10px;margin-bottom:12px">
+                        <div style="font-size:12px;color:var(--mid);margin-bottom:4px">Ya existe un paciente con ese nombre:</div>
+                        <div style="font-size:15px;font-weight:500;color:var(--dark)">${porNombre.nombre}</div>
+                        <div style="font-size:13px;color:var(--mid);margin-top:3px">
+                            ${porNombre.cedula ? 'Cédula: ' + porNombre.cedula + ' · ' : ''}Tel: ${porNombre.telefono || 'no registrado'}
+                        </div>
+                    </div>
+                    <div style="font-size:13px;color:#856404;background:#fff3cd;padding:10px 12px;border-radius:8px">
+                        Si es una persona diferente, podés continuar. Si es el mismo paciente, cancelá y abrí su ficha existente.
+                    </div>`,
+                tipo: 'advertencia',
+                confirmText: 'Sí, crear de todas formas',
+                onConfirm: () => _ejecutarGuardarPaciente()
+            });
+            return;
+        }
+
+        await _ejecutarGuardarPaciente();
+
+    } catch(e) {
+        showError('Error al guardar el paciente.', e);
+    }
+}
+
+async function _ejecutarGuardarPaciente() {
+    const val = id => sanitize.str(document.getElementById(id)?.value, 300);
     const nombre   = sanitize.str(document.getElementById('nuevoPacienteNombre')?.value, 120);
     const telefono = sanitize.phone(document.getElementById('nuevoPacienteTelefono')?.value);
 
-    if (!nombre)   { showToast('⚠️ El nombre del paciente es obligatorio'); return; }
-    if (!telefono) { showToast('⚠️ El teléfono es obligatorio'); return; }
-
-    const val = id => sanitize.str(document.getElementById(id)?.value, 300);
     const paciente = {
         id:              generateId('PAC-'),
         nombre,
@@ -4375,8 +4422,8 @@ async function guardarPaciente() {
             nombre:   sanitize.str(document.getElementById('nuevoPacienteEmergenciaNombre')?.value, 120),
             telefono: sanitize.phone(document.getElementById('nuevoPacienteEmergenciaTelefono')?.value),
         },
-        condiciones:  val('nuevoPacienteCondiciones'),
-        condicionesMedicas: val('nuevoPacienteCondiciones'), // alias for legacy compat
+        condiciones:        val('nuevoPacienteCondiciones'),
+        condicionesMedicas: val('nuevoPacienteCondiciones'),
         fechaRegistro: new Date().toISOString()
     };
 
@@ -4392,23 +4439,15 @@ async function guardarPaciente() {
     closeModal('modalNuevoPaciente');
     updatePacientesTab();
 
-    // Limpiar formulario
-    document.getElementById('nuevoPacienteNombre').value = '';
-    document.getElementById('nuevoPacienteCedula').value = '';
-    document.getElementById('nuevoPacienteTelefono').value = '';
-    document.getElementById('nuevoPacienteEmail').value = '';
-    document.getElementById('nuevoPacienteFechaNacimiento').value = '';
-    document.getElementById('nuevoPacienteSexo').value = '';
-    document.getElementById('nuevoPacienteGrupoSanguineo').value = '';
-    document.getElementById('nuevoPacienteDireccion').value = '';
-    document.getElementById('nuevoPacienteAlergias').value = '';
-    document.getElementById('nuevoPacienteSeguro').value = '';
-    document.getElementById('nuevoPacienteEmergenciaNombre').value = '';
-    document.getElementById('nuevoPacienteEmergenciaTelefono').value = '';
-    document.getElementById('nuevoPacienteCondiciones').value = '';
-    } catch(e) {
-        showError('Error al guardar el paciente.', e);
-    }
+    ['nuevoPacienteNombre','nuevoPacienteCedula','nuevoPacienteTelefono','nuevoPacienteEmail',
+     'nuevoPacienteFechaNacimiento','nuevoPacienteGrupoSanguineo','nuevoPacienteDireccion',
+     'nuevoPacienteAlergias','nuevoPacienteSeguro','nuevoPacienteEmergenciaNombre',
+     'nuevoPacienteEmergenciaTelefono','nuevoPacienteCondiciones'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const sexoEl = document.getElementById('nuevoPacienteSexo');
+    if (sexoEl) sexoEl.value = '';
 }
 
 
@@ -12057,10 +12096,8 @@ async function eliminarPacienteActual() {
         showToast('⛔ Solo el administrador puede eliminar pacientes', 3000, '#c0392b');
         return;
     }
-    // Buscar qué paciente está abierto actualmente
-    const idEl = document.getElementById('detallePacienteId') ||
-                 document.getElementById('pacienteDetalleId');
-    const pacienteId = idEl?.value || window._pacienteDetalleId;
+    // Usar la variable global que verPaciente siempre setea
+    const pacienteId = currentPacienteId || window._pacienteDetalleId;
     if (!pacienteId) {
         showToast('⚠️ No se identificó el paciente', 3000, '#e65100');
         return;
