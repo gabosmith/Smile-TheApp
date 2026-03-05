@@ -674,7 +674,7 @@ async function loadClinicas() {
         citas: (data.citas || []).length,
         personalCount: (data.personal || []).length,
         // Calculate MRR from plan + modules
-        mrr: calcMRR(config.plan, config.modulos, (data.personal||[]).length),
+        mrr: calcMRR(config.plan, config.modulos),
         waName:  config.contactoWA?.nombre || config.waName  || data.waName  || '',
         waCargo: config.contactoWA?.cargo  || config.waCargo || data.waCargo || '',
         waPhone: config.contactoWA?.phone  || config.waPhone || data.waPhone || '',
@@ -702,19 +702,16 @@ async function loadClinicas() {
   }
 }
 
-function calcMRR(plan, modulos = [], personalCount = 0) {
-  const BASE = plan === 'solo' ? 19 : 23; // USD
-  const MODULE_PRICES = {
-    laboratorio: 5, nomina: 5, inventario: 5,
-    reportes: 5, multisucursal: 15, expediente: 0,
-  };
-  const extraUsers   = Math.max(0, personalCount - 1);
-  const modulesTotal = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
-  return BASE + modulesTotal + (extraUsers * 2.5);
+function calcMRR(plan, modulos = []) {
+  const BASE = { clinica: 1200, solo: 990 };
+  const MODULE_PRICES = { laboratorio: 300, nomina: 300, inventario: 300, reportes: 300, multisucursal: 800 };
+  const base = BASE[plan] || 1200;
+  const extra = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
+  return base + extra;
 }
 
 function fmtMRR(c) {
-  return 'USD $' + (c.mrr % 1 === 0 ? c.mrr : c.mrr.toFixed(2));
+  return 'RD$' + (c.mrr || 0).toLocaleString();
 }
 
 // ── SECTIONS ──────────────────────────────────────────
@@ -737,21 +734,35 @@ async function showSection(section) {
 // ── CONTACTOS ─────────────────────────────────────────
 function renderContactos(main) {
   const filtro = window._contactosFiltro || 'todos';
+  const busqueda = (window._contactosBusqueda || '').toLowerCase().trim();
 
-  const lista = clinicas.filter(c => {
-    if (filtro === 'activas') return c.activa && !c.trial;
-    if (filtro === 'trial')   return c.trial;
-    if (filtro === 'pausadas') return !c.activa;
+  let lista = clinicas.filter(c => {
+    if (filtro === 'activas')     return c.activa && !c.trial && !c.suspendida && !c.pagoPendiente;
+    if (filtro === 'trial')       return c.trial;
+    if (filtro === 'pausadas')    return !c.activa;
+    if (filtro === 'suspendidas') return c.suspendida || c.pagoPendiente;
     return true;
-  }).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+  });
 
-  const filterBtns = ['todos','activas','trial','pausadas'].map(f => `
+  if (busqueda) {
+    lista = lista.filter(c =>
+      c.nombre.toLowerCase().includes(busqueda) ||
+      c.id.toLowerCase().includes(busqueda) ||
+      (c.waName || '').toLowerCase().includes(busqueda) ||
+      (c.waPhone || '').includes(busqueda) ||
+      (c.adminEmail || '').toLowerCase().includes(busqueda)
+    );
+  }
+
+  lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+
+  const filterBtns = ['todos','activas','trial','pausadas','suspendidas'].map(f => `
     <button onclick="window._contactosFiltro='${f}';showSection('contactos')" style="
-      padding:6px 16px;border:none;border-radius:100px;font-size:12px;font-family:inherit;
+      padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;
       cursor:pointer;letter-spacing:0.5px;transition:all 0.2s;
       background:${filtro===f ? 'var(--topo)' : 'transparent'};
-      color:${filtro===f ? 'var(--sand-lt)' : 'var(--piedra)'};">
-      ${f.charAt(0).toUpperCase()+f.slice(1)}
+      color:${filtro===f ? 'var(--sand-lt)' : f==='suspendidas' ? '#e65100' : 'var(--piedra)'};">
+      ${f === 'suspendidas' ? '⚠ Pagos' : f.charAt(0).toUpperCase()+f.slice(1)}
     </button>`).join('');
 
   const cards = lista.map(c => {
@@ -830,27 +841,58 @@ function renderContactos(main) {
           <div class="page-title">Contactos</div>
           <div class="page-sub">${lista.length} clínica${lista.length !== 1 ? 's' : ''} · Actualizado en tiempo real</div>
         </div>
-        <div style="display:flex;gap:4px;background:var(--sand-lt);
-                    border-radius:100px;padding:4px;border:1.5px solid rgba(168,159,150,.12)">
-          ${filterBtns}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" placeholder="Buscar clínica, contacto..." value="${window._contactosBusqueda || ''}"
+            oninput="window._contactosBusqueda=this.value;
+                     document.getElementById('contactos-lista').innerHTML=renderContactosCards();"
+            style="padding:8px 16px;border:1.5px solid rgba(168,159,150,.2);border-radius:100px;
+                   font-size:13px;font-family:inherit;background:var(--sand-lt);color:var(--topo);
+                   outline:none;width:220px"
+            onfocus="this.style.borderColor='var(--terra)'"
+            onblur="this.style.borderColor='rgba(168,159,150,.2)'">
+          <div style="display:flex;gap:4px;background:var(--sand-lt);
+                      border-radius:100px;padding:4px;border:1.5px solid rgba(168,159,150,.12)">
+            ${filterBtns}
+          </div>
         </div>
       </div>
 
-      ${lista.length === 0 ? `
-        <div style="text-align:center;padding:60px 20px;color:var(--piedra)">
-          <div style="font-size:32px;margin-bottom:12px">📋</div>
-          <div>No hay clínicas en este filtro</div>
-        </div>` : cards}
+      <div id="contactos-lista">
+        ${lista.length === 0 ? `
+          <div style="text-align:center;padding:60px 20px;color:var(--piedra)">
+            <div style="font-size:32px;margin-bottom:12px">📋</div>
+            <div>No hay clínicas en este filtro</div>
+          </div>` : cards}
+      </div>
     </div>
   `;
 }
 
 // ── OVERVIEW ──────────────────────────────────────────
 function renderOverview(main) {
-  const activas = clinicas.filter(c => c.activa && !c.trial);
-  const trials  = clinicas.filter(c => c.trial);
-  const mrr     = clinicas.filter(c => c.activa && !c.trial).reduce((s, c) => s + c.mrr, 0);
+  const activas        = clinicas.filter(c => c.activa && !c.trial && !c.suspendida && !c.pagoPendiente);
+  const trials         = clinicas.filter(c => c.trial);
+  const conPago        = clinicas.filter(c => c.pagoPendiente || c.suspendida);
+  const mrr            = activas.reduce((s, c) => s + c.mrr, 0);
   const totalPacientes = clinicas.reduce((s, c) => s + c.pacientes, 0);
+
+  const alertasPago = conPago.length > 0 ? `
+    <div style="background:rgba(230,81,0,.08);border:1.5px solid rgba(230,81,0,.2);border-radius:14px;
+                padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+      <div>
+        <div style="font-size:13px;font-weight:500;color:#e65100;margin-bottom:4px">
+          ⚠ ${conPago.length} clínica${conPago.length !== 1 ? 's' : ''} con problemas de pago
+        </div>
+        <div style="font-size:12px;color:var(--piedra);line-height:1.6">
+          ${conPago.map(c => `<strong>${c.nombre}</strong> — ${c.suspendida ? 'Suspendida' : 'Pago pendiente'}`).join('<br>')}
+        </div>
+      </div>
+      <button onclick="showSection('clinicas')"
+        style="padding:8px 18px;background:#e65100;color:white;border:none;border-radius:100px;
+               font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">
+        Ver clínicas →
+      </button>
+    </div>` : '';
 
   main.innerHTML = `
     <div class="section">
@@ -865,18 +907,20 @@ function renderOverview(main) {
         </div>
       </div>
 
+      ${alertasPago}
+
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--terra)"></div>
-          <div class="stat-label">MRR (USD)</div>
-          <div class="stat-val">USD $${clinicas.filter(c=>c.activa&&!c.trial).reduce((s,c)=>s+c.mrr,0).toFixed(0)}</div>
+          <div class="stat-label">MRR</div>
+          <div class="stat-val">${fmtMRR({mrr})}</div>
           <div class="stat-sub">${activas.length} activas · ${trials.length} en trial</div>
         </div>
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--pizarra)"></div>
           <div class="stat-label">Clínicas totales</div>
           <div class="stat-val">${clinicas.length}</div>
-          <div class="stat-sub">${trials.length} en trial</div>
+          <div class="stat-sub">${trials.length} en trial · ${conPago.length > 0 ? `<span style="color:#e65100">${conPago.length} con alerta</span>` : 'sin alertas'}</div>
         </div>
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--green)"></div>
@@ -886,14 +930,14 @@ function renderOverview(main) {
         </div>
         <div class="stat-card">
           <div class="stat-accent" style="background:var(--rosa)"></div>
-          <div class="stat-label">ARR proyectado (USD)</div>
-          <div class="stat-val">USD $${(clinicas.filter(c=>c.activa&&!c.trial).reduce((s,c)=>s+c.mrr,0)*12).toFixed(0)}</div>
+          <div class="stat-label">ARR proyectado</div>
+          <div class="stat-val">${fmtMRR({mrr: mrr * 12})}</div>
           <div class="stat-sub">Solo clínicas activas</div>
         </div>
       </div>
 
-      <div class="section-title">Clínicas activas <span class="count-pill">${activas.length}</span></div>
-      ${renderClinicsTable(clinicas, 'compact')}
+      <div class="section-title">Todas las clínicas <span class="count-pill">${clinicas.length}</span></div>
+      ${renderClinicsTable(clinicas)}
     </div>
   `;
 }
@@ -913,7 +957,9 @@ function renderClinicas(main) {
       <div class="tab-bar">
         <button class="tab-btn active" onclick="filterClinicas('todas', this)">Todas</button>
         <button class="tab-btn" onclick="filterClinicas('activas', this)">Activas</button>
-        <button class="tab-btn" onclick="filterClinicas('trial', this)">En trial</button>
+        <button class="tab-btn" onclick="filterClinicas('trial', this)">Trial</button>
+        <button class="tab-btn" onclick="filterClinicas('pago', this)" style="color:#e65100">⚠ Pago</button>
+        <button class="tab-btn" onclick="filterClinicas('pausadas', this)">Pausadas</button>
       </div>
 
       <div id="clinicasTableWrap">
@@ -927,8 +973,10 @@ function filterClinicas(filter, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   let list = clinicas;
-  if (filter === 'activas') list = clinicas.filter(c => c.activa && !c.trial);
-  if (filter === 'trial')   list = clinicas.filter(c => c.trial);
+  if (filter === 'activas')  list = clinicas.filter(c => c.activa && !c.trial && !c.suspendida && !c.pagoPendiente);
+  if (filter === 'trial')    list = clinicas.filter(c => c.trial);
+  if (filter === 'pago')     list = clinicas.filter(c => c.pagoPendiente || c.suspendida);
+  if (filter === 'pausadas') list = clinicas.filter(c => !c.activa);
   document.getElementById('clinicasTableWrap').innerHTML = renderClinicsTable(list);
 }
 
@@ -944,19 +992,26 @@ function renderClinicsTable(list) {
   }
 
   const rows = list.map(c => {
-    const statusBadge = c.trial
-      ? `<span class="badge badge-trial"><span class="badge-dot"></span>Trial</span>`
-      : c.activa
-        ? `<span class="badge badge-active"><span class="badge-dot"></span>Activa</span>`
-        : `<span class="badge badge-paused"><span class="badge-dot"></span>Pausada</span>`;
+    const statusBadge = c.suspendida
+      ? `<span class="badge" style="background:rgba(192,57,43,.12);color:#c0392b"><span class="badge-dot" style="background:#c0392b"></span>Suspendida</span>`
+      : c.pagoPendiente
+        ? `<span class="badge" style="background:rgba(230,81,0,.12);color:#e65100"><span class="badge-dot" style="background:#e65100"></span>Pago pend.</span>`
+        : c.trial
+          ? `<span class="badge badge-trial"><span class="badge-dot"></span>Trial</span>`
+          : c.activa
+            ? `<span class="badge badge-active"><span class="badge-dot"></span>Activa</span>`
+            : `<span class="badge badge-paused"><span class="badge-dot"></span>Pausada</span>`;
 
     const planLabel = c.plan === 'solo' ? 'Solo' : c.plan === 'clinica' ? 'Clínica' : c.plan;
+    const trialDias = c.trial && c.trialHasta
+      ? Math.max(0, Math.ceil((new Date(c.trialHasta) - new Date()) / 86400000))
+      : null;
 
     return `
       <div class="clinic-row" onclick="openClinicDetail('${c.id}')">
         <div>
           <div class="clinic-name">${c.nombre}</div>
-          <div class="clinic-id">${c.id}</div>
+          <div class="clinic-id">${c.id}${trialDias !== null ? ` · ${trialDias}d trial` : ''}</div>
         </div>
         <div>${statusBadge}</div>
         <div><span class="plan-tag">${planLabel}</span></div>
@@ -964,10 +1019,13 @@ function renderClinicsTable(list) {
           <div class="amount">${fmtMRR(c)}</div>
           <div class="amount-sub">/ mes</div>
         </div>
-        <div style="font-size:13px;color:var(--piedra)">${c.pacientes.toLocaleString()} pac · ${c.ciudad}</div>
+        <div style="font-size:12px;color:var(--piedra)">${c.pacientes.toLocaleString()} pac · ${c.ciudad}</div>
         <div class="row-actions" onclick="event.stopPropagation()">
           <button class="action-btn" title="Ver app" onclick="openApp('${c.id}')">↗</button>
           <button class="action-btn" title="Editar" onclick="openEditModal('${c.id}')">✎</button>
+          <button class="action-btn" title="${c.activa ? 'Pausar' : 'Reactivar'}"
+                  style="color:${c.activa ? 'var(--red)' : 'var(--salvia)'}"
+                  onclick="toggleStatus('${c.id}')">${c.activa ? '⏸' : '▶'}</button>
         </div>
       </div>`;
   }).join('');
@@ -1108,23 +1166,61 @@ function openClinicDetail(id) {
       </button>
     </div>
 
-    <!-- SECCIÓN: HISTORIAL DE PAGOS -->
-    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--piedra);margin-bottom:10px;font-weight:600">Historial de pagos</div>
-    <div style="background:rgba(255,255,255,.45);border-radius:14px;padding:${(c.raw?.config?.pagosSuscripcion||[]).length ? '4px 16px' : '20px'};margin-bottom:24px;text-align:${(c.raw?.config?.pagosSuscripcion||[]).length ? 'left' : 'center'}">
-      ${(c.raw?.config?.pagosSuscripcion||[]).length
-        ? [...(c.raw.config.pagosSuscripcion)].reverse().map(p => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.7)">
-            <div>
-              <div style="font-size:13px;color:var(--topo)">${p.concepto || 'Suscripción mensual'}</div>
-              <div style="font-size:11px;color:var(--muted)">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:14px;font-weight:400;color:var(--topo)">${p.moneda||'RD$'}${Number(p.monto||0).toLocaleString()}</div>
-              <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-top:2px;color:${p.estado==='pagado'?'#4a7a50':p.estado==='pendiente'?'var(--terra)':'var(--muted)'}">${p.estado||'registrado'}</div>
-            </div>
-          </div>`).join('')
-        : '<div style="font-size:13px;color:var(--muted)">Sin pagos registrados aún</div>'
-      }
+    <!-- SECCIÓN: STRIPE REAL DATA -->
+    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--piedra);margin-bottom:10px;font-weight:600">Stripe</div>
+    <div style="background:rgba(255,255,255,.45);border-radius:14px;padding:16px 20px;margin-bottom:24px">
+      ${c.raw?.config?.stripeCustomerId ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:10px;color:var(--piedra);margin-bottom:2px">Customer ID</div>
+          <div style="font-size:11px;font-family:monospace;color:var(--topo)">${c.raw.config.stripeCustomerId}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--piedra);margin-bottom:2px">Subscription ID</div>
+          <div style="font-size:11px;font-family:monospace;color:var(--topo)">${c.raw?.config?.stripeSubscriptionId || '—'}</div>
+        </div>
+        ${c.raw?.config?.suscripcionCreadaEn ? `
+        <div>
+          <div style="font-size:10px;color:var(--piedra);margin-bottom:2px">Suscrito desde</div>
+          <div style="font-size:12px;color:var(--topo)">${new Date(c.raw.config.suscripcionCreadaEn).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'})}</div>
+        </div>` : ''}
+        ${c.raw?.config?.ultimoPagoEn ? `
+        <div>
+          <div style="font-size:10px;color:var(--piedra);margin-bottom:2px">Último pago</div>
+          <div style="font-size:12px;color:#3a9e5f">${new Date(c.raw.config.ultimoPagoEn).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'})}</div>
+        </div>` : ''}
+        ${c.raw?.config?.ultimoFalloPagoEn ? `
+        <div>
+          <div style="font-size:10px;color:var(--piedra);margin-bottom:2px">Último fallo</div>
+          <div style="font-size:12px;color:#e65100">${new Date(c.raw.config.ultimoFalloPagoEn).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'})}</div>
+        </div>` : ''}
+        ${c.raw?.config?.proximoPago ? `
+        <div>
+          <div style="font-size:10px;color:var(--piedra);margin-bottom:2px">Próximo cobro</div>
+          <div style="font-size:12px;color:var(--topo)">${new Date(c.raw.config.proximoPago).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'})}</div>
+        </div>` : ''}
+      </div>` : '<div style="font-size:12px;color:var(--muted)">Sin suscripción Stripe activa</div>'}
+    </div>
+
+    <!-- SECCIÓN: NOTAS INTERNAS -->
+    <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--piedra);margin-bottom:10px;font-weight:600">Notas internas</div>
+    <div style="margin-bottom:24px">
+      <textarea id="notas-${c.id}"
+        placeholder="Observaciones del equipo SMILE sobre esta clínica..."
+        style="width:100%;min-height:80px;padding:14px 16px;background:rgba(255,255,255,.5);
+               border:1.5px solid rgba(168,159,150,.15);border-radius:12px;font-family:inherit;
+               font-size:13px;color:var(--topo);resize:vertical;outline:none;line-height:1.5"
+        onfocus="this.style.borderColor='var(--terra)'"
+        onblur="this.style.borderColor='rgba(168,159,150,.15)'"
+      >${c.raw?.config?.notasInternas || ''}</textarea>
+      <button onclick="guardarNotasInternas('${c.id}')"
+        style="margin-top:8px;padding:8px 18px;background:transparent;border:1.5px solid rgba(168,159,150,.2);
+               border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;color:var(--piedra);
+               transition:all 0.15s"
+        onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
+        onmouseout="this.style.borderColor='rgba(168,159,150,.2)';this.style.color='var(--piedra)'">
+        Guardar nota
+      </button>
     </div>
 
     <!-- SECCIÓN: GESTIÓN SUSCRIPCIÓN -->
@@ -1194,7 +1290,6 @@ function openEditModal(id) {
     { key: 'inventario',    label: 'Inventario',          price: 300 },
     { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
     { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
-    { key: 'expediente', label: 'Expediente clínico', price: 300 },
   ];
 
   document.getElementById('modalTitle').textContent = 'Editar — ' + c.nombre;
@@ -1211,8 +1306,8 @@ function openEditModal(id) {
       <div class="modal-field">
         <label>Plan</label>
         <select id="edit-plan">
-          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — USD $19/mes</option>
-          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — USD $23/mes</option>
+          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — RD$990/mes</option>
+          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — RD$1,200/mes</option>
         </select>
       </div>
     </div>
@@ -1253,17 +1348,18 @@ async function saveClinicEdit(id) {
   const color   = document.getElementById('edit-color').value;
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
 
+  const mrr = calcMRR(plan, modulos);
   try {
     await db.collection('clinicas').doc(id)
       .collection('config').doc('settings').set({
-        nombre, ciudad, plan, adminEmail: email, color, modulos,
+        nombre, ciudad, plan, adminEmail: email, color, modulos, mrr,
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
     closeModal();
     showToast('✓ Cambios guardados');
     await loadClinicas();
-    showSection(currentSection);
+    openClinicDetail(id); // reabrir con datos frescos
   } catch(e) {
     showToast('❌ Error: ' + e.message);
   }
@@ -1277,7 +1373,6 @@ function renderNuevaClinica(main) {
     { key: 'inventario',    label: 'Inventario',          price: 300 },
     { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
     { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
-    { key: 'expediente', label: 'Expediente clínico', price: 300 },
   ];
 
   main.innerHTML = `
@@ -1309,8 +1404,8 @@ function renderNuevaClinica(main) {
           <div class="modal-field">
             <label>Plan</label>
             <select id="new-plan">
-              <option value="clinica">Clínica — USD $23/mes</option>
-              <option value="solo">Solo — USD $19/mes</option>
+              <option value="clinica">Clínica — RD$1,200/mes</option>
+              <option value="solo">Solo — RD$990/mes</option>
             </select>
           </div>
         </div>
@@ -1346,7 +1441,7 @@ function renderNuevaClinica(main) {
 
         <div style="background:var(--sand);border-radius:16px;padding:20px 24px;margin-bottom:24px;box-shadow:var(--neu-raised)">
           <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--piedra);margin-bottom:8px">MRR estimado</div>
-          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">USD $23</div>
+          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">RD$1,200</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px">/ mes</div>
         </div>
 
@@ -1366,9 +1461,9 @@ function renderNuevaClinica(main) {
 function updateMRRPreview() {
   const plan = document.getElementById('new-plan')?.value || 'clinica';
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
-  const mrr = calcMRR(plan, modulos, 1);
+  const mrr = calcMRR(plan, modulos);
   const el = document.getElementById('new-mrr-preview');
-  if (el) el.textContent = 'USD $' + mrr;
+  if (el) el.textContent = 'RD$' + mrr.toLocaleString();
 }
 
 function autoSlug(val) {
@@ -1439,7 +1534,7 @@ async function crearClinica() {
         activa: true, trial: true,
         creadaEn: new Date().toISOString(),
         trialHasta: getTrial14Days(),
-        mrr: calcMRR(plan, modulos, 1),
+        mrr: calcMRR(plan, modulos),
       });
 
     // Show success with the PIN so admin can share it
@@ -1492,11 +1587,6 @@ async function adminSha256(msg) {
 }
 async function adminHashPin(clinicId, pin) {
   return adminSha256(clinicId + ':' + pin);
-}
-
-function getDefaultPersonal(clinicNombre) {
-  // Legacy — now crearClinica generates a real hashed PIN
-  return [{ id:'1', nombre:'Administrador', tipo:'regular', password:'1234', isAdmin:true, canAccessReception:true }];
 }
 
 function getTrial14Days() {
@@ -1558,7 +1648,7 @@ async function confirmToggleStatus(id, nuevoEstado) {
     closeModal();
     showToast(nuevoEstado ? '✅ Clínica reactivada' : '⏸ Clínica pausada');
     await loadClinicas();
-    showSection(currentSection);
+    openClinicDetail(id); // reabrir con estado actualizado
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
@@ -1668,6 +1758,21 @@ async function confirmExtendTrial(id, newDate) {
       + new Date(newDate).toLocaleDateString('es-DO',{day:'numeric',month:'long'}));
     await loadClinicas();
     showSection(currentSection);
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function guardarNotasInternas(id) {
+  const el = document.getElementById('notas-' + id);
+  if (!el) return;
+  const nota = el.value.trim();
+  try {
+    await db.collection('clinicas').doc(id)
+      .collection('config').doc('settings')
+      .set({ notasInternas: nota, notasActualizadasEn: new Date().toISOString() }, { merge: true });
+    showToast('✓ Nota guardada');
+    // Update local cache too
+    const c = clinicas.find(x => x.id === id);
+    if (c && c.raw?.config) c.raw.config.notasInternas = nota;
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
