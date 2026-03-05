@@ -9931,7 +9931,10 @@ function abrirPagoFactura(facturaId, pacienteId) {
 // ═══════════════════════════════════════════════════════════════
 
 // URL base de Firebase Functions — actualizar si cambia el proyecto
-const FUNCTIONS_BASE_URL = 'https://us-east1-smile-theapp.cloudfunctions.net';
+// URLs reales de Cloud Run (us-central1) — generadas al hacer firebase deploy
+const FUNCTIONS_BASE_URL = 'https://us-central1-smile-theapp.cloudfunctions.net';
+const CHECKOUT_URL  = 'https://createcheckoutsession-dvpa6bf75q-uc.a.run.app';
+const PORTAL_URL    = 'https://createportalsession-dvpa6bf75q-uc.a.run.app';
 
 const MODULOS_DISPONIBLES = [
     { key: 'laboratorio',   nombre: 'Laboratorio',        precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
@@ -9948,7 +9951,7 @@ async function abrirCheckoutStripe() {
     if (!CLINIC_PATH) { showToast('⚠️ No se identificó la clínica', 3000, '#e65100'); return; }
     try {
         showToast('Conectando con Stripe...', 3000);
-        const res  = await fetch(`${FUNCTIONS_BASE_URL}/createCheckoutSession`, {
+        const res  = await fetch(CHECKOUT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ clinicId: CLINIC_PATH }),
@@ -9965,7 +9968,7 @@ async function abrirPortalStripe() {
     if (!CLINIC_PATH) return;
     try {
         showToast('Abriendo portal de facturación...', 3000);
-        const res  = await fetch(`${FUNCTIONS_BASE_URL}/createPortalSession`, {
+        const res  = await fetch(PORTAL_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ clinicId: CLINIC_PATH }),
