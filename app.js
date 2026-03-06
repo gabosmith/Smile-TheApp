@@ -9293,247 +9293,554 @@ function getSaludo() {
 function updateDashboardTab() {
     const todayKey     = getTodayKey();
     const yesterdayKey = getYesterdayKey();
+    const dashRole     = appData.currentRole;
 
-    // Fecha + saludo + frase motivacional
-    const fechaStr = new Date().toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
-    const nombre = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 1 — SALUDO / HEADER
+    // ────────────────────────────────────────────────────
+    const fechaStr    = new Date().toLocaleDateString(getLocale(), { weekday:'long', day:'numeric', month:'long' });
+    const nombre      = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
     const nombreCorto = nombre ? nombre.split(' ')[0] : '';
-    const fraseDia = getFrase();
-    const saludoDia = getSaludo();
-    const fechaEl = document.getElementById('dashboardFecha');
+    const saludoDia   = getSaludo();
+    const fraseDia    = getFrase();
+    const fechaEl     = document.getElementById('dashboardFecha');
     if (fechaEl) {
         const logoWatermark = clinicConfig._logoSrc
-            ? `<img src="${clinicConfig._logoSrc}" alt="" style="
-                position:absolute;right:0;top:50%;transform:translateY(-50%);
-                height:56px;width:auto;object-fit:contain;
-                opacity:0.08;pointer-events:none;filter:grayscale(1);"
-                onerror="this.style.display='none'">`
+            ? `<img src="${clinicConfig._logoSrc}" alt="" style="position:absolute;right:0;top:50%;transform:translateY(-50%);height:52px;width:auto;object-fit:contain;opacity:.08;pointer-events:none;filter:grayscale(1);" onerror="this.style.display='none'">`
             : '';
         fechaEl.style.position = 'relative';
         fechaEl.style.overflow = 'hidden';
         fechaEl.innerHTML = `
             ${logoWatermark}
-            <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px;margin-bottom:2px">
-                ${saludoDia}${nombreCorto ? `, ${nombreCorto}` : ''}.
-            </div>
-            <div style="font-size:12px;color:var(--light);margin-bottom:8px;text-transform:capitalize">${fechaStr}</div>
-            <div style="font-size:14px;color:var(--mid);font-style:italic;font-weight:300;line-height:1.5">"${fraseDia}"</div>
+            <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-.5px;margin-bottom:2px;">${saludoDia}${nombreCorto ? `, ${nombreCorto}` : ''}.</div>
+            <div style="font-size:12px;color:var(--light);margin-bottom:7px;text-transform:capitalize;">${fechaStr}</div>
+            <div style="font-size:13px;color:var(--mid);font-style:italic;font-weight:300;line-height:1.5;">"${fraseDia}"</div>
         `;
     }
 
-    // Quick action shortcuts (admin + profesional)
-    const dashRole = appData.currentRole;
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 2 — CÁLCULOS (todos centralizados aquí)
+    // ────────────────────────────────────────────────────
 
-    // Adapt the 3rd stat card label/color for professional vs admin
-    const porCobrarCard = document.querySelector('#tab-dashboard .dash-stat:nth-child(3)');
-    if (porCobrarCard) {
-        const labelEl = porCobrarCard.querySelector('div:first-child');
-        if (labelEl) labelEl.textContent = dashRole === 'professional' ? 'Mis Comisiones' : 'Por Cobrar';
-        porCobrarCard.style.background = dashRole === 'professional'
-            ? 'linear-gradient(135deg, #7B8FA1 0%, #5A7080 100%)'
-            : 'linear-gradient(135deg, #C4856A 0%, #A06448 100%)';
+    // Pagos hoy / ayer
+    const pagosHoy  = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, todayKey));
+    const pagosAyer = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
+    const ingresosHoy  = pagosHoy.reduce((s,p)=>s+p.monto,0);
+    const ingresosAyer = pagosAyer.reduce((s,p)=>s+p.monto,0);
+
+    // Sparkline: ingresos últimos 7 días
+    const sparkData = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        sparkData.push(
+            appData.facturas.flatMap(f=>f.pagos||[])
+                .filter(p=>p && isSameDayTZ(p.fecha, dk))
+                .reduce((s,p)=>s+p.monto, 0)
+        );
     }
 
-    if (dashRole === 'admin' || dashRole === 'professional') {
-        let shortEl = document.getElementById('dashShortcuts');
-        if (!shortEl) {
-            shortEl = document.createElement('div');
-            shortEl.id = 'dashShortcuts';
-            shortEl.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;margin-top:16px';
-            const statsGrid = document.querySelector('#tab-dashboard > div:nth-child(2)');
-            if (statsGrid) statsGrid.insertAdjacentElement('beforebegin', shortEl);
-        }
-        shortEl.innerHTML = `
-            <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)" style="
-                padding:14px 16px;background:var(--clinic-color);color:white;border:none;
-                border-radius:var(--radius-md);font-size:12px;letter-spacing:1px;text-transform:uppercase;
-                font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
-                box-shadow:0 4px 12px rgba(0,0,0,0.12);transition:opacity 0.2s"
-                onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-                <span style="font-size:18px;line-height:1">+</span> Nueva factura
-            </button>
-            <button onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)" style="
-                padding:14px 16px;background:var(--white);color:var(--dark);
-                border:1.5px solid rgba(30,28,26,0.1);border-radius:var(--radius-md);
-                font-size:12px;letter-spacing:1px;text-transform:uppercase;
-                font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;
-                transition:opacity 0.2s"
-                onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
-                💳 Cobrar
-            </button>
-        `;
-    }
+    // Citas hoy
+    const citasHoy         = appData.citas.filter(c => isSameDayTZ(c.fecha, todayKey));
+    const citasActivas     = citasHoy.filter(c => !['Cancelada','Inasistencia'].includes(c.estado));
+    const citasCompletadas = citasActivas.filter(c => c.estado === 'Completada').length;
+    const citasPendientes  = citasActivas.filter(c => c.estado === 'Pendiente' || c.estado === 'Confirmada').length;
+    const enSala           = citasActivas.filter(c => c.estado === 'En Sala de Espera').length;
 
-    // Hacer stat cards clicables → navegan a su módulo
-    const statCards = document.querySelectorAll('#tab-dashboard .dash-stat');
-    const statNavs = ['cobros', 'agenda', 'cobros', 'laboratorio'];
-    statCards.forEach((card, i) => {
-        card.style.cursor = 'pointer';
-        card.style.transition = (card.style.transition || '') + ', transform 0.15s, box-shadow 0.15s';
-        card.onclick = () => showTab(statNavs[i]);
-        card.onmouseenter = () => { card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.18)'; };
-        card.onmouseleave = () => { card.style.transform = ''; card.style.boxShadow = ''; };
+    // Facturas
+    const facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada');
+    const porCobrar = facturasPendientes.reduce((s,f) => {
+        const pagado = (f.pagos||[]).reduce((ss,p)=>ss+p.monto,0);
+        return s + Math.max(0, f.total - pagado);
+    }, 0);
+    const totalFacturado = appData.facturas
+        .filter(f => f.estado !== 'cancelada')
+        .reduce((s,f)=>s+f.total, 0);
+    const totalCobrado = appData.facturas
+        .flatMap(f=>f.pagos||[])
+        .reduce((s,p)=>s+p.monto, 0);
+    const tasaCobro = totalFacturado > 0 ? Math.round(totalCobrado/totalFacturado*100) : 0;
+
+    // Lab
+    const labActivo    = (appData.laboratorios||[]).filter(o => o.estadoActual !== 'Entregado');
+    const labPendiente = labActivo.filter(o => ['Toma de impresión','Enviado a laboratorio'].includes(o.estadoActual)).length;
+    const labAtrasado  = labActivo.filter(o => {
+        const timeline = o.timeline||[];
+        if (!timeline.length) return false;
+        const ultimo = timeline[timeline.length-1];
+        return (Date.now() - new Date(ultimo.fecha).getTime()) > 7*24*60*60*1000;
     });
 
-    // INGRESOS HOY
-    const pagosHoy = appData.facturas
-        .flatMap(f => f.pagos || [])
-        .filter(p => p && isSameDayTZ(p.fecha, todayKey));
-    const ingresosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+    // Pacientes nuevos esta semana vs semana anterior
+    const inicioSemana = new Date();
+    const dow = inicioSemana.getDay();
+    inicioSemana.setDate(inicioSemana.getDate() - (dow===0?6:dow-1));
+    inicioSemana.setHours(0,0,0,0);
+    const inicioSemanaAnterior = new Date(inicioSemana);
+    inicioSemanaAnterior.setDate(inicioSemanaAnterior.getDate()-7);
 
-    // Comparación con ayer
-    const pagosAyer = appData.facturas
-        .flatMap(f => f.pagos || [])
-        .filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
-    const ingresosAyer = pagosAyer.reduce((sum, p) => sum + p.monto, 0);
+    const pacNuevosSemana    = appData.pacientes.filter(p => p.fechaCreacion && new Date(p.fechaCreacion) >= inicioSemana).length;
+    const pacNuevosAnterior  = appData.pacientes.filter(p => p.fechaCreacion && new Date(p.fechaCreacion) >= inicioSemanaAnterior && new Date(p.fechaCreacion) < inicioSemana).length;
 
+    // Gastos del mes
+    const hoyDate = new Date();
+    const gastosDelMes = (appData.gastos||[]).filter(g => {
+        const d = new Date(g.fecha);
+        return d.getMonth()===hoyDate.getMonth() && d.getFullYear()===hoyDate.getFullYear();
+    }).reduce((s,g)=>s+g.monto, 0);
+
+    // Leaderboard: cobrado por profesional esta semana
+    const leaderMap = {};
+    appData.facturas.forEach(f => {
+        (f.pagos||[]).forEach(p => {
+            if (new Date(p.fecha).getTime() >= inicioSemana.getTime()) {
+                leaderMap[f.profesional] = (leaderMap[f.profesional]||0) + p.monto;
+            }
+        });
+    });
+    const leaderboard = Object.entries(leaderMap).sort((a,b)=>b[1]-a[1]).slice(0,4);
+
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 3 — TARJETAS DE STATS
+    // ────────────────────────────────────────────────────
+
+    // Card Ingresos
+    const cambio = ingresosAyer > 0 ? ((ingresosHoy-ingresosAyer)/ingresosAyer*100).toFixed(0) : null;
     document.getElementById('dashIngresosHoy').textContent = formatCurrency(ingresosHoy);
-    if (ingresosAyer > 0) {
-        const cambio = ((ingresosHoy - ingresosAyer) / ingresosAyer * 100).toFixed(0);
-        const icono = cambio >= 0 ? '↑' : '↓';
-        const color = cambio >= 0 ? '#fff' : '#ffcccc';
-        document.getElementById('dashIngresosComparacion').innerHTML =
-            `<span style="color: ${color}">${icono} ${Math.abs(cambio)}% vs ayer</span>`;
-    } else {
-        document.getElementById('dashIngresosComparacion').textContent = 'Primer día con ingresos';
+    document.getElementById('dashIngresosComparacion').innerHTML = cambio !== null
+        ? `${Number(cambio)>=0?'↑':'↓'} ${Math.abs(cambio)}% vs ayer`
+        : (ingresosHoy > 0 ? 'Primer cobro del día ✓' : 'Sin cobros aún hoy');
+
+    // Sparkline SVG — barras de 7 días
+    const sparkEl = document.getElementById('dashSparkline');
+    if (sparkEl) {
+        const maxV  = Math.max(...sparkData, 1);
+        const BW=10, GAP=4, H=24;
+        const W = sparkData.length*(BW+GAP)-GAP;
+        const bars = sparkData.map((v,i) => {
+            const barH = Math.max(2, Math.round(v/maxV*H));
+            const x = i*(BW+GAP);
+            const y = H - barH;
+            return `<rect x="${x}" y="${y}" width="${BW}" height="${barH}" rx="3" fill="${i===6?'rgba(255,255,255,.95)':'rgba(255,255,255,.4)'}"/>`;
+        }).join('');
+        const nowDow = new Date().getDay();
+        const labels = sparkData.map((_,i) => {
+            const dOff = 6-i;
+            const d = ((nowDow-dOff)%7+7)%7;
+            const lbl = ['D','L','M','M','J','V','S'][d];
+            const x = i*(BW+GAP)+Math.floor(BW/2);
+            return `<text x="${x}" y="${H+10}" text-anchor="middle" font-size="8" font-family="inherit" fill="${i===6?'rgba(255,255,255,.9)':'rgba(255,255,255,.5)'}">${lbl}</text>`;
+        }).join('');
+        sparkEl.innerHTML = `<svg width="${W}" height="${H+12}" viewBox="0 0 ${W} ${H+12}">${bars}${labels}</svg>`;
     }
 
-    // CITAS HOY
-    const citasHoy = appData.citas.filter(c => isSameDayTZ(c.fecha, todayKey));
-    const citasPendientes = citasHoy.filter(c =>
-        c.estado === 'Pendiente' || c.estado === 'Confirmada'
-    ).length;
-
-    document.getElementById('dashCitasHoy').textContent = citasHoy.length;
+    // Card Citas
+    document.getElementById('dashCitasHoy').textContent = citasActivas.length;
     document.getElementById('dashCitasPendientes').textContent =
-        citasPendientes > 0 ? `${citasPendientes} pendientes` : 'Todas completadas';
+        enSala > 0 ? `${enSala} en sala · ${citasPendientes} pendiente${citasPendientes!==1?'s':''}` :
+        citasPendientes > 0 ? `${citasPendientes} pendiente${citasPendientes!==1?'s':''}` : 'Todas completadas';
 
-    // facturasPendientes siempre disponible — se usa también en el bloque de alertas
-    const facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada');
+    // Occupancy progress bar
+    const ocupEl = document.getElementById('dashOcupacion');
+    if (ocupEl) {
+        if (citasActivas.length > 0) {
+            const pct = Math.round(citasCompletadas/citasActivas.length*100);
+            ocupEl.innerHTML = `
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="flex:1;height:3px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden;">
+                        <div style="width:${pct}%;height:100%;background:rgba(255,255,255,.9);border-radius:2px;transition:width .6s;"></div>
+                    </div>
+                    <span style="font-size:10px;color:rgba(255,255,255,.75);">${pct}%</span>
+                </div>`;
+        } else {
+            ocupEl.innerHTML = '';
+        }
+    }
 
-    // POR COBRAR (admin/recepción) / MIS COMISIONES (profesional)
+    // Card Por Cobrar / Comisiones
+    const cobrarLabel = document.getElementById('dashCardCobrarLabel');
     if (dashRole === 'professional') {
         const person = appData.personal.find(p => p.nombre === appData.currentUser);
         if (person) {
-            const comisionRate   = getComisionRate(person.tipo, person);
-            const comisionesAcum = calcularComisionesAcumuladas(person);
-            const avances        = calcularTotalAvances(person.id);
-            const neto           = Math.max(0, comisionesAcum - avances);
-
-            document.getElementById('dashPorCobrar').textContent = formatCurrency(comisionesAcum);
+            const rate  = getComisionRate(person.tipo, person);
+            const acum  = calcularComisionesAcumuladas(person);
+            const avs   = calcularTotalAvances(person.id);
+            const neto  = Math.max(0, acum - avs);
+            if (cobrarLabel) cobrarLabel.textContent = 'Mis comisiones';
+            document.getElementById('dashPorCobrar').textContent = formatCurrency(acum);
             document.getElementById('dashFacturasPendientes').textContent =
-                avances > 0
-                    ? `Neto ${formatCurrency(neto)} · ${comisionRate}%`
-                    : `${comisionRate}% comisión`;
+                avs > 0 ? `Neto ${formatCurrency(neto)} · ${rate}%` : `${rate}% comisión`;
+            const cardCobrar = document.getElementById('dashCardCobrar');
+            if (cardCobrar) cardCobrar.style.background = 'linear-gradient(135deg,#7B8FA1 0%,#5A7080 100%)';
         }
     } else {
-        const porCobrar = facturasPendientes.reduce((sum, f) => {
-            const pagado = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
-            return sum + (f.total - pagado);
-        }, 0);
-
+        if (cobrarLabel) cobrarLabel.textContent = 'Por cobrar';
         document.getElementById('dashPorCobrar').textContent = formatCurrency(porCobrar);
         document.getElementById('dashFacturasPendientes').textContent =
-            `${facturasPendientes.length} factura${facturasPendientes.length !== 1 ? 's' : ''}`;
+            `${facturasPendientes.length} factura${facturasPendientes.length!==1?'s':''}`;
+        // Collection rate bar
+        const rateEl = document.getElementById('dashCollectionRate');
+        if (rateEl) {
+            rateEl.innerHTML = `
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="flex:1;height:3px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden;">
+                        <div style="width:${tasaCobro}%;height:100%;background:rgba(255,255,255,.9);border-radius:2px;transition:width .6s;"></div>
+                    </div>
+                    <span style="font-size:10px;color:rgba(255,255,255,.75);">${tasaCobro}% cobrado</span>
+                </div>`;
+        }
     }
 
-    // LABORATORIO ACTIVO
-    const labActivo = (appData.laboratorios || []).filter(o =>
-        o.estadoActual !== 'Entregado'
-    );
-    const labPendiente = labActivo.filter(o =>
-        o.estadoActual === 'Toma de impresión' || o.estadoActual === 'Enviado a laboratorio'
-    ).length;
-
-    // Mostrar u ocultar stat card de lab según módulo activo
-    const labCard = document.querySelector('#tab-dashboard .dash-stat:nth-child(4)');
+    // Card Lab
+    const labCard = document.getElementById('dashCardLab');
     if (labCard) labCard.style.display = hasModule('laboratorio') ? '' : 'none';
     document.getElementById('dashLabActivo').textContent = labActivo.length;
     document.getElementById('dashLabPendiente').textContent =
-        labPendiente > 0 ? `${labPendiente} pendientes` : 'Todos en proceso';
+        labAtrasado.length > 0 ? `⚠ ${labAtrasado.length} atrasada${labAtrasado.length!==1?'s':''}` :
+        labPendiente > 0 ? `${labPendiente} en proceso` : 'Al día ✓';
 
-    // ALERTAS
-    const alertas = [];
+    // Click nav on stat cards
+    const cardNavMap = [
+        { id:'dashCardIngresos', tab:'cobros' },
+        { id:'dashCardCitas',    tab:'agenda' },
+        { id:'dashCardCobrar',   tab:'cobros' },
+        { id:'dashCardLab',      tab:'laboratorio' },
+    ];
+    cardNavMap.forEach(({id, tab}) => {
+        const el = document.getElementById(id);
+        if (el) el.onclick = () => showTab(tab);
+    });
 
-    // Facturas viejas
-    const hace30Dias = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    const facturasViejas = facturasPendientes.filter(f =>
-        new Date(f.fecha).getTime() < hace30Dias
-    );
-    if (facturasViejas.length > 0) {
-        alertas.push(`${facturasViejas.length} factura${facturasViejas.length !== 1 ? 's' : ''} pendiente${facturasViejas.length !== 1 ? 's' : ''} de más de 30 días`);
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 4 — KPI SECUNDARIOS
+    // ────────────────────────────────────────────────────
+    const kpiRow = document.getElementById('dashKpiRow');
+    if (kpiRow) {
+        const pacDelta = pacNuevosSemana - pacNuevosAnterior;
+        const pacArrow = pacDelta > 0
+            ? `<span style="color:var(--salvia);font-size:11px;margin-left:3px;">↑${pacDelta}</span>`
+            : pacDelta < 0
+            ? `<span style="color:var(--terra);font-size:11px;margin-left:3px;">↓${Math.abs(pacDelta)}</span>`
+            : '';
+        const gastosStr = formatCurrency(gastosDelMes).replace('RD$ ','').replace(' ','');
+
+        kpiRow.innerHTML = `
+            <div class="dash-kpi" onclick="showTab('cobros')" title="Porcentaje del total facturado que ya está cobrado">
+                <div class="dash-kpi-val" style="color:${tasaCobro>=80?'var(--salvia)':tasaCobro>=50?'var(--topo)':'var(--terra)'};">${tasaCobro}%</div>
+                <div class="dash-kpi-lbl">Tasa cobro</div>
+            </div>
+            <div class="dash-kpi" onclick="showTab('pacientes')" title="Pacientes nuevos esta semana">
+                <div class="dash-kpi-val">${pacNuevosSemana}${pacArrow}</div>
+                <div class="dash-kpi-lbl">Nuevos / sem</div>
+            </div>
+            <div class="dash-kpi" onclick="showTab('cobros')" title="Gastos registrados este mes">
+                <div class="dash-kpi-val" style="font-size:${gastosStr.length>7?'14px':'19px'};">${gastosStr}</div>
+                <div class="dash-kpi-lbl">Gastos mes</div>
+            </div>
+        `;
     }
 
-    // Pacientes sin consentimiento (solo admin — es quien puede gestionarlo globalmente)
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 5 — ALERTAS INTELIGENTES CON ACCIONES
+    // ────────────────────────────────────────────────────
+    const alertItems = [];
+
+    // Facturas vencidas > 30 días — por nombre de paciente
+    const hace30 = Date.now() - 30*24*60*60*1000;
+    const facturasViejas = facturasPendientes.filter(f => new Date(f.fecha).getTime() < hace30);
+    facturasViejas.slice(0,3).forEach(f => {
+        const dias    = Math.floor((Date.now()-new Date(f.fecha).getTime())/(24*60*60*1000));
+        const deuda   = Math.max(0, f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0));
+        const facId   = f.id;
+        alertItems.push({
+            icon : '💰',
+            text : `<strong>${f.paciente}</strong> — ${formatCurrency(deuda)} · <span style="color:var(--terra);">${dias} días</span>`,
+            btn  : 'Cobrar',
+            click: `openPagarFactura('${facId}')`
+        });
+    });
+    if (facturasViejas.length > 3) {
+        alertItems.push({
+            icon : '📋',
+            text : `${facturasViejas.length-3} facturas más con +30 días pendientes`,
+            btn  : 'Ver todas',
+            click: `showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)`
+        });
+    }
+
+    // Pacientes sin consentimiento (admin, max 3)
     if (dashRole === 'admin') {
-        const pacientesSinConsentimiento = appData.pacientes.filter(p =>
-            !p.consentimiento || !p.consentimiento.firmado
-        );
-        if (pacientesSinConsentimiento.length > 0 && pacientesSinConsentimiento.length <= 10) {
-            alertas.push(`${pacientesSinConsentimiento.length} paciente${pacientesSinConsentimiento.length !== 1 ? 's' : ''} sin consentimiento firmado`);
-        }
+        const sinConsentimiento = appData.pacientes.filter(p => !p.consentimiento?.firmado);
+        sinConsentimiento.slice(0,3).forEach(p => {
+            alertItems.push({
+                icon : '📋',
+                text : `<strong>${p.nombre}</strong> sin consentimiento firmado`,
+                btn  : 'Firmar',
+                click: `verPaciente('${p.id}')`
+            });
+        });
     }
 
-    // Próxima cita (en 1 hora)
-    const enUnaHora = Date.now() + (60 * 60 * 1000);
+    // Cita en la próxima hora
+    const enUnaHora = Date.now() + 60*60*1000;
     const citaProxima = appData.citas.find(c => {
-        const fechaCita = new Date(c.fecha).getTime();
-        return fechaCita > Date.now() && fechaCita <= enUnaHora &&
-               (c.estado === 'Pendiente' || c.estado === 'Confirmada');
+        const ts = new Date(c.fecha).getTime();
+        return ts > Date.now() && ts <= enUnaHora && (c.estado==='Pendiente'||c.estado==='Confirmada');
     });
     if (citaProxima) {
-        const hora = new Date(citaProxima.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
-        alertas.push(`Próxima cita ${hora}: ${citaProxima.paciente} (${citaProxima.estado})`);
+        const hCita = new Date(citaProxima.fecha).toLocaleTimeString(getLocale(),{hour:'2-digit',minute:'2-digit'});
+        alertItems.push({
+            icon : '🕐',
+            text : `Próxima cita a las <strong>${hCita}</strong> — ${citaProxima.paciente}`,
+            btn  : 'Ver',
+            click: `verDetalleCita('${citaProxima.id}')`
+        });
     }
 
-    // Mostrar alertas
+    // Lab atrasado
+    if (labAtrasado.length > 0 && hasModule('laboratorio')) {
+        alertItems.push({
+            icon : '🧪',
+            text : `${labAtrasado.length} orden${labAtrasado.length!==1?'es':''} de lab sin avance en +7 días`,
+            btn  : 'Ver lab',
+            click: `showTab('laboratorio')`
+        });
+    }
+
     const alertasContainer = document.getElementById('dashboardAlertas');
-    if (alertas.length > 0) {
+    const alertasList      = document.getElementById('dashAlertasList');
+    const alertaBadge      = document.getElementById('dashAlertaBadge');
+    if (alertItems.length > 0) {
         alertasContainer.style.display = 'block';
-        document.getElementById('dashAlertasList').innerHTML = alertas.map(a => `<li>${a}</li>`).join('');
+        if (alertaBadge) alertaBadge.textContent = alertItems.length;
+        alertasList.innerHTML = alertItems.map(a =>`
+            <div class="dash-alert-row">
+                <span style="line-height:1.4;">${a.icon} ${a.text}</span>
+                <button class="dash-alert-btn" onclick="${a.click}">${a.btn}</button>
+            </div>`).join('');
     } else {
         alertasContainer.style.display = 'none';
     }
 
-    // AGENDA HOY
-    const agendaHoy = citasHoy
-        .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
-        .slice(0, 5); // Mostrar solo primeras 5
-
-    if (agendaHoy.length === 0) {
-        document.getElementById('dashAgendaHoy').innerHTML =
-            '<div style="text-align: center; padding: 40px; color: #999;">No hay citas programadas para hoy</div>';
-    } else {
-        document.getElementById('dashAgendaHoy').innerHTML = agendaHoy.map(c => {
-            const hora = new Date(c.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
-            const color = getColorEstadoCita(c.estado);
-            const icono = getIconoEstadoCita(c.estado);
-
-            return `
-                <div onclick="verDetalleCita('${c.id}')" style="display:flex;align-items:center;padding:12px;margin-bottom:8px;
-                    background:var(--surface);border-radius:10px;border-left:4px solid ${color};
-                    cursor:pointer;transition:background 0.15s"
-                    onmouseenter="this.style.background='var(--bg)'"
-                    onmouseleave="this.style.background='var(--surface)'">
-                    <div style="flex:1;">
-                        <div style="font-weight:500;font-size:14px;color:var(--dark)">${hora} · ${c.paciente}</div>
-                        <div style="font-size:12px;color:var(--mid);margin-top:3px">${c.motivo || 'Sin motivo'} · ${c.profesional}</div>
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 6 — LEADERBOARD SEMANAL (admin, 2+ profesionales)
+    // ────────────────────────────────────────────────────
+    const leaderEl = document.getElementById('dashLeaderboard');
+    if (leaderEl) {
+        if (dashRole === 'admin' && leaderboard.length >= 2) {
+            const medals = ['🥇','🥈','🥉',''];
+            const totalSemana = leaderboard.reduce((s,[,v])=>s+v,0);
+            leaderEl.style.display = 'block';
+            leaderEl.innerHTML = `
+                <div class="card" style="padding:14px 16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <span style="font-size:11px;font-weight:500;color:var(--piedra);letter-spacing:.8px;text-transform:uppercase;">Ranking esta semana</span>
+                        <span style="font-size:12px;color:var(--piedra);">${formatCurrency(totalSemana)} total</span>
                     </div>
-                    <div style="background:${color};color:white;padding:5px 11px;border-radius:100px;font-size:11px;font-weight:600;flex-shrink:0">
-                        ${icono} ${c.estado}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        if (citasHoy.length > 5) {
-            document.getElementById('dashAgendaHoy').innerHTML +=
-                `<div style="text-align: center; padding: 10px; color: #666;">
-                    Y ${citasHoy.length - 5} cita${citasHoy.length - 5 !== 1 ? 's' : ''} más...
+                    ${leaderboard.map(([nom,monto],i) => {
+                        const pct = totalSemana > 0 ? Math.round(monto/totalSemana*100) : 0;
+                        return `
+                        <div class="dash-leader-row">
+                            <span style="width:20px;text-align:center;font-size:15px;flex-shrink:0;">${medals[i]||''}</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                                    <span style="font-size:13px;font-weight:${i===0?'500':'400'};color:var(--topo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nom}</span>
+                                    <span style="font-size:12px;font-weight:600;color:${i===0?'var(--terra)':'var(--piedra)'};margin-left:8px;flex-shrink:0;">${formatCurrency(monto)}</span>
+                                </div>
+                                <div style="height:3px;background:rgba(30,28,26,.08);border-radius:2px;overflow:hidden;">
+                                    <div style="width:${pct}%;height:100%;background:${i===0?'var(--terra)':'var(--pizarra)'};border-radius:2px;"></div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('')}
                 </div>`;
+        } else {
+            leaderEl.style.display = 'none';
         }
     }
+
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 7 — AGENDA HOY (smart timeline)
+    // ────────────────────────────────────────────────────
+    const salaBadge = document.getElementById('dashSalaBadge');
+    if (salaBadge) {
+        if (enSala > 0) {
+            salaBadge.style.display = 'inline';
+            salaBadge.textContent = `${enSala} en sala`;
+        } else {
+            salaBadge.style.display = 'none';
+        }
+    }
+
+    const sortedCitas = [...citasActivas]
+        .sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
+
+    const agendaEl = document.getElementById('dashAgendaHoy');
+    if (!agendaEl) { /* skip */ }
+    else if (sortedCitas.length === 0) {
+        agendaEl.innerHTML = `
+            <div style="text-align:center;padding:28px 0;color:var(--piedra);">
+                <div style="font-size:30px;margin-bottom:8px;">📅</div>
+                <div style="font-size:13px;">Sin citas para hoy</div>
+            </div>`;
+    } else {
+        // Find "current" cita: en sala first, else next pending
+        let currentIdx = sortedCitas.findIndex(c => c.estado==='En Sala de Espera');
+        if (currentIdx === -1) currentIdx = sortedCitas.findIndex(c => c.estado==='Pendiente'||c.estado==='Confirmada');
+
+        const rows = sortedCitas.slice(0,6).map((c,i) => {
+            const color   = getColorEstadoCita(c.estado);
+            const icono   = getIconoEstadoCita(c.estado);
+            const esActual = i === currentIdx;
+            // Balance indicator
+            const balPac  = calcularBalancePaciente(c.paciente);
+            const balBadge = balPac > 0
+                ? `<span style="font-size:10px;background:rgba(196,133,106,.18);color:var(--terra);padding:1px 6px;border-radius:8px;flex-shrink:0;">💰 debe</span>`
+                : '';
+            const salaBadgeRow = esActual && c.estado==='En Sala de Espera'
+                ? `<span style="font-size:10px;background:rgba(107,143,113,.2);color:var(--salvia);padding:1px 6px;border-radius:8px;flex-shrink:0;">en sala</span>`
+                : '';
+            return `
+                <div class="dash-cita-item ${esActual?'es-actual':''}"
+                     onclick="verDetalleCita('${c.id}')"
+                     style="border-left-color:${color};">
+                    <div style="width:46px;flex-shrink:0;text-align:center;">
+                        <div style="font-size:13px;font-weight:600;color:var(--topo);">${c.hora}</div>
+                        <div style="font-size:10px;color:var(--piedra);">C${c.consultorio}</div>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:500;color:var(--dark);display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.paciente}</span>
+                            ${balBadge}${salaBadgeRow}
+                        </div>
+                        <div style="font-size:11px;color:var(--piedra);margin-top:2px;">${c.motivo||'Sin motivo'} · ${c.profesional}</div>
+                    </div>
+                    <div style="background:${color};color:white;padding:4px 9px;border-radius:100px;font-size:10px;font-weight:600;flex-shrink:0;">
+                        ${icono} ${c.estado}
+                    </div>
+                </div>`;
+        }).join('');
+
+        const extra = sortedCitas.length > 6
+            ? `<div style="text-align:center;padding:6px;font-size:12px;color:var(--piedra);">+ ${sortedCitas.length-6} cita${sortedCitas.length-6!==1?'s':''} más hoy</div>`
+            : '';
+
+        agendaEl.innerHTML = rows + extra;
+    }
+
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 8 — LAB INSIGHT (módulo activo, solo si hay datos)
+    // ────────────────────────────────────────────────────
+    const labInsightEl = document.getElementById('dashLabInsight');
+    if (labInsightEl) {
+        if (hasModule('laboratorio') && labActivo.length > 0) {
+            // Bottleneck stage
+            const stageCounts = {};
+            labActivo.forEach(o => { stageCounts[o.estadoActual] = (stageCounts[o.estadoActual]||0)+1; });
+            const [bottleStage, bottleCount] = Object.entries(stageCounts).sort((a,b)=>b[1]-a[1])[0];
+            // Oldest delayed
+            const oldestAtrasado = labAtrasado.sort((a,b) => {
+                const ta = (a.timeline||[]).slice(-1)[0]?.fecha || a.fechaCreacion;
+                const tb = (b.timeline||[]).slice(-1)[0]?.fecha || b.fechaCreacion;
+                return new Date(ta) - new Date(tb);
+            })[0];
+
+            labInsightEl.style.display = 'block';
+            labInsightEl.innerHTML = `
+                <div class="card" style="padding:14px 16px;cursor:pointer;" onclick="showTab('laboratorio')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <span style="font-size:11px;font-weight:500;color:var(--piedra);letter-spacing:.8px;text-transform:uppercase;">🧪 Laboratorio</span>
+                        <span style="font-size:11px;color:var(--pizarra);">Ver todo →</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:${oldestAtrasado?'10px':'0'};">
+                        <div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center;">
+                            <div style="font-size:20px;font-weight:300;color:var(--topo);">${bottleCount}</div>
+                            <div style="font-size:10px;color:var(--piedra);margin-top:2px;">${bottleStage}</div>
+                        </div>
+                        <div style="background:${labAtrasado.length>0?'rgba(196,133,106,.1)':'var(--surface)'};border-radius:10px;padding:10px;text-align:center;${labAtrasado.length>0?'border:1.5px solid rgba(196,133,106,.3)':''}">
+                            <div style="font-size:20px;font-weight:300;color:${labAtrasado.length>0?'var(--terra)':'var(--topo)'};">${labAtrasado.length}</div>
+                            <div style="font-size:10px;color:var(--piedra);margin-top:2px;">atrasadas</div>
+                        </div>
+                    </div>
+                    ${oldestAtrasado ? `
+                    <div style="padding:8px 12px;background:rgba(196,133,106,.08);border-radius:8px;font-size:12px;color:var(--topo);">
+                        ⚠ Más antigua: <strong>${oldestAtrasado.paciente}</strong> · ${oldestAtrasado.estadoActual}
+                    </div>` : ''}
+                </div>`;
+        } else {
+            labInsightEl.style.display = 'none';
+        }
+    }
+
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 9 — QUICK ACTIONS POR ROL
+    // ────────────────────────────────────────────────────
+    const qaEl = document.getElementById('dashQuickActions');
+    if (qaEl) {
+        let buttons = [];
+        if (dashRole === 'admin') {
+            buttons = [
+                { label:'+ Nueva factura', primary:true,  click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
+                { label:'💳 Cobrar',        primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)` },
+                { label:'📅 Agendar',       primary:false, click:`showTab('agenda')` },
+                { label:'📊 Reportes',      primary:false, click:`showTab('reportes')` },
+            ];
+        } else if (dashRole === 'reception') {
+            buttons = [
+                { label:'📅 Nueva cita',    primary:true,  click:`showTab('agenda')` },
+                { label:'+ Nueva factura', primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
+                { label:'💳 Cobrar',        primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)` },
+            ];
+        } else if (dashRole === 'professional') {
+            buttons = [
+                { label:'👤 Mi agenda',     primary:true,  click:`showTab('agenda');setTimeout(()=>{verAgendaPropia=true;updateAgendaTab();},50)` },
+                { label:'+ Nueva factura', primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
+            ];
+        }
+        qaEl.innerHTML = buttons.length > 0 ? `
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                ${buttons.map(b=>`
+                    <button onclick="${b.click}"
+                        style="flex:1;min-width:90px;padding:11px 14px;border:none;
+                               border-radius:var(--radius-md);font-size:12px;font-family:inherit;
+                               cursor:pointer;font-weight:500;transition:opacity .15s;
+                               background:${b.primary?'var(--clinic-color)':'var(--surface)'};
+                               color:${b.primary?'white':'var(--topo)'};
+                               box-shadow:${b.primary?'0 4px 14px rgba(0,0,0,.15)':'var(--neu-raised)'};"
+                        onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
+                        ${b.label}
+                    </button>`).join('')}
+            </div>` : '';
+    }
 }
+
+// ════════════════════════════════════════════════════════
+// Auto-refresh dashboard cada 60s mientras está visible
+// ════════════════════════════════════════════════════════
+let _dashRefreshTimer = null;
+document.addEventListener('DOMContentLoaded', () => {
+    // Observe tab visibility using MutationObserver on classList
+    const dashTab = document.getElementById('tab-dashboard');
+    if (dashTab) {
+        const obs = new MutationObserver(() => {
+            const visible = dashTab.classList.contains('active');
+            if (visible && !_dashRefreshTimer) {
+                _dashRefreshTimer = setInterval(() => {
+                    if (document.getElementById('tab-dashboard')?.classList.contains('active')) {
+                        updateDashboardTab();
+                    }
+                }, 60000);
+            } else if (!visible && _dashRefreshTimer) {
+                clearInterval(_dashRefreshTimer);
+                _dashRefreshTimer = null;
+            }
+        });
+        obs.observe(dashTab, { attributes: true, attributeFilter: ['class'] });
+    }
+});
+
+
 
 // ========================================
 // CONFIRMACIONES INTELIGENTES
