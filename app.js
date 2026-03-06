@@ -717,6 +717,7 @@ async function loadData() {
 
             // Guardar en caché local
             updateLocalCache();
+            _normalizarEstadosFacturas(); // Fix 9
 
             // Limpiar/migrar datos antiguos automáticamente
             await limpiarDatosAntiguos();
@@ -798,6 +799,16 @@ async function loadData() {
 }
 
 let _cacheDebounceTimer = null;
+function _normalizarEstadosFacturas() {
+    // Fix 9: Normalize legacy English estado values to Spanish
+    (appData.facturas || []).forEach(f => {
+        if (f.estado === 'partial')  f.estado = 'parcial';
+        if (f.estado === 'pending')  f.estado = 'pendiente';
+        if (f.estado === 'paid')     f.estado = 'pagada';
+        if (f.estado === 'cancelled' || f.estado === 'canceled') f.estado = 'cancelada';
+    });
+}
+
 function updateLocalCache() {
     // Debounce: only write localStorage after 800ms of inactivity
     // Prevents serializing the entire dataset on every keystroke
@@ -1859,10 +1870,36 @@ function updateTotal() {
     const subtotalConLab = subtotal + totalLab;
 
     const slider = getFacturaEl('descuentoSlider');
-    const descuento = parseFloat(slider ? slider.value : 0) / 100;
+    const descuentoPct = parseFloat(slider ? slider.value : 0);
+    const descuento = descuentoPct / 100;
     const total = subtotalConLab * (1 - descuento);
     const totalEl = getFacturaEl('totalFactura');
     if (totalEl) totalEl.textContent = formatCurrency(total);
+
+    // Fix 7: Prominent discount badge
+    const badgeEl = getFacturaEl('descuentoBadge');
+    if (badgeEl) {
+        if (descuentoPct > 0) {
+            const ahorro = subtotalConLab - total;
+            badgeEl.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;
+                            background:rgba(52,199,89,.1);border:1.5px solid rgba(52,199,89,.3);
+                            border-radius:10px;padding:10px 14px;">
+                    <div>
+                        <div style="font-size:13px;font-weight:600;color:#2a7a3a;">🏷️ Descuento ${descuentoPct}% aplicado</div>
+                        <div style="font-size:11px;color:#3a8a4a;margin-top:1px;">Ahorro: ${formatCurrency(ahorro)}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px;color:#aaa;text-decoration:line-through;">${formatCurrency(subtotalConLab)}</div>
+                        <div style="font-size:16px;font-weight:700;color:#2a7a3a;">${formatCurrency(total)}</div>
+                    </div>
+                </div>`;
+            badgeEl.style.display = 'block';
+        } else {
+            badgeEl.innerHTML = '';
+            badgeEl.style.display = 'none';
+        }
+    }
 }
 
 async function generarFactura() {
@@ -2021,9 +2058,15 @@ async function generarFactura() {
 // Ingresos Tab
 function updateIngresosTab() {
     const todayKey = getTodayKey();
-    const misFacturas = appData.facturas.filter(f => f.profesional === appData.currentUser);
+    const esAdmin = appData.currentRole === 'admin';
 
-    const ingresosHoy = misFacturas
+    // Fix 5: Admin sees all invoices; professionals see only their own
+    const misFacturas = esAdmin
+        ? [...appData.facturas].sort((a,b) => new Date(b.fecha) - new Date(a.fecha))
+        : appData.facturas.filter(f => f.profesional === appData.currentUser)
+                          .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+    const ingresosHoy = (esAdmin ? appData.facturas : misFacturas)
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, todayKey))
         .reduce((sum, p) => sum + p.monto, 0);
@@ -2038,7 +2081,7 @@ function updateIngresosTab() {
         .reduce((sum, f) => sum + ((f.pagos || []).reduce((s, p) => s + p.monto, 0) * comision / 100), 0);
 
     const porCobrar = misFacturas
-        .filter(f => f.estado !== 'pagada')
+        .filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada')
         .reduce((sum, f) => sum + (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)), 0);
 
     document.getElementById('ingresosHoy').textContent = formatCurrency(ingresosHoy);
@@ -2046,25 +2089,66 @@ function updateIngresosTab() {
     document.getElementById('comisionesAcum').textContent = formatCurrency(comisionesAcum);
     document.getElementById('porCobrar').textContent = formatCurrency(porCobrar);
 
+    // Fix 5: Populate and read professional filter
+    const filtroProfEl = document.getElementById('ingresosFiltroProfesional');
+    if (filtroProfEl && esAdmin) {
+        const currentVal = filtroProfEl.value;
+        const profesionales = [...new Set(appData.facturas.map(f => f.profesional).filter(Boolean))].sort();
+        filtroProfEl.innerHTML = '<option value="todos">Todos los profesionales</option>' +
+            profesionales.map(p => `<option value="${p}" ${currentVal===p?'selected':''}>${p}</option>`).join('');
+        filtroProfEl.style.display = '';
+    } else if (filtroProfEl) {
+        filtroProfEl.style.display = 'none';
+    }
+    const filtroProf = filtroProfEl?.value || 'todos';
+    const facturasFiltradas = (filtroProf === 'todos' || !esAdmin)
+        ? misFacturas
+        : misFacturas.filter(f => f.profesional === filtroProf);
+
     const list = document.getElementById('facturasPersonal');
-    if (misFacturas.length === 0) {
-        list.innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay facturas</li>';
-    } else {
-        list.innerHTML = misFacturas.map(f => `
-            <li>
-                <div class="item-header">
+    if (facturasFiltradas.length === 0) {
+        list.innerHTML = '<li style="text-align:center;color:var(--muted,#A89F96);padding:24px 0;">Sin facturas para mostrar</li>';
+        return;
+    }
+
+    // Fix 6: Add action buttons to each invoice row
+    const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+    list.innerHTML = facturasFiltradas.map(f => {
+        const balance = f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        const badgeClass = f.estado === 'pagada' ? 'badge-paid'
+                         : f.estado === 'cancelada' ? 'badge-cancel'
+                         : f.estado === 'parcial' ? 'badge-partial' : 'badge-pending';
+        const badgeLabel = f.estado === 'pagada' ? 'Pagada'
+                         : f.estado === 'cancelada' ? 'Cancelada'
+                         : f.estado === 'parcial' ? 'Con abono' : 'Pendiente';
+        return `
+            <li style="padding:14px 16px;">
+                <div class="item-header" style="margin-bottom:6px;">
                     <div>
-                        <div style="font-size: 12px; color: #8e8e93;">${f.numero}</div>
+                        <div style="font-size:11px;color:var(--muted,#A89F96);">${f.numero} · ${formatDate(f.fecha)}${esAdmin ? ' · ' + f.profesional : ''}</div>
                         <div class="item-title">${f.paciente}</div>
                     </div>
-                    <span class="badge badge-${f.estado === 'pagada' ? 'paid' : (f.estado === 'parcial' || f.estado === 'partial') ? 'partial' : 'pending'}">
-                        ${f.estado === 'pagada' ? 'Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? 'Con Abono' : 'Pendiente'}
-                    </span>
+                    <span class="badge ${badgeClass}">${badgeLabel}</span>
                 </div>
-                <div class="item-amount">${formatCurrency(f.total)}</div>
-            </li>
-        `).join('');
-    }
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <div>
+                        <span class="item-amount">${formatCurrency(f.total)}</span>
+                        ${balance > 0 && f.estado !== 'pagada' ? `<span style="font-size:11px;color:var(--terra,#C4856A);margin-left:6px;">· ${formatCurrency(balance)} pendiente</span>` : ''}
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        ${canCobrar && f.estado !== 'pagada' && f.estado !== 'cancelada' ? `
+                            <button class="btn btn-submit" style="padding:7px 14px;font-size:12px;"
+                                onclick="openPagarFactura('${f.id}')">💳 Cobrar</button>
+                        ` : ''}
+                        ${f.estado === 'pagada' ? `
+                            <button class="btn btn-secondary" style="padding:7px 14px;font-size:12px;"
+                                onclick="generarFacturaCliente(appData.facturas.find(x=>x.id==='${f.id}'), appData.facturas.find(x=>x.id==='${f.id}').total, appData.facturas.find(x=>x.id==='${f.id}').pagos.slice(-1)[0]?.metodo||'efectivo')">
+                                📄 Ver recibo</button>
+                        ` : ''}
+                    </div>
+                </div>
+            </li>`;
+    }).join('');
 }
 
 function getComisionRate(tipo, person) {
@@ -2291,6 +2375,20 @@ async function confirmarPago() {
 
     updateCobrarTab();
     closeModal('modalPagarFactura');
+
+    // Fix 8: Refresh patient balance if patient record is open
+    if (currentPacienteId) {
+        const tab = window._lastPacienteTab || 'balance';
+        // If we're in patient modal context (came from abrirPagoFactura), re-render balance
+        // This is already handled by tempPacienteIdRetorno flow, but we also refresh
+        // if the modal is currently open
+        const modalOpen = document.getElementById('modalVerPaciente')?.classList?.contains('active');
+        if (!modalOpen && window.tempPacienteIdRetorno) {
+            // handled by tempPacienteIdRetorno flow
+        } else if (modalOpen) {
+            cambiarTabPaciente('balance');
+        }
+    }
 }
 function generarFacturaCliente(factura, montoPagado, metodoPago) {
     const fecha = new Date().toLocaleDateString(getLocale(), {year: 'numeric', month: 'long', day: 'numeric'});
@@ -4204,6 +4302,27 @@ function abrirReversarCobro(facturaId) {
     document.getElementById('reversarMonto').textContent = formatCurrency(ultimoPago.monto);
     document.getElementById('reversarMotivo').value = '';
 
+    // Fix 3: Show extra context about the payment being reversed
+    const extraCtx = document.getElementById('reversarContextoExtra');
+    if (extraCtx) {
+        const metodoPagoLabel = { efectivo:'Efectivo', tarjeta:'Tarjeta', transferencia:'Transferencia' };
+        extraCtx.innerHTML = `
+            <div style="background:var(--sand,#EEEAE4);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="color:var(--piedra,#7A7068);">Método de pago</span>
+                    <strong>${metodoPagoLabel[ultimoPago.metodo] || ultimoPago.metodo || 'Efectivo'}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="color:var(--piedra,#7A7068);">Fecha del pago</span>
+                    <strong>${ultimoPago.fecha ? formatDate(ultimoPago.fecha) : 'Sin fecha'}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:var(--piedra,#7A7068);">Pago a reversar</span>
+                    <strong>${factura.pagos.length} de ${factura.pagos.length} (el más reciente)</strong>
+                </div>
+            </div>`;
+    }
+
     openModal('modalReversarCobro');
 }
 
@@ -5248,7 +5367,7 @@ function renderTabResumen(paciente) {
                 </button>
             </div>
         </div>
-    \`;
+    `;
 }
 
 function renderTabHistorial(paciente) {
@@ -5393,7 +5512,7 @@ function renderTabHistorial(paciente) {
                         style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
                                color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
                                font-family:inherit;cursor:pointer;">
-                        💳 Cobrar esta cotización
+                        💳 Cobrar factura
                     </button>`:''}
                 </div>
             </div>`;
@@ -8450,7 +8569,8 @@ function aplicarFiltrosFacturas() {
     const estado = document.getElementById('filtroEstadoFactura').value;
     const pacienteBusqueda = document.getElementById('filtroPacienteFactura').value.toLowerCase();
 
-    let facturasFiltradas = appData.facturas;
+    // Fix 10: Sort by date descending so newest appear first
+    let facturasFiltradas = [...appData.facturas].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
     // Filtro por fecha
     if (fechaDesde) {
@@ -8501,28 +8621,32 @@ function aplicarFiltrosFacturas() {
                             ${hasComprobante ? '<div style="font-size: 12px; color: #007aff; margin-top: 4px;">📎 Tiene comprobante</div>' : ''}
                         </div>
                     </div>
-                    ${f.estado !== 'pagada' ? `
-                        <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
-                            <button class="btn btn-submit" style="flex: 1; padding: 10px; font-size: 14px; min-width: 120px;" onclick="event.stopPropagation(); openPagarFactura('${f.id}')">
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        ${f.estado !== 'pagada' && f.estado !== 'cancelada' ? `
+                            <button class="btn btn-submit" style="flex:1;padding:10px;font-size:13px;min-width:100px;"
+                                onclick="event.stopPropagation();openPagarFactura('${f.id}')">
                                 💳 Cobrar
                             </button>
-                            ${hasComprobante ? `
-                                <button class="btn btn-secondary" style="padding: 10px; font-size: 14px;" onclick="event.stopPropagation(); verComprobantesFactura('${f.id}')">
-                                    📎 Ver
-                                </button>
-                            ` : ''}
-                            ${hasPagos ? `
-                                <button class="btn" style="padding: 10px; font-size: 14px; background: #ff9500; color: white;" onclick="event.stopPropagation(); abrirReversarCobro('${f.id}')">
-                                    🔄 Reversar
-                                </button>
-                            ` : ''}
-                            ${appData.currentRole === 'admin' ? `
-                                <button class="btn btn-danger" style="padding: 10px; font-size: 14px;" onclick="event.stopPropagation(); eliminarFactura('${f.id}')">
-                                    🗑️ Eliminar
-                                </button>
-                            ` : ''}
-                        </div>
-                    ` : ''}
+                        ` : ''}
+                        ${hasComprobante ? `
+                            <button class="btn btn-secondary" style="padding:10px;font-size:13px;"
+                                onclick="event.stopPropagation();verComprobantesFactura('${f.id}')">
+                                📎 Comprobante
+                            </button>
+                        ` : ''}
+                        ${hasPagos && f.estado !== 'cancelada' ? `
+                            <button class="btn" style="padding:10px;font-size:13px;background:#ff9500;color:white;"
+                                onclick="event.stopPropagation();abrirReversarCobro('${f.id}')">
+                                🔄 Reversar
+                            </button>
+                        ` : ''}
+                        ${appData.currentRole === 'admin' && f.estado !== 'cancelada' ? `
+                            <button class="btn btn-danger" style="padding:10px;font-size:13px;"
+                                onclick="event.stopPropagation();eliminarFactura('${f.id}')">
+                                🗑️ Eliminar
+                            </button>
+                        ` : ''}
+                    </div>
                 </li>
             `;
         }).join('');
@@ -8536,7 +8660,7 @@ function aplicarFiltrosFacturas() {
 function limpiarFiltrosFacturas() {
     document.getElementById('filtroFechaDesde').value = '';
     document.getElementById('filtroFechaHasta').value = '';
-    document.getElementById('filtroEstadoFactura').value = 'pendiente';
+    document.getElementById('filtroEstadoFactura').value = 'todos'; // Fix 10: show all by default
     document.getElementById('filtroPacienteFactura').value = '';
     updateCobrarTab();
 }
@@ -10532,24 +10656,105 @@ function renderCobrosContent(key) {
         el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
         if (typeof updateCobrarTab === 'function') updateCobrarTab();
     } else if (key === 'nueva') {
-        // Copy factura tab content into cobros
-        const src = document.getElementById('tab-factura');
-        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        // Fix B2: Build factura form directly (tab-factura element never existed in DOM)
+        const esAdmin = appData.currentRole === 'admin';
+        const profesionales = appData.personal.filter(p => p.tipo !== 'empleado' && !p.isAdmin);
+        const usaCatalogo = clinicConfig.procMode === 'lista' && (clinicConfig.procItems||[]).length > 0;
 
-        // Populate professional selector for admin (can't use showTab logic since we cloned)
-        if (appData.currentRole === 'admin') {
-            const container = el.querySelector('#selectorProfesionalFactura');
-            const select    = el.querySelector('#profesionalQueAtendio');
-            if (container) container.style.display = 'block';
-            if (select) {
-                const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
-                select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                    profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
-            }
-        }
+        el.innerHTML = `
+            <div style="padding-bottom:24px;">
+                <!-- Paciente -->
+                <div class="form-group">
+                    <label>Paciente *</label>
+                    <div style="position:relative;">
+                        <input type="text" id="pacienteNombre" autocomplete="off"
+                            placeholder="Buscar paciente..."
+                            oninput="buscarPacienteFactura()"
+                            style="width:100%;box-sizing:border-box;">
+                        <div id="pacienteDropdown" style="position:absolute;top:100%;left:0;right:0;
+                            background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);
+                            z-index:100;max-height:200px;overflow-y:auto;display:none;"></div>
+                    </div>
+                </div>
 
-        // Re-init factura state
-        if (typeof initFacturaForm === 'function') initFacturaForm();
+                <!-- Profesional (admin only) -->
+                <div id="selectorProfesionalFactura" style="display:${esAdmin?'block':'none'};" class="form-group">
+                    <label>Profesional que atendió *</label>
+                    <select id="profesionalQueAtendio">
+                        <option value="">Seleccione el profesional...</option>
+                        ${profesionales.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('')}
+                    </select>
+                </div>
+
+                <!-- Procedimientos -->
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <label style="margin:0;font-size:13px;font-weight:500;color:var(--topo);">Procedimientos</label>
+                        <button onclick="openAddProcedimiento()"
+                            style="padding:7px 14px;background:var(--clinic-color,#C4856A);color:white;
+                                   border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;">
+                            + Agregar
+                        </button>
+                    </div>
+                    <div id="procedimientosList"></div>
+                </div>
+
+                <!-- Órdenes de lab -->
+                ${hasModule('laboratorio') ? `
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <label style="margin:0;font-size:13px;font-weight:500;color:var(--topo);">Órdenes de Laboratorio</label>
+                        <button onclick="openAddOrdenLab()"
+                            style="padding:7px 14px;background:var(--slate,#7A7068);color:white;
+                                   border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;">
+                            + Lab
+                        </button>
+                    </div>
+                    <div id="listaOrdenesLabTemp"></div>
+                </div>` : ''}
+
+                <!-- Descuento -->
+                <div class="form-group">
+                    <label>Descuento (%)</label>
+                    <input type="range" id="descuentoSlider" min="0" max="100" value="0"
+                        oninput="updateDescuento()"
+                        style="width:100%;margin-bottom:8px;">
+                    <div style="text-align:center;font-weight:400;color:var(--clinic-color);">
+                        <span id="descuentoValue">0</span>%
+                    </div>
+                    <div class="discount-buttons" style="display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap;">
+                        <button class="discount-btn" onclick="setDescuento(5)">5%</button>
+                        <button class="discount-btn" onclick="setDescuento(10)">10%</button>
+                        <button class="discount-btn" onclick="setDescuento(15)">15%</button>
+                        <button class="discount-btn" onclick="setDescuento(20)">20%</button>
+                    </div>
+                </div>
+
+                <!-- Total -->
+                <div class="card" style="background:var(--sand,#EEEAE4);box-shadow:var(--neu-raised);margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--piedra);">Total</span>
+                        <span id="totalFactura" style="font-size:28px;font-weight:200;color:var(--topo);letter-spacing:-1px;">RD$ 0.00</span>
+                    </div>
+                </div>
+                <!-- Fix 7: discount badge -->
+                <div id="descuentoBadge" style="display:none;margin-bottom:12px;"></div>
+
+                <!-- Notas -->
+                <div class="form-group">
+                    <label>Notas <span style="font-size:11px;color:var(--piedra);font-weight:300;">(Opcional)</span></label>
+                    <textarea id="notasFactura" style="min-height:70px;" placeholder="Observaciones del tratamiento..."></textarea>
+                </div>
+
+                <!-- Botón generar -->
+                <button class="btn btn-submit" onclick="withGuard(this, generarFactura)"
+                    style="width:100%;padding:14px;font-size:15px;margin-top:8px;">
+                    Generar Factura →
+                </button>
+            </div>
+        `;
+
+        // Re-init state
         if (typeof updateTempProcedimientos === 'function') updateTempProcedimientos();
         updateProcedimientosList();
         updateListaOrdenesLabTemp();

@@ -1643,7 +1643,15 @@
                 </div>
                 <div class="section-title" style="margin-bottom:16px">Ingresos</div>
                 <div class="card">
-                    <div style="font-size:13px;font-weight:400;color:var(--topo);margin-bottom:14px">Mis Facturas</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+                        <div style="font-size:13px;font-weight:400;color:var(--topo)">Facturas</div>
+                        <select id="ingresosFiltroProfesional" onchange="updateIngresosTab()"
+                            style="padding:6px 10px;border:1.5px solid rgba(60,50,40,.1);border-radius:8px;
+                                   font-size:12px;font-family:inherit;background:var(--surface,#F5F2EE);
+                                   color:var(--topo);max-width:160px;">
+                            <option value="todos">Todos los profesionales</option>
+                        </select>
+                    </div>
                     <ul class="item-list" id="facturasPersonal"></ul>
                 </div>
             </div>
@@ -1675,9 +1683,11 @@
                         <div class="form-group" style="margin: 0;">
                             <label style="font-size: 13px;">Estado:</label>
                             <select id="filtroEstadoFactura" onchange="aplicarFiltrosFacturas()">
-                                <option value="todos">Todas</option>
-                                <option value="pendiente" selected>Pendientes</option>
+                                <option value="todos" selected>Todas</option>
+                                <option value="pendiente">Pendientes</option>
+                                <option value="parcial">Con abono</option>
                                 <option value="pagada">Pagadas</option>
+                                <option value="cancelada">Canceladas</option>
                             </select>
                         </div>
                         <div class="form-group" style="margin: 0;">
@@ -2368,6 +2378,7 @@
                 <div style="margin-bottom: 10px;"><strong>Paciente:</strong> <span id="reversarPaciente"></span></div>
                 <div><strong>Último Pago:</strong> <span style="color: #ff3b30; font-weight: 400;" id="reversarMonto"></span></div>
             </div>
+            <div id="reversarContextoExtra"></div>
             <div class="form-group"><label>Motivo de la Reversión *</label><textarea id="reversarMotivo" rows="3" placeholder="Ej: Error en el monto, pago duplicado..."></textarea></div>
             <button class="btn btn-danger" onclick="confirmarReversion()" style="width: 100%;">🔄 Confirmar Reversión</button>
         </div>
@@ -2759,10 +2770,13 @@
 
     <div id="modalCancelarFactura" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><div class="modal-title">Cancelar Cotización</div></div>
-            <div style="background: rgba(196,133,106,0.1); padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff9500;"><strong>⚠️ Advertencia:</strong> Esta acción cancelará la factura permanentemente.</div>
-            <div class="form-group"><label>Razón de Cancelación *</label><textarea id="razonCancelacion" rows="4"></textarea></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalCancelarFactura')">Volver</button><button class="btn" style="background: #ff3b30; color: white;" onclick="confirmarCancelacionFactura()">Cancelar Cotización</button></div>
+            <div class="modal-header"><div class="modal-title">❌ Cancelar Factura</div></div>
+            <div style="background:rgba(196,112,112,.08);padding:14px 16px;border-radius:10px;margin-bottom:16px;border-left:4px solid #C47070;">
+                <div style="font-weight:600;color:#C47070;margin-bottom:4px;">⚠️ La factura quedará marcada como cancelada</div>
+                <div style="font-size:13px;color:var(--piedra,#7A7068);">El registro no se elimina — queda en el historial con estado "Cancelada". No afecta el balance del paciente.</div>
+            </div>
+            <div class="form-group"><label>Razón de cancelación *</label><textarea id="razonCancelacion" rows="3" placeholder="Ej: Error en procedimientos, paciente solicitó cancelar..."></textarea></div>
+            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalCancelarFactura')">Volver</button><button class="btn" style="background:#C47070;color:white;" onclick="confirmarCancelacionFactura()">Confirmar cancelación</button></div>
         </div>
     </div>
 
