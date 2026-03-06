@@ -1707,10 +1707,8 @@ async function showApp() {
 
     buildNavigation();
 
-    // Iniciar en dashboard si es admin/profesional, pacientes si es recepción
-    const tabInicial = (appData.currentRole === 'admin' || appData.currentRole === 'professional')
-        ? 'dashboard'
-        : 'pacientes';
+    // Todos los roles inician en Dashboard (cada uno ve su versión adaptada)
+    const tabInicial = 'dashboard';
     showTab(tabInicial);
     updatePerfilTab();
 
