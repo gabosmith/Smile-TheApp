@@ -4407,7 +4407,6 @@ function _renderPacientePage(p) {
             ${ultimaCitaStr ? `<div style="font-size:11px;color:var(--muted,#A89F96);margin-top:5px;">${ultimaCitaStr}</div>` : ''}
         </div>`;
 }
-}
 
 function _renderPacientesPage(lista) {
     const start = _pacCurrentPage * PAC_PAGE_SIZE;
