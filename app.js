@@ -1707,8 +1707,10 @@ async function showApp() {
 
     buildNavigation();
 
-    // Todos los roles tienen su Dashboard personalizado
-    const tabInicial = 'dashboard';
+    // Iniciar en dashboard si es admin/profesional, pacientes si es recepción
+    const tabInicial = (appData.currentRole === 'admin' || appData.currentRole === 'professional')
+        ? 'dashboard'
+        : 'pacientes';
     showTab(tabInicial);
     updatePerfilTab();
 
@@ -1751,11 +1753,13 @@ function buildNavigation() {
 
     let nav = '';
 
-    // Dashboard — admin + profesional + recepción (cada uno ve versión distinta)
-    nav += `<button class="nav-item" data-tab="dashboard" onclick="showTab('dashboard')">${svgDash}<span>Dashboard</span></button>`;
+    // Dashboard — admin + profesional
+    if (role === 'admin' || role === 'professional') {
+        nav += `<button class="nav-item" data-tab="dashboard" onclick="showTab('dashboard')">${svgDash}<span>Dashboard</span></button>`;
+    }
 
     // Pacientes — todos
-    nav += `<button class="nav-item" data-tab="pacientes" onclick="showTab('pacientes')">${svgPax}<span>Pacientes</span></button>`;
+    nav += `<button class="nav-item ${role === 'reception' ? 'active' : ''}" data-tab="pacientes" onclick="showTab('pacientes')">${svgPax}<span>Pacientes</span></button>`;
 
     // Agenda — todos
     nav += `<button class="nav-item" data-tab="agenda" onclick="showTab('agenda')">${svgAgenda}<span>Agenda</span></button>`;
@@ -1765,8 +1769,8 @@ function buildNavigation() {
         nav += `<button class="nav-item" data-tab="laboratorio" onclick="showTab('laboratorio')">${svgLab}<span>Lab</span></button>`;
     }
 
-    // Cobros — admin + recepción (profesional solo ve "Mis Facturas" desde aquí)
-    if (role === 'admin' || role === 'reception' || role === 'professional') {
+    // Cobros — admin + profesional (contiene factura, pendientes, ingresos, cuadre, gastos)
+    if (role === 'admin' || role === 'professional') {
         nav += `<button class="nav-item" data-tab="cobros" onclick="showTab('cobros')">${svgCobros}<span>Cobros</span></button>`;
     }
 
@@ -2044,12 +2048,6 @@ async function generarFactura() {
     const sufijo = Date.now().toString().slice(-3);
     const numeroFinal = `F-${nuevoNumero}-${sufijo}`;
 
-    // Seguridad: recepción no puede crear facturas
-    if (appData.currentRole === 'reception') {
-        showToast('⛔ Solo el médico puede generar facturas de tratamiento');
-        return;
-    }
-
     const factura = {
         id: generateId(),
         numero: numeroFinal,
@@ -2062,8 +2060,7 @@ async function generarFactura() {
         descuento,
         total,
         profesional: profesionalQueAtendio,
-        creadoPor: appData.currentUser,        // quién generó la factura
-        estado: 'pendiente',                   // siempre pendiente — recepción la cobra
+        estado: 'pendiente',
         pagos: [],
         notas,
         tieneOrdenesLab: tempOrdenesLab.length > 0,
@@ -2099,13 +2096,12 @@ async function generarFactura() {
         throw saveErr; // re-throw para que el catch externo lo maneje
     }
 
-    const labMsg = tempOrdenesLab.length > 0 ? ` · ${tempOrdenesLab.length} orden(es) de lab` : '';
-    const citaMsg = citaHoy ? ` · cita ${citaHoy.hora} completada` : '';
-    // Orientar al doctor: la factura queda pendiente para que recepción la cobre
-    const pendienteMsg = appData.currentRole === 'professional'
-        ? ' — queda pendiente de cobro en recepción'
-        : '';
-    showToast('✓ Factura generada' + citaMsg + labMsg + pendienteMsg);
+    const mensaje = citaHoy
+        ? `✅ Factura generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
+        : '✅ Factura generada exitosamente';
+
+    const labMsg = tempOrdenesLab.length > 0 ? ` · ${tempOrdenesLab.length} orden(es) de lab creadas` : '';
+    showToast(mensaje.replace('✅ ', '') + labMsg);
 
     const pnEl = getFacturaEl('pacienteNombre');
     if (pnEl) { pnEl.value = ''; pnEl.dataset.pacienteSeleccionado = 'false'; }
@@ -2180,9 +2176,7 @@ function updateIngresosTab() {
     }
 
     // Fix 6: Add action buttons to each invoice row
-    // Recepción puede cobrar facturas existentes pero NO puede crearlas (eso es del doctor)
-    const canCobrar   = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
-    const canFacturar = appData.currentRole === 'admin' || appData.currentRole === 'professional';
+    const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
     list.innerHTML = facturasFiltradas.map(f => {
         const balance = f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
         const badgeClass = f.estado === 'pagada' ? 'badge-paid'
@@ -2206,12 +2200,10 @@ function updateIngresosTab() {
                         ${balance > 0 && f.estado !== 'pagada' ? `<span style="font-size:11px;color:var(--terra,#C4856A);margin-left:6px;">· ${formatCurrency(balance)} pendiente</span>` : ''}
                     </div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                        ${canCobrar && appData.currentRole !== 'professional' && f.estado !== 'pagada' && f.estado !== 'cancelada' ? `
+                        ${canCobrar && f.estado !== 'pagada' && f.estado !== 'cancelada' ? `
                             <button class="btn btn-submit" style="padding:7px 14px;font-size:12px;"
                                 onclick="openPagarFactura('${f.id}')">💳 Cobrar</button>
-                        ` : (appData.currentRole === 'professional' && f.estado !== 'pagada' && f.estado !== 'cancelada' ? `
-                            <span style="font-size:11px;color:var(--terra);padding:4px 8px;">⏳ Pendiente cobro</span>
-                        ` : '')}
+                        ` : ''}
                         ${f.estado === 'pagada' ? `
                             <button class="btn btn-secondary" style="padding:7px 14px;font-size:12px;"
                                 onclick="generarFacturaCliente(appData.facturas.find(x=>x.id==='${f.id}'), appData.facturas.find(x=>x.id==='${f.id}').total, appData.facturas.find(x=>x.id==='${f.id}').pagos.slice(-1)[0]?.metodo||'efectivo')">
@@ -2339,13 +2331,8 @@ _Para confirmar su cita o realizar consultas, responda este mensaje._`;
 }
 
 function openPagarFactura(facturaId) {
-    // Solo admin y recepción pueden ejecutar cobros
-    if (appData.currentRole === 'professional') {
-        showToast('⛔ El cobro lo procesa recepción — la factura queda pendiente para ellos');
-        return;
-    }
     if (!tienePermiso('cobrar')) {
-        showToast('⛔ Sin autorización para cobros');
+        showToast('⛔ Sin autorización para cobros', 3000, '#c0392b');
         return;
     }
     const factura = appData.facturas.find(f => f.id === facturaId);
@@ -5406,9 +5393,7 @@ function renderTabResumen(paciente) {
             });
             if (balance <= 0 || pendientes.length === 0) return '';
             const primeraFactura = pendientes.sort((a,b) => new Date(a.fecha)-new Date(b.fecha))[0];
-            // Recepción puede cobrar facturas existentes pero NO puede crearlas (eso es del doctor)
-    const canCobrar   = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
-    const canFacturar = appData.currentRole === 'admin' || appData.currentRole === 'professional';
+            const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
             return `
             <div style="background: linear-gradient(135deg, #fff3cd, #ffe8a1); border: 1.5px solid #ffc107;
                         border-radius: 14px; padding: 16px 18px; margin-bottom: 20px;
@@ -5608,9 +5593,7 @@ function renderTabResumen(paciente) {
 }
 
 function renderTabHistorial(paciente) {
-    // Recepción puede cobrar facturas existentes pero NO puede crearlas (eso es del doctor)
-    const canCobrar   = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
-    const canFacturar = appData.currentRole === 'admin' || appData.currentRole === 'professional';
+    const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
     const tieneModuloLab = hasModule('laboratorio');
 
     // ── Datos ──────────────────────────────────────────────
@@ -8908,13 +8891,13 @@ function aplicarFiltrosFacturas() {
                 <li style="cursor: default;">
                     <div class="item-header">
                         <div>
-                            <div style="font-size: 12px; color:var(--piedra);">${f.numero} · ${formatDate(f.fecha)} · <span style="color:var(--topo);font-weight:500;">Dr. ${f.profesional}</span></div>
+                            <div style="font-size: 12px; color: #8e8e93;">${f.numero} - ${formatDate(f.fecha)}</div>
                             <div class="item-title">${f.paciente}</div>
-                            <div style="font-size: 14px; color: ${f.estado === 'pagada' ? 'var(--salvia)' : (f.estado === 'parcial' || f.estado === 'partial') ? 'var(--pizarra)' : 'var(--terra)'}; font-weight: 600;">
-                                ${f.estado === 'pagada' ? '✓ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `Con abono · ${formatCurrency(balance)} pendiente` : `${formatCurrency(balance)} por cobrar`}
+                            <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff' : '#ff3b30'}; font-weight: 600;">
+                                ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
                             </div>
                             <div style="font-size: 13px; color:var(--piedra); margin-top: 4px;">Total: ${formatCurrency(f.total)}</div>
-                            ${hasComprobante ? '<div style="font-size: 12px; color:var(--pizarra); margin-top: 4px;">📎 Tiene comprobante</div>' : ''}
+                            ${hasComprobante ? '<div style="font-size: 12px; color: #007aff; margin-top: 4px;">📎 Tiene comprobante</div>' : ''}
                         </div>
                     </div>
                     <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
@@ -9503,33 +9486,12 @@ function updateDashboardTab() {
     // SECCIÓN 3 — TARJETAS DE STATS
     // ────────────────────────────────────────────────────
 
-    // ── Visibilidad de stat cards según rol ────────────────
-    const cardIngresos = document.getElementById('dashCardIngresos');
-    const cardCobrar   = document.getElementById('dashCardCobrar');
-    if (dashRole === 'reception') {
-        // Recepción no ve ingresos totales — ve cola de cobro
-        if (cardIngresos) { cardIngresos.style.display = 'none'; }
-        if (cardCobrar) {
-            cardCobrar.style.background = 'linear-gradient(135deg,#3a9e5f 0%,#2d7a4a 100%)';
-            const lbl = document.getElementById('dashCardCobrarLabel');
-            if (lbl) lbl.textContent = 'Cola de cobro';
-        }
-    } else if (dashRole === 'professional') {
-        // Profesional no ve ingresos totales de la clínica
-        if (cardIngresos) { cardIngresos.style.display = 'none'; }
-    } else {
-        // Admin ve todo
-        if (cardIngresos) { cardIngresos.style.display = ''; }
-    }
-
-    // Card Ingresos (solo admin)
-    if (dashRole === 'admin') {
+    // Card Ingresos
     const cambio = ingresosAyer > 0 ? ((ingresosHoy-ingresosAyer)/ingresosAyer*100).toFixed(0) : null;
     document.getElementById('dashIngresosHoy').textContent = formatCurrency(ingresosHoy);
     document.getElementById('dashIngresosComparacion').innerHTML = cambio !== null
         ? `${Number(cambio)>=0?'↑':'↓'} ${Math.abs(cambio)}% vs ayer`
         : (ingresosHoy > 0 ? 'Primer cobro del día ✓' : 'Sin cobros aún hoy');
-    }
 
     // Sparkline SVG — barras de 7 días
     const sparkEl = document.getElementById('dashSparkline');
@@ -9577,10 +9539,9 @@ function updateDashboardTab() {
         }
     }
 
-    // Card Por Cobrar / Comisiones / Cola
+    // Card Por Cobrar / Comisiones
     const cobrarLabel = document.getElementById('dashCardCobrarLabel');
     if (dashRole === 'professional') {
-        // Doctor: ve sus comisiones acumuladas
         const person = appData.personal.find(p => p.nombre === appData.currentUser);
         if (person) {
             const rate  = getComisionRate(person.tipo, person);
@@ -9594,19 +9555,7 @@ function updateDashboardTab() {
             const cardCobrar = document.getElementById('dashCardCobrar');
             if (cardCobrar) cardCobrar.style.background = 'linear-gradient(135deg,#7B8FA1 0%,#5A7080 100%)';
         }
-    } else if (dashRole === 'reception') {
-        // Recepción: ve la cola de facturas pendientes de cobrar
-        if (cobrarLabel) cobrarLabel.textContent = 'Cola de cobro';
-        document.getElementById('dashPorCobrar').textContent = formatCurrency(porCobrar);
-        document.getElementById('dashFacturasPendientes').textContent =
-            `${facturasPendientes.length} factura${facturasPendientes.length!==1?'s':''} pendiente${facturasPendientes.length!==1?'s':''}`;
-        const rateEl = document.getElementById('dashCollectionRate');
-        if (rateEl) rateEl.innerHTML = '';
-        // Make the card click go directly to cobrar subtab
-        const cardCobrar = document.getElementById('dashCardCobrar');
-        if (cardCobrar) cardCobrar.onclick = () => { showTab('cobros'); setTimeout(()=>setCobrosSubtab('cobrar'),50); };
     } else {
-        // Admin: ve total por cobrar
         if (cobrarLabel) cobrarLabel.textContent = 'Por cobrar';
         document.getElementById('dashPorCobrar').textContent = formatCurrency(porCobrar);
         document.getElementById('dashFacturasPendientes').textContent =
@@ -9649,67 +9598,28 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     const kpiRow = document.getElementById('dashKpiRow');
     if (kpiRow) {
-        if (dashRole === 'reception') {
-            // Recepción: citas completadas hoy, en sala ahora, total por cobrar
-            const citasTotalesHoy = citasActivas.length || 0;
-            const pctOcupacion = citasTotalesHoy > 0 ? Math.round(citasCompletadas/citasTotalesHoy*100) : 0;
-            kpiRow.innerHTML = `
-                <div class="dash-kpi" onclick="showTab('agenda')">
-                    <div class="dash-kpi-val" style="color:var(--salvia);">${enSala}</div>
-                    <div class="dash-kpi-lbl">En sala ahora</div>
-                </div>
-                <div class="dash-kpi" onclick="showTab('agenda')">
-                    <div class="dash-kpi-val">${citasCompletadas}/${citasTotalesHoy}</div>
-                    <div class="dash-kpi-lbl">Atendidas hoy</div>
-                </div>
-                <div class="dash-kpi" onclick="showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)">
-                    <div class="dash-kpi-val" style="color:${facturasPendientes.length>0?'var(--terra)':'var(--salvia)'};">${facturasPendientes.length}</div>
-                    <div class="dash-kpi-lbl">Por cobrar</div>
-                </div>
-            `;
-        } else if (dashRole === 'professional') {
-            // Profesional: sus citas hoy, sus facturas pendientes, su tasa de cobro
-            const misCitasHoy = citasActivas.filter(c => c.profesional === appData.currentUser).length;
-            const misFacPend  = appData.facturas.filter(f => f.profesional===appData.currentUser && f.estado!=='pagada' && f.estado!=='cancelada').length;
-            const misFacTotal = appData.facturas.filter(f => f.profesional===appData.currentUser).length;
-            kpiRow.innerHTML = `
-                <div class="dash-kpi" onclick="showTab('agenda')">
-                    <div class="dash-kpi-val">${misCitasHoy}</div>
-                    <div class="dash-kpi-lbl">Mis citas hoy</div>
-                </div>
-                <div class="dash-kpi" onclick="showTab('cobros')">
-                    <div class="dash-kpi-val" style="color:${misFacPend>0?'var(--terra)':'var(--salvia)'};">${misFacPend}</div>
-                    <div class="dash-kpi-lbl">Pend. cobro</div>
-                </div>
-                <div class="dash-kpi" onclick="showTab('pacientes')">
-                    <div class="dash-kpi-val">${pacNuevosSemana}</div>
-                    <div class="dash-kpi-lbl">Nuevos / sem</div>
-                </div>
-            `;
-        } else {
-            // Admin: tasa cobro, pacientes nuevos, gastos
-            const pacDelta = pacNuevosSemana - pacNuevosAnterior;
-            const pacArrow = pacDelta > 0
-                ? `<span style="color:var(--salvia);font-size:11px;margin-left:3px;">↑${pacDelta}</span>`
-                : pacDelta < 0
-                ? `<span style="color:var(--terra);font-size:11px;margin-left:3px;">↓${Math.abs(pacDelta)}</span>`
-                : '';
-            const gastosStr = formatCurrency(gastosDelMes).replace('RD$ ','').replace(' ','');
-            kpiRow.innerHTML = `
-                <div class="dash-kpi" data-tab="cobros" onclick="showTab('cobros')" title="Porcentaje del total facturado que ya está cobrado">
-                    <div class="dash-kpi-val" style="color:${tasaCobro>=80?'var(--salvia)':tasaCobro>=50?'var(--topo)':'var(--terra)'};">${tasaCobro}%</div>
-                    <div class="dash-kpi-lbl">Tasa cobro</div>
-                </div>
-                <div class="dash-kpi" data-tab="pacientes" onclick="showTab('pacientes')" title="Pacientes nuevos esta semana">
-                    <div class="dash-kpi-val">${pacNuevosSemana}${pacArrow}</div>
-                    <div class="dash-kpi-lbl">Nuevos / sem</div>
-                </div>
-                <div class="dash-kpi" data-tab="cobros" onclick="showTab('cobros')" title="Gastos registrados este mes">
-                    <div class="dash-kpi-val" style="font-size:${gastosStr.length>7?'14px':'19px'};">${gastosStr}</div>
-                    <div class="dash-kpi-lbl">Gastos mes</div>
-                </div>
-            `;
-        }
+        const pacDelta = pacNuevosSemana - pacNuevosAnterior;
+        const pacArrow = pacDelta > 0
+            ? `<span style="color:var(--salvia);font-size:11px;margin-left:3px;">↑${pacDelta}</span>`
+            : pacDelta < 0
+            ? `<span style="color:var(--terra);font-size:11px;margin-left:3px;">↓${Math.abs(pacDelta)}</span>`
+            : '';
+        const gastosStr = formatCurrency(gastosDelMes).replace('RD$ ','').replace(' ','');
+
+        kpiRow.innerHTML = `
+            <div class="dash-kpi" data-tab="cobros" onclick="showTab('cobros')" title="Porcentaje del total facturado que ya está cobrado">
+                <div class="dash-kpi-val" style="color:${tasaCobro>=80?'var(--salvia)':tasaCobro>=50?'var(--topo)':'var(--terra)'};">${tasaCobro}%</div>
+                <div class="dash-kpi-lbl">Tasa cobro</div>
+            </div>
+            <div class="dash-kpi" data-tab="pacientes" onclick="showTab('pacientes')" title="Pacientes nuevos esta semana">
+                <div class="dash-kpi-val">${pacNuevosSemana}${pacArrow}</div>
+                <div class="dash-kpi-lbl">Nuevos / sem</div>
+            </div>
+            <div class="dash-kpi" data-tab="cobros" onclick="showTab('cobros')" title="Gastos registrados este mes">
+                <div class="dash-kpi-val" style="font-size:${gastosStr.length>7?'14px':'19px'};">${gastosStr}</div>
+                <div class="dash-kpi-lbl">Gastos mes</div>
+            </div>
+        `;
     }
 
     // ────────────────────────────────────────────────────
@@ -9717,53 +9627,27 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     const alertItems = [];
 
-    // Facturas pendientes de cobro — recepción ve la cola de hoy, admin ve vencidas
+    // Facturas vencidas > 30 días — por nombre de paciente
     const hace30 = Date.now() - 30*24*60*60*1000;
     const facturasViejas = facturasPendientes.filter(f => new Date(f.fecha).getTime() < hace30);
-
-    if (dashRole === 'reception') {
-        // Recepción: mostrar las facturas pendientes más recientes (cola activa para cobrar)
-        const colaHoy = facturasPendientes
-            .sort((a,b) => new Date(b.fecha) - new Date(a.fecha))
-            .slice(0, 4);
-        colaHoy.forEach(f => {
-            const deuda = Math.max(0, f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0));
-            alertItems.push({
-                icon : '💳',
-                text : `<strong>${f.paciente}</strong> — ${formatCurrency(deuda)} · ${f.profesional}`,
-                btn  : 'Cobrar',
-                click: `openPagarFactura('${f.id}')`
-            });
+    facturasViejas.slice(0,3).forEach(f => {
+        const dias    = Math.floor((Date.now()-new Date(f.fecha).getTime())/(24*60*60*1000));
+        const deuda   = Math.max(0, f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0));
+        const facId   = f.id;
+        alertItems.push({
+            icon : '💰',
+            text : `<strong>${f.paciente}</strong> — ${formatCurrency(deuda)} · <span style="color:var(--terra);">${dias} días</span>`,
+            btn  : 'Cobrar',
+            click: `openPagarFactura('${facId}')`
         });
-        if (facturasPendientes.length > 4) {
-            alertItems.push({
-                icon : '📋',
-                text : `${facturasPendientes.length - 4} facturas más en cola`,
-                btn  : 'Ver cola',
-                click: `showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)`
-            });
-        }
-    } else {
-        // Admin: facturas vencidas > 30 días
-        facturasViejas.slice(0,3).forEach(f => {
-            const dias    = Math.floor((Date.now()-new Date(f.fecha).getTime())/(24*60*60*1000));
-            const deuda   = Math.max(0, f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0));
-            const facId   = f.id;
-            alertItems.push({
-                icon : '💰',
-                text : `<strong>${f.paciente}</strong> — ${formatCurrency(deuda)} · <span style="color:var(--terra);">${dias} días</span>`,
-                btn  : 'Cobrar',
-                click: `openPagarFactura('${facId}')`
-            });
+    });
+    if (facturasViejas.length > 3) {
+        alertItems.push({
+            icon : '📋',
+            text : `${facturasViejas.length-3} facturas más con +30 días pendientes`,
+            btn  : 'Ver todas',
+            click: `showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)`
         });
-        if (facturasViejas.length > 3) {
-            alertItems.push({
-                icon : '📋',
-                text : `${facturasViejas.length-3} facturas más con +30 días pendientes`,
-                btn  : 'Ver todas',
-                click: `showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)`
-            });
-        }
     }
 
     // Pacientes sin consentimiento (admin, max 3)
@@ -9825,7 +9709,7 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     const leaderEl = document.getElementById('dashLeaderboard');
     if (leaderEl) {
-        if (dashRole === 'admin' && leaderboard.length >= 2) { // Solo admin ve el leaderboard
+        if (dashRole === 'admin' && leaderboard.length >= 2) {
             const medals = ['🥇','🥈','🥉',''];
             const totalSemana = leaderboard.reduce((s,[,v])=>s+v,0);
             leaderEl.style.display = 'block';
@@ -9984,17 +9868,15 @@ function updateDashboardTab() {
                 { label:'📊 Reportes',      primary:false, click:`showTab('reportes')` },
             ];
         } else if (dashRole === 'reception') {
-            // Recepción: acceso directo a cobrar (su función principal) + agendar + gastos
             buttons = [
-                { label:'💳 Cobrar',        primary:true,  click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)` },
-                { label:'📅 Agendar',       primary:false, click:`showTab('agenda')` },
-                { label:'💸 Registrar gasto', primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('gastos'),50)` },
+                { label:'📅 Nueva cita',    primary:true,  click:`showTab('agenda')` },
+                { label:'+ Nueva factura', primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
+                { label:'💳 Cobrar',        primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)` },
             ];
         } else if (dashRole === 'professional') {
-            // Doctor: su agenda + crear factura desde ficha (no desde cobros)
             buttons = [
                 { label:'👤 Mi agenda',     primary:true,  click:`showTab('agenda');setTimeout(()=>{verAgendaPropia=true;updateAgendaTab();},50)` },
-                { label:'👥 Pacientes',     primary:false, click:`showTab('pacientes')` },
+                { label:'+ Nueva factura', primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
             ];
         }
         qaEl.innerHTML = buttons.length > 0 ? `
@@ -11401,45 +11283,25 @@ function renderCobrosTab(subtab) {
         document.querySelector('.content-area').appendChild(tab);
     }
     tab.classList.add('active');
-    // Default subtab por rol
-    const _roleDefault = appData.currentRole === 'professional' ? 'mis-facturas'
-                       : appData.currentRole === 'reception'    ? 'cobrar'
-                       : 'cobrar';
-    const _requested = subtab || tab._activeSubtab || _roleDefault;
-    tab._activeSubtab = _requested;
-    const active = _requested;
+    // Pick requested subtab, or remembered one, or first one the user can access
+    const _requested = subtab || tab._activeSubtab || 'cobrar';
+    const active = tienePermiso({ cobrar:'cobrar', nueva:'facturar', ingresos:'verIngresos', cuadre:'cuadre', gastos:'gastos' }[_requested] || _requested)
+        ? _requested
+        : (['cobrar','nueva','ingresos','cuadre','gastos'].find(k => tienePermiso({cobrar:'cobrar',nueva:'facturar',ingresos:'verIngresos',cuadre:'cuadre',gastos:'gastos'}[k])) || 'cobrar');
+    tab._activeSubtab = active;
 
     // Highlight nav
     document.querySelectorAll('.nav-item').forEach(btn => {
         if (btn.getAttribute('onclick') === "showTab('cobros')") btn.classList.add('active');
     });
 
-    // Subtabs según rol — cada rol ve solo lo que le corresponde
-    const role = appData.currentRole;
-    let subtabs;
-    if (role === 'admin') {
-        subtabs = [
-            { key: 'cobrar',        label: '💳 Cobrar'   },
-            { key: 'nueva',         label: '+ Nueva'     },
-            { key: 'ingresos',      label: 'Ingresos'    },
-            { key: 'cuadre',        label: 'Cuadre'      },
-            { key: 'gastos',        label: 'Gastos'      },
-        ];
-    } else if (role === 'reception') {
-        // Recepción: cobra, registra gastos, ve el cuadre del día — no crea facturas de tratamiento
-        subtabs = [
-            { key: 'cobrar',        label: '💳 Cobrar'   },
-            { key: 'gastos',        label: 'Gastos'      },
-            { key: 'cuadre',        label: 'Cuadre'      },
-        ];
-    } else if (role === 'professional') {
-        // Profesional: solo ve sus propias facturas (read-only)
-        subtabs = [
-            { key: 'mis-facturas',  label: '📋 Mis Facturas' },
-        ];
-    } else {
-        subtabs = [{ key: 'cobrar', label: '💳 Cobrar' }];
-    }
+    const subtabs = [
+        { key: 'cobrar',   label: '💳 Cobrar',   permiso: 'cobrar'     },
+        { key: 'nueva',    label: '+ Nueva',     permiso: 'facturar'   },
+        { key: 'ingresos', label: 'Ingresos',    permiso: 'verIngresos'},
+        { key: 'cuadre',   label: 'Cuadre',      permiso: 'cuadre'     },
+        { key: 'gastos',   label: 'Gastos',      permiso: 'gastos'     },
+    ].filter(s => tienePermiso(s.permiso));
 
     const subtabsHtml = subtabs.map(s => `
         <button onclick="setCobrosSubtab('${s.key}')" style="
@@ -11478,84 +11340,6 @@ function setCobrosSubtab(key) {
 function renderCobrosContent(key) {
     const el = document.getElementById('cobros-content');
     if (!el) return;
-
-    // ── MIS FACTURAS (profesional: solo lectura, solo las suyas) ──────────────
-    if (key === 'mis-facturas') {
-        const yo = appData.currentUser;
-        const misFacturas = appData.facturas
-            .filter(function(f){ return f.profesional === yo; })
-            .sort(function(a,b){ return new Date(b.fecha) - new Date(a.fecha); });
-
-        if (misFacturas.length === 0) {
-            el.innerHTML = '<div style="text-align:center;padding:44px 20px;color:var(--muted);">' +
-                '<div style="font-size:32px;margin-bottom:10px;">📋</div>' +
-                '<div style="font-size:14px;color:var(--piedra);">Aún no tienes facturas generadas</div>' +
-                '<div style="font-size:12px;color:var(--muted);margin-top:4px;">Créalas desde la ficha del paciente</div>' +
-                '</div>';
-            return;
-        }
-
-        const pendientes = misFacturas.filter(function(f){ return f.estado !== 'pagada' && f.estado !== 'cancelada'; }).length;
-        const porCobrar  = misFacturas
-            .filter(function(f){ return f.estado !== 'pagada' && f.estado !== 'cancelada'; })
-            .reduce(function(s,f){
-                var pagado = (f.pagos||[]).reduce(function(ss,p){ return ss+p.monto; },0);
-                return s + Math.max(0, f.total - pagado);
-            }, 0);
-
-        var statsHtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">' +
-            '<div style="background:var(--surface);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--neu-flat);">' +
-                '<div style="font-size:18px;font-weight:300;color:var(--topo);">' + misFacturas.length + '</div>' +
-                '<div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Total</div>' +
-            '</div>' +
-            '<div style="background:var(--surface);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--neu-flat);">' +
-                '<div style="font-size:18px;font-weight:300;color:var(--terra);">' + pendientes + '</div>' +
-                '<div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Pend. cobro</div>' +
-            '</div>' +
-            '<div style="background:var(--surface);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--neu-flat);">' +
-                '<div style="font-size:16px;font-weight:300;color:var(--topo);">' + formatCurrency(porCobrar) + '</div>' +
-                '<div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Por cobrar</div>' +
-            '</div>' +
-        '</div>';
-
-        var stateColor = { pagada:'var(--salvia)', pendiente:'var(--terra)', parcial:'var(--pizarra)', cancelada:'var(--muted)' };
-        var stateIcon  = { pagada:'✓', pendiente:'⏳', parcial:'◑', cancelada:'✕' };
-
-        var listHtml = misFacturas.map(function(f) {
-            var estado  = f.estado || 'pendiente';
-            var color   = stateColor[estado] || 'var(--piedra)';
-            var icon    = stateIcon[estado]  || '?';
-            var cobrado = (f.pagos||[]).reduce(function(s,p){ return s+p.monto; }, 0);
-            var saldo   = Math.max(0, f.total - cobrado);
-            var fecha   = new Date(f.fecha).toLocaleDateString('es-DO', {day:'numeric', month:'short'});
-            var nProc   = (f.procedimientos||[]).length;
-            var pid     = f.pacienteId || '';
-            var saldoHtml = saldo > 0
-                ? '<div style="font-size:11px;color:var(--terra);">debe ' + formatCurrency(saldo) + '</div>'
-                : '<div style="font-size:11px;color:var(--salvia);">cobrado ✓</div>';
-            return '<div onclick="verPaciente(\'' + pid + '\')" ' +
-                'style="display:flex;align-items:center;gap:12px;padding:12px 14px;' +
-                'background:var(--surface);border-radius:12px;margin-bottom:8px;' +
-                'cursor:pointer;transition:background .12s;border-left:3px solid ' + color + ';" ' +
-                'onmouseenter="this.style.background=\'var(--sand)\'" ' +
-                'onmouseleave="this.style.background=\'var(--surface)\'">' +
-                '<div style="width:28px;height:28px;border-radius:50%;background:' + color + ';' +
-                    'display:flex;align-items:center;justify-content:center;' +
-                    'color:white;font-size:11px;font-weight:600;flex-shrink:0;">' + icon + '</div>' +
-                '<div style="flex:1;min-width:0;">' +
-                    '<div style="font-size:13px;font-weight:500;color:var(--topo);">' + f.paciente + '</div>' +
-                    '<div style="font-size:11px;color:var(--piedra);margin-top:1px;">' + fecha + ' · ' + nProc + ' proc.</div>' +
-                '</div>' +
-                '<div style="text-align:right;flex-shrink:0;">' +
-                    '<div style="font-size:13px;font-weight:500;color:var(--topo);">' + formatCurrency(f.total) + '</div>' +
-                    saldoHtml +
-                '</div>' +
-            '</div>';
-        }).join('');
-
-        el.innerHTML = statsHtml + '<div>' + listHtml + '</div>';
-        return;
-    }
 
     if (key === 'cobrar') {
         const src = document.getElementById('tab-cobrar');
@@ -11713,8 +11497,7 @@ function abrirMas() {
 
     const items = [];
 
-    // Cobros solo en Más para admin (profesional y recepción ya lo tienen en el nav)
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'professional') {
         items.push({ icon: '💰', label: 'Cobros',      action: `cerrarMas();showTab('cobros')` });
     }
     if (role === 'admin' && hasModule('nomina')) {

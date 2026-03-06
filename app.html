@@ -1456,7 +1456,7 @@
 
     <!-- ── BRANDING HERO (top half) ───────────────────────── -->
     <div id="lsBrandHero" style="
-        flex:0 0 42%;
+        flex:0 0 46%;  /* un poco más de aire para el logo de la clínica */
         display:flex; flex-direction:column;
         align-items:center; justify-content:flex-end;
         padding:0 24px 32px;
@@ -1470,29 +1470,41 @@
         <div style="position:absolute;bottom:-20%;left:-8%;width:50%;aspect-ratio:1;
              border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none;"></div>
 
-        <!-- Logo or initials -->
+        <!-- Logo or initials — más prominente cuando hay logo de clínica -->
         <div id="lsLogoWrap" style="
-            width:84px; height:84px; border-radius:24px;
-            background:rgba(255,255,255,.18); backdrop-filter:blur(12px);
+            width:96px; height:96px; border-radius:26px;
+            background:rgba(255,255,255,.2); backdrop-filter:blur(16px);
             display:flex; align-items:center; justify-content:center;
-            margin-bottom:16px; overflow:hidden;
-            box-shadow:0 8px 32px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.3);
-            flex-shrink:0;">
-            <img id="lsLogoImg" src="" alt="" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:20px;">
-            <span id="lsLogoText" style="font-size:30px;font-weight:500;color:white;letter-spacing:-1px;">S</span>
+            margin-bottom:18px; overflow:hidden;
+            box-shadow:0 12px 40px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.35);
+            flex-shrink:0; transition: all .4s ease;">
+            <img id="lsLogoImg" src="" alt=""
+                 style="display:none;width:88%;height:88%;object-fit:contain;border-radius:18px;
+                        filter:drop-shadow(0 2px 8px rgba(0,0,0,.15));">
+            <span id="lsLogoText"
+                  style="font-size:34px;font-weight:500;color:white;letter-spacing:-1px;">S</span>
         </div>
 
-        <!-- Clinic name -->
+        <!-- Clinic name — tamaño adaptativo según largo del nombre -->
         <div id="lsClinicName" style="
-            font-size:22px; font-weight:200; color:white;
-            letter-spacing:-.5px; text-align:center;
-            text-shadow:0 1px 12px rgba(0,0,0,.2);
-            max-width:280px; line-height:1.3;">
+            font-size:26px; font-weight:300; color:white;
+            letter-spacing:-.8px; text-align:center;
+            text-shadow:0 2px 16px rgba(0,0,0,.25);
+            max-width:300px; line-height:1.25;">
             Tu Clínica
         </div>
         <div id="lsClinicSub" style="font-size:11px;color:rgba(255,255,255,.55);
              margin-top:5px;letter-spacing:2px;text-transform:uppercase;">
             Acceso al sistema
+        </div>
+
+        <!-- SMILE watermark — sutil, solo cuando hay logo de clínica -->
+        <div style="position:absolute;bottom:14px;right:18px;
+             display:flex;align-items:center;gap:5px;opacity:.3;pointer-events:none;">
+            <span style="font-size:8px;color:white;letter-spacing:3px;
+                         font-weight:600;text-transform:uppercase;">powered by</span>
+            <span style="font-size:11px;color:white;font-weight:700;
+                         letter-spacing:1.5px;">SMILE</span>
         </div>
     </div>
 
@@ -3184,15 +3196,18 @@
         return (words[0][0] + words[words.length-1][0]).toUpperCase();
     }
 
-    // Returns the display name — skips title prefix, shows first + last name
+    // Returns display name as "I. Apellido" — ej: "L. López", "A. Martínez"
+    // Omite títulos (Dr., Dra., Lic., etc.) para extraer nombre real
     function _displayName(name) {
         const TITULOS = ['dr','dra','dr.','dra.','lic','lic.','ing','ing.','sr','sr.','sra','sra.'];
         const words = (name || '').split(/\s+/).filter(Boolean);
         const meaningful = words.filter(w => !TITULOS.includes(w.toLowerCase().replace('.', '')));
         if (meaningful.length === 0) return name || '?';
-        if (meaningful.length === 1) return meaningful[0];
-        // First name + Last name (skip middle if >2)
-        return meaningful[0] + ' ' + meaningful[meaningful.length - 1];
+        if (meaningful.length === 1) return meaningful[0]; // un solo nombre — mostrar completo
+        // "I. PrimerApellido" — inicial del primer nombre + primer apellido
+        const inicial   = meaningful[0][0].toUpperCase() + '.';
+        const apellido  = meaningful[1]; // primer apellido (segunda palabra significativa)
+        return inicial + ' ' + apellido;
     }
     function _roleLabel(p) {
         if (p.isAdmin) return 'Admin';
@@ -3238,14 +3253,18 @@
         // Logo or initials
         const img  = document.getElementById('lsLogoImg');
         const txt  = document.getElementById('lsLogoText');
+        const wrap = document.getElementById('lsLogoWrap');
         if (logo && img && txt) {
             img.src = logo;
             img.style.display = 'block';
             txt.style.display = 'none';
+            // Logo real de clínica → más grande y con más aire
+            if (wrap) { wrap.style.width = '108px'; wrap.style.height = '108px'; wrap.style.borderRadius = '30px'; }
         } else if (txt) {
             txt.textContent    = _initials(nombre);
             txt.style.display  = 'block';
             if (img) img.style.display = 'none';
+            if (wrap) { wrap.style.width = '96px'; wrap.style.height = '96px'; }
         }
     }
 
