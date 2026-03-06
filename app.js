@@ -1735,6 +1735,12 @@ function hasModule(key) {
 // Undefined (never configured) defaults to true so existing accounts keep working.
 function tienePermiso(key) {
     if (appData.currentRole === 'admin') return true;
+    // Recepción tiene acceso implícito a cobros, gastos y cuadre (su función principal)
+    if (appData.currentRole === 'reception') {
+        const recepcionPermisos = ['cobrar', 'gastos', 'cuadre'];
+        if (recepcionPermisos.includes(key)) return true;
+        if (key === 'facturar' || key === 'verIngresos') return false;
+    }
     const person = appData.personal.find(p => p.nombre === appData.currentUser);
     if (!person) return false;
     if (!person.permisos) return true;
@@ -1753,13 +1759,11 @@ function buildNavigation() {
 
     let nav = '';
 
-    // Dashboard — admin + profesional
-    if (role === 'admin' || role === 'professional') {
-        nav += `<button class="nav-item" data-tab="dashboard" onclick="showTab('dashboard')">${svgDash}<span>Dashboard</span></button>`;
-    }
+    // Dashboard — todos los roles (cada uno ve versión adaptada)
+    nav += `<button class="nav-item" data-tab="dashboard" onclick="showTab('dashboard')">${svgDash}<span>Dashboard</span></button>`;
 
     // Pacientes — todos
-    nav += `<button class="nav-item ${role === 'reception' ? 'active' : ''}" data-tab="pacientes" onclick="showTab('pacientes')">${svgPax}<span>Pacientes</span></button>`;
+    nav += `<button class="nav-item" data-tab="pacientes" onclick="showTab('pacientes')">${svgPax}<span>Pacientes</span></button>`;
 
     // Agenda — todos
     nav += `<button class="nav-item" data-tab="agenda" onclick="showTab('agenda')">${svgAgenda}<span>Agenda</span></button>`;
@@ -1769,8 +1773,8 @@ function buildNavigation() {
         nav += `<button class="nav-item" data-tab="laboratorio" onclick="showTab('laboratorio')">${svgLab}<span>Lab</span></button>`;
     }
 
-    // Cobros — admin + profesional (contiene factura, pendientes, ingresos, cuadre, gastos)
-    if (role === 'admin' || role === 'professional') {
+    // Cobros — todos los roles (cada uno ve sus subtabs)
+    if (role === 'admin' || role === 'reception' || role === 'professional') {
         nav += `<button class="nav-item" data-tab="cobros" onclick="showTab('cobros')">${svgCobros}<span>Cobros</span></button>`;
     }
 
@@ -1967,6 +1971,12 @@ function updateTotal() {
 }
 
 async function generarFactura() {
+    // Solo el médico puede generar facturas de tratamiento
+    if (appData.currentRole === 'reception') {
+        showToast('⛔ Solo el médico puede generar facturas de tratamiento', 3000, '#c0392b');
+        return;
+    }
+
     try {
     const contenedor  = document.getElementById('cobros-content') || document;
     const pacienteInput = contenedor.querySelector('#pacienteNombre') || document.getElementById('pacienteNombre');
@@ -2096,12 +2106,17 @@ async function generarFactura() {
         throw saveErr; // re-throw para que el catch externo lo maneje
     }
 
-    const mensaje = citaHoy
-        ? `✅ Factura generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
-        : '✅ Factura generada exitosamente';
-
     const labMsg = tempOrdenesLab.length > 0 ? ` · ${tempOrdenesLab.length} orden(es) de lab creadas` : '';
-    showToast(mensaje.replace('✅ ', '') + labMsg);
+
+    // Toast adaptado por rol
+    if (appData.currentRole === 'professional') {
+        showToast('📋 Factura creada — queda pendiente de cobro en recepción' + labMsg);
+    } else {
+        const mensaje = citaHoy
+            ? `✅ Factura generada exitosamente\n\n✔️ Vinculada con cita de las ${citaHoy.hora}\n✔️ Cita marcada como Completada`
+            : '✅ Factura generada exitosamente';
+        showToast(mensaje.replace('✅ ', '') + labMsg);
+    }
 
     const pnEl = getFacturaEl('pacienteNombre');
     if (pnEl) { pnEl.value = ''; pnEl.dataset.pacienteSeleccionado = 'false'; }
@@ -2331,8 +2346,13 @@ _Para confirmar su cita o realizar consultas, responda este mensaje._`;
 }
 
 function openPagarFactura(facturaId) {
+    // Solo admin y recepción pueden ejecutar cobros
+    if (appData.currentRole === 'professional') {
+        showToast('⛔ El cobro lo procesa recepción — la factura queda pendiente para ellos');
+        return;
+    }
     if (!tienePermiso('cobrar')) {
-        showToast('⛔ Sin autorización para cobros', 3000, '#c0392b');
+        showToast('⛔ Sin autorización para cobros');
         return;
     }
     const factura = appData.facturas.find(f => f.id === facturaId);
@@ -4952,6 +4972,9 @@ function verPaciente(pacienteId) {
     if (btnEliminar) {
         btnEliminar.style.display = appData.currentRole === 'admin' ? 'flex' : 'none';
     }
+    // Cerrar dropdown al abrir nueva ficha
+    const _dd = document.getElementById('pacienteMenuDropdown');
+    if (_dd) _dd.style.display = 'none';
 
     // Fix 12: Restore last active tab, default to resumen
     const tabToRestore = window._lastPacienteTab || 'resumen';
@@ -5502,18 +5525,11 @@ function renderTabResumen(paciente) {
                                 <div style="font-size: 18px; font-weight: 400; margin-bottom: 4px; color: var(--dark, #1E1C1A);">${formatDate(proxima.fecha)} · ${proxima.hora}</div>
                                 <div style="font-size: 13px; color: var(--mid,#9C9189);">${proxima.motivo} · Con ${proxima.profesional}</div>
                             </div>
-                            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-                                <button onclick="closeModal('modalVerPaciente');setTimeout(()=>verDetalleCita('${proxima.id}'),200)"
-                                    style="padding:7px 14px;background:var(--clinic-color,#C4856A);color:white;border:none;
-                                           border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;">
-                                    Ver detalle
-                                </button>
-                                <button onclick="abrirModalNuevaCita('${paciente.id}','${paciente.nombre}')"
-                                    style="padding:7px 14px;background:transparent;color:var(--clinic-color,#C4856A);border:1.5px solid var(--clinic-color,#C4856A);
-                                           border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;">
-                                    + Nueva cita
-                                </button>
-                            </div>
+                            <button onclick="closeModal('modalVerPaciente');setTimeout(()=>verDetalleCita('${proxima.id}'),200)"
+                                style="flex-shrink:0;padding:8px 16px;background:var(--clinic-color,#C4856A);color:white;border:none;
+                                       border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;">
+                                Ver cita →
+                            </button>
                         </div>
                     </div>
                 `;
@@ -5543,52 +5559,6 @@ function renderTabResumen(paciente) {
             return '';
         })()}
 
-        <!-- Fix 4: Quick-action bar -->
-        <div style="margin-top:8px;margin-bottom:8px;">
-            <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:10px;">Acceso rápido</div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-                <button onclick="cambiarTabPaciente('odontograma')"
-                    style="padding:14px 8px;background:var(--sand,#EEEAE4);border:none;border-radius:12px;
-                           font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
-                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));
-                           transition:box-shadow .2s;"
-                    onmouseover="this.style.boxShadow='var(--neu-raised-lg)'"
-                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9))'">
-                    <span style="font-size:20px;">🦷</span>
-                    <span style="font-size:10px;color:var(--piedra,#7A7068);font-weight:500;">Odontograma</span>
-                </button>
-                <button onclick="cambiarTabPaciente('recetas')"
-                    style="padding:14px 8px;background:var(--sand,#EEEAE4);border:none;border-radius:12px;
-                           font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
-                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));
-                           transition:box-shadow .2s;"
-                    onmouseover="this.style.boxShadow='var(--neu-raised-lg)'"
-                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9))'">
-                    <span style="font-size:20px;">💊</span>
-                    <span style="font-size:10px;color:var(--piedra,#7A7068);font-weight:500;">Recetas</span>
-                </button>
-                <button onclick="cambiarTabPaciente('documentos')"
-                    style="padding:14px 8px;background:var(--sand,#EEEAE4);border:none;border-radius:12px;
-                           font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
-                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));
-                           transition:box-shadow .2s;"
-                    onmouseover="this.style.boxShadow='var(--neu-raised-lg)'"
-                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9))'">
-                    <span style="font-size:20px;">📄</span>
-                    <span style="font-size:10px;color:var(--piedra,#7A7068);font-weight:500;">Documentos</span>
-                </button>
-                <button onclick="cambiarTabPaciente('tratamientos')"
-                    style="padding:14px 8px;background:var(--sand,#EEEAE4);border:none;border-radius:12px;
-                           font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
-                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));
-                           transition:box-shadow .2s;"
-                    onmouseover="this.style.boxShadow='var(--neu-raised-lg)'"
-                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9))'">
-                    <span style="font-size:20px;">📋</span>
-                    <span style="font-size:10px;color:var(--piedra,#7A7068);font-weight:500;">Tratamientos</span>
-                </button>
-            </div>
-        </div>
     `;
 }
 
@@ -5618,20 +5588,33 @@ function renderTabHistorial(paciente) {
     const bannerBg     = balance > 0 ? 'rgba(196,133,106,0.08)' : 'rgba(107,143,113,0.08)';
     const bannerBorder = balance > 0 ? 'rgba(196,133,106,0.25)' : 'rgba(107,143,113,0.25)';
 
+    const cobrarBannerBtn = canCobrar && facturaAbierta && balance > 0
+        ? `<button onclick="withGuard(this,()=>openPagarFactura('${facturaAbierta.id}'))"
+              style="margin-top:10px;width:100%;padding:10px;background:${bannerColor};
+                     color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
+                     font-family:inherit;cursor:pointer;">
+              💳 Cobrar — ${formatCurrency(balance)} pendiente
+           </button>`
+        : '';
+
     const balanceBanner = `
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
-            <div style="background:${bannerBg};border:1.5px solid ${bannerBorder};border-radius:12px;padding:12px 14px;">
-                <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Facturado</div>
-                <div style="font-size:16px;font-weight:600;color:#333;">${formatCurrency(totalFacturado)}</div>
+        <div style="background:${bannerBg};border:1.5px solid ${bannerBorder};
+                    border-radius:14px;padding:14px 16px;margin-bottom:16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:${balance>0?'4':'0'}px;">
+                <div>
+                    <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Facturado</div>
+                    <div style="font-size:16px;font-weight:600;color:#333;">${formatCurrency(totalFacturado)}</div>
+                </div>
+                <div>
+                    <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Pagado</div>
+                    <div style="font-size:16px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
+                </div>
+                <div>
+                    <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Balance</div>
+                    <div style="font-size:16px;font-weight:700;color:${bannerColor};">${formatCurrency(balance)}</div>
+                </div>
             </div>
-            <div style="background:rgba(52,199,89,0.07);border:1.5px solid rgba(52,199,89,0.2);border-radius:12px;padding:12px 14px;">
-                <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Pagado</div>
-                <div style="font-size:16px;font-weight:600;color:#34c759;">${formatCurrency(totalPagado)}</div>
-            </div>
-            <div style="background:${bannerBg};border:1.5px solid ${bannerBorder};border-radius:12px;padding:12px 14px;">
-                <div style="font-size:9px;color:#aaa;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px;">Balance</div>
-                <div style="font-size:16px;font-weight:700;color:${bannerColor};">${formatCurrency(balance)}</div>
-            </div>
+            ${cobrarBannerBtn}
         </div>`;
 
     // ── Toggle interno ──────────────────────────────────────
@@ -5729,13 +5712,7 @@ function renderTabHistorial(paciente) {
                         <span style="font-size:12px;color:#ff6b35;font-weight:600;">Pendiente</span>
                         <span style="font-size:12px;font-weight:700;color:#ff6b35;">${formatCurrency(pendienteF)}</span>
                     </div>`:''}
-                    ${canCobrar&&pendienteF>0?`
-                    <button onclick="withGuard(this,()=>openPagarFactura('${facturaAbierta.id}'))"
-                        style="width:100%;margin-top:12px;padding:11px;background:var(--clinic-color,#C4856A);
-                               color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
-                               font-family:inherit;cursor:pointer;">
-                        💳 Cobrar factura
-                    </button>`:''}
+                    <!-- Cobro se hace desde el banner de balance arriba -->
                 </div>
             </div>`;
     }
@@ -6124,10 +6101,17 @@ function _cotizRegistrarOrdenesLab(ordenesLab, factura, paciente) {
 function renderTabRecetas(paciente) {
     const recetas = (paciente.recetas || []).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
+    const canWriteRx = appData.currentRole === 'admin' || appData.currentRole === 'professional';
     document.getElementById('tabRecetas').innerHTML = `
-        <button class="btn btn-submit" onclick="currentPacienteRecetas = appData.pacientes.find(p => p.id === '${paciente.id}'); abrirNuevaReceta();" style="width: 100%; margin-bottom: 20px; font-size: 16px; padding: 14px;">
-            ➕ Nueva Receta Médica
-        </button>
+        ${canWriteRx ? `
+        <button onclick="currentPacienteRecetas = appData.pacientes.find(p => p.id === '${paciente.id}'); abrirNuevaReceta();"
+            style="display:flex;align-items:center;gap:8px;padding:10px 18px;
+                   background:var(--clinic-color,#C4856A);color:white;border:none;
+                   border-radius:100px;font-size:13px;font-weight:500;font-family:inherit;
+                   cursor:pointer;margin-bottom:18px;
+                   box-shadow:0 2px 8px rgba(196,133,106,0.3);">
+            <span style="font-size:16px;line-height:1;">+</span> Nueva receta
+        </button>` : ''}
 
         ${recetas.length === 0 ? `
             <div style="text-align:center;padding:48px 20px;color:var(--muted);">
@@ -11344,25 +11328,43 @@ function renderCobrosTab(subtab) {
         document.querySelector('.content-area').appendChild(tab);
     }
     tab.classList.add('active');
-    // Pick requested subtab, or remembered one, or first one the user can access
-    const _requested = subtab || tab._activeSubtab || 'cobrar';
-    const active = tienePermiso({ cobrar:'cobrar', nueva:'facturar', ingresos:'verIngresos', cuadre:'cuadre', gastos:'gastos' }[_requested] || _requested)
-        ? _requested
-        : (['cobrar','nueva','ingresos','cuadre','gastos'].find(k => tienePermiso({cobrar:'cobrar',nueva:'facturar',ingresos:'verIngresos',cuadre:'cuadre',gastos:'gastos'}[k])) || 'cobrar');
-    tab._activeSubtab = active;
+    // Default subtab por rol
+    const _roleDefault = appData.currentRole === 'professional' ? 'mis-facturas'
+                       : appData.currentRole === 'reception'    ? 'cobrar'
+                       : 'cobrar';
+    const _requested = subtab || tab._activeSubtab || _roleDefault;
+    tab._activeSubtab = _requested;
+    const active = _requested;
 
     // Highlight nav
     document.querySelectorAll('.nav-item').forEach(btn => {
         if (btn.getAttribute('onclick') === "showTab('cobros')") btn.classList.add('active');
     });
 
-    const subtabs = [
-        { key: 'cobrar',   label: '💳 Cobrar',   permiso: 'cobrar'     },
-        { key: 'nueva',    label: '+ Nueva',     permiso: 'facturar'   },
-        { key: 'ingresos', label: 'Ingresos',    permiso: 'verIngresos'},
-        { key: 'cuadre',   label: 'Cuadre',      permiso: 'cuadre'     },
-        { key: 'gastos',   label: 'Gastos',      permiso: 'gastos'     },
-    ].filter(s => tienePermiso(s.permiso));
+    // Subtabs según rol — cada rol ve solo lo que le corresponde
+    const role = appData.currentRole;
+    let subtabs;
+    if (role === 'admin') {
+        subtabs = [
+            { key: 'cobrar',        label: '💳 Cobrar'   },
+            { key: 'nueva',         label: '+ Nueva'     },
+            { key: 'ingresos',      label: 'Ingresos'    },
+            { key: 'cuadre',        label: 'Cuadre'      },
+            { key: 'gastos',        label: 'Gastos'      },
+        ];
+    } else if (role === 'reception') {
+        subtabs = [
+            { key: 'cobrar',        label: '💳 Cobrar'   },
+            { key: 'gastos',        label: 'Gastos'      },
+            { key: 'cuadre',        label: 'Cuadre'      },
+        ];
+    } else if (role === 'professional') {
+        subtabs = [
+            { key: 'mis-facturas',  label: '📋 Mis Facturas' },
+        ];
+    } else {
+        subtabs = [{ key: 'cobrar', label: '💳 Cobrar' }];
+    }
 
     const subtabsHtml = subtabs.map(s => `
         <button onclick="setCobrosSubtab('${s.key}')" style="
@@ -11401,6 +11403,79 @@ function setCobrosSubtab(key) {
 function renderCobrosContent(key) {
     const el = document.getElementById('cobros-content');
     if (!el) return;
+
+    // Mis Facturas — profesional: solo sus facturas, read-only
+    if (key === 'mis-facturas') {
+        const yo = appData.currentUser;
+        const misFacturas = (appData.facturas || [])
+            .filter(f => f.profesional === yo)
+            .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+        if (misFacturas.length === 0) {
+            el.innerHTML = `<div style="text-align:center;padding:44px 20px;color:var(--muted);">
+                <div style="font-size:32px;margin-bottom:10px;">📋</div>
+                <div style="font-size:14px;color:var(--piedra);">Aún no tienes facturas generadas</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:4px;">Créalas desde la ficha del paciente</div>
+            </div>`;
+            return;
+        }
+
+        const pendientes = misFacturas.filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada').length;
+        const porCobrar  = misFacturas.filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada')
+            .reduce((s,f) => s + Math.max(0, f.total - (f.pagos||[]).reduce((ss,p)=>ss+p.monto,0)), 0);
+
+        const stateColor = { pagada:'var(--salvia,#6B8F71)', pendiente:'var(--terra,#C4856A)', parcial:'#7B8FA1', cancelada:'var(--muted)' };
+        const stateIcon  = { pagada:'✓', pendiente:'⏳', parcial:'◑', cancelada:'✕' };
+
+        el.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
+                <div style="background:var(--surface,#F5F2EE);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--neu-flat);">
+                    <div style="font-size:20px;font-weight:300;color:var(--topo);">${misFacturas.length}</div>
+                    <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Total</div>
+                </div>
+                <div style="background:var(--surface,#F5F2EE);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--neu-flat);">
+                    <div style="font-size:20px;font-weight:300;color:var(--terra,#C4856A);">${pendientes}</div>
+                    <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Pend. cobro</div>
+                </div>
+                <div style="background:var(--surface,#F5F2EE);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--neu-flat);">
+                    <div style="font-size:14px;font-weight:300;color:var(--topo);">${formatCurrency(porCobrar)}</div>
+                    <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Por cobrar</div>
+                </div>
+            </div>
+            <div>
+                ${misFacturas.map(f => {
+                    const estado  = (f.estado||'pendiente').toLowerCase();
+                    const color   = stateColor[estado] || 'var(--piedra)';
+                    const icon    = stateIcon[estado]  || '?';
+                    const cobrado = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+                    const saldo   = Math.max(0, f.total - cobrado);
+                    const fecha   = new Date(f.fecha).toLocaleDateString('es-DO',{day:'numeric',month:'short'});
+                    return `
+                    <div onclick="verPaciente('${f.pacienteId||''}')"
+                        style="display:flex;align-items:center;gap:12px;padding:12px 14px;
+                               background:var(--surface,#F5F2EE);border-radius:12px;margin-bottom:8px;
+                               cursor:pointer;border-left:3px solid ${color};"
+                        onmouseenter="this.style.background='var(--sand,#EEEAE4)'"
+                        onmouseleave="this.style.background='var(--surface,#F5F2EE)'">
+                        <div style="width:28px;height:28px;border-radius:50%;background:${color};
+                            display:flex;align-items:center;justify-content:center;
+                            color:white;font-size:11px;font-weight:600;flex-shrink:0;">${icon}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;font-weight:500;color:var(--topo);">${f.paciente}</div>
+                            <div style="font-size:11px;color:var(--piedra);margin-top:1px;">${fecha} · ${(f.procedimientos||[]).length} proc.</div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-size:13px;font-weight:500;color:var(--topo);">${formatCurrency(f.total)}</div>
+                            ${saldo > 0
+                                ? `<div style="font-size:11px;color:var(--terra,#C4856A);">debe ${formatCurrency(saldo)}</div>`
+                                : `<div style="font-size:11px;color:var(--salvia,#6B8F71);">cobrado ✓</div>`}
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+        `;
+        return;
+    }
 
     if (key === 'cobrar') {
         const src = document.getElementById('tab-cobrar');
@@ -13647,3 +13722,24 @@ async function guardarAbonoLab() {
     }
 }
 
+
+// ── Menú ··· de la ficha del paciente ─────────────────
+function _togglePacienteMenu() {
+    const dd = document.getElementById('pacienteMenuDropdown');
+    if (!dd) return;
+    const open = dd.style.display === 'block';
+    dd.style.display = open ? 'none' : 'block';
+    if (!open) {
+        setTimeout(() => {
+            function _closePacMenu(e) {
+                const menu = document.getElementById('pacienteMenuDropdown');
+                const btn  = document.getElementById('btnPacienteMenu');
+                if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+                    menu.style.display = 'none';
+                    document.removeEventListener('click', _closePacMenu);
+                }
+            }
+            document.addEventListener('click', _closePacMenu);
+        }, 50);
+    }
+}
