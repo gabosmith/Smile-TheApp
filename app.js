@@ -3030,6 +3030,13 @@ function toggleEditTipoRemuneracion() {
 async function agregarPersonal() {
     const nombre    = sanitize.str(document.getElementById('personalNombre')?.value, 120);
     const tipo      = document.getElementById('personalTipo')?.value || 'regular';
+
+    // Fix 7: Validate duplicate name
+    if (appData.personal.some(p => p.nombre.toLowerCase() === nombre.toLowerCase())) {
+        showToast('⚠️ Ya existe un miembro del personal con ese nombre', 4000, '#e65100');
+        return;
+    }
+
     const sueldoRaw = document.getElementById('personalSueldo')?.value;
     const sueldo    = sanitize.num(sueldoRaw, 0);
     const password  = sanitize.str(document.getElementById('personalPassword')?.value, 100);
@@ -3091,7 +3098,13 @@ async function agregarPersonal() {
 
 function updatePersonalTab() {
     const list = document.getElementById('personalList');
-    const personal = appData.personal.filter(p => !p.isAdmin);
+    // Fix 8: Search filter
+    const searchEl = document.getElementById('personalSearch');
+    const query = searchEl ? searchEl.value.toLowerCase().trim() : '';
+    const personal = appData.personal.filter(p =>
+        !p.isAdmin &&
+        (query === '' || p.nombre.toLowerCase().includes(query) || getTipoLabel(p.tipo, p).toLowerCase().includes(query))
+    );
 
     if (personal.length === 0) {
         list.innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay personal registrado</li>';
@@ -3116,14 +3129,19 @@ function updatePersonalTab() {
                             + (acum > 0 ? '<div style="font-size:12px;color:#ff9500">' + formatCurrency(acum) + '</div>' : '');
             }
 
-            return '<li onclick="openPersonalDetail(\'' + p.id + '\')">' 
-                 + '<div class="item-header">'
-                 + '<div style="flex:1;min-width:0">'
-                 + '<div class="item-title" style="font-size:15px;font-weight:500;color:var(--dark)">' + p.nombre + '</div>'
-                 + '<div class="item-meta">' + getTipoLabel(p.tipo, p) + '</div>'
-                 + '</div>'
-                 + '<div style="text-align:right;flex-shrink:0;margin-left:12px">' + rightHtml + '</div>'
-                 + '</div></li>';
+            return `
+                <li onclick="openPersonalDetail('${p.id}')" style="cursor:pointer;">
+                    <div class="item-header">
+                        <div style="flex:1;min-width:0;">
+                            <div class="item-title" style="font-size:15px;font-weight:500;color:var(--dark);">
+                                ${p.nombre}
+                                ${avances > 0 ? `<span style="display:inline-block;background:rgba(142,68,173,.15);color:#8e44ad;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle;">▾ ${formatCurrency(avances)}</span>` : ''}
+                            </div>
+                            <div class="item-meta">${getTipoLabel(p.tipo, p)}</div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;margin-left:12px;">${rightHtml}</div>
+                    </div>
+                </li>`;
         }).join('');
     }
 }
@@ -3206,9 +3224,9 @@ function openPersonalDetail(id) {
             const frec    = getFrecuenciaLabel(person.frecuenciaPago || 'mensual');
             content += '<div style="background:var(--surface);border-radius:14px;padding:18px;margin-bottom:18px">'
                      + '<div style="font-size:11px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Salario fijo &middot; ' + frec + '</div>'
-                     + '<div style="font-size:30px;font-weight:300;color:#34c759;letter-spacing:-1px">' + formatCurrency(base) + '</div>'
+                     + '<div style="font-size:30px;font-weight:300;color:var(--salvia,#6B8F71);letter-spacing:-1px">' + formatCurrency(base) + '</div>'
                      + (avances > 0
-                         ? '<div style="font-size:13px;color:#8e44ad;margin-top:4px">Avances: -' + formatCurrency(avances) + '</div>'
+                         ? '<div style="font-size:13px;color:var(--violeta,#8e44ad);margin-top:4px">Avances: -' + formatCurrency(avances) + '</div>'
                          + '<div style="font-size:13px;color:var(--dark);font-weight:500">Neto: ' + formatCurrency(neto) + '</div>'
                          : '')
                      + '</div>'
@@ -3222,9 +3240,9 @@ function openPersonalDetail(id) {
             const hasCustom = typeof person.comisionPct === 'number';
             content += '<div style="background:var(--surface);border-radius:14px;padding:18px;margin-bottom:18px">'
                      + '<div style="font-size:11px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Comisiones acumuladas</div>'
-                     + '<div style="font-size:30px;font-weight:300;color:#ff9500;letter-spacing:-1px">' + formatCurrency(acum) + '</div>'
+                     + '<div style="font-size:30px;font-weight:300;color:var(--naranja,#E8954A);letter-spacing:-1px">' + formatCurrency(acum) + '</div>'
                      + (avances > 0
-                         ? '<div style="font-size:13px;color:#8e44ad;margin-top:4px">Avances: -' + formatCurrency(avances) + '</div>'
+                         ? '<div style="font-size:13px;color:var(--violeta,#8e44ad);margin-top:4px">Avances: -' + formatCurrency(avances) + '</div>'
                          + '<div style="font-size:13px;color:var(--dark);font-weight:500">Neto: ' + formatCurrency(Math.max(0, acum - avances)) + '</div>'
                          : '')
                      + '</div>'
@@ -3252,7 +3270,7 @@ function openPersonalDetail(id) {
         content += `
             <div style="margin-bottom: 20px;">
                 <div style="color: #666; font-size: 14px;">Sueldo Mensual</div>
-                <div style="font-weight: 700; font-size: 18px; color: #34c759;">${formatCurrency(person.sueldo)}</div>
+                <div style="font-weight: 700; font-size: 18px; color:var(--salvia,#6B8F71);">${formatCurrency(person.sueldo)}</div>
             </div>
             <div style="margin-bottom: 20px;">
                 <div style="color: #666; font-size: 14px;">Total Avances</div>
@@ -3270,7 +3288,7 @@ function openPersonalDetail(id) {
                 <div style="margin-top: 20px;">
                     <h3 style="font-size: 16px; margin-bottom: 10px;">Últimos Avances</h3>
                     ${avances.map(a => `
-                        <div style="padding: 10px; background: #f8f8f8; border-radius: 8px; margin-bottom: 8px;">
+                        <div style="padding: 10px; background:var(--surface,#F5F2EE); border-radius: 8px; margin-bottom: 8px;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                                 <strong>${formatCurrency(a.monto)}</strong>
                                 <span style="color: #8e8e93; font-size: 13px;">${new Date(a.fecha).toLocaleDateString(getLocale())}</span>
@@ -3281,6 +3299,30 @@ function openPersonalDetail(id) {
                 </div>
             ` : ''}
         `;
+    }
+
+    // Fix 4: Payment history section
+    if (person.historialPagos && person.historialPagos.length > 0) {
+        const ultimos = [...person.historialPagos].reverse().slice(0, 5);
+        content += `
+            <div style="margin-top:16px;margin-bottom:16px;border-top:1px solid rgba(30,28,26,.07);padding-top:16px;">
+                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Historial de pagos</div>
+                ${ultimos.map(p => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;
+                                padding:8px 0;border-bottom:1px solid rgba(30,28,26,.05);">
+                        <div>
+                            <div style="font-size:13px;font-weight:600;color:var(--topo);">${formatCurrency(p.monto || 0)}</div>
+                            <div style="font-size:11px;color:var(--mid);">${p.fecha ? formatDate(p.fecha) : ''} · ${p.tipo || 'Pago'}</div>
+                        </div>
+                        <div style="font-size:11px;color:var(--piedra);">${p.registradoPor || ''}</div>
+                    </div>`).join('')}
+            </div>`;
+    } else if (person.lastPaymentDate) {
+        content += `
+            <div style="margin-top:16px;margin-bottom:16px;border-top:1px solid rgba(30,28,26,.07);padding-top:14px;">
+                <div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Último pago</div>
+                <div style="font-size:13px;color:var(--topo);">${formatDate(person.lastPaymentDate)}</div>
+            </div>`;
     }
 
     // ── Permisos granulares (solo admin puede ver/editar) ──
@@ -3344,7 +3386,7 @@ function confirmarPagoSalarioFijo(person) {
         titulo: '💰 Pagar Salario',
         mensaje: '<div style="background:var(--surface);border-radius:12px;padding:20px;margin-bottom:16px">'
                + '<div style="font-size:11px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Neto a pagar &middot; ' + frec + '</div>'
-               + '<div style="font-size:32px;font-weight:300;color:#34c759">' + formatCurrency(neto) + '</div></div>'
+               + '<div style="font-size:32px;font-weight:300;color:var(--salvia,#6B8F71)">' + formatCurrency(neto) + '</div></div>'
                + '<div style="font-size:14px;color:var(--mid)"><strong>' + person.nombre + '</strong> &middot; ' + getTipoLabel(person.tipo, person) + '</div>'
                + (avances > 0 ? '<div style="font-size:13px;color:var(--mid);margin-top:4px">Base: ' + formatCurrency(base) + ' &minus; Avances: ' + formatCurrency(avances) + '</div>' : ''),
         tipo: 'normal',
@@ -3366,7 +3408,10 @@ function confirmarPagoSalarioFijo(person) {
             const idx = appData.personal.findIndex(p => p.id === person.id);
             if (idx >= 0) appData.personal[idx].lastPaymentDate = new Date().toISOString();
             currentReciboText = recibo;
-            document.getElementById('reciboContent').textContent = recibo;
+            // Fix 5: styled receipt for salary fijo
+            const reciboHTMLsf = generarReciboHTML('Pago de Salario', person, neto,
+                avances > 0 ? `Base ${formatCurrency(base)} · Avances -${formatCurrency(avances)}` : null);
+            mostrarReciboHTML(reciboHTMLsf, recibo);
             try {
                 await savePersonal();
                 closeModal('modalPersonalDetail');
@@ -3392,18 +3437,18 @@ function confirmarPagoProfesional(id) {
     const avancesPendientes = calcularTotalAvances(person.id);
     const netoAPagar = Math.max(0, comisionesAcum - avancesPendientes);
 
-    // Contar facturas que generaron la comisión
+    // Fix 6: Count all invoices that generated commission (paid + partial)
     const lastPayment = person.lastPaymentDate ? new Date(person.lastPaymentDate) : new Date(0);
     const facturasPagadas = appData.facturas.filter(f =>
         f.profesional === person.nombre &&
-        f.estado === 'pagada' &&
+        (f.estado === 'pagada' || f.estado === 'parcial') &&
         new Date(f.fecha) > lastPayment
     );
 
     mostrarConfirmacion({
         titulo: '💰 Pagar Comisiones',
         mensaje: `
-            <div style="background: linear-gradient(135deg, #34c759 0%, #30d158 100%); padding: 20px; border-radius: 8px; color: white; margin-bottom: 15px; text-align: center;">
+            <div style="background:var(--salvia,#6B8F71); padding: 20px; border-radius: 8px; color: white; margin-bottom: 15px; text-align: center;">
                 <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Neto a Pagar</div>
                 <div style="font-size: 36px; font-weight: 700;">${formatCurrency(netoAPagar)}</div>
             </div>
@@ -3477,7 +3522,20 @@ Firma: _____________________
             person.lastPaymentDate = new Date().toISOString();
 
             currentReciboText = recibo;
-            document.getElementById('reciboContent').textContent = recibo;
+            // Fix 5: styled receipt for commissions
+            const reciboHTMLcomm = generarReciboHTML('Pago de Comisiones', person, netoAPagar,
+                `${getComisionRate(person.tipo, person)}% · ${facturasPagadas.length} factura(s)${avancesPendientes > 0 ? ' · Avances: -' + formatCurrency(avancesPendientes) : ''}`);
+            mostrarReciboHTML(reciboHTMLcomm, recibo);
+
+            // Fix 4: Record commission payment in historial
+            if (!person.historialPagos) person.historialPagos = [];
+            person.historialPagos.push({
+                id: generateId(),
+                monto: netoAPagar,
+                tipo: 'Comisiones',
+                fecha: new Date().toISOString(),
+                registradoPor: appData.currentUser
+            });
 
             savePersonal().then(() => {
                 closeModal('modalPersonalDetail');
@@ -3485,6 +3543,7 @@ Firma: _____________________
                 updatePersonalTab();
             }).catch(e => {
                 person.lastPaymentDate = backupLastPayment; // rollback
+                person.historialPagos?.pop();
                 showError('Error al registrar el pago. Intenta de nuevo.', e);
             });
         }
@@ -3561,8 +3620,25 @@ Firma: _____________________
     const backupAvances = [...appData.avances];
     appData.avances = appData.avances.filter(a => a.personalId !== person.id);
 
+    // Fix 4: Record payment in historial
+    if (!person.historialPagos) person.historialPagos = [];
+    person.historialPagos.push({
+        id: generateId(),
+        monto: neto,
+        tipo: 'Salario',
+        fecha: new Date().toISOString(),
+        registradoPor: appData.currentUser
+    });
+
     currentReciboText = recibo;
-    document.getElementById('reciboContent').textContent = recibo;
+    // Fix 5: Use styled receipt
+    const reciboHTML = generarReciboHTML(
+        'Pago de Salario',
+        person,
+        neto,
+        totalAvances > 0 ? `Base ${formatCurrency(person.sueldo)} · Avances -${formatCurrency(totalAvances)}` : null
+    );
+    mostrarReciboHTML(reciboHTML, recibo);
 
     try {
         await savePersonal();
@@ -3571,10 +3647,71 @@ Firma: _____________________
         updatePersonalTab();
     } catch(e) {
         appData.avances = backupAvances; // rollback
+        person.historialPagos?.pop();
         showError('Error al registrar el pago. Intenta de nuevo.', e);
     }
         } // end onConfirm
     }); // end mostrarConfirmacion
+}
+
+// ══════════════════════════════════════════════════════
+// Fix 5 — Styled payment receipt
+// ══════════════════════════════════════════════════════
+function generarReciboHTML(tipo, person, monto, detalle) {
+    const fecha = new Date().toLocaleDateString(getLocale(), {year:'numeric', month:'long', day:'numeric'});
+    const hora  = new Date().toLocaleTimeString(getLocale(), {hour:'2-digit', minute:'2-digit'});
+    const clinica = getNombreClinica();
+    const color = clinicConfig.color || '#C4856A';
+
+    return `<div style="font-family:inherit;max-width:340px;margin:0 auto;">
+        <div style="background:${color};color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center;">
+            <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:.8;margin-bottom:4px;">Recibo de Pago</div>
+            <div style="font-size:18px;font-weight:600;">${clinica}</div>
+        </div>
+        <div style="border:1.5px solid rgba(30,28,26,.1);border-top:none;border-radius:0 0 12px 12px;padding:20px;">
+            <div style="text-align:center;padding:16px 0;border-bottom:1px dashed rgba(30,28,26,.1);margin-bottom:16px;">
+                <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">${tipo}</div>
+                <div style="font-size:36px;font-weight:300;color:${color};">${formatCurrency(monto)}</div>
+            </div>
+            <div style="display:grid;gap:8px;margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;">
+                    <span style="color:#888;">Para</span>
+                    <strong>${person.nombre}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;">
+                    <span style="color:#888;">Cargo</span>
+                    <span>${getTipoLabel(person.tipo, person)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;">
+                    <span style="color:#888;">Fecha</span>
+                    <span>${fecha} · ${hora}</span>
+                </div>
+                ${detalle ? `<div style="display:flex;justify-content:space-between;font-size:13px;">
+                    <span style="color:#888;">Detalle</span>
+                    <span>${detalle}</span>
+                </div>` : ''}
+                <div style="display:flex;justify-content:space-between;font-size:13px;">
+                    <span style="color:#888;">Registrado por</span>
+                    <span>${appData.currentUser}</span>
+                </div>
+            </div>
+            <div style="border-top:1px dashed rgba(30,28,26,.1);padding-top:12px;text-align:center;font-size:11px;color:#bbb;">
+                ¡Gracias por su dedicación!
+            </div>
+        </div>
+    </div>`;
+}
+
+function mostrarReciboHTML(html, textoPlano) {
+    currentReciboText = textoPlano;
+    const el = document.getElementById('reciboContent');
+    if (el) {
+        el.innerHTML = html;
+        el.style.background = 'var(--surface,#F5F2EE)';
+        el.style.borderRadius = '12px';
+        el.style.padding = '0';
+        el.style.fontFamily = 'inherit';
+    }
 }
 
 function compartirWhatsApp() {
@@ -3719,6 +3856,10 @@ function registrarAvance() {
     saveAvances().then(() => {
         updatePersonalTab();
         showToast('✓ Avance registrado exitosamente');
+        // Fix 3: Re-open personal detail modal after saving advance
+        if (currentPersonalDetail) {
+            setTimeout(() => openPersonalDetail(currentPersonalDetail.id), 300);
+        }
     }).catch(e => {
         appData.avances.splice(backupAvances, 1); // rollback
         showError('Error al registrar el avance.', e);

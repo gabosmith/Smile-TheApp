@@ -1885,7 +1885,15 @@
                 </div>
                 <div class="card">
                     <h2>Personal de la Clínica</h2>
-                    <ul class="item-list" id="personalList"></ul>
+                    <div style="margin-bottom:12px;">
+                    <input type="text" id="personalSearch" placeholder="🔍 Buscar personal..."
+                        oninput="updatePersonalTab()"
+                        style="width:100%;box-sizing:border-box;padding:10px 14px;
+                               border:1.5px solid rgba(30,28,26,.1);border-radius:10px;
+                               font-size:13px;font-family:inherit;background:var(--surface,#F5F2EE);
+                               color:var(--topo);">
+                </div>
+                <ul class="item-list" id="personalList"></ul>
                 </div>
             </div>
 
