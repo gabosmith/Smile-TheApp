@@ -4380,21 +4380,33 @@ function _renderPacientePage(p) {
     const balance = calcularBalancePaciente(p.nombre);
     const facturasPaciente = appData.facturas.filter(f => f.paciente === p.nombre);
     const searchText = [p.nombre, p.cedula, p.telefono, p.email].filter(Boolean).join(' ').toLowerCase();
+
+    // Fix 10: Last visit date
+    const citasPac = getCitasDePaciente(p)
+        .filter(c => c.estado !== 'Cancelada' && c.estado !== 'Inasistencia')
+        .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+    const ultimaCita = citasPac[0];
+    const ultimaCitaStr = ultimaCita
+        ? `Última visita: ${formatDate(ultimaCita.fecha)}`
+        : (p.fechaRegistro ? `Registrado: ${formatDate(p.fechaRegistro)}` : '');
+
     return `
         <div class="list-item" onclick="verPaciente('${p.id}')" data-search="${searchText.replace(/"/g, '&quot;')}" style="cursor:pointer;padding:16px 20px;margin-bottom:12px;border-left:3px solid var(--clinic-color,#C4856A);background:white;border-top:1px solid rgba(60,50,40,.07);border-right:1px solid rgba(60,50,40,.07);border-bottom:1px solid rgba(60,50,40,.07);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <div style="font-size:17px;font-weight:600;color:var(--dark,#1E1C1A);letter-spacing:-0.2px">${p.nombre}</div>
                 <div>
                     ${balance > 0 ? `<span class="badge badge-warning">${formatCurrency(balance)}</span>` :
                       balance === 0 && facturasPaciente.length > 0 ? `<span class="badge badge-success">Al día</span>` : ''}
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;">
-                ${p.telefono ? `<div style="font-size:14px;color:#666">📞 ${p.telefono}</div>` : ''}
-                ${p.cedula   ? `<div style="font-size:14px;color:#666">🆔 ${p.cedula}</div>`   : ''}
-                ${p.email    ? `<div style="font-size:14px;color:#666">✉️ ${p.email}</div>`    : ''}
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;">
+                ${p.telefono ? `<div style="font-size:13px;color:#666">📞 ${p.telefono}</div>` : ''}
+                ${p.cedula   ? `<div style="font-size:13px;color:#666">🆔 ${p.cedula}</div>`   : ''}
+                ${p.email    ? `<div style="font-size:13px;color:#666">✉️ ${p.email}</div>`    : ''}
             </div>
+            ${ultimaCitaStr ? `<div style="font-size:11px;color:var(--muted,#A89F96);margin-top:5px;">${ultimaCitaStr}</div>` : ''}
         </div>`;
+}
 }
 
 function _renderPacientesPage(lista) {
@@ -4517,9 +4529,12 @@ async function guardarPaciente() {
     // Close and update UI immediately (optimistic)
     closeModal('modalNuevoPaciente');
     updatePacientesTab();
+    // Fix 7: Open the new patient's record right away
+    verPaciente(paciente.id);
     // Sync only this patient to Firebase in background
     savePaciente(paciente).catch(saveErr => {
         appData.pacientes = appData.pacientes.filter(p => p.id !== paciente.id);
+        closeModal('modalVerPaciente');
         updatePacientesTab();
         showError('Error al guardar el paciente. Intenta de nuevo.', saveErr);
     });
@@ -4598,8 +4613,9 @@ function verPaciente(pacienteId) {
         btnEliminar.style.display = appData.currentRole === 'admin' ? 'flex' : 'none';
     }
 
-    // Activar primer tab — cambiarTabPaciente renderizará solo ese tab
-    cambiarTabPaciente('resumen');
+    // Fix 12: Restore last active tab, default to resumen
+    const tabToRestore = window._lastPacienteTab || 'resumen';
+    cambiarTabPaciente(tabToRestore);
 
     openModal('modalVerPaciente');
 }
@@ -4607,6 +4623,9 @@ function verPaciente(pacienteId) {
 function cambiarTabPaciente(tabName) {
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente) return;
+
+    // Fix 12: Remember last active tab per patient
+    window._lastPacienteTab = tabName;
 
     // ── Render the right tab ──
     if      (tabName === 'resumen')       renderTabResumen(paciente);
@@ -5061,48 +5080,48 @@ function renderTabResumen(paciente) {
         })()}
 
         <!-- Información del paciente -->
-        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 24px;">
-            <h3 style="font-size: 16px; color: var(--clinic-color, #C4856A); margin-bottom: 16px; font-weight: 700;">Información Personal</h3>
+        <div style="background: var(--sand,#EEEAE4); border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));">
+            <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:14px;">Información Personal</div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
                 <div>
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Cédula</div>
-                    <div style="font-size: 14px; font-weight: 500;">${paciente.cedula || 'No registrada'}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Cédula</div>
+                    <div style="font-size:13px;color:var(--topo,#3D3830);">${paciente.cedula || 'No registrada'}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Teléfono</div>
-                    <div style="font-size: 14px; font-weight: 500;">${paciente.telefono || 'No registrado'}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Teléfono</div>
+                    <div style="font-size:13px;color:var(--topo,#3D3830);">${paciente.telefono || 'No registrado'}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Email</div>
-                    <div style="font-size: 14px; font-weight: 500;">${paciente.email || 'No registrado'}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Email</div>
+                    <div style="font-size:13px;color:var(--topo,#3D3830);">${paciente.email || 'No registrado'}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Edad</div>
-                    <div style="font-size: 14px; font-weight: 500;">${edad || 'No registrada'}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Edad</div>
+                    <div style="font-size:13px;color:var(--topo,#3D3830);">${edad || 'No registrada'}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Sexo</div>
-                    <div style="font-size: 14px; font-weight: 500;">${paciente.sexo || 'No registrado'}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Sexo</div>
+                    <div style="font-size:13px;color:var(--topo,#3D3830);">${paciente.sexo || 'No registrado'}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Grupo Sanguíneo</div>
-                    <div style="font-size: 14px; font-weight: 500;">${paciente.grupoSanguineo || 'Desconocido'}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Grupo Sanguíneo</div>
+                    <div style="font-size:13px;color:var(--topo,#3D3830);">${paciente.grupoSanguineo || 'Desconocido'}</div>
                 </div>
                 ${paciente.direccion ? `
                 <div style="grid-column: span 3;">
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Dirección</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Dirección</div>
                     <div style="font-size: 14px; font-weight: 500;">${paciente.direccion}</div>
                 </div>
                 ` : ''}
                 ${paciente.seguroMedico ? `
                 <div style="grid-column: span 3;">
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Seguro Médico</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Seguro Médico</div>
                     <div style="font-size: 14px; font-weight: 500;">${paciente.seguroMedico}</div>
                 </div>
                 ` : ''}
                 ${paciente.contactoEmergencia && paciente.contactoEmergencia.nombre ? `
                 <div style="grid-column: span 3;">
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Contacto de Emergencia</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Contacto de Emergencia</div>
                     <div style="font-size: 14px; font-weight: 500;">${paciente.contactoEmergencia.nombre} - ${paciente.contactoEmergencia.telefono}</div>
                 </div>
                 ` : ''}
@@ -5137,9 +5156,25 @@ function renderTabResumen(paciente) {
                 return `
                     <div style="background: var(--surface, #F5F2EE); border-radius: 12px; padding: 20px; margin-bottom: 24px;
                                     border: 1.5px solid rgba(30,28,26,0.07); border-left: 4px solid var(--clinic-color, #C4856A);">
-                        <div style="font-size: 11px; color: var(--mid,#9C9189); letter-spacing: 1px; text-transform:uppercase; margin-bottom: 8px;">📅 Próxima Cita</div>
-                        <div style="font-size: 18px; font-weight: 400; margin-bottom: 4px; color: var(--dark, #1E1C1A);">${formatDate(proxima.fecha)} · ${proxima.hora}</div>
-                        <div style="font-size: 13px; color: var(--mid,#9C9189);">${proxima.motivo} · Con ${proxima.profesional}</div>
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size: 11px; color: var(--mid,#9C9189); letter-spacing: 1px; text-transform:uppercase; margin-bottom: 8px;">📅 Próxima Cita</div>
+                                <div style="font-size: 18px; font-weight: 400; margin-bottom: 4px; color: var(--dark, #1E1C1A);">${formatDate(proxima.fecha)} · ${proxima.hora}</div>
+                                <div style="font-size: 13px; color: var(--mid,#9C9189);">${proxima.motivo} · Con ${proxima.profesional}</div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+                                <button onclick="closeModal('modalVerPaciente');setTimeout(()=>verDetalleCita('${proxima.id}'),200)"
+                                    style="padding:7px 14px;background:var(--clinic-color,#C4856A);color:white;border:none;
+                                           border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;">
+                                    Ver detalle
+                                </button>
+                                <button onclick="abrirModalNuevaCita('${paciente.id}','${paciente.nombre}')"
+                                    style="padding:7px 14px;background:transparent;color:var(--clinic-color,#C4856A);border:1.5px solid var(--clinic-color,#C4856A);
+                                           border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;">
+                                    + Nueva cita
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 `;
             }
@@ -5152,21 +5187,69 @@ function renderTabResumen(paciente) {
             if (recetas.length > 0) {
                 const ultima = recetas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
                 return `
-                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <h3 style="font-size: 16px; color: var(--clinic-color, #C4856A); margin-bottom: 12px; font-weight: 700;">💊 Última Receta</h3>
-                        <div style="font-size: 14px; color: #666; margin-bottom: 8px;">${formatDate(ultima.fecha)} - ${ultima.profesional}</div>
-                        ${ultima.medicamentos.map(med => `
-                            <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 6px;">
-                                <div style="font-weight: 600; font-size: 13px;">💊 ${med.nombre}</div>
-                                <div style="font-size: 12px; color: #666;">${med.dosis} - ${med.frecuencia}</div>
+                    <div style="background: var(--sand,#EEEAE4); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px;">
+                        <div style="font-size: 11px; color: var(--piedra,#7A7068); letter-spacing:1.2px; text-transform:uppercase; font-weight:600; margin-bottom:10px;">💊 Última Receta</div>
+                        <div style="font-size: 12px; color: var(--muted,#A89F96); margin-bottom: 8px;">${formatDate(ultima.fecha)} · ${ultima.profesional}</div>
+                        ${ultima.medicamentos.slice(0,3).map(med => `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(60,50,40,.07);">
+                                <div style="font-size:13px;color:var(--topo,#3D3830);">💊 ${med.nombre}</div>
+                                <div style="font-size:11px;color:var(--piedra,#7A7068);">${med.dosis}</div>
                             </div>
                         `).join('')}
+                        ${ultima.medicamentos.length > 3 ? `<div style="font-size:11px;color:var(--muted,#A89F96);margin-top:6px;">+${ultima.medicamentos.length-3} más</div>` : ''}
                     </div>
                 `;
             }
             return '';
         })()}
-    `;
+
+        <!-- Fix 4: Quick-action bar -->
+        <div style="margin-top:8px;margin-bottom:8px;">
+            <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:10px;">Acceso rápido</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                <button onclick="cambiarTabPaciente('odontograma')"
+                    style="padding:14px 8px;background:var(--sand,#EEEAE4);border:none;border-radius:12px;
+                           font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
+                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));
+                           transition:box-shadow .2s;"
+                    onmouseover="this.style.boxShadow='var(--neu-raised-lg)'"
+                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9))'">
+                    <span style="font-size:20px;">🦷</span>
+                    <span style="font-size:10px;color:var(--piedra,#7A7068);font-weight:500;">Odontograma</span>
+                </button>
+                <button onclick="cambiarTabPaciente('recetas')"
+                    style="padding:14px 8px;background:var(--sand,#EEEAE4);border:none;border-radius:12px;
+                           font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
+                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));
+                           transition:box-shadow .2s;"
+                    onmouseover="this.style.boxShadow='var(--neu-raised-lg)'"
+                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9))'">
+                    <span style="font-size:20px;">💊</span>
+                    <span style="font-size:10px;color:var(--piedra,#7A7068);font-weight:500;">Recetas</span>
+                </button>
+                <button onclick="cambiarTabPaciente('documentos')"
+                    style="padding:14px 8px;background:var(--sand,#EEEAE4);border:none;border-radius:12px;
+                           font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
+                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));
+                           transition:box-shadow .2s;"
+                    onmouseover="this.style.boxShadow='var(--neu-raised-lg)'"
+                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9))'">
+                    <span style="font-size:20px;">📄</span>
+                    <span style="font-size:10px;color:var(--piedra,#7A7068);font-weight:500;">Documentos</span>
+                </button>
+                <button onclick="cambiarTabPaciente('tratamientos')"
+                    style="padding:14px 8px;background:var(--sand,#EEEAE4);border:none;border-radius:12px;
+                           font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
+                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));
+                           transition:box-shadow .2s;"
+                    onmouseover="this.style.boxShadow='var(--neu-raised-lg)'"
+                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9))'">
+                    <span style="font-size:20px;">📋</span>
+                    <span style="font-size:10px;color:var(--piedra,#7A7068);font-weight:500;">Tratamientos</span>
+                </button>
+            </div>
+        </div>
+    \`;
 }
 
 function renderTabHistorial(paciente) {
@@ -5219,7 +5302,7 @@ function renderTabHistorial(paciente) {
                 style="flex:1;padding:9px 12px;border:none;border-radius:9px;font-size:13px;font-weight:500;
                        font-family:inherit;cursor:pointer;transition:all 0.18s;
                        background:var(--clinic-color,#C4856A);color:white;">
-                📋 Cotización activa
+                📋 Plan activo
             </button>
             <button id="tratBtnHist" onclick="_tratSwitch('hist')"
                 style="flex:1;padding:9px 12px;border:none;border-radius:9px;font-size:13px;font-weight:500;
@@ -5813,19 +5896,23 @@ function renderTabBalance(paciente) {
     }, 0);
     
     document.getElementById('tabBalance').innerHTML = `
-        <!-- Resumen de Balance -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-            <div style="background: ${balance > 0 ? 'var(--terracota,#C4856A)' : '#3a7a4a'}; color: white; padding: 24px; border-radius: 12px;">
-                <div style="font-size: 11px; opacity: 0.8; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;">Balance Actual</div>
-                <div style="font-size: 32px; font-weight: 300;">${formatCurrency(balance)}</div>
+        <!-- Fix 5+6: compact balance summary using CSS variables -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+            <div style="background:${balance > 0 ? 'rgba(196,133,106,.1)' : 'rgba(107,143,113,.1)'};
+                        border:1.5px solid ${balance > 0 ? 'rgba(196,133,106,.3)' : 'rgba(107,143,113,.3)'};
+                        border-radius:12px;padding:14px;">
+                <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:4px;">Balance</div>
+                <div style="font-size:20px;font-weight:600;color:${balance > 0 ? 'var(--terra,#C4856A)' : '#3a7a4a'};">${formatCurrency(balance)}</div>
             </div>
-            <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
-                <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL FACTURADO</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--clinic-color, #C4856A);">${formatCurrency(totalFacturado)}</div>
+            <div style="background:var(--sand,#EEEAE4);border-radius:12px;padding:14px;
+                        box-shadow:var(--neu-flat,2px 2px 6px rgba(185,177,167,.38),-2px -2px 5px rgba(255,255,255,.85));">
+                <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:4px;">Facturado</div>
+                <div style="font-size:18px;font-weight:500;color:var(--topo,#3D3830);">${formatCurrency(totalFacturado)}</div>
             </div>
-            <div style="background: white; border: 2px solid #e5e5e7; padding: 24px; border-radius: 12px;">
-                <div style="font-size: 14px; color: #666; margin-bottom: 8px;">TOTAL PAGADO</div>
-                <div style="font-size: 28px; font-weight: 700; color: #28a745;">${formatCurrency(totalPagado)}</div>
+            <div style="background:var(--sand,#EEEAE4);border-radius:12px;padding:14px;
+                        box-shadow:var(--neu-flat,2px 2px 6px rgba(185,177,167,.38),-2px -2px 5px rgba(255,255,255,.85));">
+                <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:4px;">Pagado</div>
+                <div style="font-size:18px;font-weight:500;color:var(--salvia,#6B8F71);">${formatCurrency(totalPagado)}</div>
             </div>
         </div>
         
@@ -5871,7 +5958,7 @@ function renderTabBalance(paciente) {
                     const pagado = (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
                     const pendiente = f.total - pagado;
                     return `
-                    <div style="background: #fff; border: 2px solid #e5e5e7; border-radius: 8px; padding: 16px;">
+                    <div style="background: var(--white,#fff); border: 1.5px solid rgba(60,50,40,.1); border-radius: 12px; padding: 16px;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                             <div>
                                 <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
@@ -5901,15 +5988,15 @@ function renderTabBalance(paciente) {
             </h3>
             <div style="display: grid; gap: 12px;">
                 ${facturasCompletadas.map(f => `
-                    <div style="background: #f8f9fa; border: 2px solid #28a745; border-radius: 8px; padding: 16px; opacity: 0.8;">
+                    <div style="background: rgba(107,143,113,.06); border: 1.5px solid rgba(107,143,113,.3); border-radius: 12px; padding: 16px; opacity: 0.9;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
                                 <div style="font-size: 12px; color: #666;">${formatDate(f.fecha)}</div>
                             </div>
                             <div style="text-align: right;">
-                                <div style="font-size: 16px; font-weight: 700; color: #28a745;">${formatCurrency(f.total)}</div>
-                                <div style="font-size: 11px; color: #28a745;">✓ PAGADA</div>
+                                <div style="font-size: 16px; font-weight: 600; color: var(--salvia,#6B8F71);">${formatCurrency(f.total)}</div>
+                                <div style="font-size: 11px; color: var(--salvia,#6B8F71); font-weight:600; letter-spacing:.5px;">✓ PAGADA</div>
                             </div>
                         </div>
                     </div>
@@ -6111,7 +6198,7 @@ function verDetalleCita(citaId) {
     openModal('modalDetalleCita');
 }
 
-function abrirModalNuevaCita() {
+function abrirModalNuevaCita(pacienteId, pacienteNombre) {
     // Autocomplete input en lugar de select
     document.getElementById('citaPacienteInput').value = '';
     document.getElementById('citaPacienteSuggestions').innerHTML = '';
@@ -6129,6 +6216,16 @@ function abrirModalNuevaCita() {
     document.getElementById('citaMotivo').value = '';
 
     openModal('modalNuevaCita');
+
+    // Fix 3: Pre-fill patient if called from patient record
+    if (pacienteId && pacienteNombre) {
+        const inp = document.getElementById('citaPacienteInput') || document.getElementById('nuevaCitaPaciente');
+        if (inp) {
+            inp.value = pacienteNombre;
+            inp.dataset.pacienteSeleccionado = 'true';
+            inp.dataset.pacienteId = pacienteId;
+        }
+    }
 }
 
 // Autocomplete para pacientes
