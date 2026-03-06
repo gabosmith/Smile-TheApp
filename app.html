@@ -3402,5 +3402,48 @@
         </div>
     </div>
 
+
+    <!-- Fix 4: Edit Cita Modal -->
+    <div id="modalEditarCita" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">✏️ Editar Cita</div>
+                <button class="close-modal" onclick="closeModal('modalEditarCita')">×</button>
+            </div>
+            <input type="hidden" id="editCitaId">
+            <div class="form-group">
+                <label>Fecha *</label>
+                <input type="date" id="editCitaFecha">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label>Hora *</label>
+                    <input type="time" id="editCitaHora">
+                </div>
+                <div class="form-group">
+                    <label>Consultorio *</label>
+                    <select id="editCitaConsultorio">
+                        <option value="1">Consultorio 1</option>
+                        <option value="2">Consultorio 2</option>
+                        <option value="3">Consultorio 3</option>
+                        <option value="4">Consultorio 4</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Profesional *</label>
+                <select id="editCitaProfesional"></select>
+            </div>
+            <div class="form-group">
+                <label>Motivo *</label>
+                <input type="text" id="editCitaMotivo" placeholder="Motivo de la cita">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" onclick="closeModal('modalEditarCita')">Cancelar</button>
+                <button class="btn btn-submit" onclick="withGuard(this, guardarEdicionCita)">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

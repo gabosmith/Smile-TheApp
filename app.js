@@ -6216,10 +6216,16 @@ function updateAgendaTab() {
                     const colorEstado = getColorEstadoCita(estadoCita);
                     const iconoEstado = getIconoEstadoCita(estadoCita);
 
+                    // Fix 7: check balance for visual indicator
+                    const _balPac = calcularBalancePaciente(c.paciente);
+                    const _balIndicator = _balPac > 0
+                        ? `<span title="Balance pendiente: ${formatCurrency(_balPac)}" style="font-size:9px;background:rgba(255,255,255,0.25);border-radius:6px;padding:1px 4px;margin-left:3px;">💰</span>`
+                        : '';
+
                     return `
                     <div onclick="verDetalleCita('${c.id}')" style="background: ${colores[c.consultorio]}; color: white; padding: 8px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; transition: transform 0.2s; border-left: 4px solid ${colorEstado};" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                         <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">${c.hora}</div>
-                        <div style="font-size: 11px; opacity: 0.95; margin-bottom: 2px;">${c.paciente}</div>
+                        <div style="font-size: 11px; opacity: 0.95; margin-bottom: 2px; display:flex; align-items:center;">${c.paciente}${_balIndicator}</div>
                         <div style="font-size: 10px; opacity: 0.9;">${c.profesional}</div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                             <div style="font-size: 10px; opacity: 0.85;">C${c.consultorio}</div>
@@ -6238,78 +6244,129 @@ function updateAgendaTab() {
 }
 
 function verDetalleCita(citaId) {
-    currentCitaIdDetalle = citaId; // Guardar para usar en botón cancelar
+    currentCitaIdDetalle = citaId;
     const cita = appData.citas.find(c => c.id === citaId);
     if (!cita) return;
 
     const colores = {1: '#007AFF', 2: '#34C759', 3: '#FF9500', 4: '#AF52DE'};
 
+    // Fix 6: get patient phone for WhatsApp
+    const pacObj = appData.pacientes.find(p =>
+        p.id === cita.pacienteId || p.nombre === cita.paciente
+    );
+    const telefono = pacObj?.telefono || '';
+    const telLimpio = telefono.replace(/\D/g, '');
+    const waMsg = encodeURIComponent(`Hola ${cita.paciente}, le recordamos su cita el ${formatDate(cita.fecha)} a las ${cita.hora}. ¡Le esperamos!`);
+    const waUrl = telLimpio ? `https://wa.me/1${telLimpio}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`;
+
+    // Fix 5: render estado history timeline
+    const historial = cita.historialEstados || [];
+    const historialHTML = historial.length > 1 ? `
+        <div style="margin-top:16px;padding:14px;background:var(--surface,#F5F2EE);border-radius:10px;">
+            <div style="font-size:10px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Historial de estados</div>
+            ${[...historial].reverse().map((h, idx) => `
+                <div style="display:flex;align-items:flex-start;gap:10px;padding:6px 0;${idx < historial.length-1 ? 'border-bottom:1px solid rgba(30,28,26,.06)' : ''}">
+                    <div style="width:8px;height:8px;border-radius:50%;background:${getColorEstadoCita(h.estado)};margin-top:4px;flex-shrink:0;"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:600;color:var(--dark);">${h.estado}</div>
+                        <div style="font-size:11px;color:var(--mid);">${h.fecha ? formatDate(h.fecha) : ''} · ${h.usuario || ''}</div>
+                        ${h.notas ? `<div style="font-size:11px;color:var(--piedra);font-style:italic;margin-top:2px;">"${h.notas}"</div>` : ''}
+                    </div>
+                </div>`).join('')}
+        </div>` : '';
+
+    const pacienteId = pacObj?.id || '';
+
     const html = `
-        <div style="background: ${colores[cita.consultorio] || 'var(--azul,#7B8FA1)'}; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-            <div style="font-size: 28px; font-weight: 300; margin-bottom: 8px; letter-spacing:-1px">${cita.hora}</div>
-            <div style="font-size: 14px; opacity: 0.85;">Consultorio ${cita.consultorio}</div>
+        <!-- Header bar -->
+        <div style="background:${colores[cita.consultorio] || 'var(--azul,#7B8FA1)'};color:white;padding:20px;border-radius:12px;margin-bottom:16px;">
+            <div style="font-size:28px;font-weight:300;margin-bottom:4px;letter-spacing:-1px;">${cita.hora}</div>
+            <div style="font-size:13px;opacity:0.85;">Consultorio ${cita.consultorio} · ${formatDate(cita.fecha)}</div>
         </div>
 
-        <!-- ESTADO DE LA CITA -->
-        <div style="background: ${getColorEstadoCita(cita.estado || 'Pendiente')}; color: white; padding: 14px; border-radius: 8px; margin-bottom: 16px; text-align: center;">
-            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">ESTADO ACTUAL</div>
-            <div style="font-size: 20px; font-weight: 700;">${getIconoEstadoCita(cita.estado || 'Pendiente')} ${cita.estado || 'Pendiente'}</div>
+        <!-- Fix 1: Quick actions row -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+            ${pacienteId ? `
+            <button onclick="closeModal('modalDetalleCita');setTimeout(()=>verPaciente('${pacienteId}'),150)"
+                style="flex:1;padding:10px 14px;background:var(--sand,#EEEAE4);border:none;border-radius:10px;
+                       font-size:12px;font-family:inherit;cursor:pointer;color:var(--topo);
+                       box-shadow:var(--neu-raised);font-weight:500;">
+                👤 Ver expediente
+            </button>` : ''}
+            ${telefono ? `
+            <button onclick="window.open('${waUrl}','_blank')"
+                style="flex:1;padding:10px 14px;background:#25D366;border:none;border-radius:10px;
+                       font-size:12px;font-family:inherit;cursor:pointer;color:white;font-weight:500;">
+                💬 WhatsApp
+            </button>` : ''}
+            <button onclick="abrirEditarCita('${cita.id}')"
+                style="flex:1;padding:10px 14px;background:var(--sand,#EEEAE4);border:none;border-radius:10px;
+                       font-size:12px;font-family:inherit;cursor:pointer;color:var(--topo);
+                       box-shadow:var(--neu-raised);font-weight:500;">
+                ✏️ Editar
+            </button>
         </div>
 
-        <!-- CAMBIAR ESTADO -->
-        <div style="background: var(--surface,#F5F2EE); padding: 14px; border-radius: 10px; margin-bottom: 16px;">
-            <label style="font-size: 11px; color: var(--mid); margin-bottom: 8px; display: block; letter-spacing: 1px; text-transform: uppercase;">Cambiar estado</label>
-            <select id="nuevoEstadoCita" style="width: 100%; padding: 12px; border: 1.5px solid rgba(30,28,26,0.1); border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--white); color: var(--dark);">
-                <option value="Pendiente" ${(cita.estado || 'Pendiente') === 'Pendiente' ? 'selected' : ''}>⏳ Pendiente</option>
-                <option value="Confirmada" ${cita.estado === 'Confirmada' ? 'selected' : ''}>✅ Confirmada</option>
-                <option value="En Sala de Espera" ${cita.estado === 'En Sala de Espera' ? 'selected' : ''}>🏥 En Sala de Espera</option>
-                <option value="Completada" ${cita.estado === 'Completada' ? 'selected' : ''}>✔️ Completada</option>
-                <option value="Cancelada" ${cita.estado === 'Cancelada' ? 'selected' : ''}>❌ Cancelada</option>
-                <option value="Inasistencia" ${cita.estado === 'Inasistencia' ? 'selected' : ''}>⚠️ Inasistencia</option>
+        <!-- Estado actual -->
+        <div style="background:${getColorEstadoCita(cita.estado || 'Pendiente')};color:white;padding:12px 16px;border-radius:10px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:1px;">Estado actual</div>
+            <div style="font-size:16px;font-weight:700;">${getIconoEstadoCita(cita.estado || 'Pendiente')} ${cita.estado || 'Pendiente'}</div>
+        </div>
+
+        <!-- Cambiar estado -->
+        <div style="background:var(--surface,#F5F2EE);padding:14px;border-radius:10px;margin-bottom:14px;">
+            <label style="font-size:11px;color:var(--mid);margin-bottom:8px;display:block;letter-spacing:1px;text-transform:uppercase;">Cambiar estado</label>
+            <select id="nuevoEstadoCita" style="width:100%;padding:12px;border:1.5px solid rgba(30,28,26,0.1);border-radius:8px;font-size:14px;font-family:inherit;background:var(--white);color:var(--dark);">
+                <option value="Pendiente" ${(cita.estado||'Pendiente')==='Pendiente'?'selected':''}>⏳ Pendiente</option>
+                <option value="Confirmada" ${cita.estado==='Confirmada'?'selected':''}>✅ Confirmada</option>
+                <option value="En Sala de Espera" ${cita.estado==='En Sala de Espera'?'selected':''}>🏥 En Sala de Espera</option>
+                <option value="Completada" ${cita.estado==='Completada'?'selected':''}>✔️ Completada</option>
+                <option value="Cancelada" ${cita.estado==='Cancelada'?'selected':''}>❌ Cancelada</option>
+                <option value="Inasistencia" ${cita.estado==='Inasistencia'?'selected':''}>⚠️ Inasistencia</option>
             </select>
             <textarea id="notasCambioEstado" placeholder="Notas del cambio (opcional)..."
                 style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid rgba(30,28,26,0.1);
-                       border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:60px;
-                       background:var(--white);color:var(--dark)"></textarea>
-            <button class="btn btn-submit" style="margin-top: 8px; width: 100%;" onclick="withGuard(this, () => cambiarEstadoCita('${cita.id}', document.getElementById('nuevoEstadoCita').value))">
+                       border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:55px;
+                       background:var(--white);color:var(--dark);box-sizing:border-box;"></textarea>
+            <button class="btn btn-submit" style="margin-top:8px;width:100%;"
+                onclick="withGuard(this, () => cambiarEstadoCita('${cita.id}', document.getElementById('nuevoEstadoCita').value))">
                 Actualizar estado
             </button>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 16px;">
-            <div style="background: #f8f9fa; padding: 14px; border-radius: 8px;">
-                <div style="font-size: 10px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Paciente</div>
-                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${cita.paciente}</div>
+        <!-- Info grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div style="background:var(--surface,#F5F2EE);padding:12px;border-radius:10px;">
+                <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;font-weight:600;letter-spacing:.8px;margin-bottom:4px;">Paciente</div>
+                <div style="font-size:15px;font-weight:600;color:var(--dark);">${cita.paciente}</div>
+                ${telefono ? `<div style="font-size:12px;color:var(--mid);margin-top:2px;">📞 ${telefono}</div>` : ''}
             </div>
-            <div style="background: #f8f9fa; padding: 14px; border-radius: 8px;">
-                <div style="font-size: 10px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Profesional</div>
-                <div style="font-size: 16px; font-weight: 600; color: #1d1d1f;">${cita.profesional}</div>
+            <div style="background:var(--surface,#F5F2EE);padding:12px;border-radius:10px;">
+                <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;font-weight:600;letter-spacing:.8px;margin-bottom:4px;">Profesional</div>
+                <div style="font-size:15px;font-weight:600;color:var(--dark);">${cita.profesional}</div>
             </div>
         </div>
 
-        <div style="background: #f8f9fa; padding: 14px; border-radius: 8px; margin-bottom: 16px;">
-            <div style="font-size: 10px; color: #666; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Fecha</div>
-            <div style="font-size: 15px; font-weight: 500; color: #1d1d1f;">${formatDate(cita.fecha)}</div>
-        </div>
-
-        <div style="background: #e7f3ff; padding: 14px; border-radius: 8px;">
-            <div style="font-size: 10px; color: #004085; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Motivo</div>
-            <div style="font-size: 15px; font-weight: 500; color: #1d1d1f;">${cita.motivo}</div>
+        <!-- Motivo -->
+        <div style="background:rgba(123,143,161,.1);padding:12px 14px;border-radius:10px;margin-bottom:12px;">
+            <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;font-weight:600;letter-spacing:.8px;margin-bottom:4px;">Motivo</div>
+            <div style="font-size:14px;color:var(--dark);">${cita.motivo}</div>
         </div>
 
         ${cita.procedimientosRealizados ? `
-        <div style="background: #d4edda; padding: 14px; border-radius: 8px; margin-top: 16px;">
-            <div style="font-size: 10px; color: #155724; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">✅ Procedimientos Realizados</div>
-            <div style="font-size: 14px; font-weight: 500; color: #155724;">${cita.procedimientosRealizados}</div>
-        </div>
-        ` : ''}
+        <div style="background:rgba(107,143,113,.1);border:1.5px solid rgba(107,143,113,.3);padding:12px 14px;border-radius:10px;margin-bottom:12px;">
+            <div style="font-size:10px;color:#2a7a3a;text-transform:uppercase;font-weight:600;letter-spacing:.8px;margin-bottom:4px;">✅ Procedimientos realizados</div>
+            <div style="font-size:13px;color:var(--dark);">${cita.procedimientosRealizados}</div>
+        </div>` : ''}
 
         ${cita.notasProcedimiento ? `
-        <div style="background: #fff3cd; padding: 14px; border-radius: 8px; margin-top: 16px;">
-            <div style="font-size: 10px; color: #856404; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Notas del Procedimiento</div>
-            <div style="font-size: 14px; font-weight: 500; color: #1d1d1f;">${cita.notasProcedimiento}</div>
-        </div>
-        ` : ''}
+        <div style="background:#fff3cd;padding:12px 14px;border-radius:10px;margin-bottom:12px;">
+            <div style="font-size:10px;color:#856404;text-transform:uppercase;font-weight:600;letter-spacing:.8px;margin-bottom:4px;">Notas</div>
+            <div style="font-size:13px;color:var(--dark);">${cita.notasProcedimiento}</div>
+        </div>` : ''}
+
+        <!-- Fix 5: Estado history -->
+        ${historialHTML}
     `;
 
     document.getElementById('detalleCitaContent').innerHTML = html;
@@ -8695,11 +8752,23 @@ function inicializarFiltrosProfesionales() {
     if (!select) return;
 
     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
+    // Fix 3+8: Only rebuild if options changed — preserves selected value across week changes
+    const newHash = profesionales.map(p => p.nombre).join(',');
+    if (select.dataset.hash === newHash && select.options.length > 1) return;
+    select.dataset.hash = newHash;
 
+    const prevVal = select.value; // save current selection
     select.innerHTML = '<option value="todos">Todos</option>';
     profesionales.forEach(p => {
-        select.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+        const opt = document.createElement('option');
+        opt.value = p.nombre;
+        opt.textContent = p.nombre;
+        select.appendChild(opt);
     });
+    // Restore selection if still valid
+    if (prevVal && [...select.options].some(o => o.value === prevVal)) {
+        select.value = prevVal;
+    }
 }
 
 // ========================================
@@ -10131,6 +10200,88 @@ let currentCitaIdDetalle = null;
 
 
 // Cancelar cita desde modal detalle
+// ══════════════════════════════════════════════════════
+// FIX 4 — EDITAR CITA
+// ══════════════════════════════════════════════════════
+function abrirEditarCita(citaId) {
+    const cita = appData.citas.find(c => c.id === citaId);
+    if (!cita) return;
+
+    const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
+
+    // Populate modal fields
+    const fechaISO = cita.fecha ? cita.fecha.split('T')[0] : '';
+    document.getElementById('editCitaId').value = citaId;
+    document.getElementById('editCitaFecha').value = fechaISO;
+    document.getElementById('editCitaHora').value = cita.hora || '09:00';
+    document.getElementById('editCitaConsultorio').value = cita.consultorio || 1;
+    document.getElementById('editCitaMotivo').value = cita.motivo || '';
+
+    const selProf = document.getElementById('editCitaProfesional');
+    selProf.innerHTML = profesionales.map(p =>
+        `<option value="${p.nombre}" ${p.nombre === cita.profesional ? 'selected' : ''}>${p.nombre}</option>`
+    ).join('');
+
+    openModal('modalEditarCita');
+}
+
+async function guardarEdicionCita() {
+    const citaId  = document.getElementById('editCitaId').value;
+    const fecha   = document.getElementById('editCitaFecha').value;
+    const hora    = document.getElementById('editCitaHora').value;
+    const consultorio = parseInt(document.getElementById('editCitaConsultorio').value);
+    const motivo  = document.getElementById('editCitaMotivo').value.trim();
+    const profesional = document.getElementById('editCitaProfesional').value;
+
+    if (!fecha || !hora || !consultorio || !motivo || !profesional) {
+        showToast('⚠️ Completa todos los campos', 3000, '#e65100');
+        return;
+    }
+
+    const cita = appData.citas.find(c => c.id === citaId);
+    if (!cita) { showToast('⚠️ Cita no encontrada'); return; }
+
+    // Validate no overlap (same consultorio, excluding this cita)
+    const duracionMin = (appData.settings?.duracionCita) || 30;
+    const fechaHoraNueva = new Date(fecha + 'T' + hora);
+    const finNueva = new Date(fechaHoraNueva.getTime() + duracionMin * 60000);
+    const solapada = appData.citas.find(c => {
+        if (c.id === citaId) return false;
+        if (c.consultorio !== consultorio) return false;
+        if (['Cancelada','Inasistencia','Completada'].includes(c.estado)) return false;
+        const fechaC = new Date(c.fecha.split('T')[0] + 'T' + (c.hora || '00:00'));
+        const finC   = new Date(fechaC.getTime() + duracionMin * 60000);
+        return fechaHoraNueva < finC && finNueva > fechaC;
+    });
+
+    if (solapada) {
+        showToast(`⚠️ Solapa con cita de ${solapada.paciente} a las ${solapada.hora} en C${consultorio}`, 4000, '#e65100');
+        return;
+    }
+
+    // Apply changes
+    const backup = { fecha: cita.fecha, hora: cita.hora, consultorio: cita.consultorio, motivo: cita.motivo, profesional: cita.profesional };
+    cita.fecha       = fecha;
+    cita.hora        = hora;
+    cita.consultorio = consultorio;
+    cita.motivo      = motivo;
+    cita.profesional = profesional;
+    cita.ultimaModificacion = new Date().toISOString();
+    cita.modificadoPor = appData.currentUser;
+
+    closeModal('modalEditarCita');
+    closeModal('modalDetalleCita');
+    updateAgendaTab();
+    showToast('✓ Cita actualizada');
+
+    saveCitas().catch(e => {
+        // Rollback
+        Object.assign(cita, backup);
+        updateAgendaTab();
+        showError('Error al guardar la edición.', e);
+    });
+}
+
 function cancelarCita() {
     if (!currentCitaIdDetalle) {
         showToast('⚠️ No se puede identificar la cita', 3000, '#e65100');
@@ -10149,19 +10300,29 @@ function cancelarCita() {
     mostrarConfirmacion({
         titulo: '❌ Cancelar Cita',
         mensaje: `
-            <div style="background:rgba(30,28,26,0.04);padding:14px;border-radius:10px;margin-bottom:12px">
-                <div style="font-size:15px;font-weight:500;color:var(--dark)">${cita.paciente}</div>
-                <div style="font-size:13px;color:var(--mid);margin-top:4px">${formatDate(cita.fecha)} · ${cita.hora} · ${cita.profesional}</div>
-                <div style="font-size:13px;color:var(--mid);margin-top:2px">${cita.motivo}</div>
+            <div style="background:rgba(30,28,26,0.04);padding:14px;border-radius:10px;margin-bottom:12px;">
+                <div style="font-size:15px;font-weight:500;color:var(--dark);">${cita.paciente}</div>
+                <div style="font-size:13px;color:var(--mid);margin-top:4px;">${formatDate(cita.fecha)} · ${cita.hora} · ${cita.profesional}</div>
+                <div style="font-size:13px;color:var(--mid);margin-top:2px;">${cita.motivo}</div>
             </div>
-            <div style="font-size:13px;color:#856404;background:#fff3cd;padding:10px 12px;border-radius:8px">
+            <div style="margin-bottom:10px;">
+                <label style="font-size:12px;color:var(--piedra);font-weight:500;display:block;margin-bottom:6px;">Motivo de cancelación (opcional)</label>
+                <textarea id="motivoCancelacionCita" rows="2"
+                    placeholder="Ej: Paciente llamó para cancelar, reagendar próxima semana..."
+                    style="width:100%;padding:10px 12px;border:1.5px solid rgba(30,28,26,0.12);border-radius:8px;
+                           font-size:13px;font-family:inherit;resize:none;box-sizing:border-box;"></textarea>
+            </div>
+            <div style="font-size:13px;color:#856404;background:#fff3cd;padding:10px 12px;border-radius:8px;">
                 ⚠️ La cita se marcará como <strong>Cancelada</strong> y no contará en el historial activo.
             </div>`,
         tipo: 'peligro',
         confirmText: 'Sí, cancelar cita',
         onConfirm: async () => {
-            // Reusar la lógica centralizada
-            // Inyectamos el select en 'Cancelada' para que cambiarEstadoCita la tome
+            // Fix 2: capture cancellation reason
+            const motivoEl = document.getElementById('motivoCancelacionCita');
+            const motivo = motivoEl ? motivoEl.value.trim() : '';
+            const notasEl = document.getElementById('notasCambioEstado');
+            if (notasEl && motivo) notasEl.value = motivo;
             const selectEl = document.getElementById('nuevoEstadoCita');
             if (selectEl) selectEl.value = 'Cancelada';
             await cambiarEstadoCita(currentCitaIdDetalle, 'Cancelada');
