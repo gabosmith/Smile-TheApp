@@ -6620,86 +6620,186 @@ function verDetalleOrdenLab(ordenId) {
     const orden = appData.laboratorios.find(o => o.id === ordenId);
     if (!orden) return;
 
+    window.currentOrdenLabId = ordenId;
+    window._currentLabOrdenId = ordenId; // legacy alias
+
+    // ── Info panel ──────────────────────────────────────────
     document.getElementById('detalleLabInfo').innerHTML = `
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
-                ${orden.tipo}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
+        <div style="background:var(--sand,#EEEAE4);border-radius:14px;padding:18px;margin-bottom:4px;">
+            <div style="font-size:20px;font-weight:600;color:var(--clinic-color,#C4856A);margin-bottom:12px;letter-spacing:-0.3px;">
+                ${orden.tipo}${orden.dientes ? `<span style="font-size:14px;font-weight:400;color:var(--piedra,#7A7068);margin-left:8px;">· Dientes: ${orden.dientes}</span>` : ''}
             </div>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-bottom:12px;">
                 <div>
-                    <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Paciente</div>
-                    <div style="font-size: 14px; font-weight: 500;">${orden.paciente}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:2px;">Paciente</div>
+                    <div style="font-size:14px;font-weight:500;color:var(--topo,#3D3830);">${orden.paciente}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Profesional</div>
-                    <div style="font-size: 14px; font-weight: 500;">${orden.profesional}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:2px;">Profesional</div>
+                    <div style="font-size:14px;font-weight:500;color:var(--topo,#3D3830);">${orden.profesional}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Laboratorio</div>
-                    <div style="font-size: 14px; font-weight: 500;">${orden.laboratorio}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:2px;">Laboratorio</div>
+                    <div style="font-size:14px;font-weight:500;color:var(--topo,#3D3830);">${orden.laboratorio}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Factura</div>
-                    <div style="font-size: 14px; font-weight: 500;">${orden.facturaNumero}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:2px;">Factura</div>
+                    <div style="font-size:14px;font-weight:500;color:var(--topo,#3D3830);">${orden.facturaNumero}</div>
                 </div>
             </div>
-            <div style="margin-top: 10px;">
-                <div style="font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600;">Descripción</div>
-                <div style="font-size: 14px;">${orden.descripcion}</div>
+            <div style="margin-bottom:12px;">
+                <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:2px;">Descripción</div>
+                <div style="font-size:13px;color:var(--topo,#3D3830);line-height:1.5;">${orden.descripcion}</div>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-top:12px;border-top:1px solid rgba(60,50,40,.1);">
                 <div>
-                    <div style="font-size: 11px; color: #666;">Precio</div>
-                    <div style="font-size: 16px; font-weight: 400; color: var(--green,#6B8F71);">${formatCurrency(orden.precio)}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Precio</div>
+                    <div style="font-size:15px;font-weight:500;color:#4a7a50;">${formatCurrency(orden.precio)}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666;">Costo</div>
-                    <div style="font-size: 16px; font-weight: 400; color: var(--red,#C47070);">${formatCurrency(orden.costo)}</div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Costo</div>
+                    <div style="font-size:15px;font-weight:500;color:#c0392b;">${formatCurrency(orden.costo)}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666;">Margen</div>
-                    <div style="font-size: 16px; font-weight: 400; color: ${orden.margen >= 0 ? 'var(--green,#6B8F71)' : 'var(--red,#C47070)'};">
-                        ${formatCurrency(orden.margen)}
-                    </div>
+                    <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:2px;">Margen</div>
+                    <div style="font-size:15px;font-weight:500;color:${orden.margen >= 0 ? '#4a7a50' : '#c0392b'};">${formatCurrency(orden.margen)}</div>
                 </div>
             </div>
         </div>
     `;
 
-    document.getElementById('detalleLabTimeline').innerHTML = (orden.timeline || []).map((evento, index) => {
-        const isLast = index === (orden.timeline || []).length - 1;
-        const color = getColorEstado(evento.estado);
+    // ── Progress track ───────────────────────────────────────
+    const FLUJO = [
+        { key: 'Toma de impresión',      icon: '🦷', label: 'Toma de\nimpresión' },
+        { key: 'Enviado a laboratorio',  icon: '📤', label: 'Enviado a\nlaboratorio' },
+        { key: 'Listo para prueba',      icon: '🔍', label: 'Listo para\nprueba' },
+        { key: 'Entregado',              icon: '✅', label: 'Entregado' },
+    ];
 
-        return `
-            <div style="display: flex; margin-bottom: ${isLast ? '0' : '20px'};">
-                <div style="display: flex; flex-direction: column; align-items: center; margin-right: 15px;">
-                    <div style="width: 12px; height: 12px; background: ${color}; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 2px ${color};"></div>
-                    ${!isLast ? `<div style="width: 2px; flex: 1; background: #dee2e6; margin: 4px 0;"></div>` : ''}
-                </div>
-                <div style="flex: 1; padding-bottom: ${isLast ? '0' : '10px'};">
-                    <div style="font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">${evento.estado}</div>
-                    <div style="font-size: 12px; color: #666; margin-bottom: 2px;">
-                        📅 ${formatDate(evento.fecha)} ${formatTime(evento.fecha)}
-                    </div>
-                    <div style="font-size: 12px; color: #666;">
-                        👤 ${evento.usuario}
-                        ${evento.notas ? ` • ${evento.notas}` : ''}
-                    </div>
-                </div>
+    const estadoActual = orden.estadoActual;
+    // Determine current index in the main flow
+    const mainIdx = FLUJO.findIndex(s => s.key === estadoActual);
+    // "Reenviado" is between Listo (2) and Entregado (3) visually
+    const isReen = estadoActual === 'Reenviado a laboratorio';
+    const efectivoIdx = isReen ? 2.5 : mainIdx;
+
+    const progressHTML = `
+        <div style="margin:16px 0 8px;">
+            <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:14px;">Progreso</div>
+
+            <!-- Track -->
+            <div style="display:flex;align-items:flex-start;gap:0;position:relative;">
+                ${FLUJO.map((step, i) => {
+                    const done = mainIdx > i || (isReen && i < 2) || estadoActual === step.key;
+                    const active = estadoActual === step.key;
+                    const isLast = i === FLUJO.length - 1;
+                    const dotColor = done || active ? getColorEstado(step.key) : 'rgba(60,50,40,.15)';
+                    const lineColor = (mainIdx > i || (isReen && i < 2)) ? getColorEstado(FLUJO[i].key) : 'rgba(60,50,40,.12)';
+
+                    return `
+                        <div style="flex:${isLast ? '0' : '1'};display:flex;flex-direction:column;align-items:center;position:relative;">
+                            <!-- Line before dot (except first) -->
+                            ${i > 0 ? `<div style="position:absolute;top:16px;right:50%;width:calc(100%);height:2px;background:${(mainIdx >= i || (isReen && i <= 2)) ? getColorEstado(FLUJO[i-1].key) : 'rgba(60,50,40,.12)'};transform:translateY(-50%);z-index:0;"></div>` : ''}
+                            <!-- Dot -->
+                            <div style="width:32px;height:32px;border-radius:50%;background:${active ? dotColor : (done ? dotColor : 'var(--sand,#EEEAE4)')};
+                                        border:2.5px solid ${dotColor};
+                                        display:flex;align-items:center;justify-content:center;
+                                        font-size:14px;z-index:1;position:relative;
+                                        box-shadow:${active ? `0 0 0 4px ${dotColor}33` : 'none'};
+                                        transition:all .3s;">
+                                ${done ? (active ? step.icon : '✓') : step.icon}
+                            </div>
+                            <!-- Label -->
+                            <div style="font-size:10px;color:${active ? 'var(--topo,#3D3830)' : (done ? 'var(--topo,#3D3830)' : 'var(--muted,#A89F96)')};
+                                        font-weight:${active ? '600' : '400'};text-align:center;margin-top:6px;
+                                        white-space:pre-line;line-height:1.3;">
+                                ${step.label}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
             </div>
-        `;
-    }).join('');
 
-    window.currentOrdenLabId = ordenId;
+            <!-- "Reenviado" badge when active -->
+            ${isReen ? `
+            <div style="margin-top:14px;padding:10px 14px;background:rgba(196,112,112,.1);border:1.5px solid #C47070;border-radius:10px;display:flex;align-items:center;gap:10px;">
+                <span style="font-size:18px;">🔄</span>
+                <div>
+                    <div style="font-size:13px;font-weight:600;color:#C47070;">Reenviado al laboratorio</div>
+                    <div style="font-size:12px;color:var(--piedra,#7A7068);">Esperando nueva confirmación de listo</div>
+                </div>
+            </div>` : ''}
 
+            <!-- Current status pill -->
+            <div style="text-align:center;margin-top:12px;">
+                <span style="display:inline-block;padding:5px 16px;border-radius:100px;font-size:12px;font-weight:600;
+                             background:${getColorEstado(estadoActual)}22;color:${getColorEstado(estadoActual)};
+                             border:1px solid ${getColorEstado(estadoActual)}44;">
+                    ${estadoActual}
+                </span>
+            </div>
+        </div>
+    `;
+
+    // ── Timeline (audit log) ─────────────────────────────────
+    const timeline = orden.timeline || [];
+    const timelineHTML = timeline.length === 0
+        ? '<div style="text-align:center;padding:20px;color:var(--muted,#A89F96);font-size:13px;">Sin historial registrado</div>'
+        : `<div style="position:relative;padding-left:20px;">
+            ${timeline.map((evento, index) => {
+                const isLast  = index === timeline.length - 1;
+                const color   = getColorEstado(evento.estado);
+                const isReen  = evento.estado === 'Reenviado a laboratorio';
+                return `
+                    <div style="position:relative;padding-bottom:${isLast ? '0' : '20px'};">
+                        <!-- Vertical line -->
+                        ${!isLast ? `<div style="position:absolute;left:-14px;top:10px;bottom:0;width:2px;background:rgba(60,50,40,.1);"></div>` : ''}
+                        <!-- Dot -->
+                        <div style="position:absolute;left:-20px;top:3px;width:12px;height:12px;border-radius:50%;
+                                    background:${color};border:2px solid white;
+                                    box-shadow:0 0 0 2px ${color}55;"></div>
+                        <!-- Content -->
+                        <div style="background:${isLast ? color + '0d' : 'transparent'};border-radius:10px;padding:${isLast ? '10px 12px' : '0 12px 0 0'};">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:4px;">
+                                <div style="font-size:13px;font-weight:${isLast ? '600' : '500'};color:${isLast ? color : 'var(--topo,#3D3830)'};">
+                                    ${isReen ? '🔄 ' : ''}${evento.estado}
+                                    ${isLast ? '<span style="font-size:10px;background:'+color+'22;color:'+color+';padding:2px 8px;border-radius:100px;margin-left:6px;vertical-align:middle;">ACTUAL</span>' : ''}
+                                </div>
+                                <div style="font-size:11px;color:var(--piedra,#7A7068);white-space:nowrap;">
+                                    ${formatDate(evento.fecha)} ${formatTime(evento.fecha)}
+                                </div>
+                            </div>
+                            <div style="font-size:12px;color:var(--piedra,#7A7068);margin-top:2px;">
+                                👤 ${evento.usuario}${evento.notas ? ` &nbsp;·&nbsp; <em>${evento.notas}</em>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+          </div>`;
+
+    document.getElementById('detalleLabTimeline').innerHTML = `
+        ${progressHTML}
+        <div style="margin-top:20px;">
+            <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:12px;">Historial de cambios</div>
+            ${timelineHTML}
+        </div>
+    `;
+
+    // ── Action buttons ───────────────────────────────────────
     const botonesHTML = renderizarBotonesAvance(orden);
     document.getElementById('botonesAvanceLab').innerHTML = `
         ${orden.estadoActual !== 'Entregado' ? `
-        <textarea id="notasAvanceLab" placeholder="Notas del cambio (opcional)..."
-            style="width:100%;padding:10px 12px;border:1.5px solid rgba(30,28,26,0.1);
-                   border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;
-                   min-height:56px;background:var(--surface,#F5F2EE);color:var(--dark,#1E1C1A);
-                   margin-bottom:10px"></textarea>` : ''}
+        <div style="margin-bottom:10px;">
+            <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:6px;">Notas del cambio (opcional)</div>
+            <textarea id="notasAvanceLab" placeholder="Ej: Se requiere ajuste en el color..."
+                style="width:100%;padding:10px 12px;border:1.5px solid rgba(60,50,40,.12);
+                       border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;
+                       min-height:52px;background:var(--sand,#EEEAE4);color:var(--topo,#3D3830);
+                       outline:none;"
+                onfocus="this.style.borderColor='var(--clinic-color,#C4856A)'"
+                onblur="this.style.borderColor='rgba(60,50,40,.12)'"></textarea>
+        </div>` : ''}
         ${botonesHTML}
     `;
 
@@ -6710,58 +6810,50 @@ function renderizarBotonesAvance(orden) {
     const estadoActual = orden.estadoActual;
 
     if (estadoActual === 'Entregado') {
-        return '<p style="text-align: center; color: #28a745; font-weight: 600;">✅ Orden completada y entregada</p>';
+        return `<div style="text-align:center;padding:16px;background:rgba(107,143,113,.1);border-radius:12px;border:1.5px solid #6B8F71;">
+                    <div style="font-size:22px;margin-bottom:6px;">✅</div>
+                    <div style="font-size:14px;font-weight:600;color:#4a7a50;">Orden completada y entregada</div>
+                </div>`;
     }
 
-    let botones = [];
+    // Define all possible transitions
+    const transiciones = {
+        'Toma de impresión': [
+            { text: '📤 Enviar al laboratorio', sub: 'Marcar como enviada', color: '#7B8FA1', bgColor: 'rgba(123,143,161,.1)', estado: 'Enviado a laboratorio' }
+        ],
+        'Enviado a laboratorio': [
+            { text: '🔍 Listo para prueba', sub: 'El lab terminó el trabajo', color: '#E8A838', bgColor: 'rgba(232,168,56,.1)', estado: 'Listo para prueba' }
+        ],
+        'Listo para prueba': [
+            { text: '✅ Entregar al paciente', sub: 'La prueba fue exitosa', color: '#6B8F71', bgColor: 'rgba(107,143,113,.1)', estado: 'Entregado', primary: true },
+            { text: '🔄 Devolver al laboratorio', sub: 'Necesita ajustes', color: '#C47070', bgColor: 'rgba(196,112,112,.1)', estado: 'Reenviado a laboratorio' }
+        ],
+        'Reenviado a laboratorio': [
+            { text: '🔍 Listo para prueba (nuevamente)', sub: 'El lab hizo los ajustes', color: '#E8A838', bgColor: 'rgba(232,168,56,.1)', estado: 'Listo para prueba' }
+        ]
+    };
 
-    if (estadoActual === 'Toma de impresión') {
-        botones.push({
-            text: '📤 Enviar a Laboratorio',
-            color: '#007AFF',
-            estado: 'Enviado a laboratorio'
-        });
-    }
+    const botones = transiciones[estadoActual] || [];
+    if (!botones.length) return '';
 
-    if (estadoActual === 'Enviado a laboratorio') {
-        botones.push({
-            text: '✅ Marcar Listo para Prueba',
-            color: '#ff9500',
-            estado: 'Listo para prueba'
-        });
-    }
-
-    if (estadoActual === 'Listo para prueba') {
-        botones.push({
-            text: '🔄 Reenviar a Laboratorio',
-            color: '#dc3545',
-            estado: 'Reenviado a laboratorio'
-        });
-        botones.push({
-            text: '🎉 Marcar como Entregado',
-            color: '#28a745',
-            estado: 'Entregado'
-        });
-    }
-
-    if (estadoActual === 'Reenviado a laboratorio') {
-        botones.push({
-            text: '✅ Listo para Prueba (otra vez)',
-            color: '#ff9500',
-            estado: 'Listo para prueba'
-        });
-    }
-
-    return botones.map((btn, index) => `
-        <button
-            class="btn"
-            style="background: ${btn.color}; color: white; margin: 5px;"
-            onclick="avanzarEstadoLab('${btn.estado}')"
-            data-estado="${btn.estado}"
-        >
-            ${btn.text}
-        </button>
-    `).join('');
+    return `<div style="display:flex;flex-direction:column;gap:8px;">
+        ${botones.map(btn => `
+            <button onclick="avanzarEstadoLab('${btn.estado}')"
+                style="width:100%;padding:13px 18px;background:${btn.bgColor};
+                       color:${btn.color};border:1.5px solid ${btn.color}55;
+                       border-radius:12px;font-family:inherit;cursor:pointer;
+                       display:flex;align-items:center;justify-content:space-between;
+                       transition:all .2s;"
+                onmouseover="this.style.background='${btn.color}22';this.style.borderColor='${btn.color}'"
+                onmouseout="this.style.background='${btn.bgColor}';this.style.borderColor='${btn.color}55'">
+                <div style="text-align:left;">
+                    <div style="font-size:14px;font-weight:600;">${btn.text}</div>
+                    <div style="font-size:11px;opacity:.8;margin-top:1px;">${btn.sub}</div>
+                </div>
+                <span style="font-size:18px;opacity:.7;">→</span>
+            </button>
+        `).join('')}
+    </div>`;
 }
 
 async function avanzarEstadoLab(nuevoEstado) {

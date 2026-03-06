@@ -2561,12 +2561,23 @@
     </div>
 
     <div id="modalDetalleOrdenLab" class="modal" style="z-index:10020;">
-        <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-header"><div class="modal-title">🔬 Detalle de Orden de Laboratorio</div></div>
+        <div class="modal-content" style="max-width: 680px;">
+            <div class="modal-header">
+                <div class="modal-title">🔬 Orden de Laboratorio</div>
+                <button class="close-modal" onclick="closeModal('modalDetalleOrdenLab')">×</button>
+            </div>
             <div id="detalleLabInfo"></div>
-            <div style="margin-top: 20px;"><h3 style="font-size: 16px; color: var(--clinic-color); margin-bottom: 15px;">📍 Historial</h3><div id="detalleLabTimeline"></div></div>
-            <div id="botonesAvanceLab" style="margin-top: 20px; text-align: center;"></div>
-            <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalDetalleOrdenLab')">Cerrar</button><button onclick="avisarPacienteLab(window._currentLabOrdenId)" style="padding:10px 18px;background:#25D366;color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;gap:6px;">💬 Avisar al paciente</button></div>
+            <div id="detalleLabTimeline"></div>
+            <div id="botonesAvanceLab" style="margin-top:16px;"></div>
+            <div class="modal-footer" style="margin-top:16px;">
+                <button class="btn btn-cancel" onclick="closeModal('modalDetalleOrdenLab')">Cerrar</button>
+                <button onclick="avisarPacienteLab(window._currentLabOrdenId)"
+                    style="padding:10px 18px;background:#25D366;color:white;border:none;
+                           border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;
+                           display:flex;align-items:center;gap:6px;">
+                    💬 Avisar al paciente
+                </button>
+            </div>
         </div>
     </div>
 
