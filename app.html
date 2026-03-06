@@ -1384,6 +1384,12 @@
         .dash-kpi-val  { font-size: 15px !important; }
     }
     /* ══════════════════════════════════════════════════ */
+
+    /* Fix 8 — withGuard spinner */
+    @keyframes _spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
     </style>
     <script>
         // Stub: registerActivity puede dispararse en body events ANTES de que app.js cargue.
@@ -2131,7 +2137,7 @@
 
                     <!-- IDENTIDAD -->
                     <div style="margin-bottom: 28px;">
-                        <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Identidad</div>
+                        <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Identidad</div>
                         <div class="form-group">
                             <label>Nombre de la Clínica</label>
                             <input type="text" id="configNombreClinica" placeholder="Ej: Clínica Dental Pérez">
@@ -2140,7 +2146,7 @@
                             <label>Color de la Clínica</label>
                             <div style="display: flex; gap: 12px; align-items: center;">
                                 <input type="color" id="configColorClinica" style="width: 48px; height: 48px; border: none; background: none; cursor: pointer; border-radius: 8px;">
-                                <span id="configColorHex" style="font-size: 14px; color: #666; font-family: monospace;"></span>
+                                <span id="configColorHex" style="font-size: 14px; color:var(--piedra); font-family: monospace;"></span>
                             </div>
                         </div>
                         <div class="form-group">
@@ -2181,7 +2187,7 @@
 
                     <!-- SEGURIDAD -->
                     <div style="margin-bottom: 28px;">
-                        <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Seguridad</div>
+                        <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Seguridad</div>
                         <div class="form-group">
                             <label>Nueva contraseña del administrador</label>
                             <input type="password" id="configNewPassword" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
@@ -2197,7 +2203,7 @@
 
                     <!-- NÓMINA -->
                     <div style="margin-bottom: 28px;">
-                        <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Tasas de Comisión</div>
+                        <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Tasas de Comisión</div>
                         <div class="form-group">
                             <label>Profesional regular (%)</label>
                             <input type="number" id="configComisionRegular" min="0" max="100" step="1" placeholder="60">
@@ -2213,14 +2219,14 @@
 
                     <!-- NÓMINA DEFAULTS -->
                     <div style="margin-bottom: 28px;">
-                        <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Modelo de Nómina</div>
+                        <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Modelo de Nómina</div>
                         <div class="form-group">
                             <label>Remuneración por defecto (dentistas)</label>
                             <select id="configDefaultRemuneracion" style="width:100%;padding:12px 16px;border:none;border-radius:12px;font-size:14px;font-family:inherit;background:var(--sand);color:var(--topo);appearance:none;box-shadow:var(--neu-inset);">
                                 <option value="comision">Comisión por producción</option>
                                 <option value="salario">Salario fijo mensual</option>
                             </select>
-                            <div style="font-size:11px;color:#999;margin-top:6px;line-height:1.5">Puedes configurarlo diferente para cada profesional individualmente.</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">Puedes configurarlo diferente para cada profesional individualmente.</div>
                         </div>
                         <div class="form-group">
                             <label>Frecuencia de pago por defecto</label>
@@ -2237,7 +2243,7 @@
 
                     <!-- AGENDA -->
                     <div>
-                        <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Configuración de Agenda</div>
+                        <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Configuración de Agenda</div>
                         <div class="form-group">
                             <label>Hora de apertura</label>
                             <select id="configHoraApertura">
@@ -2456,7 +2462,7 @@
     <div id="modalAddPersonal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Agregar Personal</div><button class="close-modal" onclick="closeModal('modalAddPersonal')">×</button></div>
-            <div class="form-group"><label>Nombre</label><input type="text" id="personalNombre"></div>
+            <div class="form-group"><label>Nombre</label><input type="text" id="personalNombre" autocapitalize="words"></div>
             <div class="form-group"><label>Tipo</label><select id="personalTipo" onchange="toggleSueldo()">
                 <option value="regular">Odontólogo Regular</option>
                 <option value="especialista">Especialista</option>
@@ -2481,7 +2487,7 @@
             <!-- SUELDO — visible solo para empleados -->
             <div class="form-group hidden" id="sueldoGroup">
                 <label>Sueldo base</label>
-                <input type="number" id="personalSueldo" min="0" step="0.01" placeholder="0.00">
+                <input type="number" id="personalSueldo" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
             </div>
 
             <!-- FRECUENCIA DE PAGO — visible para empleados y profesionales con salario fijo -->
@@ -2509,7 +2515,7 @@
     <div id="modalAvance" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Avance de Salario</div><button class="close-modal" onclick="closeModal('modalAvance')">×</button></div>
-            <div class="form-group"><label>Monto</label><input type="number" id="avanceMonto" step="0.01"></div>
+            <div class="form-group"><label>Monto</label><input type="number" id="avanceMonto" inputmode="decimal" step="0.01"></div>
             <div class="form-group"><label>Notas</label><input type="text" id="avanceNotas" placeholder="Ej: Avance semanal, emergencia..."></div>
             <button class="btn btn-submit" onclick="withGuard(this, registrarAvance)">Registrar Avance</button>
         </div>
@@ -2752,9 +2758,9 @@
     <div id="modalNuevoPaciente" class="modal">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header"><div class="modal-title">Nuevo Paciente</div></div>
-            <div class="form-group"><label>Nombre Completo *</label><input type="text" id="nuevoPacienteNombre"></div>
+            <div class="form-group"><label>Nombre Completo *</label><input type="text" id="nuevoPacienteNombre" autocapitalize="words"></div>
             <div class="form-group"><label>Cédula</label><input type="text" id="nuevoPacienteCedula"></div>
-            <div class="form-group"><label>Teléfono *</label><input type="tel" id="nuevoPacienteTelefono"></div>
+            <div class="form-group"><label>Teléfono *</label><input type="tel" id="nuevoPacienteTelefono" inputmode="tel" autocomplete="tel"></div>
             <div class="form-group"><label>Email</label><input type="email" id="nuevoPacienteEmail"></div>
             <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="nuevoPacienteFechaNacimiento"></div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -2815,17 +2821,17 @@
         <div class="modal-content" style="max-width: 360px;">
             <div class="modal-header" id="modalDienteHeader">
                 <div class="modal-title" id="modalDienteTitulo">Diente</div>
-                <button onclick="closeModal('modalDiente')" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1;">✕</button>
+                <button onclick="closeModal('modalDiente')" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">✕</button>
             </div>
             <div style="padding: 20px;">
                 <!-- Estado actual -->
                 <div style="margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;">Estado</div>
+                    <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;">Estado</div>
                     <div id="modalDienteEstados" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"></div>
                 </div>
                 <!-- Nota clínica -->
                 <div style="margin-bottom: 20px;" id="modalDienteNotaSection">
-                    <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">Nota clínica</div>
+                    <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">Nota clínica</div>
                     <textarea id="modalDienteNota" placeholder="Observaciones del diente..." rows="3"
                         style="width:100%;padding:12px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:14px;font-family:inherit;resize:none;box-sizing:border-box;outline:none;"
                         onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'"></textarea>
@@ -2845,8 +2851,8 @@
     <div id="modalEditarPaciente" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header"><div class="modal-title">✏️ Editar Paciente</div><button class="close-modal" onclick="closeModal('modalEditarPaciente');if(currentPacienteId)verPaciente(currentPacienteId)">×</button></div>
-            <div class="form-group"><label>Nombre Completo *</label><input type="text" id="editPacienteNombre"></div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group"><label>Teléfono *</label><input type="tel" id="editPacienteTelefono"></div><div class="form-group"><label>Cédula</label><input type="text" id="editPacienteCedula"></div></div>
+            <div class="form-group"><label>Nombre Completo *</label><input type="text" id="editPacienteNombre" autocapitalize="words"></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group"><label>Teléfono *</label><input type="tel" id="editPacienteTelefono" inputmode="tel" autocomplete="tel"></div><div class="form-group"><label>Cédula</label><input type="text" id="editPacienteCedula"></div></div>
             <div class="form-group"><label>Email</label><input type="email" id="editPacienteEmail"></div>
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;"><div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="editPacienteFechaNac"></div><div class="form-group"><label>Sexo</label><select id="editPacienteSexo"><option value="">Seleccionar...</option><option value="Masculino">Masculino</option><option value="Femenino">Femenino</option></select></div><div class="form-group"><label>Grupo Sanguíneo</label><input type="text" id="editPacienteGrupoSang"></div></div>
             <div class="form-group"><label>Dirección</label><input type="text" id="editPacienteDireccion"></div>

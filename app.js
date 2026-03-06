@@ -213,7 +213,7 @@ async function loadClinicBranding() {
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('appContainer').style.display = 'none';
             const card = document.querySelector('.login-card');
-            if (card) card.innerHTML = '<div style="text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:16px">🔒</div><div style="font-weight:600;font-size:18px;margin-bottom:8px">Cuenta pausada</div><div style="color:#666;font-size:14px">Contacta a SMILE para reactivar tu clínica.</div></div>';
+            if (card) card.innerHTML = '<div style="text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:16px">🔒</div><div style="font-weight:600;font-size:18px;margin-bottom:8px">Cuenta pausada</div><div style="color:var(--piedra);font-size:14px">Contacta a SMILE para reactivar tu clínica.</div></div>';
         }
 
     } catch(e) {
@@ -337,27 +337,51 @@ async function withGuard(btnEl, fn) {
     if (!btnEl || btnEl._guarding) return;
     btnEl._guarding = true;
 
-    const originalText    = btnEl.textContent;
+    const originalText     = btnEl.textContent;
+    const originalHTML     = btnEl.innerHTML;
     const originalDisabled = btnEl.disabled;
-    const originalOpacity = btnEl.style.opacity;
+    const originalBg       = btnEl.style.background;
+    const originalOpacity  = btnEl.style.opacity;
+    const originalTrans    = btnEl.style.transition;
 
-    btnEl.disabled     = true;
-    btnEl.style.opacity = '0.65';
-    // Solo cambiar texto si no hay ícono complejo (emoji solo)
-    if (btnEl.textContent && !btnEl.querySelector('svg')) {
-        btnEl.textContent = 'Guardando…';
+    btnEl.disabled = true;
+    btnEl.style.transition = 'opacity .15s, background .2s';
+
+    // Fix 8: spinner or dimming depending on button content
+    const hasOnlyText = btnEl.textContent && !btnEl.querySelector('svg') && !/^\p{Emoji}/u.test(btnEl.textContent.trim());
+    if (hasOnlyText) {
+        btnEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 14 14" style="animation:_spin .7s linear infinite;flex-shrink:0;">
+                <circle cx="7" cy="7" r="5.5" stroke="rgba(255,255,255,.35)" stroke-width="2" fill="none"/>
+                <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </svg>
+            Guardando…
+        </span>`;
+    } else {
+        btnEl.style.opacity = '0.6';
     }
 
+    let success = false;
     try {
         await fn();
+        success = true;
     } catch(e) {
-        // El error ya debe ser manejado dentro de fn()
-        // Solo restauramos el botón
+        // Error already handled inside fn()
     } finally {
-        btnEl._guarding    = false;
-        btnEl.disabled     = originalDisabled;
-        btnEl.style.opacity = originalOpacity;
-        btnEl.textContent  = originalText;
+        btnEl._guarding = false;
+        btnEl.disabled  = originalDisabled;
+
+        if (success && hasOnlyText) {
+            // Fix 4: brief success flash before restoring
+            btnEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;">✓ Guardado</span>`;
+            btnEl.style.background = 'var(--salvia, #5a8060)';
+            await new Promise(r => setTimeout(r, 800));
+        }
+
+        btnEl.innerHTML    = originalHTML;
+        btnEl.style.background  = originalBg;
+        btnEl.style.opacity     = originalOpacity;
+        btnEl.style.transition  = originalTrans;
     }
 }
 
@@ -637,27 +661,58 @@ async function _flushErrorQueue() {
 }
 
 // Generic toast notification
-function showToast(text, duration = 3000, bg = '#1E1C1A') {
+function showToast(text, duration = 3000, bg = null) {
+    // Fix 3: semantic auto-detection when no bg provided
+    let resolvedBg = bg;
+    let icon = '';
+    if (!bg) {
+        const t = (text || '').toString();
+        if (t.startsWith('✓') || t.startsWith('✅')) {
+            resolvedBg = 'var(--salvia, #5a8060)'; icon = '';
+        } else if (t.startsWith('❌') || t.startsWith('✕') || t.includes('Error')) {
+            resolvedBg = '#b03030'; icon = '';
+        } else if (t.startsWith('⚠')) {
+            resolvedBg = '#9a6a1a'; icon = '';
+        } else {
+            resolvedBg = 'var(--carbon, #3A3532)'; icon = '';
+        }
+    }
+
     let toast = document.getElementById('smileToast');
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'smileToast';
-        toast.style.cssText = `
-            position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);
-            background:${bg};color:white;padding:10px 20px;border-radius:100px;
-            font-size:13px;font-family:inherit;z-index:99999;opacity:0;
-            transition:opacity 0.25s,transform 0.25s;pointer-events:none;
-            box-shadow:0 4px 20px rgba(0,0,0,0.25);white-space:nowrap;max-width:90vw;text-align:center;`;
+        toast.style.cssText = [
+            'position:fixed',
+            'bottom:90px',
+            'left:50%',
+            'transform:translateX(-50%) translateY(20px)',
+            'color:white',
+            'padding:10px 22px',
+            'border-radius:100px',
+            'font-size:13px',
+            'font-family:inherit',
+            'z-index:99999',
+            'opacity:0',
+            'transition:opacity 0.2s,transform 0.22s cubic-bezier(.34,1.3,.64,1)',
+            'pointer-events:none',
+            'box-shadow:0 4px 24px rgba(0,0,0,0.28)',
+            'white-space:nowrap',
+            'max-width:88vw',
+            'text-align:center',
+            'font-weight:400',
+            'letter-spacing:.1px',
+        ].join(';');
         document.body.appendChild(toast);
     }
     toast.textContent = text;
-    toast.style.background = bg;
+    toast.style.background = resolvedBg;
     toast.style.opacity = '1';
     toast.style.transform = 'translateX(-50%) translateY(0)';
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateX(-50%) translateY(20px)';
+        toast.style.transform = 'translateX(-50%) translateY(16px)';
     }, duration);
 }
 
@@ -1700,23 +1755,23 @@ function buildNavigation() {
 
     // Dashboard — admin + profesional
     if (role === 'admin' || role === 'professional') {
-        nav += `<button class="nav-item" onclick="showTab('dashboard')">${svgDash}<span>Dashboard</span></button>`;
+        nav += `<button class="nav-item" data-tab="dashboard" onclick="showTab('dashboard')">${svgDash}<span>Dashboard</span></button>`;
     }
 
     // Pacientes — todos
-    nav += `<button class="nav-item ${role === 'reception' ? 'active' : ''}" onclick="showTab('pacientes')">${svgPax}<span>Pacientes</span></button>`;
+    nav += `<button class="nav-item ${role === 'reception' ? 'active' : ''}" data-tab="pacientes" onclick="showTab('pacientes')">${svgPax}<span>Pacientes</span></button>`;
 
     // Agenda — todos
-    nav += `<button class="nav-item" onclick="showTab('agenda')">${svgAgenda}<span>Agenda</span></button>`;
+    nav += `<button class="nav-item" data-tab="agenda" onclick="showTab('agenda')">${svgAgenda}<span>Agenda</span></button>`;
 
     // Lab — solo si módulo activo
     if (hasModule('laboratorio')) {
-        nav += `<button class="nav-item" onclick="showTab('laboratorio')">${svgLab}<span>Lab</span></button>`;
+        nav += `<button class="nav-item" data-tab="laboratorio" onclick="showTab('laboratorio')">${svgLab}<span>Lab</span></button>`;
     }
 
     // Cobros — admin + profesional (contiene factura, pendientes, ingresos, cuadre, gastos)
     if (role === 'admin' || role === 'professional') {
-        nav += `<button class="nav-item" onclick="showTab('cobros')">${svgCobros}<span>Cobros</span></button>`;
+        nav += `<button class="nav-item" data-tab="cobros" onclick="showTab('cobros')">${svgCobros}<span>Cobros</span></button>`;
     }
 
     // Más — siempre
@@ -1741,9 +1796,18 @@ function showTab(tabName) {
     const tab = document.getElementById(`tab-${tabName}`);
     if (tab) {
         tab.classList.add('active');
+        // Fix 2: use data-tab attribute for exact matching
         const navButtons = Array.from(document.querySelectorAll('.nav-item'));
-        const activeNav = navButtons.find(btn => btn.textContent.toLowerCase().includes(tabName));
+        const activeNav = navButtons.find(btn => btn.dataset.tab === tabName)
+            || navButtons.find(btn => btn.textContent.toLowerCase().includes(tabName));
         if (activeNav) activeNav.classList.add('active');
+
+        // Fix 1: scroll content area to top on tab change
+        const contentArea = document.querySelector('.content-area');
+        if (contentArea) contentArea.scrollTop = 0;
+
+        // Fix 10: dispatch custom tabchange event
+        document.dispatchEvent(new CustomEvent('tabchange', { detail: { tab: tabName } }));
 
         if (tabName === 'factura') {
             // Mostrar selector de profesional solo si es admin
@@ -1832,7 +1896,7 @@ function updateProcedimientosList() {
             <div class="procedimiento-item">
                 <div>
                     <div style="font-weight: 600;">${p.descripcion}</div>
-                    <div style="font-size: 13px; color: #666;">${p.cantidad}x ${formatCurrency(p.precioUnitario)}</div>
+                    <div style="font-size: 13px; color:var(--piedra);">${p.cantidad}x ${formatCurrency(p.precioUnitario)}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <strong style="color: var(--clinic-color, #C4856A);">${formatCurrency(p.cantidad * p.precioUnitario)}</strong>
@@ -2408,22 +2472,22 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         <div style="border-top: 3px solid var(--clinic-color, #C4856A); border-bottom: 3px solid var(--clinic-color, #C4856A); padding: 15px 0; margin: 20px 0;">
             <div style="text-align: center;">
                 <h3 style="color: var(--clinic-color, #C4856A); margin: 0; font-size: 20px;">${esPagoTotal ? 'RECIBO DE PAGO' : 'COMPROBANTE DE ABONO'}</h3>
-                <div style="color: #666; font-size: 13px; margin-top: 5px;">Factura: ${factura.numero}</div>
+                <div style="color:var(--piedra); font-size: 13px; margin-top: 5px;">Factura: ${factura.numero}</div>
             </div>
         </div>
 
         <div style="margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                 <tr>
-                    <td style="padding: 8px 0; color: #666; width: 40%;">Fecha:</td>
+                    <td style="padding: 8px 0; color:var(--piedra); width: 40%;">Fecha:</td>
                     <td style="padding: 8px 0; font-weight: 600;">${fecha} - ${hora}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 8px 0; color: #666;">Paciente:</td>
+                    <td style="padding: 8px 0; color:var(--piedra);">Paciente:</td>
                     <td style="padding: 8px 0; font-weight: 600;">${factura.paciente}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 8px 0; color: #666;">Atendido por:</td>
+                    <td style="padding: 8px 0; color:var(--piedra);">Atendido por:</td>
                     <td style="padding: 8px 0; font-weight: 600;">${nombreProfesional}</td>
                 </tr>
             </table>
@@ -2478,7 +2542,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
         <div style="margin: 20px 0; padding: 15px; background: #f8f8f8; border-radius: 8px;">
             <table style="width: 100%; font-size: 14px;">
                 <tr>
-                    <td style="padding: 5px 0; color: #666;">Subtotal:</td>
+                    <td style="padding: 5px 0; color:var(--piedra);">Subtotal:</td>
                     <td style="padding: 5px 0; text-align: right; font-weight: 600;">${formatCurrency(factura.subtotal)}</td>
                 </tr>
     `;
@@ -2486,7 +2550,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     if (factura.descuento > 0) {
         facturaHTML += `
                 <tr>
-                    <td style="padding: 5px 0; color: #666;">Descuento (${factura.descuento}%):</td>
+                    <td style="padding: 5px 0; color:var(--piedra);">Descuento (${factura.descuento}%):</td>
                     <td style="padding: 5px 0; text-align: right; color: #ff3b30; font-weight: 600;">-${formatCurrency(factura.subtotal * factura.descuento / 100)}</td>
                 </tr>
         `;
@@ -2507,7 +2571,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
                     <td style="padding: 5px 0; text-align: right; color: #2e7d32; font-weight: 700; font-size: 16px;">${formatCurrency(montoPagado)}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 5px 0; color: #666;">Método de Pago:</td>
+                    <td style="padding: 5px 0; color:var(--piedra);">Método de Pago:</td>
                     <td style="padding: 5px 0; text-align: right; font-weight: 600;">${metodoPago.charAt(0).toUpperCase() + metodoPago.slice(1)}</td>
                 </tr>
             </table>
@@ -2536,7 +2600,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     if (factura.notas) {
         facturaHTML += `
         <div style="margin: 20px 0; padding: 10px; background: #f5f5f5; border-radius: 8px;">
-            <div style="color: #666; font-size: 12px; font-weight: 600; margin-bottom: 5px;">Notas:</div>
+            <div style="color:var(--piedra); font-size: 12px; font-weight: 600; margin-bottom: 5px;">Notas:</div>
             <div style="color: #333; font-size: 13px;">${factura.notas}</div>
         </div>
         `;
@@ -2764,8 +2828,8 @@ function updateCuadreTab() {
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                         <div>
                             <span style="font-weight: 600;">${icono} ${f.paciente}</span>
-                            <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
-                            <div style="font-size: 12px; color: #999;">Factura ${f.numero} - ${p.metodo}</div>
+                            <span style="color:var(--piedra); font-size: 12px; margin-left: 8px;">${hora}</span>
+                            <div style="font-size: 12px; color:var(--piedra);">Factura ${f.numero} - ${p.metodo}</div>
                         </div>
                         <div style="font-weight: 500; color: var(--green,#6B8F71);">${formatCurrency(p.monto)}</div>
                     </div>
@@ -2774,7 +2838,7 @@ function updateCuadreTab() {
         });
 
         if (htmlIngresos === '') {
-            htmlIngresos = '<div style="color: #999; text-align: center; padding: 10px;">No hay ingresos registrados hoy</div>';
+            htmlIngresos = '<div style="text-align:center;padding:16px;color:var(--piedra);font-size:13px;">Sin cobros registrados hoy</div>';
         }
         document.getElementById('listaIngresos').innerHTML = htmlIngresos;
 
@@ -2788,9 +2852,9 @@ function updateCuadreTab() {
                 <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                     <div>
                         <span style="font-weight: 600;">${icono} ${g.descripcion}</span>
-                        <span style="color: #666; font-size: 12px; margin-left: 8px;">${hora}</span>
-                        ${g.proveedor ? `<div style="font-size: 12px; color: #999;">Proveedor: ${g.proveedor}</div>` : ''}
-                        <div style="font-size: 12px; color: #999;">${g.metodo}</div>
+                        <span style="color:var(--piedra); font-size: 12px; margin-left: 8px;">${hora}</span>
+                        ${g.proveedor ? `<div style="font-size: 12px; color:var(--piedra);">Proveedor: ${g.proveedor}</div>` : ''}
+                        <div style="font-size: 12px; color:var(--piedra);">${g.metodo}</div>
                     </div>
                     <div style="font-weight: 500; color: var(--red,#C47070);">${formatCurrency(g.monto)}</div>
                 </div>
@@ -2798,7 +2862,7 @@ function updateCuadreTab() {
         });
 
         if (htmlGastos === '') {
-            htmlGastos = '<div style="color: #999; text-align: center; padding: 10px;">No hay gastos registrados hoy</div>';
+            htmlGastos = '<div style="text-align:center;padding:16px;color:var(--piedra);font-size:13px;">Sin gastos registrados hoy</div>';
         }
         document.getElementById('listaGastos').innerHTML = htmlGastos;
     } else {
@@ -3208,7 +3272,7 @@ function openPersonalDetail(id) {
 
     let content = `
         <div style="margin-bottom: 20px;">
-            <div style="color: #666; font-size: 14px;">Tipo</div>
+            <div style="color:var(--piedra); font-size: 14px;">Tipo</div>
             <div style="font-weight: 600; font-size: 16px;">${getTipoLabel(person.tipo, person)}</div>
         </div>
     `;
@@ -3247,18 +3311,18 @@ function openPersonalDetail(id) {
                          : '')
                      + '</div>'
                      + '<div style="margin-bottom:18px">'
-                     + '<div style="color:#666;font-size:13px;margin-bottom:8px">Tasa de comisión</div>'
+                     + '<div style="color:var(--piedra);font-size:13px;margin-bottom:8px">Tasa de comisión</div>'
                      + '<div style="display:flex;align-items:center;gap:10px">'
                      + '<input type="number" id="inputComisionPersonal" value="' + rate + '" min="0" max="100" step="1"'
                      + ' style="width:72px;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:16px;font-family:inherit;text-align:center"'
                      + ' onfocus="this.style.borderColor=\'var(--clinic-color)\'" onblur="this.style.borderColor=\'#e0e0e0\'">'
-                     + '<span style="color:#666;font-size:16px">%</span>'
+                     + '<span style="color:var(--piedra);font-size:16px">%</span>'
                      + '<button onclick="guardarComisionPersonal(\'' + person.id + '\')" style="padding:8px 16px;background:var(--clinic-color);color:white;border:none;border-radius:100px;font-size:13px;font-family:inherit;cursor:pointer">Guardar</button>'
-                     + (hasCustom ? '<button onclick="resetearComisionPersonal(\'' + person.id + '\')" style="padding:8px 12px;background:none;border:1.5px solid #e0e0e0;color:#999;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer" title="Usar tasa global">↺</button>' : '')
+                     + (hasCustom ? '<button onclick="resetearComisionPersonal(\'' + person.id + '\')" style="padding:8px 12px;background:none;border:1.5px solid #e0e0e0;color:var(--muted);border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer" title="Usar tasa global">↺</button>' : '')
                      + '</div>'
                      + (hasCustom
                          ? '<div style="font-size:11px;color:var(--clinic-color);margin-top:4px">Tasa individual activa (global: ' + getComisionRate(person.tipo) + '%)</div>'
-                         : '<div style="font-size:11px;color:#999;margin-top:4px">Usando tasa global</div>')
+                         : '<div style="font-size:11px;color:var(--muted);margin-top:4px">Usando tasa global</div>')
                      + '</div>'
                      + '<button class="btn btn-submit" style="background:#ff9500;margin-bottom:12px;width:100%" onclick="event.stopPropagation();confirmarPagoProfesional(\'' + person.id + '\')">💰 Pagar Comisiones</button>';
         }
@@ -3269,15 +3333,15 @@ function openPersonalDetail(id) {
 
         content += `
             <div style="margin-bottom: 20px;">
-                <div style="color: #666; font-size: 14px;">Sueldo Mensual</div>
+                <div style="color:var(--piedra); font-size: 14px;">Sueldo Mensual</div>
                 <div style="font-weight: 700; font-size: 18px; color:var(--salvia,#6B8F71);">${formatCurrency(person.sueldo)}</div>
             </div>
             <div style="margin-bottom: 20px;">
-                <div style="color: #666; font-size: 14px;">Total Avances</div>
+                <div style="color:var(--piedra); font-size: 14px;">Total Avances</div>
                 <div style="font-weight: 700; font-size: 24px; color: #8e44ad;">${formatCurrency(totalAvances)}</div>
             </div>
             <div style="margin-bottom: 20px;">
-                <div style="color: #666; font-size: 14px;">Próxima Fecha de Pago</div>
+                <div style="color:var(--piedra); font-size: 14px;">Próxima Fecha de Pago</div>
                 <div style="font-weight: 600; font-size: 16px;">${nextPayDate}</div>
             </div>
             <button class="btn btn-submit" style="background: #34c759; margin-bottom: 15px; width: 100%;" onclick="event.stopPropagation(); confirmarPagoEmpleado('${person.id}')">
@@ -3293,7 +3357,7 @@ function openPersonalDetail(id) {
                                 <strong>${formatCurrency(a.monto)}</strong>
                                 <span style="color: #8e8e93; font-size: 13px;">${new Date(a.fecha).toLocaleDateString(getLocale())}</span>
                             </div>
-                            ${a.notas ? `<div style="font-size: 13px; color: #666;">${a.notas}</div>` : ''}
+                            ${a.notas ? `<div style="font-size: 13px; color:var(--piedra);">${a.notas}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -3337,7 +3401,7 @@ function openPersonalDetail(id) {
         ];
         content += `
             <div style="margin-top: 8px; margin-bottom: 20px; border-top: 1px solid #f0f0f0; padding-top: 20px;">
-                <div style="font-size: 11px; font-weight: 500; color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">
+                <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">
                     Permisos
                 </div>
                 ${PERMS.map(p => {
@@ -3456,20 +3520,20 @@ function confirmarPagoProfesional(id) {
                 <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
                     ${person.nombre}
                 </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
+                <div style="font-size: 14px; color:var(--piedra); margin-bottom: 4px;">
                     <strong>Cargo:</strong> ${getTipoLabel(person.tipo)}
                 </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
+                <div style="font-size: 14px; color:var(--piedra); margin-bottom: 4px;">
                     <strong>Tasa de Comisión:</strong> ${getComisionRate(person.tipo, person)}%
                 </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
+                <div style="font-size: 14px; color:var(--piedra); margin-bottom: 4px;">
                     <strong>Comisiones brutas:</strong> ${formatCurrency(comisionesAcum)}
                 </div>
                 ${avancesPendientes > 0 ? `
                 <div style="font-size: 14px; color: #ff3b30; margin-bottom: 4px;">
                     <strong>Avances a descontar:</strong> -${formatCurrency(avancesPendientes)}
                 </div>` : ''}
-                <div style="font-size: 14px; color: #666;">
+                <div style="font-size: 14px; color:var(--piedra);">
                     <strong>Facturas cobradas:</strong> ${facturasPagadas.length}
                 </div>
             </div>
@@ -3720,8 +3784,25 @@ function compartirWhatsApp() {
 }
 
 function copiarRecibo() {
+    // Fix 7: visual feedback on copy button
+    const btn = document.querySelector('#modalRecibo .btn-secondary');
     navigator.clipboard.writeText(currentReciboText).then(() => {
         showToast('✓ Recibo copiado al portapapeles');
+        if (btn) {
+            const orig = btn.textContent;
+            btn.textContent = '✓ Copiado';
+            btn.style.background = 'var(--salvia, #5a8060)';
+            btn.style.color = 'white';
+            btn.style.borderColor = 'transparent';
+            setTimeout(() => {
+                btn.textContent = orig;
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }, 2000);
+        }
+    }).catch(() => {
+        showToast('⚠️ No se pudo copiar', 3000, '#9a6a1a');
     });
 }
 
@@ -3967,12 +4048,12 @@ function eliminarPersonal(id) {
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">
                     ${person.nombre}
                 </div>
-                <div style="font-size: 14px; color: #666;">
+                <div style="font-size: 14px; color:var(--piedra);">
                     <strong>Tipo:</strong> ${getTipoLabel(person.tipo)}
                 </div>
             </div>
             ${advertencias}
-            <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; color: #666; font-size: 13px; text-align: center;">
+            <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; color:var(--piedra); font-size: 13px; text-align: center;">
                 Esta acción no se puede deshacer
             </div>
         `,
@@ -4369,19 +4450,19 @@ function eliminarFactura(facturaId) {
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
                     Factura ${factura.numero}
                 </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
+                <div style="font-size: 14px; color:var(--piedra); margin-bottom: 5px;">
                     <strong>Paciente:</strong> ${factura.paciente}
                 </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
+                <div style="font-size: 14px; color:var(--piedra); margin-bottom: 5px;">
                     <strong>Profesional:</strong> ${factura.profesional}
                 </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
+                <div style="font-size: 14px; color:var(--piedra); margin-bottom: 5px;">
                     <strong>Total:</strong> ${formatCurrency(factura.total)}
                 </div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
+                <div style="font-size: 14px; color:var(--piedra); margin-bottom: 5px;">
                     <strong>Pagado:</strong> ${formatCurrency(totalPagado)}
                 </div>
-                <div style="font-size: 14px; color: #666;">
+                <div style="font-size: 14px; color:var(--piedra);">
                     <strong>Estado:</strong> ${estadoLabel}
                 </div>
             </div>
@@ -4620,7 +4701,7 @@ function updatePacientesTab() {
     if (!lista) return;
 
     if (appData.pacientes.length === 0) {
-        lista.innerHTML = '<div style="text-align:center;padding:60px;color:#999"><div style="font-size:48px;margin-bottom:16px">👥</div><div style="font-size:16px">No hay pacientes registrados</div></div>';
+        lista.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)"><div style="font-size:48px;margin-bottom:16px">👥</div><div style="font-size:16px">No hay pacientes registrados</div></div>';
         return;
     }
 
@@ -4660,9 +4741,9 @@ function _renderPacientePage(p) {
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;">
-                ${p.telefono ? `<div style="font-size:13px;color:#666">📞 ${p.telefono}</div>` : ''}
-                ${p.cedula   ? `<div style="font-size:13px;color:#666">🆔 ${p.cedula}</div>`   : ''}
-                ${p.email    ? `<div style="font-size:13px;color:#666">✉️ ${p.email}</div>`    : ''}
+                ${p.telefono ? `<div style="font-size:13px;color:var(--piedra)">📞 ${p.telefono}</div>` : ''}
+                ${p.cedula   ? `<div style="font-size:13px;color:var(--piedra)">🆔 ${p.cedula}</div>`   : ''}
+                ${p.email    ? `<div style="font-size:13px;color:var(--piedra)">✉️ ${p.email}</div>`    : ''}
             </div>
             ${ultimaCitaStr ? `<div style="font-size:11px;color:var(--muted,#A89F96);margin-top:5px;">${ultimaCitaStr}</div>` : ''}
         </div>`;
@@ -4689,7 +4770,7 @@ function _renderPacientesPage(lista) {
     if (!indicator) {
         indicator = document.createElement('div');
         indicator.id = 'pacientesLoadMore';
-        indicator.style.cssText = 'text-align:center;padding:16px;font-size:13px;color:#999';
+        indicator.style.cssText = 'text-align:center;padding:16px;font-size:13px;color:var(--muted)';
         lista.parentElement?.appendChild(indicator);
     }
     indicator.textContent = shown < total
@@ -4736,7 +4817,7 @@ function filterPacientes() {
         lista.innerHTML = '';
 
         if (_pacFiltrados.length === 0) {
-            lista.innerHTML = `<div style="text-align:center;padding:40px;color:#999">No se encontraron pacientes para "<strong>${search}</strong>"</div>`;
+            lista.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">No se encontraron pacientes para "<strong>${search}</strong>"</div>`;
             const ind = document.getElementById('pacientesLoadMore');
             if (ind) ind.textContent = '';
             return;
@@ -4958,14 +5039,14 @@ function renderTabOdontograma(paciente) {
     const legendHTML = Object.entries(ODONTO_ESTADOS).map(([key, cfg]) => `
         <div style="display:flex;align-items:center;gap:5px;">
             <div style="width:14px;height:14px;border-radius:3px;background:${cfg.color};border:1.5px solid ${cfg.border};flex-shrink:0;"></div>
-            <span style="font-size:11px;color:#666;">${cfg.label}</span>
+            <span style="font-size:11px;color:var(--piedra);">${cfg.label}</span>
         </div>
     `).join('');
 
     tab.innerHTML = `
         <div style="padding:16px 16px 0;">
             <div style="font-size:13px;font-weight:500;color:#333;margin-bottom:4px;">Odontograma</div>
-            <div style="font-size:11px;color:#999;margin-bottom:12px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">
                 ${canEdit ? 'Toca un diente para cambiar su estado. Mantén presionado para agregar nota.' : 'Modo lectura.'}
             </div>
 
@@ -5056,7 +5137,7 @@ function _renderResumenOdonto(odonto) {
         .sort(([a],[b]) => parseInt(a)-parseInt(b));
 
     if (hallazgos.length === 0) {
-        return `<div style="text-align:center;padding:16px;color:#999;font-size:13px;">Sin hallazgos registrados</div>`;
+        return `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px;">Sin hallazgos registrados</div>`;
     }
 
     const rows = hallazgos.map(([num, dato]) => {
@@ -5069,7 +5150,7 @@ function _renderResumenOdonto(odonto) {
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:13px;font-weight:500;color:${cfg.text};">${cfg.label}</div>
-                    ${dato.nota ? `<div style="font-size:11px;color:#999;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${dato.nota}</div>` : ''}
+                    ${dato.nota ? `<div style="font-size:11px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${dato.nota}</div>` : ''}
                 </div>
                 <div style="font-size:10px;color:#bbb;text-align:right;flex-shrink:0;">
                     ${dato.fecha ? new Date(dato.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'}) : ''}
@@ -5080,7 +5161,7 @@ function _renderResumenOdonto(odonto) {
 
     return `
         <div style="border-top:1px solid #f0f0f0;padding-top:12px;">
-            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">
+            <div style="font-size:11px;font-weight:500;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">
                 Hallazgos (${hallazgos.length})
             </div>
             ${rows}
@@ -5198,8 +5279,8 @@ function _odontoAbrirModal(num, readOnly = false) {
     const histEl = document.getElementById('modalDienteHistorial');
     if (histEl && dato.fecha) {
         histEl.innerHTML = `
-            <div style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Último registro</div>
-            <div style="font-size:12px;color:#666;">
+            <div style="font-size:11px;font-weight:500;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Último registro</div>
+            <div style="font-size:12px;color:var(--piedra);">
                 ${new Date(dato.fecha).toLocaleDateString(getLocale(),{weekday:'short',day:'numeric',month:'short',year:'numeric'})}
                 ${dato.profesional ? ` · ${dato.profesional}` : ''}
             </div>`;
@@ -5580,7 +5661,7 @@ function renderTabHistorial(paciente) {
         panelCotiz = `
             <div style="text-align:center;padding:32px 20px;color:#bbb;">
                 <div style="font-size:36px;margin-bottom:10px;">📋</div>
-                <div style="font-size:14px;color:#999;margin-bottom:6px;">Sin cotización activa</div>
+                <div style="font-size:14px;color:var(--muted);margin-bottom:6px;">Sin cotización activa</div>
                 <div style="font-size:12px;color:#bbb;">Agrega un procedimiento para iniciar</div>
             </div>`;
     } else {
@@ -6049,7 +6130,7 @@ function renderTabRecetas(paciente) {
         </button>
 
         ${recetas.length === 0 ? `
-            <div style="text-align: center; padding: 80px 20px; color: #999;">
+            <div style="text-align:center;padding:48px 20px;color:var(--muted);">
                 <div style="font-size: 64px; margin-bottom: 20px;">💊</div>
                 <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">Sin recetas médicas</div>
                 <div style="font-size: 14px;">Crea la primera receta usando el botón de arriba</div>
@@ -6059,7 +6140,7 @@ function renderTabRecetas(paciente) {
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
                     <div>
                         <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">${formatDate(receta.fecha)}</div>
-                        <div style="font-size: 14px; color: #666;">${receta.profesional}</div>
+                        <div style="font-size: 14px; color:var(--piedra);">${receta.profesional}</div>
                     </div>
                     <button class="btn btn-secondary" onclick="currentPacienteRecetas = appData.pacientes.find(p => p.id === '${paciente.id}'); descargarRecetaPDF('${receta.id}');" style="background: #28a745; color: white; font-size: 13px; padding: 8px 16px;">
                         📄 Descargar PDF
@@ -6068,7 +6149,7 @@ function renderTabRecetas(paciente) {
 
                 ${receta.diagnostico ? `
                     <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-                        <div style="font-size: 11px; color: #666; font-weight: 600; margin-bottom: 6px; text-transform: uppercase;">Diagnóstico</div>
+                        <div style="font-size: 11px; color:var(--piedra); font-weight: 600; margin-bottom: 6px; text-transform: uppercase;">Diagnóstico</div>
                         <div style="font-size: 14px; color: #333;">${receta.diagnostico}</div>
                     </div>
                 ` : ''}
@@ -6078,8 +6159,8 @@ function renderTabRecetas(paciente) {
                     ${receta.medicamentos.map(med => `
                         <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #c8e6c9;">
                             <div style="font-weight: 600; font-size: 14px; color: #1b5e20; margin-bottom: 4px;">💊 ${med.nombre}</div>
-                            <div style="font-size: 13px; color: #666;">${med.dosis} - ${med.frecuencia}</div>
-                            ${med.duracion ? `<div style="font-size: 12px; color: #666; margin-top: 2px;">Duración: ${med.duracion}</div>` : ''}
+                            <div style="font-size: 13px; color:var(--piedra);">${med.dosis} - ${med.frecuencia}</div>
+                            ${med.duracion ? `<div style="font-size: 12px; color:var(--piedra); margin-top: 2px;">Duración: ${med.duracion}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -6122,7 +6203,7 @@ function renderTabDocumentos(paciente) {
             <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;">
                 <div style="font-size: 48px; margin-bottom: 16px;">🦷</div>
                 <h3 style="font-size: 16px; color: var(--clinic-color, #C4856A); margin-bottom: 8px; font-weight: 700;">Placas Radiográficas</h3>
-                <div style="color: #666; font-size: 14px; margin-bottom: 16px;">${totalPlacas} ${totalPlacas === 1 ? 'placa' : 'placas'} ${totalPlacas === 0 ? 'registradas' : 'registrada'}</div>
+                <div style="color:var(--piedra); font-size: 14px; margin-bottom: 16px;">${totalPlacas} ${totalPlacas === 1 ? 'placa' : 'placas'} ${totalPlacas === 0 ? 'registradas' : 'registrada'}</div>
                 <button class="btn btn-submit" onclick="abrirGaleriaPlacas('${paciente.id}')" style="width: 100%;">
                     ${totalPlacas === 0 ? '📤 Subir Primera Placa' : '👁️ Ver Galería'}
                 </button>
@@ -6221,11 +6302,11 @@ function renderTabBalance(paciente) {
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                             <div>
                                 <div style="font-size: 16px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
-                                <div style="font-size: 13px; color: #666; margin-top: 4px;">${formatDate(f.fecha)} • ${f.profesional}</div>
+                                <div style="font-size: 13px; color:var(--piedra); margin-top: 4px;">${formatDate(f.fecha)} • ${f.profesional}</div>
                             </div>
                             <div style="text-align: right;">
                                 <div style="font-size: 18px; font-weight: 700; color: #ff3b30;">${formatCurrency(pendiente)}</div>
-                                <div style="font-size: 12px; color: #666;">de ${formatCurrency(f.total)}</div>
+                                <div style="font-size: 12px; color:var(--piedra);">de ${formatCurrency(f.total)}</div>
                             </div>
                         </div>
                         ${pagado > 0 ? `<div style="font-size: 13px; color: #28a745; margin-bottom: 8px;">✓ Abonado: ${formatCurrency(pagado)}</div>` : ''}
@@ -6251,7 +6332,7 @@ function renderTabBalance(paciente) {
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A);">${f.numero}</div>
-                                <div style="font-size: 12px; color: #666;">${formatDate(f.fecha)}</div>
+                                <div style="font-size: 12px; color:var(--piedra);">${formatDate(f.fecha)}</div>
                             </div>
                             <div style="text-align: right;">
                                 <div style="font-size: 16px; font-weight: 600; color: var(--salvia,#6B8F71);">${formatCurrency(f.total)}</div>
@@ -6349,7 +6430,7 @@ function updateAgendaTab() {
         html += `
             <div style="border: 1.5px solid ${esHoy ? 'var(--clinic-color, #C4856A)' : 'rgba(30,28,26,0.08)'}; border-radius: 10px; padding: 10px; min-height: 400px; background: ${esHoy ? 'rgba(196,133,106,0.05)' : 'var(--white, white)'};">
                 <div style="text-align: center; margin-bottom: 12px;">
-                    <div style="font-size: 12px; color: #666; font-weight: 600;">${dias[i]}</div>
+                    <div style="font-size: 12px; color:var(--piedra); font-weight: 600;">${dias[i]}</div>
                     <div style="font-size: 20px; font-weight: 700; color: ${esHoy ? 'var(--clinic-color, #C4856A)' : '#1d1d1f'};">${dia.getDate()}</div>
                 </div>
                 ${citasDelDia.map(c => {
@@ -6787,7 +6868,7 @@ function updateListaOrdenesLabTemp() {
     if (!lista) return;
 
     if (tempOrdenesLab.length === 0) {
-        lista.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No hay órdenes de laboratorio</p>';
+        lista.innerHTML = '<div style="text-align:center;padding:44px 20px;color:var(--muted);">  <div style="font-size:36px;margin-bottom:10px;line-height:1;">🧪</div>  <div style="font-size:14px;font-weight:400;color:var(--piedra);">Sin órdenes de laboratorio</div><div style="font-size:12px;color:var(--piedra);margin-top:4px;">Las órdenes aparecerán aquí</div></div>';
         return;
     }
 
@@ -6798,15 +6879,15 @@ function updateListaOrdenesLabTemp() {
                     <div style="font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
                         ${orden.tipo}${orden.dientes ? ` - Dientes: ${orden.dientes}` : ''}
                     </div>
-                    <div style="font-size: 13px; color: #666; margin-bottom: 2px;">
+                    <div style="font-size: 13px; color:var(--piedra); margin-bottom: 2px;">
                         ${orden.descripcion}
                     </div>
-                    <div style="font-size: 12px; color: #666;">
+                    <div style="font-size: 12px; color:var(--piedra);">
                         Lab: ${orden.laboratorio}
                     </div>
                     <div style="font-size: 13px; margin-top: 4px;">
                         <span style="color: #28a745; font-weight: 600;">Precio: ${formatCurrency(orden.precio)}</span>
-                        <span style="color: #666; margin-left: 10px;">Costo: ${formatCurrency(orden.costo)}</span>
+                        <span style="color:var(--piedra); margin-left: 10px;">Costo: ${formatCurrency(orden.costo)}</span>
                         <span style="color: ${orden.margen >= 0 ? '#28a745' : '#dc3545'}; margin-left: 10px; font-weight: 600;">
                             Margen: ${formatCurrency(orden.margen)}
                         </span>
@@ -6920,7 +7001,7 @@ function updateLaboratorioTab() {
     const lista = document.getElementById('listaLaboratorio');
 
     if (ordenesFiltradas.length === 0) {
-        lista.innerHTML = '<p style="text-align: center; padding: 40px; color: #999;">No hay órdenes de laboratorio</p>';
+        lista.innerHTML = '<div style="text-align:center;padding:44px 20px;color:var(--muted);">  <div style="font-size:36px;margin-bottom:10px;line-height:1;">🧪</div>  <div style="font-size:14px;font-weight:400;color:var(--piedra);">Sin órdenes activas</div><div style="font-size:12px;color:var(--piedra);margin-top:4px;">Todas las órdenes han sido entregadas</div></div>';
         return;
     }
 
@@ -7929,7 +8010,7 @@ function renderizarGaleriaPlacas() {
 
     if (placas.length === 0) {
         galeriaContainer.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px; color: #999;">
+            <div style="text-align:center;padding:44px 20px;color:var(--muted);">
                 <div style="font-size: 64px; margin-bottom: 20px;">🦷</div>
                 <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">Sin placas radiográficas</div>
                 <div style="font-size: 14px;">Haz click en "Subir Nueva Placa" para agregar imágenes</div>
@@ -7956,12 +8037,12 @@ function renderizarGaleriaPlacas() {
             <div style="padding: 15px;">
                 <div style="font-size: 14px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 8px;">${placa.tipo || 'Radiografía'}</div>
                 ${placa.subidoPor ? `
-                    <div style="font-size: 11px; color: #999; margin-bottom: 8px;">
+                    <div style="font-size: 11px; color:var(--piedra); margin-bottom: 8px;">
                         👤 ${placa.subidoPor}
                     </div>
                 ` : ''}
                 ${placa.notas ? `
-                    <div style="font-size: 13px; color: #666; margin-bottom: 10px; line-height: 1.4;">
+                    <div style="font-size: 13px; color:var(--piedra); margin-bottom: 10px; line-height: 1.4;">
                         ${placa.notas.length > 80 ? placa.notas.substring(0, 80) + '...' : placa.notas}
                     </div>
                 ` : ''}
@@ -8003,7 +8084,7 @@ function previsualizarPlaca() {
             <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; border: 1px solid #4caf50;">
                 <span style="color: #2e7d32; font-weight: 600;">✓</span>
                 <span style="color: #2e7d32;">${file.name}</span>
-                <span style="color: #666; font-size: 11px; margin-left: 8px;">(${(file.size / 1024).toFixed(0)} KB)</span>
+                <span style="color:var(--piedra); font-size: 11px; margin-left: 8px;">(${(file.size / 1024).toFixed(0)} KB)</span>
             </div>
         `;
 
@@ -8296,7 +8377,7 @@ function renderizarRecetas() {
 
     if (recetas.length === 0) {
         container.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px; color: #999;">
+            <div style="text-align:center;padding:44px 20px;color:var(--muted);">
                 <div style="font-size: 64px; margin-bottom: 20px;">💊</div>
                 <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">Sin recetas médicas</div>
                 <div style="font-size: 14px;">Haz click en "Nueva Receta" para crear una</div>
@@ -8313,7 +8394,7 @@ function renderizarRecetas() {
             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                 <div>
                     <div style="font-size: 16px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">${formatDate(receta.fecha)}</div>
-                    <div style="font-size: 13px; color: #666;">${receta.profesional}</div>
+                    <div style="font-size: 13px; color:var(--piedra);">${receta.profesional}</div>
                 </div>
                 <button class="btn btn-secondary" onclick="descargarRecetaPDF('${receta.id}')" style="background: #28a745; color: white; font-size: 12px; padding: 6px 12px;">
                     📄 PDF
@@ -8322,7 +8403,7 @@ function renderizarRecetas() {
 
             ${receta.diagnostico ? `
                 <div style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
-                    <div style="font-size: 11px; color: #666; font-weight: 600; margin-bottom: 4px;">DIAGNÓSTICO</div>
+                    <div style="font-size: 11px; color:var(--piedra); font-weight: 600; margin-bottom: 4px;">DIAGNÓSTICO</div>
                     <div style="font-size: 13px; color: #333;">${receta.diagnostico}</div>
                 </div>
             ` : ''}
@@ -8332,8 +8413,8 @@ function renderizarRecetas() {
                 ${receta.medicamentos.map(med => `
                     <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #c8e6c9;">
                         <div style="font-weight: 600; font-size: 13px; color: #1b5e20;">💊 ${med.nombre}</div>
-                        <div style="font-size: 12px; color: #666; margin-top: 2px;">${med.dosis} - ${med.frecuencia}</div>
-                        ${med.duracion ? `<div style="font-size: 12px; color: #666;">Duración: ${med.duracion}</div>` : ''}
+                        <div style="font-size: 12px; color:var(--piedra); margin-top: 2px;">${med.dosis} - ${med.frecuencia}</div>
+                        ${med.duracion ? `<div style="font-size: 12px; color:var(--piedra);">Duración: ${med.duracion}</div>` : ''}
                     </div>
                 `).join('')}
             </div>
@@ -8406,7 +8487,7 @@ function renderizarMedicamentosTemp() {
     const container = document.getElementById('medicamentosListaTemp');
 
     if (medicamentosTemp.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 13px;">No hay medicamentos agregados</div>';
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--piedra);font-size:13px;">Sin medicamentos en esta prescripción</div>';
         return;
     }
 
@@ -8414,8 +8495,8 @@ function renderizarMedicamentosTemp() {
         <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: start;">
             <div style="flex: 1;">
                 <div style="font-weight: 600; font-size: 14px; color: #1b5e20; margin-bottom: 4px;">💊 ${med.nombre}</div>
-                <div style="font-size: 12px; color: #666;">${med.dosis} - ${med.frecuencia}</div>
-                ${med.duracion ? `<div style="font-size: 12px; color: #666;">Duración: ${med.duracion}</div>` : ''}
+                <div style="font-size: 12px; color:var(--piedra);">${med.dosis} - ${med.frecuencia}</div>
+                ${med.duracion ? `<div style="font-size: 12px; color:var(--piedra);">Duración: ${med.duracion}</div>` : ''}
             </div>
             <button class="btn btn-cancel" onclick="eliminarMedicamentoTemp('${med.id}')" style="font-size: 11px; padding: 4px 8px;">
                 ✕
@@ -8694,7 +8775,7 @@ function renderizarAuditoria() {
 
     if (logs.length === 0) {
         container.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px; color: #999;">
+            <div style="text-align:center;padding:44px 20px;color:var(--muted);">
                 <div style="font-size: 64px; margin-bottom: 20px;">📋</div>
                 <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">Sin registros de auditoría</div>
                 <div style="font-size: 14px;">Las acciones importantes quedarán registradas aquí</div>
@@ -8740,14 +8821,14 @@ function renderizarAuditoria() {
                             <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A);">
                                 ${icono} ${log.accion.toUpperCase()} ${log.tipo}
                             </div>
-                            <div style="font-size: 12px; color: #999;">
+                            <div style="font-size: 12px; color:var(--piedra);">
                                 ${new Date(log.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'})}
                             </div>
                         </div>
-                        <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
+                        <div style="font-size: 13px; color:var(--piedra); margin-bottom: 6px;">
                             <strong>Usuario:</strong> ${log.usuario}
                         </div>
-                        <div style="font-size: 13px; color: #666; background: #f8f9fa; padding: 8px; border-radius: 4px;">
+                        <div style="font-size: 13px; color:var(--piedra); background: #f8f9fa; padding: 8px; border-radius: 4px;">
                             ${log.detalles}
                         </div>
                     </div>
@@ -8799,7 +8880,7 @@ function aplicarFiltrosFacturas() {
     // Renderizar facturas filtradas
     const list = document.getElementById('facturasPendientes');
     if (facturasFiltradas.length === 0) {
-        list.innerHTML = '<li style="text-align: center; color: #999;">No hay facturas que coincidan con los filtros</li>';
+        list.innerHTML = '<li style="text-align: center; color:var(--piedra);">No hay facturas que coincidan con los filtros</li>';
     } else {
         list.innerHTML = facturasFiltradas.map(f => {
             const balance = f.total - (f.pagos || []).reduce((sum, p) => sum + p.monto, 0);
@@ -8815,7 +8896,7 @@ function aplicarFiltrosFacturas() {
                             <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff' : '#ff3b30'}; font-weight: 600;">
                                 ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
                             </div>
-                            <div style="font-size: 13px; color: #666; margin-top: 4px;">Total: ${formatCurrency(f.total)}</div>
+                            <div style="font-size: 13px; color:var(--piedra); margin-top: 4px;">Total: ${formatCurrency(f.total)}</div>
                             ${hasComprobante ? '<div style="font-size: 12px; color: #007aff; margin-top: 4px;">📎 Tiene comprobante</div>' : ''}
                         </div>
                     </div>
@@ -9526,15 +9607,15 @@ function updateDashboardTab() {
         const gastosStr = formatCurrency(gastosDelMes).replace('RD$ ','').replace(' ','');
 
         kpiRow.innerHTML = `
-            <div class="dash-kpi" onclick="showTab('cobros')" title="Porcentaje del total facturado que ya está cobrado">
+            <div class="dash-kpi" data-tab="cobros" onclick="showTab('cobros')" title="Porcentaje del total facturado que ya está cobrado">
                 <div class="dash-kpi-val" style="color:${tasaCobro>=80?'var(--salvia)':tasaCobro>=50?'var(--topo)':'var(--terra)'};">${tasaCobro}%</div>
                 <div class="dash-kpi-lbl">Tasa cobro</div>
             </div>
-            <div class="dash-kpi" onclick="showTab('pacientes')" title="Pacientes nuevos esta semana">
+            <div class="dash-kpi" data-tab="pacientes" onclick="showTab('pacientes')" title="Pacientes nuevos esta semana">
                 <div class="dash-kpi-val">${pacNuevosSemana}${pacArrow}</div>
                 <div class="dash-kpi-lbl">Nuevos / sem</div>
             </div>
-            <div class="dash-kpi" onclick="showTab('cobros')" title="Gastos registrados este mes">
+            <div class="dash-kpi" data-tab="cobros" onclick="showTab('cobros')" title="Gastos registrados este mes">
                 <div class="dash-kpi-val" style="font-size:${gastosStr.length>7?'14px':'19px'};">${gastosStr}</div>
                 <div class="dash-kpi-lbl">Gastos mes</div>
             </div>
@@ -9748,7 +9829,7 @@ function updateDashboardTab() {
 
             labInsightEl.style.display = 'block';
             labInsightEl.innerHTML = `
-                <div class="card" style="padding:14px 16px;cursor:pointer;" onclick="showTab('laboratorio')">
+                <div class="card" style="padding:14px 16px;cursor:pointer;" data-tab="laboratorio" onclick="showTab('laboratorio')">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                         <span style="font-size:11px;font-weight:500;color:var(--piedra);letter-spacing:.8px;text-transform:uppercase;">🧪 Laboratorio</span>
                         <span style="font-size:11px;color:var(--pizarra);">Ver todo →</span>
@@ -9941,19 +10022,19 @@ function mostrarConfirmacion(opciones) {
     const btn = document.getElementById('confirmacionBtnConfirmar');
     btn.textContent = confirmText;
 
-    // Estilos según tipo
+    // Fix 9: CSS vars instead of hardcoded gradients in confirmation modal
     const header = document.getElementById('confirmacionHeader');
+    btn.style.cssText = ''; // reset inline overrides
     if (tipo === 'peligro') {
         btn.className = 'btn btn-danger';
-        header.style.background = 'linear-gradient(135deg, #ff3b30 0%, #dc143c 100%)';
+        header.style.background = 'linear-gradient(135deg, #c0392b 0%, #96281b 100%)';
     } else if (tipo === 'advertencia') {
-        btn.className = 'btn' ;
-        btn.style.background = '#ff9500';
-        btn.style.color = 'white';
-        header.style.background = 'linear-gradient(135deg, #ff9500 0%, #ff6b00 100%)';
+        btn.className = 'btn';
+        btn.style.cssText = 'background:var(--terra,#C4856A);color:white;border:none;';
+        header.style.background = 'linear-gradient(135deg, var(--terra,#C4856A) 0%, #9a6040 100%)';
     } else {
         btn.className = 'btn btn-submit';
-        header.style.background = 'linear-gradient(135deg, #007aff 0%, #0051d5 100%)';
+        header.style.background = 'linear-gradient(135deg, var(--pizarra,#7D8EA0) 0%, #5A7080 100%)';
     }
 
     // Guardar acción
@@ -10002,7 +10083,7 @@ function buscarGlobal() {
 
     if (pacientes.length > 0) {
         html += `
-            <div style="padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e5e5e7; font-weight: 600; font-size: 13px; color: #666;">
+            <div style="padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e5e5e7; font-weight: 600; font-size: 13px; color:var(--piedra);">
                 PACIENTES (${pacientes.length})
             </div>
         `;
@@ -10012,7 +10093,7 @@ function buscarGlobal() {
                     <div style="font-weight: 600; font-size: 14px; color: var(--clinic-color, #C4856A); margin-bottom: 4px;">
                         ${p.nombre}
                     </div>
-                    <div style="font-size: 12px; color: #666;">
+                    <div style="font-size: 12px; color:var(--piedra);">
                         ${p.cedula ? `📋 ${p.cedula}` : ''} ${p.telefono ? `📱 ${p.telefono}` : ''}
                     </div>
                 </div>
@@ -10029,7 +10110,7 @@ function buscarGlobal() {
 
     if (facturas.length > 0) {
         html += `
-            <div style="padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e5e5e7; font-weight: 600; font-size: 13px; color: #666;">
+            <div style="padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e5e5e7; font-weight: 600; font-size: 13px; color:var(--piedra);">
                 FACTURAS (${facturas.length})
             </div>
         `;
@@ -10047,7 +10128,7 @@ function buscarGlobal() {
                             ${estadoLabel}
                         </div>
                     </div>
-                    <div style="font-size: 12px; color: #666;">
+                    <div style="font-size: 12px; color:var(--piedra);">
                         ${formatCurrency(f.total)} • ${new Date(f.fecha).toLocaleDateString(getLocale())}
                     </div>
                 </div>
@@ -10064,7 +10145,7 @@ function buscarGlobal() {
 
     if (citas.length > 0) {
         html += `
-            <div style="padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e5e5e7; font-weight: 600; font-size: 13px; color: #666;">
+            <div style="padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e5e5e7; font-weight: 600; font-size: 13px; color:var(--piedra);">
                 CITAS (${citas.length})
             </div>
         `;
@@ -10087,7 +10168,7 @@ function buscarGlobal() {
                             ${c.estado}
                         </div>
                     </div>
-                    <div style="font-size: 12px; color: #666;">
+                    <div style="font-size: 12px; color:var(--piedra);">
                         ${c.paciente} • ${c.motivo}
                     </div>
                 </div>
@@ -10099,7 +10180,7 @@ function buscarGlobal() {
     // SIN RESULTADOS
     if (totalResultados === 0) {
         html = `
-            <div style="padding: 40px; text-align: center; color: #999;">
+            <div style="padding: 40px; text-align: center; color:var(--piedra);">
                 <div style="font-size: 48px; margin-bottom: 12px;">🔍</div>
                 <div style="font-size: 14px;">No se encontraron resultados para "${query}"</div>
             </div>
@@ -10492,7 +10573,7 @@ function generarVistaPrevia() {
     html += '</tbody></table></div>';
 
     if (window.pacientesAImportar.length > 5) {
-        html += `<div style="text-align: center; padding: 10px; color: #666; font-size: 13px;">... y ${window.pacientesAImportar.length - 5} más</div>`;
+        html += `<div style="text-align: center; padding: 10px; color:var(--piedra); font-size: 13px;">... y ${window.pacientesAImportar.length - 5} más</div>`;
     }
 
     document.getElementById('vistaPrevia').innerHTML = html;
@@ -10512,7 +10593,7 @@ function ejecutarImportacion() {
                 <div style="font-size: 18px; font-weight: 600; color: var(--clinic-color, #C4856A); margin-bottom: 10px;">
                     ¿Confirmar importación de ${window.pacientesAImportar.length} pacientes?
                 </div>
-                <div style="font-size: 14px; color: #666;">
+                <div style="font-size: 14px; color:var(--piedra);">
                     Los pacientes se agregarán a la base de datos actual
                 </div>
             </div>
@@ -10550,7 +10631,7 @@ function ejecutarImportacion() {
                     <div style="font-size: 14px; color: #155724; margin-bottom: 15px;">
                         Total de pacientes en sistema: ${cantidadDespues}
                     </div>
-                    <button class="btn btn-submit" onclick="showTab('pacientes')" style="margin-top: 10px; width: 100%;">
+                    <button class="btn btn-submit" data-tab="pacientes" onclick="showTab('pacientes')" style="margin-top: 10px; width: 100%;">
                         Ver Pacientes →
                     </button>
                 </div>
@@ -11510,13 +11591,13 @@ function renderCatalogoTab() {
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
                 <div>
                     <h2 style="margin:0 0 4px 0">Catálogo de procedimientos</h2>
-                    <div style="font-size:13px;color:#666">Precios base que aparecen al crear una factura</div>
+                    <div style="font-size:13px;color:var(--piedra)">Precios base que aparecen al crear una factura</div>
                 </div>
                 <button class="btn-primary" onclick="abrirModalProcedimiento(null)">+ Agregar</button>
             </div>
             <div id="catalogo-list">
                 ${items.length === 0 ? `
-                    <div style="text-align:center;padding:48px 24px;color:#999">
+                    <div style="text-align:center;padding:48px 24px;color:var(--muted)">
                         <div style="font-size:32px;margin-bottom:12px">📋</div>
                         <div style="font-size:15px;margin-bottom:8px">Sin procedimientos aún</div>
                         <div style="font-size:13px">Agrega los procedimientos que ofrece tu clínica</div>
@@ -11525,14 +11606,14 @@ function renderCatalogoTab() {
                     <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
                         <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
                         <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">${formatCurrency(item.precio||0)}</div>
-                        <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#666;cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
-                        <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#999;cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
+                        <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
+                        <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
                     </div>
                 `).join('')}
             </div>
         </div>
         <div class="card" style="margin-top:16px;background:rgba(0,0,0,0.02)">
-            <div style="font-size:12px;color:#999;line-height:1.7">
+            <div style="font-size:12px;color:var(--muted);line-height:1.7">
                 💡 Estos precios son la referencia al crear facturas. El médico puede ajustar el precio en cada factura si lo necesita.
             </div>
         </div>
@@ -11561,17 +11642,17 @@ function abrirModalProcedimiento(idx) {
     modal.innerHTML = `
         <div class="modal-header">
             <h3 class="modal-title">${item ? 'Editar procedimiento' : 'Nuevo procedimiento'}</h3>
-            <button onclick="cerrarModalProcedimiento()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1">✕</button>
+            <button onclick="cerrarModalProcedimiento()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1">✕</button>
         </div>
         <div style="padding:24px">
             <div style="margin-bottom:16px">
-                <label style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:8px">Nombre</label>
+                <label style="font-size:11px;font-weight:500;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:8px">Nombre</label>
                 <input type="text" id="proc-modal-nombre" value="${item ? item.nombre : ''}" placeholder="Ej: Limpieza dental"
                     style="width:100%;padding:12px 16px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
                     onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'">
             </div>
             <div style="margin-bottom:28px">
-                <label style="font-size:11px;font-weight:500;color:#999;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:8px">Precio base</label>
+                <label style="font-size:11px;font-weight:500;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:8px">Precio base</label>
                 <input type="number" id="proc-modal-precio" value="${item ? item.precio : ''}" placeholder="0"
                     style="width:100%;padding:12px 16px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box"
                     onfocus="this.style.borderColor='var(--clinic-color)'" onblur="this.style.borderColor='#e0e0e0'"
@@ -13351,7 +13432,7 @@ async function eliminarPacienteActual() {
         mensaje: `
             <div style="background:#f8f9fa;padding:14px;border-radius:8px;margin-bottom:12px">
                 <div style="font-weight:500;font-size:16px;margin-bottom:6px">${paciente.nombre}</div>
-                ${paciente.cedula ? `<div style="font-size:13px;color:#666">Cédula: ${paciente.cedula}</div>` : ''}
+                ${paciente.cedula ? `<div style="font-size:13px;color:var(--piedra)">Cédula: ${paciente.cedula}</div>` : ''}
             </div>
             <div style="background:#fff3cd;padding:10px;border-radius:6px;font-size:13px">
                 ⚠️ Se eliminarán el expediente y todos sus datos. Esta acción no se puede deshacer.
