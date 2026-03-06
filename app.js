@@ -1735,6 +1735,13 @@ function hasModule(key) {
 // Undefined (never configured) defaults to true so existing accounts keep working.
 function tienePermiso(key) {
     if (appData.currentRole === 'admin') return true;
+    // Recepción tiene acceso implícito a cobros, gastos y cuadre (su función principal)
+    if (appData.currentRole === 'reception') {
+        const recepcionPermisos = ['cobrar', 'gastos', 'cuadre'];
+        if (recepcionPermisos.includes(key)) return true;
+        // Recepción NO puede crear facturas ni ver ingresos históricos
+        if (key === 'facturar' || key === 'verIngresos') return false;
+    }
     const person = appData.personal.find(p => p.nombre === appData.currentUser);
     if (!person) return false;
     if (!person.permisos) return true;
@@ -1769,8 +1776,8 @@ function buildNavigation() {
         nav += `<button class="nav-item" data-tab="laboratorio" onclick="showTab('laboratorio')">${svgLab}<span>Lab</span></button>`;
     }
 
-    // Cobros — admin + profesional (contiene factura, pendientes, ingresos, cuadre, gastos)
-    if (role === 'admin' || role === 'professional') {
+    // Cobros — admin + profesional + recepción
+    if (role === 'admin' || role === 'professional' || role === 'reception') {
         nav += `<button class="nav-item" data-tab="cobros" onclick="showTab('cobros')">${svgCobros}<span>Cobros</span></button>`;
     }
 
@@ -2331,8 +2338,10 @@ _Para confirmar su cita o realizar consultas, responda este mensaje._`;
 }
 
 function openPagarFactura(facturaId) {
-    if (!tienePermiso('cobrar')) {
-        showToast('⛔ Sin autorización para cobros', 3000, '#c0392b');
+    // Admin y recepción pueden cobrar; profesional no (él genera, recepción cobra)
+    const puedeAbrir = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+    if (!puedeAbrir) {
+        showToast('⛔ El cobro lo procesa recepción — la factura queda pendiente para ellos');
         return;
     }
     const factura = appData.facturas.find(f => f.id === facturaId);
