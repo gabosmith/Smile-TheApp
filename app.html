@@ -637,7 +637,11 @@
 
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .modal-title  { font-size: 18px; font-weight: 200; color: var(--topo); letter-spacing: -.3px; }
-    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; 
+        position: sticky;
+        bottom: 0;
+        background: var(--surface, white);
+    }
 
     .close-modal {
         background: var(--sand); border: none;
