@@ -1729,13 +1729,13 @@ function buildFinalSummary() {
     </div>
     <div class="summary-row">
       <span>Plan base</span>
-      <span>${M}1,200</span>
+      <span>USD $1,200</span>
     </div>
     ${moduleRows}
-    ${extraUsers > 0 ? `<div class="summary-row"><span>Usuarios adicionales (${extraUsers})</span><span>${M}${extraUsersCost.toLocaleString()}</span></div>` : ''}
+    ${extraUsers > 0 ? `<div class="summary-row"><span>Usuarios adicionales (${extraUsers})</span><span>USD $${extraUsersCost.toLocaleString()}</span></div>` : ''}
     <div class="summary-total">
       <span>Total mensual</span>
-      <span style="color:var(--pizarra)">${M}${total.toLocaleString()}</span>
+      <span style="color:var(--pizarra)">${fmt(total)}</span>
     </div>
     <div class="summary-row">
       <span>💊 Precios</span>
@@ -1807,7 +1807,7 @@ async function hashPassword(plaintext) {
     return sha256(salt + ':' + plaintext);
 }
 
-async function activateClinic() {
+async async function activateClinic() {
   const btn = document.getElementById('btn-activate') || document.getElementById('btn-activate-clinica') || document.querySelector('.btn-activate:not([disabled])');
   btn.textContent = '⏳ Creando tu clínica...';
   btn.disabled = true;
