@@ -187,6 +187,7 @@ async function loadClinicBranding() {
                 .login-screen { background: linear-gradient(135deg, ${color} 0%, ${darker} 100%) !important; }
                 .app-header, .header-bar { background: ${color} !important; }
                 .modal-title { color: ${color} !important; }
+                #verPacienteNombre { color: #ffffff !important; }
                 .card h2 { color: ${color} !important; }
                 .btn-primary, .btn-submit, .btn-save, .btn-action { background: ${color} !important; border-color: ${color} !important; }
                 .btn-primary:hover, .btn-submit:hover { background: ${darker} !important; }
