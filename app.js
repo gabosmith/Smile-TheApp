@@ -187,7 +187,6 @@ async function loadClinicBranding() {
                 .login-screen { background: linear-gradient(135deg, ${color} 0%, ${darker} 100%) !important; }
                 .app-header, .header-bar { background: ${color} !important; }
                 .modal-title { color: ${color} !important; }
-                #verPacienteNombre { color: #ffffff !important; }
                 .card h2 { color: ${color} !important; }
                 .btn-primary, .btn-submit, .btn-save, .btn-action { background: ${color} !important; border-color: ${color} !important; }
                 .btn-primary:hover, .btn-submit:hover { background: ${darker} !important; }
@@ -6374,580 +6373,516 @@ function renderTabBalance(paciente) {
 // MÓDULO DE AGENDA - VISTA SEMANAL
 // ========================================
 
-// ─────────────────────────────────────────────────────────────
-// AGENDA STATE — vista día / semana + drag & drop
-// ─────────────────────────────────────────────────────────────
-let agendaVista = 'dia';
+// ═════════════════════════════════════════════════════════════
+// AGENDA — Estado global
+// ═════════════════════════════════════════════════════════════
+let agendaVista = 'semana';
 let agendaFechaActual = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
-let agendaSemanaInicio = new Date();
-{
-    const _h = new Date();
-    const _off = _h.getDay() === 0 ? -6 : 1 - _h.getDay();
-    agendaSemanaInicio.setDate(_h.getDate() + _off);
-    agendaSemanaInicio.setHours(0,0,0,0);
-}
-let verAgendaPropia = false;
-let _dragCitaId = null;
-let _dragOrigHora = null;
+let agendaSemanaInicio = (() => {
+    const d = new Date(); d.setHours(0,0,0,0);
+    const dow = d.getDay();
+    d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+    return d;
+})();
+let verAgendaPropia = true;
+let _dragCitaId    = null;
+let _touchCitaId   = null;
+let _touchGhost    = null;
+let _touchOffsetY  = 0;
 
-function cambiarSemana(delta) {
-    agendaSemanaInicio.setDate(agendaSemanaInicio.getDate() + (delta * 7));
-    updateAgendaTab();
+// ─────────────────────────────────────────────────────────────
+// AGENDA — Helpers internos
+// ─────────────────────────────────────────────────────────────
+function _dk(date) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
-
+function _citaEnDia(c, diaKey) {
+    return !!(c.fecha && c.fecha.startsWith(diaKey));
+}
+function _saltoADia(dk) {
+    const [y,m,d] = dk.split('-').map(Number);
+    agendaFechaActual = new Date(y, m-1, d, 0, 0, 0, 0);
+    const dow = agendaFechaActual.getDay();
+    agendaSemanaInicio = new Date(agendaFechaActual);
+    agendaSemanaInicio.setDate(agendaSemanaInicio.getDate() + (dow === 0 ? -6 : 1 - dow));
+    setAgendaVista('dia');
+}
 function toggleAgenda() {
     verAgendaPropia = !verAgendaPropia;
     updateAgendaTab();
 }
-
 function setAgendaVista(v) {
     agendaVista = v;
-    const btnDia    = document.getElementById('btnVistaDia');
-    const btnSemana = document.getElementById('btnVistaSemana');
-    if (btnDia && btnSemana) {
-        if (v === 'dia') {
-            btnDia.style.background    = 'var(--clinic-color,#C4856A)';
-            btnDia.style.color         = 'white';
-            btnSemana.style.background = 'transparent';
-            btnSemana.style.color      = 'var(--piedra)';
-        } else {
-            btnSemana.style.background = 'var(--clinic-color,#C4856A)';
-            btnSemana.style.color      = 'white';
-            btnDia.style.background    = 'transparent';
-            btnDia.style.color         = 'var(--piedra)';
-        }
+    const bD = document.getElementById('btnVistaDia');
+    const bS = document.getElementById('btnVistaSemana');
+    if (bD && bS) {
+        const on  = 'background:var(--clinic-color,#C4856A);color:white;box-shadow:0 2px 8px rgba(196,133,106,.35);';
+        const off = 'background:transparent;color:var(--piedra);box-shadow:none;';
+        bD.style.cssText += v === 'dia' ? on : off;
+        bS.style.cssText += v === 'semana' ? on : off;
     }
     updateAgendaTab();
 }
-
 function cambiarFechaAgenda(delta) {
     if (agendaVista === 'dia') {
         agendaFechaActual.setDate(agendaFechaActual.getDate() + delta);
+        // Keep semanaInicio in sync
+        const dow = agendaFechaActual.getDay();
+        agendaSemanaInicio = new Date(agendaFechaActual);
+        agendaSemanaInicio.setDate(agendaSemanaInicio.getDate() + (dow === 0 ? -6 : 1 - dow));
     } else {
-        agendaSemanaInicio.setDate(agendaSemanaInicio.getDate() + (delta * 7));
+        agendaSemanaInicio.setDate(agendaSemanaInicio.getDate() + delta * 7);
         agendaFechaActual = new Date(agendaSemanaInicio);
     }
     updateAgendaTab();
 }
+function _abrirCitaEnSlot(diaKey, hora) {
+    // Pre-fill date/time in modal
+    abrirModalNuevaCita(null, null);
+    setTimeout(() => {
+        const fEl = document.getElementById('citaFecha');
+        const hEl = document.getElementById('citaHora');
+        if (fEl) fEl.value = diaKey;
+        if (hEl) hEl.value = hora;
+    }, 80);
+}
 
+// ─────────────────────────────────────────────────────────────
+// AGENDA — Render principal
+// ─────────────────────────────────────────────────────────────
 function updateAgendaTab() {
     inicializarFiltrosProfesionales();
 
-    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    const diasNombre = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-    const diasNombreLargo = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-    const todayKey = getTodayKey();
-    const horaApertura = (appData.settings && appData.settings.horaApertura) ?? 8;
-    const horaCierre   = (appData.settings && appData.settings.horaCierre)   ?? 20;
-    const duracionMin  = (appData.settings && appData.settings.duracionCita) || 30;
+    const MESES  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const DIAS_S = ['D','L','M','X','J','V','S'];
+    const DIAS_L = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const todayKey     = _dk(new Date());
+    const horaApertura = appData.settings?.horaApertura ?? 8;
+    const horaCierre   = appData.settings?.horaCierre   ?? 20;
+    const durMin       = appData.settings?.duracionCita || 30;
 
-    // ── Filtrar citas por rol ──────────────────────────────
-    const role = appData.currentRole;
-    let citasTodas = appData.citas.filter(c => c.estado !== 'Cancelada');
-    if (role === 'professional' && verAgendaPropia) {
-        citasTodas = citasTodas.filter(c => c.profesional === appData.currentUser);
-    }
-    citasTodas = aplicarFiltrosCitas(citasTodas);
+    let citas = (appData.citas || []).filter(c => c.estado !== 'Cancelada');
+    if (appData.currentRole === 'professional' && verAgendaPropia)
+        citas = citas.filter(c => c.profesional === appData.currentUser);
+    citas = aplicarFiltrosCitas(citas);
 
-    // Toggle profesional
-    const toggleBtn = role === 'professional'
-        ? `<button onclick="toggleAgenda()" style="padding:7px 14px;border:none;background:var(--surface);border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;color:var(--topo);box-shadow:var(--neu-raised);">${verAgendaPropia ? '👁️ General' : '👤 Mi agenda'}</button>`
+    // Toggle btn
+    const toggleEl = document.getElementById('agendaToggle');
+    if (toggleEl) toggleEl.innerHTML = appData.currentRole === 'professional'
+        ? `<button onclick="toggleAgenda()"
+               style="padding:7px 14px;border:none;background:var(--surface);border-radius:100px;
+                      font-size:12px;font-family:inherit;cursor:pointer;color:var(--topo);
+                      box-shadow:var(--neu-raised);">${verAgendaPropia ? '👁️ General' : '👤 Mi agenda'}</button>`
         : '';
-    document.getElementById('agendaToggle').innerHTML = toggleBtn;
 
-    if (agendaVista === 'dia') {
-        _renderVistaDia(agendaFechaActual, citasTodas, horaApertura, horaCierre, duracionMin, todayKey, meses, diasNombreLargo);
-    } else {
-        _renderVistaSemana(citasTodas, horaApertura, horaCierre, duracionMin, todayKey, meses, diasNombre);
-    }
+    if (agendaVista === 'dia')
+        _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DIAS_S, DIAS_L);
+    else
+        _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DIAS_S);
 }
 
 // ─────────────────────────────────────────────────────────────
-// VISTA DÍA — Timeline vertical con columnas por consultorio
+// VISTA DÍA
 // ─────────────────────────────────────────────────────────────
-function _renderVistaDia(fecha, citasTodas, horaApertura, horaCierre, durMin, todayKey, meses, diasLargo) {
-    const diaKey = `${fecha.getFullYear()}-${String(fecha.getMonth()+1).padStart(2,'0')}-${String(fecha.getDate()).padStart(2,'0')}`;
-    const esHoy  = diaKey === todayKey;
-    const nombreDia = diasLargo[fecha.getDay()];
-    const fechaStr  = `${nombreDia}, ${fecha.getDate()} ${meses[fecha.getMonth()]}`;
+function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DIAS_S, DIAS_L) {
+    const fecha   = agendaFechaActual;
+    const diaKey  = _dk(fecha);
+    const esHoy   = diaKey === todayKey;
+    const HORA_H  = 64;
+    const totalH  = (horaCierre - horaApertura) * HORA_H;
 
-    // ── Header fecha ──────────────────────────────────────
-    const tituloEl = document.getElementById('agendaFechaTitulo');
-    if (tituloEl) tituloEl.textContent = fechaStr + (esHoy ? '  —  hoy' : '');
-    const subEl = document.getElementById('agendaSemanaTexto');
-    if (subEl) subEl.textContent = '';
+    // Título
+    const tEl = document.getElementById('agendaFechaTitulo');
+    if (tEl) tEl.textContent =
+        `${DIAS_L[fecha.getDay()]}, ${fecha.getDate()} ${MESES[fecha.getMonth()]} ${fecha.getFullYear()}` +
+        (esHoy ? '  ·  Hoy' : '');
+    const sEl = document.getElementById('agendaSemanaTexto');
+    if (sEl) sEl.textContent = '';
 
-    // ── Días de la semana (mini selector) ─────────────────
-    const lunes = new Date(fecha);
-    const off = fecha.getDay() === 0 ? -6 : 1 - fecha.getDay();
-    lunes.setDate(lunes.getDate() + off);
-    const diasSemHTML = Array.from({length:7},(_,i) => {
-        const d = new Date(lunes); d.setDate(d.getDate()+i);
-        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        const active = dk === diaKey;
-        const isT = dk === todayKey;
-        const nCitas = citasTodas.filter(c => _citaEnDia(c, dk)).length;
-        return `<button onclick="_saltoADia('${dk}')"
-            style="flex:1;min-width:44px;padding:8px 4px;border:none;border-radius:12px;cursor:pointer;font-family:inherit;
-                   transition:all .15s;text-align:center;
-                   background:${active ? 'var(--clinic-color,#C4856A)' : isT ? 'rgba(196,133,106,0.12)' : 'var(--surface,#F5F2EE)'};
-                   color:${active ? 'white' : isT ? 'var(--clinic-color,#C4856A)' : 'var(--piedra)'};
-                   box-shadow:${active ? '0 2px 10px rgba(196,133,106,0.35)' : 'none'};
-                   font-weight:${active||isT?'600':'400'};">
-            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.6px;opacity:${active?1:.8};">${['D','L','M','X','J','V','S'][d.getDay()]}</div>
-            <div style="font-size:16px;margin:2px 0;">${d.getDate()}</div>
-            ${nCitas > 0 ? `<div style="width:5px;height:5px;border-radius:50%;background:${active?'rgba(255,255,255,.7)':'var(--clinic-color,#C4856A)'};margin:0 auto;"></div>` : '<div style="height:5px;"></div>'}
-        </button>`;
-    }).join('');
+    // Mini barra de días (semana)
     const selEl = document.getElementById('agendaDiasSelector');
-    if (selEl) selEl.innerHTML = diasSemHTML;
+    if (selEl) {
+        const lunes = new Date(agendaSemanaInicio);
+        selEl.innerHTML = Array.from({length:7}, (_,i) => {
+            const d = new Date(lunes); d.setDate(d.getDate() + i);
+            const dk = _dk(d);
+            const active = dk === diaKey;
+            const isHoy  = dk === todayKey;
+            const n = citas.filter(c => _citaEnDia(c, dk)).length;
+            return `<button onclick="_saltoADia('${dk}')"
+                style="flex:1;min-width:38px;padding:7px 3px;border:none;border-radius:12px;
+                       cursor:pointer;font-family:inherit;text-align:center;transition:all .15s;
+                       background:${active?'var(--clinic-color,#C4856A)':isHoy?'rgba(196,133,106,.12)':'var(--surface,#F5F2EE)'};
+                       color:${active?'white':isHoy?'var(--clinic-color,#C4856A)':'var(--piedra)'};
+                       font-weight:${active||isHoy?'600':'400'};
+                       box-shadow:${active?'0 2px 8px rgba(196,133,106,.3)':'none'};">
+                <div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;">${DIAS_S[d.getDay()]}</div>
+                <div style="font-size:17px;margin:2px 0;">${d.getDate()}</div>
+                <div style="font-size:9px;min-height:12px;">${n?`<span style="background:${active?'rgba(255,255,255,.35)':'var(--clinic-color,#C4856A)'};color:white;border-radius:10px;padding:1px 5px;">${n}</span>`:'·'}</div>
+            </button>`;
+        }).join('');
+    }
 
-    // ── Citas del día ─────────────────────────────────────
-    const citasDia = citasTodas.filter(c => _citaEnDia(c, diaKey))
+    // Citas del día
+    const citasDia = citas.filter(c => _citaEnDia(c, diaKey))
         .sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
 
-    // ── Cuántos consultorios hay con citas? (min 1, max 4) ─
-    const consultoriosUsados = [...new Set(citasDia.map(c => c.consultorio))].sort();
-    const nCols = Math.max(1, consultoriosUsados.length);
-    // Siempre mostramos al menos consultorio 1
-    const cols = consultoriosUsados.length ? consultoriosUsados : [1];
-
-    const HORA_H = 56; // px por hora
-    const totalH = (horaCierre - horaApertura) * HORA_H;
-    const COL_COLORS = { 1:'#7B8FA1', 2:'#6B8F71', 3:'#C4856A', 4:'#8B7BA8' };
-
-    // ── Hora actual ───────────────────────────────────────
+    // Línea hora actual
     const ahora = new Date();
-    const horaActualMin = ahora.getHours() * 60 + ahora.getMinutes();
-    const topeAperturaMin = horaApertura * 60;
-    const topeCierreMin   = horaCierre   * 60;
-    const mostrarLinea = esHoy && horaActualMin >= topeAperturaMin && horaActualMin < topeCierreMin;
-    const lineaTop = mostrarLinea ? ((horaActualMin - topeAperturaMin) / 60 * HORA_H) : null;
+    const minAhora = ahora.getHours()*60 + ahora.getMinutes();
+    const minApertura = horaApertura*60;
+    const lineaTop = esHoy && minAhora >= minApertura && minAhora <= horaCierre*60
+        ? ((minAhora - minApertura)/60)*HORA_H : null;
 
-    // ── Construir grid ────────────────────────────────────
-    let colHeaders = cols.map(col =>
-        `<div style="text-align:center;padding:8px 4px;font-size:11px;font-weight:600;
-                     color:${COL_COLORS[col]||'var(--piedra)'};letter-spacing:.6px;text-transform:uppercase;">
-            C${col}
-         </div>`
-    ).join('');
-
-    // Time axis + cita blocks
+    // Build HTML
     let horasHTML = '';
     for (let h = horaApertura; h < horaCierre; h++) {
+        const topPx = (h - horaApertura)*HORA_H;
         const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
-        horasHTML += `<div style="height:${HORA_H}px;display:flex;align-items:flex-start;">
-            <span style="font-size:10px;color:var(--muted,#C0B8B0);width:34px;flex-shrink:0;padding-top:2px;">${label}</span>
-            <div style="flex:1;border-top:1px solid rgba(30,28,26,0.06);"></div>
-        </div>`;
+        const hora  = `${String(h).padStart(2,'0')}:00`;
+        horasHTML += `
+        <div style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;
+                    border-top:1px solid rgba(30,28,26,.06);pointer-events:none;">
+            <span style="position:absolute;left:8px;top:5px;font-size:10px;
+                         color:var(--muted,#B0A89C);font-weight:500;user-select:none;">${label}</span>
+        </div>
+        <div ondragover="_onDragOver(event)" ondrop="_onDrop(event,'${diaKey}','${hora}',1)"
+             onclick="_abrirCitaEnSlot('${diaKey}','${hora}')"
+             style="position:absolute;top:${topPx}px;left:52px;right:8px;height:${HORA_H}px;z-index:1;
+                    border-radius:8px;cursor:pointer;transition:background .1s;"
+             onmouseenter="this.style.background='rgba(196,133,106,.07)'"
+             onmouseleave="this.style.background='transparent'"></div>`;
     }
 
-    // Cita blocks — absolute positioned
-    let citaBlocks = '';
-    const COL_W = `calc((100% - 38px) / ${cols.length})`;
-    const OCUPADO = {}; // track overlaps
+    let citasHTML = '';
     citasDia.forEach(c => {
-        const [hh,mm] = (c.hora||'00:00').split(':').map(Number);
-        const startMin = hh * 60 + mm - topeAperturaMin;
+        const [hh,mm] = (c.hora||'08:00').split(':').map(Number);
+        const startMin = hh*60 + mm - minApertura;
         if (startMin < 0) return;
-        const duracion = c.duracionMin || durMin;
-        const topPx  = (startMin / 60) * HORA_H;
-        const heightPx = Math.max(28, (duracion / 60) * HORA_H - 3);
-        const colIdx   = cols.indexOf(c.consultorio);
-        const colColor = COL_COLORS[c.consultorio] || '#7B8FA1';
-        const estadoColor = getColorEstadoCita(c.estado || 'Pendiente');
-        const estadoIcon  = getIconoEstadoCita(c.estado || 'Pendiente');
-        const balPac = calcularBalancePaciente(c.paciente);
-        const balDot = balPac > 0 ? '<span style="width:6px;height:6px;border-radius:50%;background:#ffc107;display:inline-block;margin-left:4px;flex-shrink:0;"></span>' : '';
-        const leftPx = `calc(38px + ${colIdx} * ${COL_W})`;
-        const isMobile = window.innerWidth <= 700;
-        const minH = isMobile ? 48 : 28; // bigger tap targets on mobile
-        const hPx  = Math.max(minH, (duracion / 60) * HORA_H - 3);
-        // Override heightPx with mobile-aware value
-        const finalH = hPx;
-
-        citaBlocks += `
-            <div data-cita-id="${c.id}"
-                draggable="true"
-                ondragstart="_onDragStart(event,'${c.id}','${c.hora}')"
-                ontouchstart="_touchDragStart(event,'${c.id}')"
-                ontouchmove="_touchDragMove(event)"
-                ontouchend="_touchDragEnd(event,'${diaKey}')"
-                onclick="verDetalleCita('${c.id}')"
-                style="position:absolute;top:${topPx}px;left:${leftPx};width:${COL_W};
-                       height:${finalH}px;background:${colColor};color:white;
-                       border-radius:8px;padding:5px 7px;cursor:pointer;
-                       box-sizing:border-box;overflow:hidden;
-                       border-left:3px solid ${estadoColor};
-                       box-shadow:0 2px 8px rgba(0,0,0,0.15);
-                       transition:opacity .12s;z-index:2;
-                       -webkit-user-select:none;user-select:none;touch-action:none;">
-                <div style="font-size:11px;font-weight:700;line-height:1;">${c.hora}</div>
-                ${finalH > 40 ? `<div style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;">${c.paciente}${balDot}</div>` : ''}
-                ${finalH > 58 ? `<div style="font-size:10px;opacity:.8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.profesional}</div>` : ''}
-                ${finalH > 72 ? `<div style="font-size:9px;margin-top:3px;background:${estadoColor};border-radius:6px;padding:1px 5px;display:inline-block;">${estadoIcon} ${c.estado||'Pendiente'}</div>` : ''}
-            </div>`;
+        const dur   = c.duracionMin || durMin;
+        const topPx = (startMin/60)*HORA_H;
+        const hPx   = Math.max(30, (dur/60)*HORA_H - 4);
+        const eCol  = getColorEstadoCita(c.estado||'Pendiente');
+        const saldo = calcularBalancePaciente(c.paciente) > 0;
+        const waTel = (() => {
+            const pac = (appData.pacientes||[]).find(p=>p.nombre===c.paciente);
+            return pac?.telefono || '';
+        })();
+        citasHTML += `
+        <div draggable="true"
+             ondragstart="_onDragStart(event,'${c.id}','${c.hora}')"
+             ontouchstart="_touchDragStart(event,'${c.id}')"
+             style="position:absolute;top:${topPx}px;left:56px;right:10px;height:${hPx}px;
+                    background:white;border-radius:10px;border-left:4px solid ${eCol};
+                    box-shadow:0 2px 8px rgba(30,28,26,.1);padding:7px 10px;
+                    overflow:hidden;box-sizing:border-box;z-index:3;cursor:grab;
+                    transition:box-shadow .15s;"
+             onmouseenter="this.style.boxShadow='0 4px 14px rgba(30,28,26,.18)'"
+             onmouseleave="this.style.boxShadow='0 2px 8px rgba(30,28,26,.1)'">
+            <!-- Click area para abrir detalle (todo excepto botones) -->
+            <div onclick="verDetalleCita('${c.id}')"
+                 style="position:absolute;inset:0;cursor:pointer;z-index:1;"></div>
+            <div style="position:relative;z-index:2;display:flex;justify-content:space-between;
+                        align-items:flex-start;gap:6px;pointer-events:none;">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:13px;color:var(--topo);
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        ${c.hora}  ${c.paciente||'—'}
+                    </div>
+                    ${hPx>42?`<div style="font-size:11px;color:var(--piedra);margin-top:2px;
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                ${c.profesional||''} ${c.consultorio?'· C'+c.consultorio:''}
+                              </div>`:''}
+                    ${hPx>58&&c.motivo?`<div style="font-size:10px;color:var(--muted);margin-top:1px;
+                                             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                             ${c.motivo}</div>`:''}
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                    ${saldo?'<span style="font-size:9px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 4px;font-weight:600;">💰</span>':''}
+                    <span style="font-size:9px;background:${eCol}22;color:${eCol};
+                                 border-radius:4px;padding:2px 6px;font-weight:600;">${c.estado||'Pendiente'}</span>
+                </div>
+            </div>
+            ${hPx>44&&waTel?`
+            <button onclick="event.stopPropagation();_citaWA('${c.id}')"
+                    style="position:absolute;bottom:5px;right:8px;z-index:3;
+                           background:#25D366;color:white;border:none;border-radius:6px;
+                           padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;
+                           display:flex;align-items:center;gap:3px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.136.558 4.14 1.535 5.874L0 24l6.278-1.515A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.647-.49-5.172-1.348l-.371-.214-3.852.929.977-3.754-.237-.387A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                </svg>
+                WA</button>`:''}
+        </div>`;
     });
 
-    // Drop zones (click en slot vacío = nueva cita)
-    let dropZones = '';
-    for (let h = horaApertura; h < horaCierre; h++) {
-        for (let hh = 0; hh < 2; hh++) { // cada 30 min
-            const minOffset = (h - horaApertura) * 60 + hh * 30;
-            const topPx = (minOffset / 60) * HORA_H;
-            const hora = `${String(h).padStart(2,'0')}:${hh === 0 ? '00' : '30'}`;
-            cols.forEach((col, colIdx) => {
-                const leftPx = `calc(38px + ${colIdx} * ${COL_W})`;
-                dropZones += `<div
-                    ondragover="_onDragOver(event)"
-                    ondrop="_onDrop(event,'${diaKey}','${hora}',${col})"
-                    onclick="_onSlotClick(event,'${diaKey}','${hora}',${col})"
-                    style="position:absolute;top:${topPx}px;left:${leftPx};
-                           width:${COL_W};height:${(HORA_H/2)}px;z-index:1;
-                           cursor:pointer;"
-                    onmouseenter="this.style.background='rgba(196,133,106,0.07)'"
-                    onmouseleave="this.style.background='transparent'">
-                </div>`;
-            });
-        }
-    }
-
-    // Línea de hora actual
-    const lineaHTML = lineaTop !== null
-        ? `<div style="position:absolute;top:${lineaTop}px;left:34px;right:0;
-                       height:2px;background:var(--clinic-color,#C4856A);z-index:5;pointer-events:none;">
-               <div style="width:8px;height:8px;border-radius:50%;background:var(--clinic-color,#C4856A);
-                            position:absolute;left:-4px;top:-3px;"></div>
-           </div>`
-        : '';
-
-    const cuentaEl = document.getElementById('calendarioAgenda');
-    if (!cuentaEl) return;
-
-    // ── Resumen del día (badges) ──────────────────────────
-    const total    = citasDia.length;
-    const enSala   = citasDia.filter(c => c.estado === 'En Sala de Espera').length;
-    const completadas = citasDia.filter(c => c.estado === 'Completada').length;
-    const pendBal  = citasDia.filter(c => calcularBalancePaciente(c.paciente) > 0).length;
-
-    const resumenHTML = total > 0 ? `
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-            <span style="background:var(--surface);padding:5px 12px;border-radius:100px;font-size:11px;color:var(--topo);box-shadow:var(--neu-flat);">📅 ${total} cita${total!==1?'s':''}</span>
-            ${enSala > 0 ? `<span style="background:rgba(107,143,113,.15);padding:5px 12px;border-radius:100px;font-size:11px;color:var(--salvia,#6B8F71);font-weight:600;">🏥 ${enSala} en sala</span>` : ''}
-            ${completadas > 0 ? `<span style="background:rgba(107,143,113,.1);padding:5px 12px;border-radius:100px;font-size:11px;color:var(--salvia,#6B8F71);">✓ ${completadas} completadas</span>` : ''}
-            ${pendBal > 0 ? `<span style="background:rgba(196,133,106,.12);padding:5px 12px;border-radius:100px;font-size:11px;color:var(--terra,#C4856A);">💰 ${pendBal} con balance</span>` : ''}
+    const lineaHTML = lineaTop !== null ? `
+        <div style="position:absolute;top:${lineaTop}px;left:0;right:0;z-index:10;pointer-events:none;">
+            <div style="position:absolute;left:48px;right:0;height:2px;
+                        background:var(--clinic-color,#C4856A);opacity:.8;"></div>
+            <div style="position:absolute;left:42px;top:-4px;width:10px;height:10px;
+                        border-radius:50%;background:var(--clinic-color,#C4856A);"></div>
         </div>` : '';
 
-    // ── Sin citas ─────────────────────────────────────────
-    const vacioHTML = total === 0 ? `
-        <div onclick="abrirModalNuevaCita()" style="position:absolute;top:50%;left:38px;right:0;
-             transform:translateY(-50%);text-align:center;pointer-events:auto;cursor:pointer;padding:20px;">
-            <div style="font-size:36px;margin-bottom:8px;">📅</div>
-            <div style="font-size:14px;color:var(--piedra);">Sin citas — toca para agendar</div>
+    const sinCitasHTML = citasDia.length === 0 ? `
+        <div style="position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);
+                    text-align:center;pointer-events:none;">
+            <div style="font-size:40px;margin-bottom:10px;">📅</div>
+            <div style="font-size:14px;color:var(--muted);font-weight:500;">Sin citas este día</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+                Toca un bloque de horario o usa el botón +</div>
         </div>` : '';
 
-    cuentaEl.innerHTML = `
-        ${resumenHTML}
-        <div style="background:var(--white,white);border-radius:14px;overflow:hidden;box-shadow:var(--neu-flat);">
-            <!-- col headers -->
-            <div style="display:flex;padding:0 0 0 38px;background:var(--surface,#F5F2EE);border-bottom:1px solid rgba(30,28,26,.06);">
-                ${colHeaders}
-            </div>
-            <!-- timeline -->
-            <div style="position:relative;height:${totalH}px;overflow:hidden;">
-                <!-- horas axis -->
-                <div style="position:absolute;top:0;left:0;right:0;">${horasHTML}</div>
-                <!-- drop zones -->
-                ${dropZones}
-                <!-- cita blocks -->
-                ${citaBlocks}
-                <!-- línea hora actual -->
-                ${lineaHTML}
-                ${vacioHTML}
-            </div>
+    const container = document.getElementById('calendarioAgenda');
+    if (!container) return;
+    container.innerHTML = `
+        <div style="position:relative;background:white;border-radius:16px;
+                    box-shadow:var(--neu-flat,0 2px 8px rgba(30,28,26,.08));
+                    min-height:${totalH+20}px;overflow:hidden;">
+            ${horasHTML}${lineaHTML}${citasHTML}${sinCitasHTML}
         </div>`;
 }
 
 // ─────────────────────────────────────────────────────────────
-// VISTA SEMANA — Grid 7 días mejorado con bloques proporcionales
+// VISTA SEMANA
 // ─────────────────────────────────────────────────────────────
-function _renderVistaSemana(citasTodas, horaApertura, horaCierre, durMin, todayKey, meses, diasNombre) {
+function _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DIAS_S) {
     const inicio = new Date(agendaSemanaInicio);
-    const fin    = new Date(inicio); fin.setDate(fin.getDate() + 6);
+    const fin    = new Date(inicio); fin.setDate(fin.getDate()+6);
+    const HORA_H = 48;
+    const totalH = (horaCierre - horaApertura) * HORA_H;
 
-    const tituloEl = document.getElementById('agendaFechaTitulo');
-    if (tituloEl) tituloEl.textContent = `Semana del ${inicio.getDate()} ${meses[inicio.getMonth()]}`;
-    const subEl = document.getElementById('agendaSemanaTexto');
-    if (subEl) subEl.textContent = `${inicio.getDate()} ${meses[inicio.getMonth()]} — ${fin.getDate()} ${meses[fin.getMonth()]} ${fin.getFullYear()}`;
-
+    const tEl = document.getElementById('agendaFechaTitulo');
+    if (tEl) tEl.textContent =
+        `${inicio.getDate()} ${MESES[inicio.getMonth()]} — ${fin.getDate()} ${MESES[fin.getMonth()]} ${fin.getFullYear()}`;
+    const sEl = document.getElementById('agendaSemanaTexto');
+    if (sEl) sEl.textContent = '';
     const selEl = document.getElementById('agendaDiasSelector');
     if (selEl) selEl.innerHTML = '';
 
-    const COL_COLORS = { 1:'#7B8FA1', 2:'#6B8F71', 3:'#C4856A', 4:'#8B7BA8' };
-    const HORA_H = 40;
-    const totalH = (horaCierre - horaApertura) * HORA_H;
+    // Header
+    let html = `<div style="background:white;border-radius:16px;
+                            box-shadow:var(--neu-flat,0 2px 8px rgba(30,28,26,.08));overflow:hidden;">`;
 
-    let colsHTML = '<div style="display:grid;grid-template-columns:36px repeat(7,1fr);gap:0;background:var(--white,white);border-radius:14px;overflow:hidden;box-shadow:var(--neu-flat);">';
-
-    // Header row
-    colsHTML += '<div style="background:var(--surface,#F5F2EE);border-bottom:1px solid rgba(30,28,26,.06);"></div>';
+    html += `<div style="display:grid;grid-template-columns:44px repeat(7,1fr);
+                          background:var(--surface,#F5F2EE);
+                          border-bottom:2px solid rgba(30,28,26,.07);">`;
+    html += `<div></div>`;
     for (let i = 0; i < 7; i++) {
-        const d = new Date(inicio); d.setDate(d.getDate() + i);
-        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        const esHoy = dk === todayKey;
-        colsHTML += `<div onclick="_saltoADia('${dk}')" style="text-align:center;padding:8px 4px;background:var(--surface,#F5F2EE);border-bottom:1px solid rgba(30,28,26,.06);cursor:pointer;${esHoy?'color:var(--clinic-color,#C4856A);font-weight:700;':'color:var(--piedra);'}">
-            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;">${diasNombre[i]}</div>
-            <div style="font-size:16px;">${d.getDate()}</div>
+        const d = new Date(inicio); d.setDate(d.getDate()+i);
+        const dk = _dk(d);
+        const isHoy = dk === todayKey;
+        const n = citas.filter(c => _citaEnDia(c, dk)).length;
+        html += `<div onclick="_saltoADia('${dk}')"
+            style="text-align:center;padding:10px 2px;cursor:pointer;transition:background .1s;
+                   border-left:1px solid rgba(30,28,26,.06);
+                   ${isHoy?'background:rgba(196,133,106,.08)':''}"
+            onmouseenter="this.style.background='rgba(196,133,106,.1)'"
+            onmouseleave="this.style.background='${isHoy?'rgba(196,133,106,.08)':'transparent'}'">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.7px;
+                        color:${isHoy?'var(--clinic-color,#C4856A)':'var(--piedra)'};">${DIAS_S[d.getDay()]}</div>
+            <div style="font-size:20px;font-weight:${isHoy?700:400};
+                        color:${isHoy?'var(--clinic-color,#C4856A)':'var(--topo)'};">${d.getDate()}</div>
+            <div style="font-size:9px;height:14px;color:var(--clinic-color,#C4856A);font-weight:600;">
+                ${n?n+' cita'+(n>1?'s':''):''}
+            </div>
         </div>`;
     }
+    html += '</div>';
 
-    // Time axis + day columns
-    colsHTML += `<div style="position:relative;display:contents;">`;
+    // Body
+    html += `<div style="display:grid;grid-template-columns:44px repeat(7,1fr);">`;
 
-    // Axis
-    colsHTML += `<div style="position:relative;grid-column:1;grid-row:2;">`;
+    // Hora axis
+    html += '<div>';
     for (let h = horaApertura; h < horaCierre; h++) {
-        const label = h < 12 ? `${h}` : h === 12 ? '12' : `${h-12}`;
-        colsHTML += `<div style="height:${HORA_H}px;display:flex;align-items:flex-start;justify-content:flex-end;padding-right:4px;">
-            <span style="font-size:9px;color:var(--muted,#C0B8B0);">${label}</span>
+        const label = h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
+        html += `<div style="height:${HORA_H}px;display:flex;align-items:flex-start;
+                             justify-content:flex-end;padding:4px 6px 0 0;
+                             border-top:1px solid rgba(30,28,26,.05);">
+            <span style="font-size:9px;color:var(--muted,#B0A89C);">${label}</span>
         </div>`;
     }
-    colsHTML += '</div>';
+    html += '</div>';
 
-    // Each day column
+    // Day columns
     for (let i = 0; i < 7; i++) {
-        const d = new Date(inicio); d.setDate(d.getDate() + i);
-        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        const esHoy = dk === todayKey;
-        const citasDia = citasTodas.filter(c => _citaEnDia(c, dk)).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
+        const d = new Date(inicio); d.setDate(d.getDate()+i);
+        const dk = _dk(d);
+        const isHoy = dk === todayKey;
+        const citasDia = citas.filter(c => _citaEnDia(c, dk))
+            .sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
 
-        let blockHTML = '';
+        let blocks = '';
         citasDia.forEach(c => {
-            const [hh,mm] = (c.hora||'00:00').split(':').map(Number);
+            const [hh,mm] = (c.hora||'08:00').split(':').map(Number);
             const startMin = hh*60+mm - horaApertura*60;
             if (startMin < 0) return;
             const dur   = c.duracionMin || durMin;
             const topPx = (startMin/60)*HORA_H;
-            const hPx   = Math.max(20, (dur/60)*HORA_H - 2);
-            const col   = COL_COLORS[c.consultorio] || '#7B8FA1';
+            const hPx   = Math.max(22, (dur/60)*HORA_H-2);
             const eCol  = getColorEstadoCita(c.estado||'Pendiente');
-            blockHTML += `<div onclick="verDetalleCita('${c.id}')"
-                style="position:absolute;top:${topPx}px;left:2px;right:2px;height:${hPx}px;
-                       background:${col};color:white;border-radius:6px;padding:3px 5px;
-                       cursor:pointer;overflow:hidden;box-sizing:border-box;
-                       border-left:3px solid ${eCol};font-size:10px;
-                       box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:2;transition:opacity .1s;"
-                onmouseenter="this.style.opacity='.82'" onmouseleave="this.style.opacity='1'">
-                <div style="font-weight:700;line-height:1.1;">${c.hora}</div>
-                ${hPx>30?`<div style="opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.paciente}</div>`:''}
+            blocks += `
+            <div onclick="verDetalleCita('${c.id}')"
+                 draggable="true"
+                 ondragstart="_onDragStart(event,'${c.id}','${c.hora}')"
+                 ontouchstart="_touchDragStart(event,'${c.id}')"
+                 style="position:absolute;top:${topPx}px;left:2px;right:2px;height:${hPx}px;
+                        background:white;border-radius:6px;border-left:3px solid ${eCol};
+                        box-shadow:0 1px 4px rgba(30,28,26,.12);padding:3px 5px;
+                        overflow:hidden;cursor:pointer;z-index:3;box-sizing:border-box;
+                        transition:box-shadow .1s;"
+                 onmouseenter="this.style.boxShadow='0 3px 10px rgba(30,28,26,.2)'"
+                 onmouseleave="this.style.boxShadow='0 1px 4px rgba(30,28,26,.12)'">
+                <div style="font-size:10px;font-weight:700;color:var(--topo);
+                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.hora}</div>
+                ${hPx>34?`<div style="font-size:9px;color:var(--piedra);white-space:nowrap;
+                               overflow:hidden;text-overflow:ellipsis;">${c.paciente||''}</div>`:''}
             </div>`;
         });
 
-        // drop zones
-        let dzHTML = '';
+        let dz = '';
         for (let h = horaApertura; h < horaCierre; h++) {
-            const topPx = (h - horaApertura) * HORA_H;
-            const hora = `${String(h).padStart(2,'0')}:00`;
-            dzHTML += `<div ondragover="_onDragOver(event)" ondrop="_onDrop(event,'${dk}','${hora}',1)"
-                onclick="_onSlotClick(event,'${dk}','${hora}',1)"
-                style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;z-index:1;"
-                onmouseenter="this.style.background='rgba(196,133,106,0.06)'"
+            const topPx = (h-horaApertura)*HORA_H;
+            const hora  = `${String(h).padStart(2,'0')}:00`;
+            dz += `<div ondragover="_onDragOver(event)" ondrop="_onDrop(event,'${dk}','${hora}',1)"
+                onclick="_abrirCitaEnSlot('${dk}','${hora}')"
+                style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;z-index:1;
+                       border-top:1px solid rgba(30,28,26,.04);cursor:pointer;transition:background .1s;"
+                onmouseenter="this.style.background='rgba(196,133,106,.08)'"
                 onmouseleave="this.style.background='transparent'"></div>`;
         }
 
-        colsHTML += `<div style="position:relative;height:${totalH}px;border-left:1px solid rgba(30,28,26,.05);${esHoy?'background:rgba(196,133,106,0.03)':''}">
-            ${Array.from({length:horaCierre-horaApertura},(_,i)=>`<div style="position:absolute;top:${i*HORA_H}px;left:0;right:0;height:1px;background:rgba(30,28,26,.04);"></div>`).join('')}
-            ${dzHTML}${blockHTML}
-        </div>`;
+        html += `<div style="position:relative;height:${totalH}px;
+                              border-left:1px solid rgba(30,28,26,.05);
+                              ${isHoy?'background:rgba(196,133,106,.025)':''}">
+            ${dz}${blocks}</div>`;
     }
+    html += '</div></div>';
 
-    colsHTML += '</div></div>';
-    const el = document.getElementById('calendarioAgenda');
-    if (el) el.innerHTML = colsHTML;
+    const container = document.getElementById('calendarioAgenda');
+    if (container) container.innerHTML = html;
 }
 
 // ─────────────────────────────────────────────────────────────
-// HELPERS AGENDA
+// WHATSAPP desde cita
 // ─────────────────────────────────────────────────────────────
-function _citaEnDia(c, diaKey) {
-    return isSameDayTZ ? isSameDayTZ(c.fecha, diaKey) : c.fecha && c.fecha.startsWith(diaKey);
+function _citaWA(citaId) {
+    const cita = (appData.citas||[]).find(c => c.id === citaId);
+    if (!cita) return;
+    const pac = (appData.pacientes||[]).find(p => p.nombre === cita.paciente);
+    if (!pac?.telefono) { showToast('Sin número de teléfono', 2000, '#e74c3c'); return; }
+    const clinica = appData.settings?.nombre || 'la clínica';
+    const tel = pac.telefono.replace(/\D/g,'');
+    const msg = encodeURIComponent(
+        `¡Hola! Te escribimos de *${clinica}* 🦷\n` +
+        `Te recordamos tu cita el *${cita.fecha}* a las *${cita.hora}*.\n` +
+        `${cita.profesional ? 'Con: ' + cita.profesional + '.\n' : ''}` +
+        `Por favor confirma tu asistencia.`
+    );
+    window.open(`https://wa.me/${tel}?text=${msg}`, '_blank');
 }
 
-function _saltoADia(diaKey) {
-    const [y,m,d] = diaKey.split('-').map(Number);
-    agendaFechaActual = new Date(y, m-1, d);
-    agendaVista = 'dia';
-    setAgendaVista('dia');
-}
-
-// Drag & Drop
+// ─────────────────────────────────────────────────────────────
+// DRAG & DROP — Desktop
+// ─────────────────────────────────────────────────────────────
 function _onDragStart(e, citaId, horaOrig) {
-    _dragCitaId   = citaId;
-    _dragOrigHora = horaOrig;
+    _dragCitaId = citaId;
     e.dataTransfer.effectAllowed = 'move';
-    e.target.style.opacity = '.45';
-    setTimeout(() => { if (e.target) e.target.style.opacity = '1'; }, 0);
+    e.dataTransfer.setData('text/plain', citaId);
+    setTimeout(() => { if (e.target) e.target.style.opacity = '0.4'; }, 0);
 }
-
 function _onDragOver(e) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 }
-
 async function _onDrop(e, diaKey, hora, consultorio) {
     e.preventDefault();
-    if (!_dragCitaId) return;
-    const cita = appData.citas.find(c => c.id === _dragCitaId);
-    if (!cita) { _dragCitaId = null; return; }
-
-    const oldHora = cita.hora;
-    const oldFecha = cita.fecha;
-    const [y,m,d] = diaKey.split('-').map(Number);
-    const newFecha = `${diaKey}T${hora}`;
-
-    // Optimistic update
-    cita.hora  = hora;
-    cita.fecha = newFecha;
-    cita.consultorio = consultorio;
+    const citaId = _dragCitaId || e.dataTransfer.getData('text/plain');
+    if (!citaId) return;
     _dragCitaId = null;
-    updateAgendaTab();
-    showToast(`✓ Cita movida a las ${hora}`);
+    document.querySelectorAll('[draggable="true"]').forEach(el => el.style.opacity = '1');
 
+    const cita = (appData.citas||[]).find(c => c.id === citaId);
+    if (!cita) return;
+    if (cita.fecha === diaKey && cita.hora === hora) return;
+
+    const prev = { fecha: cita.fecha, hora: cita.hora };
+    cita.fecha = diaKey;
+    cita.hora  = hora;
+    if (consultorio) cita.consultorio = consultorio;
+    updateAgendaTab();
+    showToast(`📅 Cita movida a ${hora}`);
     try {
         await saveCitas();
     } catch(err) {
-        cita.hora  = oldHora;
-        cita.fecha = oldFecha;
+        cita.fecha = prev.fecha;
+        cita.hora  = prev.hora;
         updateAgendaTab();
-        showToast('⚠️ Error al mover — revertido', 3000);
+        showToast('❌ Error al guardar', 3000, '#c0392b');
     }
 }
 
-function _onSlotClick(e, diaKey, hora, consultorio) {
-    // Si el click fue en una cita (no en el slot vacío), no hacer nada
-    if (e.target.closest && e.target.closest('[data-cita-id]')) return;
-    // Pre-fill y abrir modal
-    const [y,m,d] = diaKey.split('-').map(Number);
-    const fechaVal = diaKey;
-    abrirModalNuevaCita();
-    setTimeout(() => {
-        const fEl = document.getElementById('citaFecha');
-        const hEl = document.getElementById('citaHora');
-        const cEl = document.getElementById('citaConsultorio');
-        if (fEl) fEl.value = fechaVal;
-        if (hEl) hEl.value = hora;
-        if (cEl) cEl.value = String(consultorio);
-        // Actualizar hora fin
-        if (typeof actualizarHoraFin === 'function') actualizarHoraFin();
-    }, 60);
-}
-
-// ════════════════════════════════════════════════════════════
-// TOUCH DRAG & DROP — agenda móvil
-// ════════════════════════════════════════════════════════════
-let _touchDragCitaId = null;
-let _touchDragGhost  = null;
-let _touchDragOrigTop = 0;
-let _touchDragOrigLeft = 0;
-let _touchDidMove = false;
-
+// ─────────────────────────────────────────────────────────────
+// DRAG & DROP — Touch (móvil)
+// ─────────────────────────────────────────────────────────────
 function _touchDragStart(e, citaId) {
-    _touchDragCitaId = citaId;
-    _touchDidMove = false;
-    const touch = e.touches[0];
-    const el = e.currentTarget;
-    _touchDragOrigTop  = parseFloat(el.style.top) || 0;
-    _touchDragOrigLeft = parseFloat(el.style.left) || 0;
-
-    // Create ghost
-    _touchDragGhost = el.cloneNode(true);
-    _touchDragGhost.style.position = 'fixed';
-    _touchDragGhost.style.opacity  = '0.75';
-    _touchDragGhost.style.zIndex   = '9999';
-    _touchDragGhost.style.pointerEvents = 'none';
-    _touchDragGhost.style.width    = el.getBoundingClientRect().width + 'px';
-    _touchDragGhost.style.height   = el.getBoundingClientRect().height + 'px';
-    _touchDragGhost.style.top      = touch.clientY - 20 + 'px';
-    _touchDragGhost.style.left     = touch.clientX - 20 + 'px';
-    _touchDragGhost.style.transition = 'none';
-    document.body.appendChild(_touchDragGhost);
-    el.style.opacity = '0.35';
-}
-
-function _touchDragMove(e) {
-    if (!_touchDragCitaId || !_touchDragGhost) return;
-    e.preventDefault();
-    _touchDidMove = true;
-    const touch = e.touches[0];
-    _touchDragGhost.style.top  = touch.clientY - 20 + 'px';
-    _touchDragGhost.style.left = touch.clientX - 20 + 'px';
-}
-
-function _touchDragEnd(e, diaKey) {
-    if (!_touchDragCitaId) return;
-
-    // Remove ghost
-    if (_touchDragGhost) { _touchDragGhost.remove(); _touchDragGhost = null; }
-
-    // Restore original opacity
-    const origEl = document.querySelector(`[data-cita-id="${_touchDragCitaId}"]`);
-    if (origEl) origEl.style.opacity = '1';
-
-    if (!_touchDidMove) { _touchDragCitaId = null; return; } // was a tap, not drag
-
-    const touch = e.changedTouches[0];
-
-    // Find drop target under finger
-    const timelineEl = document.getElementById('calendarioAgenda');
-    if (!timelineEl) { _touchDragCitaId = null; return; }
-    const rect = timelineEl.getBoundingClientRect();
-
-    // Find the inner timeline div (position:relative with height)
-    const allDropZones = timelineEl.querySelectorAll('[ondragover]');
-    let bestZone = null, bestDist = Infinity;
-    allDropZones.forEach(zone => {
-        const zr = zone.getBoundingClientRect();
-        const cx = zr.left + zr.width/2;
-        const cy = zr.top  + zr.height/2;
-        const dist = Math.hypot(touch.clientX - cx, touch.clientY - cy);
-        if (dist < bestDist) { bestDist = dist; bestZone = zone; }
+    _touchCitaId = citaId;
+    const src  = e.currentTarget;
+    const rect = src.getBoundingClientRect();
+    _touchOffsetY = e.touches[0].clientY - rect.top;
+    _touchGhost = src.cloneNode(true);
+    Object.assign(_touchGhost.style, {
+        position:'fixed', opacity:'.75', pointerEvents:'none',
+        zIndex:'9999', width:rect.width+'px',
+        left:rect.left+'px', top:rect.top+'px', transition:'none'
     });
-
-    if (bestZone && bestDist < 60) {
-        // Extract hora and consultorio from onclick
-        const ondrp = bestZone.getAttribute('ondrop') || '';
-        const m = ondrp.match(/_onDrop\(event,'([^']+)','([^']+)',(\d+)\)/);
-        if (m) {
-            const [, dk, hora, cons] = m;
-            _onDrop({ preventDefault: ()=>{} }, dk, hora, parseInt(cons));
-        }
-    }
-
-    _touchDragCitaId = null;
+    document.body.appendChild(_touchGhost);
+    src.style.opacity = '0.25';
+    document.addEventListener('touchmove',  _touchDragMove,  { passive:false });
+    document.addEventListener('touchend',   _touchDragEnd,   { once:true });
+}
+function _touchDragMove(e) {
+    e.preventDefault();
+    if (!_touchGhost) return;
+    const t = e.touches[0];
+    _touchGhost.style.top  = (t.clientY - _touchOffsetY) + 'px';
+    _touchGhost.style.left = (t.clientX - _touchGhost.offsetWidth/2) + 'px';
+}
+function _touchDragEnd(e) {
+    document.removeEventListener('touchmove', _touchDragMove);
+    if (_touchGhost) { _touchGhost.remove(); _touchGhost = null; }
+    document.querySelectorAll('[draggable="true"]').forEach(el => el.style.opacity = '1');
+    if (!_touchCitaId) return;
+    const t = e.changedTouches[0];
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    if (!el) return;
+    const dz = el.closest('[ondrop]');
+    if (!dz) return;
+    const m = (dz.getAttribute('ondrop')||'').match(/_onDrop\(event,'([^']+)','([^']+)',(\d+)\)/);
+    if (m) _onDrop({ preventDefault:()=>{} }, m[1], m[2], parseInt(m[3]));
+    _touchCitaId = null;
 }
 
-// ════════════════════════════════════════════════════════════
-// SWIPE TO CHANGE DAY — agenda día view
-// ════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────
+// SWIPE navegación móvil
+// ─────────────────────────────────────────────────────────────
 (function _initAgendaSwipe() {
-    let _swTouchX = null, _swTouchY = null;
+    let xStart = null;
     document.addEventListener('touchstart', e => {
-        const agenda = document.getElementById('tab-agenda');
-        if (!agenda || !agenda.classList.contains('active')) return;
-        if (e.target.closest('[data-cita-id]')) return; // ignore drag targets
-        _swTouchX = e.touches[0].clientX;
-        _swTouchY = e.touches[0].clientY;
-    }, { passive: true });
+        const cal = document.getElementById('calendarioAgenda');
+        if (cal && cal.contains(e.target)) xStart = e.touches[0].clientX;
+    }, { passive:true });
     document.addEventListener('touchend', e => {
-        if (_swTouchX === null) return;
-        const dx = e.changedTouches[0].clientX - _swTouchX;
-        const dy = e.changedTouches[0].clientY - _swTouchY;
-        _swTouchX = null;
-        if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.8) return; // not a horiz swipe
-        if (agendaVista !== 'dia') return;
-        cambiarFechaAgenda(dx < 0 ? 1 : -1); // swipe left = next day
-    }, { passive: true });
+        if (xStart === null) return;
+        const dx = e.changedTouches[0].clientX - xStart;
+        xStart = null;
+        if (Math.abs(dx) < 60) return;
+        cambiarFechaAgenda(dx < 0 ? 1 : -1);
+    }, { passive:true });
 })();
+
 
 function verDetalleCita(citaId) {
     currentCitaIdDetalle = citaId;
