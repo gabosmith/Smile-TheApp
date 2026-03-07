@@ -2929,7 +2929,7 @@
                                            color:#333;display:flex;align-items:center;gap:10px;"
                                     onmouseover="this.style.background='#f5f5f5'"
                                     onmouseout="this.style.background='none'">📅 <span>Nueva cita</span></button>
-                                <button id="btnEliminarPaciente" onclick="_togglePacienteMenu();eliminarPacienteActual()"
+                                <button id="btnEliminarPaciente" onclick="_togglePacienteMenu();eliminarPacienteActual(window.currentPacienteId)"
                                     style="width:100%;padding:13px 16px;border:none;background:none;
                                            text-align:left;font-size:14px;font-family:inherit;cursor:pointer;
                                            color:#c0392b;display:none;align-items:center;gap:10px;"

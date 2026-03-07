@@ -14037,16 +14037,16 @@ async function confirmarCancelacionFactura() {
 // El botón #btnEliminarPaciente llama eliminarPacienteActual().
 // La variable global _pacienteDetalleId guarda el ID del paciente abierto.
 
-async function eliminarPacienteActual() {
+async function eliminarPacienteActual(pacienteIdParam) {
     if (appData.currentRole !== 'admin') {
         showToast('⛔ Solo el administrador puede eliminar pacientes', 3000, '#c0392b');
         return;
     }
-    // Buscar el paciente abierto: primero la variable global más confiable,
-    // luego fallbacks DOM por compatibilidad
+    // Acepta ID directo (desde admin o lista) o busca el abierto en ficha
     const idEl = document.getElementById('detallePacienteId') ||
                  document.getElementById('pacienteDetalleId');
-    const pacienteId = currentPacienteId
+    const pacienteId = pacienteIdParam
+                    || currentPacienteId
                     || window._pacienteDetalleId
                     || idEl?.value;
     if (!pacienteId) {
