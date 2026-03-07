@@ -757,6 +757,7 @@ async function loadData() {
             appData.citas = data.citas || [];
             appData.settings = data.settings || {};
             appData.laboratorios = data.laboratorios || [];
+            if (appData.laboratorios.length > 0) window._labCargadoConDatos = true;
             appData.reversiones = data.reversiones || [];
             appData.auditLogs = data.auditLogs || [];
             appData.inventario = (data.inventario || []).map(i => ({ movimientos: [], ...i }));
@@ -969,7 +970,7 @@ async function saveData(context = '') {
             settings:     appData.settings     || {},
             lastUpdated:  new Date().toISOString(),
             usaSubcollectionPacientes: true
-        });
+        }, { merge: true });  // merge:true — nunca borra campos no incluidos
 
         // Save patients in batches of 100
         if (appData.pacientes.length > 0) {
@@ -1063,9 +1064,21 @@ async function savePersonal() {
 
 async function saveLaboratorios() {
     if (!canWriteToFirebase('saveLaboratorios')) return;
+    // Guardia: nunca escribir array vacío si ya había datos cargados
+    // Esto previene borrar órdenes existentes por un bug de timing en el load
+    const labActual = appData.laboratorios || [];
+    if (labActual.length === 0 && window._labCargadoConDatos) {
+        console.warn('[Lab] saveLaboratorios bloqueado — array vacío pero había datos. Posible bug de timing.');
+        return;
+    }
     try {
         setConnectionState('saving');
-        await db.collection('clinicas').doc(CLINIC_PATH).update({ laboratorios: appData.laboratorios || [], lastUpdated: new Date().toISOString() });
+        await db.collection('clinicas').doc(CLINIC_PATH).update({
+            laboratorios: labActual,
+            lastUpdated: new Date().toISOString()
+        });
+        // Marcar que ya se guardó con datos para futuras guardas
+        if (labActual.length > 0) window._labCargadoConDatos = true;
         setConnectionState('online');
     } catch(e) { showError('Error al guardar laboratorios.', e); }
 }
@@ -1393,7 +1406,14 @@ async function migratePasswordIfNeeded(person, plaintext) {
         const hashed = await hashPassword(plaintext);
         person.password    = hashed;
         person._pwHashed   = true;
-        await saveData('saveData-init');
+        // Usar update() en vez de saveData() para NO sobreescribir laboratorios
+        // ni otros campos con valores vacíos durante la migración de contraseña
+        const idx = appData.personal.findIndex(p => p.id === person.id || p.nombre === person.nombre);
+        if (idx !== -1) appData.personal[idx] = person;
+        await db.collection('clinicas').doc(CLINIC_PATH).update({
+            personal: appData.personal,
+            lastUpdated: new Date().toISOString()
+        });
         console.log('[Auth] Contraseña migrada a SHA-256 para:', person.nombre);
     } catch(e) {
         console.warn('[Auth] No se pudo migrar contraseña:', e);
@@ -14042,7 +14062,6 @@ async function eliminarPacienteActual(pacienteIdParam) {
         showToast('⛔ Solo el administrador puede eliminar pacientes', 3000, '#c0392b');
         return;
     }
-    // Acepta ID directo (desde admin o lista) o busca el abierto en ficha
     const idEl = document.getElementById('detallePacienteId') ||
                  document.getElementById('pacienteDetalleId');
     const pacienteId = pacienteIdParam
@@ -14237,26 +14256,6 @@ function _togglePacienteMenu() {
         }, 50);
     }
 }
-
-// ── AGENDA FAB ───────────────────────────────────────────
-(function _initAgendaFab() {
-    document.addEventListener('tabchange', function(e) {
-        let fab = document.getElementById('agendaFab');
-        if (e.detail === 'agenda') {
-            if (!fab) {
-                fab = document.createElement('button');
-                fab.id = 'agendaFab';
-                fab.innerHTML = '+';
-                fab.style.cssText = 'position:fixed;bottom:84px;right:20px;width:52px;height:52px;border-radius:50%;background:var(--clinic-color,#C4856A);color:white;font-size:28px;font-weight:300;border:none;box-shadow:0 4px 16px rgba(0,0,0,.2);cursor:pointer;z-index:200;display:flex;align-items:center;justify-content:center;line-height:1;';
-                fab.onclick = () => abrirModalNuevaCita();
-                document.body.appendChild(fab);
-            }
-            fab.style.display = 'flex';
-        } else if (fab) {
-            fab.style.display = 'none';
-        }
-    });
-})();
 
 // ════════════════════════════════════════════════════════════
 // SPOTLIGHT SEARCH — búsqueda global instantánea
