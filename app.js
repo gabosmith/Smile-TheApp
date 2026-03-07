@@ -5412,7 +5412,7 @@ function renderTabResumen(paciente) {
 
     document.getElementById('tabResumen').innerHTML = `
         <!-- Tarjetas de estadísticas -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
+        <div class="pac-stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
             <div style="background: var(--surface, #F5F2EE); padding: 18px; border-radius: 12px; border: 1.5px solid rgba(30,28,26,0.07);">
                 <div style="font-size: 28px; font-weight: 300; margin-bottom: 4px; color: var(--dark, #1E1C1A);">${totalCitas}</div>
                 <div style="font-size: 12px; color: var(--mid, #9C9189); letter-spacing: 0.5px;">Citas</div>
@@ -5466,7 +5466,7 @@ function renderTabResumen(paciente) {
         })()}
 
         <!-- Información del paciente -->
-        <div style="background: var(--sand,#EEEAE4); border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));">
+        <div class="pac-info-card" style="background: var(--sand,#EEEAE4); border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: var(--neu-raised,3px 3px 8px rgba(185,177,167,.4),-2px -2px 6px rgba(255,255,255,.9));">
             <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:14px;">Información Personal</div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
                 <div>
@@ -6544,24 +6544,32 @@ function _renderVistaDia(fecha, citasTodas, horaApertura, horaCierre, durMin, to
         const balPac = calcularBalancePaciente(c.paciente);
         const balDot = balPac > 0 ? '<span style="width:6px;height:6px;border-radius:50%;background:#ffc107;display:inline-block;margin-left:4px;flex-shrink:0;"></span>' : '';
         const leftPx = `calc(38px + ${colIdx} * ${COL_W})`;
+        const isMobile = window.innerWidth <= 700;
+        const minH = isMobile ? 48 : 28; // bigger tap targets on mobile
+        const hPx  = Math.max(minH, (duracion / 60) * HORA_H - 3);
+        // Override heightPx with mobile-aware value
+        const finalH = hPx;
+
         citaBlocks += `
             <div data-cita-id="${c.id}"
                 draggable="true"
                 ondragstart="_onDragStart(event,'${c.id}','${c.hora}')"
+                ontouchstart="_touchDragStart(event,'${c.id}')"
+                ontouchmove="_touchDragMove(event)"
+                ontouchend="_touchDragEnd(event,'${diaKey}')"
                 onclick="verDetalleCita('${c.id}')"
                 style="position:absolute;top:${topPx}px;left:${leftPx};width:${COL_W};
-                       height:${heightPx}px;background:${colColor};color:white;
+                       height:${finalH}px;background:${colColor};color:white;
                        border-radius:8px;padding:5px 7px;cursor:pointer;
                        box-sizing:border-box;overflow:hidden;
                        border-left:3px solid ${estadoColor};
                        box-shadow:0 2px 8px rgba(0,0,0,0.15);
-                       transition:opacity .12s,transform .1s;z-index:2;"
-                onmouseenter="this.style.opacity='.88';this.style.transform='scale(1.01)'"
-                onmouseleave="this.style.opacity='1';this.style.transform='scale(1)'">
+                       transition:opacity .12s;z-index:2;
+                       -webkit-user-select:none;user-select:none;touch-action:none;">
                 <div style="font-size:11px;font-weight:700;line-height:1;">${c.hora}</div>
-                ${heightPx > 38 ? `<div style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;">${c.paciente}${balDot}</div>` : ''}
-                ${heightPx > 56 ? `<div style="font-size:10px;opacity:.8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.profesional}</div>` : ''}
-                ${heightPx > 70 ? `<div style="font-size:9px;margin-top:3px;background:${estadoColor};border-radius:6px;padding:1px 5px;display:inline-block;">${estadoIcon} ${c.estado||'Pendiente'}</div>` : ''}
+                ${finalH > 40 ? `<div style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;">${c.paciente}${balDot}</div>` : ''}
+                ${finalH > 58 ? `<div style="font-size:10px;opacity:.8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.profesional}</div>` : ''}
+                ${finalH > 72 ? `<div style="font-size:9px;margin-top:3px;background:${estadoColor};border-radius:6px;padding:1px 5px;display:inline-block;">${estadoIcon} ${c.estado||'Pendiente'}</div>` : ''}
             </div>`;
     });
 
@@ -6817,6 +6825,113 @@ function _onSlotClick(e, diaKey, hora, consultorio) {
         if (typeof actualizarHoraFin === 'function') actualizarHoraFin();
     }, 60);
 }
+
+// ════════════════════════════════════════════════════════════
+// TOUCH DRAG & DROP — agenda móvil
+// ════════════════════════════════════════════════════════════
+let _touchDragCitaId = null;
+let _touchDragGhost  = null;
+let _touchDragOrigTop = 0;
+let _touchDragOrigLeft = 0;
+let _touchDidMove = false;
+
+function _touchDragStart(e, citaId) {
+    _touchDragCitaId = citaId;
+    _touchDidMove = false;
+    const touch = e.touches[0];
+    const el = e.currentTarget;
+    _touchDragOrigTop  = parseFloat(el.style.top) || 0;
+    _touchDragOrigLeft = parseFloat(el.style.left) || 0;
+
+    // Create ghost
+    _touchDragGhost = el.cloneNode(true);
+    _touchDragGhost.style.position = 'fixed';
+    _touchDragGhost.style.opacity  = '0.75';
+    _touchDragGhost.style.zIndex   = '9999';
+    _touchDragGhost.style.pointerEvents = 'none';
+    _touchDragGhost.style.width    = el.getBoundingClientRect().width + 'px';
+    _touchDragGhost.style.height   = el.getBoundingClientRect().height + 'px';
+    _touchDragGhost.style.top      = touch.clientY - 20 + 'px';
+    _touchDragGhost.style.left     = touch.clientX - 20 + 'px';
+    _touchDragGhost.style.transition = 'none';
+    document.body.appendChild(_touchDragGhost);
+    el.style.opacity = '0.35';
+}
+
+function _touchDragMove(e) {
+    if (!_touchDragCitaId || !_touchDragGhost) return;
+    e.preventDefault();
+    _touchDidMove = true;
+    const touch = e.touches[0];
+    _touchDragGhost.style.top  = touch.clientY - 20 + 'px';
+    _touchDragGhost.style.left = touch.clientX - 20 + 'px';
+}
+
+function _touchDragEnd(e, diaKey) {
+    if (!_touchDragCitaId) return;
+
+    // Remove ghost
+    if (_touchDragGhost) { _touchDragGhost.remove(); _touchDragGhost = null; }
+
+    // Restore original opacity
+    const origEl = document.querySelector(`[data-cita-id="${_touchDragCitaId}"]`);
+    if (origEl) origEl.style.opacity = '1';
+
+    if (!_touchDidMove) { _touchDragCitaId = null; return; } // was a tap, not drag
+
+    const touch = e.changedTouches[0];
+
+    // Find drop target under finger
+    const timelineEl = document.getElementById('calendarioAgenda');
+    if (!timelineEl) { _touchDragCitaId = null; return; }
+    const rect = timelineEl.getBoundingClientRect();
+
+    // Find the inner timeline div (position:relative with height)
+    const allDropZones = timelineEl.querySelectorAll('[ondragover]');
+    let bestZone = null, bestDist = Infinity;
+    allDropZones.forEach(zone => {
+        const zr = zone.getBoundingClientRect();
+        const cx = zr.left + zr.width/2;
+        const cy = zr.top  + zr.height/2;
+        const dist = Math.hypot(touch.clientX - cx, touch.clientY - cy);
+        if (dist < bestDist) { bestDist = dist; bestZone = zone; }
+    });
+
+    if (bestZone && bestDist < 60) {
+        // Extract hora and consultorio from onclick
+        const ondrp = bestZone.getAttribute('ondrop') || '';
+        const m = ondrp.match(/_onDrop\(event,'([^']+)','([^']+)',(\d+)\)/);
+        if (m) {
+            const [, dk, hora, cons] = m;
+            _onDrop({ preventDefault: ()=>{} }, dk, hora, parseInt(cons));
+        }
+    }
+
+    _touchDragCitaId = null;
+}
+
+// ════════════════════════════════════════════════════════════
+// SWIPE TO CHANGE DAY — agenda día view
+// ════════════════════════════════════════════════════════════
+(function _initAgendaSwipe() {
+    let _swTouchX = null, _swTouchY = null;
+    document.addEventListener('touchstart', e => {
+        const agenda = document.getElementById('tab-agenda');
+        if (!agenda || !agenda.classList.contains('active')) return;
+        if (e.target.closest('[data-cita-id]')) return; // ignore drag targets
+        _swTouchX = e.touches[0].clientX;
+        _swTouchY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', e => {
+        if (_swTouchX === null) return;
+        const dx = e.changedTouches[0].clientX - _swTouchX;
+        const dy = e.changedTouches[0].clientY - _swTouchY;
+        _swTouchX = null;
+        if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.8) return; // not a horiz swipe
+        if (agendaVista !== 'dia') return;
+        cambiarFechaAgenda(dx < 0 ? 1 : -1); // swipe left = next day
+    }, { passive: true });
+})();
 
 function verDetalleCita(citaId) {
     currentCitaIdDetalle = citaId;
