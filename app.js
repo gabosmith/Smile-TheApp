@@ -4954,6 +4954,31 @@ function verPaciente(pacienteId) {
     if (paciente.telefono) subtitulo += subtitulo ? ` • ${paciente.telefono}` : paciente.telefono;
     document.getElementById('verPacienteSubtitulo').textContent = subtitulo;
 
+    // ── Cobrar pill en header ────────────────────────────
+    const _balHeader = calcularBalancePaciente(paciente.nombre);
+    const _canCobrarH = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+    const _factPendH = appData.facturas.find(f =>
+        (f.pacienteId === paciente.id || f.paciente === paciente.nombre) &&
+        f.estado !== 'pagada' && f.estado !== 'cancelada'
+    );
+    let _cobrarPill = document.getElementById('headerCobrarPill');
+    if (!_cobrarPill) {
+        _cobrarPill = document.createElement('button');
+        _cobrarPill.id = 'headerCobrarPill';
+        _cobrarPill.style.cssText = 'padding:7px 14px;background:rgba(255,193,7,0.25);border:1.5px solid rgba(255,193,7,0.6);color:white;border-radius:100px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:none;align-items:center;gap:5px;white-space:nowrap;transition:background .15s;';
+        _cobrarPill.onmouseover = function(){ this.style.background='rgba(255,193,7,0.4)'; };
+        _cobrarPill.onmouseout  = function(){ this.style.background='rgba(255,193,7,0.25)'; };
+        const _refBtn = document.querySelector('#modalVerPaciente .modal-header [onclick="abrirQuickProc()"]');
+        if (_refBtn) _refBtn.parentNode.insertBefore(_cobrarPill, _refBtn);
+    }
+    if (_balHeader > 0 && _canCobrarH && _factPendH) {
+        _cobrarPill.textContent = '💳 ' + formatCurrency(_balHeader);
+        _cobrarPill.onclick = () => openPagarFactura(_factPendH.id);
+        _cobrarPill.style.display = 'flex';
+    } else {
+        _cobrarPill.style.display = 'none';
+    }
+
     // Solo ocultar/mostrar Balance por rol — renderizado lazy al cambiar tab
     // Ocultar tab Balance para profesionales (solo admin y recepción pueden cobrar)
     const tabBalanceBtn = document.getElementById('tabBalanceBtn');
@@ -14086,4 +14111,261 @@ function _togglePacienteMenu() {
             document.addEventListener('click', _closePacMenu);
         }, 50);
     }
+}
+
+// ════════════════════════════════════════════════════════════
+// SPOTLIGHT SEARCH — búsqueda global instantánea
+// ════════════════════════════════════════════════════════════
+let _spotActiveIdx = -1;
+
+function abrirSpotlight() {
+    const ov = document.getElementById('spotlightOverlay');
+    if (!ov) return;
+    ov.style.display = 'flex';
+    const inp = document.getElementById('spotlightInput');
+    if (inp) { inp.value = ''; inp.focus(); }
+    document.getElementById('spotlightResults').innerHTML =
+        '<div style="text-align:center;padding:28px;color:var(--piedra);font-size:13px;">Escribe para buscar…</div>';
+    _spotActiveIdx = -1;
+}
+
+function cerrarSpotlight() {
+    const ov = document.getElementById('spotlightOverlay');
+    if (ov) ov.style.display = 'none';
+}
+
+// Ctrl+K / Cmd+K shortcut
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); abrirSpotlight(); }
+    if (e.key === 'Escape') cerrarSpotlight();
+});
+
+function _spotlightSearch() {
+    const q = (document.getElementById('spotlightInput')?.value || '').trim().toLowerCase();
+    const el = document.getElementById('spotlightResults');
+    if (!el) return;
+    _spotActiveIdx = -1;
+
+    if (q.length < 1) {
+        el.innerHTML = '<div style="text-align:center;padding:28px;color:var(--piedra);font-size:13px;">Escribe para buscar…</div>';
+        return;
+    }
+
+    const results = [];
+
+    // ── Pacientes ──────────────────────────────────────────
+    const pacs = appData.pacientes
+        .filter(p => (p.nombre||'').toLowerCase().includes(q) || (p.telefono||'').includes(q) || (p.cedula||'').includes(q))
+        .slice(0, 5);
+    pacs.forEach(p => {
+        const bal = calcularBalancePaciente(p.nombre);
+        results.push({
+            group: 'Pacientes', icon: '👤',
+            title: p.nombre,
+            sub: [p.telefono, p.cedula, bal > 0 ? `💰 ${formatCurrency(bal)}` : ''].filter(Boolean).join(' · '),
+            action: `cerrarSpotlight();verPaciente('${p.id}')`
+        });
+    });
+
+    // ── Citas ──────────────────────────────────────────────
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const citas = appData.citas
+        .filter(c => {
+            const match = (c.paciente||'').toLowerCase().includes(q) || (c.profesional||'').toLowerCase().includes(q) || (c.motivo||'').toLowerCase().includes(q);
+            const futura = new Date(c.fecha) >= hoy;
+            return match && futura && c.estado !== 'Cancelada';
+        })
+        .sort((a,b) => new Date(a.fecha) - new Date(b.fecha))
+        .slice(0, 4);
+    citas.forEach(c => {
+        results.push({
+            group: 'Citas', icon: '📅',
+            title: c.paciente,
+            sub: `${c.hora} · ${formatDate(c.fecha)} · ${c.profesional}`,
+            action: `cerrarSpotlight();verDetalleCita('${c.id}')`
+        });
+    });
+
+    // ── Facturas ───────────────────────────────────────────
+    const facts = appData.facturas
+        .filter(f => ((f.paciente||'').toLowerCase().includes(q) || (f.numero||'').toLowerCase().includes(q)) && f.estado !== 'cancelada')
+        .sort((a,b) => new Date(b.fecha) - new Date(a.fecha))
+        .slice(0, 3);
+    facts.forEach(f => {
+        results.push({
+            group: 'Facturas', icon: '🧾',
+            title: `${f.paciente} — ${formatCurrency(f.total)}`,
+            sub: `${f.numero||''} · ${formatDate(f.fecha)} · ${f.estado||'pendiente'}`,
+            action: `cerrarSpotlight();verPaciente('${f.pacienteId||''}')`
+        });
+    });
+
+    if (results.length === 0) {
+        el.innerHTML = `<div style="text-align:center;padding:28px;color:var(--piedra);font-size:13px;">Sin resultados para "<strong>${q}</strong>"</div>`;
+        return;
+    }
+
+    // Render grouped
+    let html = '';
+    let lastGroup = '';
+    results.forEach((r, i) => {
+        if (r.group !== lastGroup) {
+            html += `<div class="spot-group">${r.group}</div>`;
+            lastGroup = r.group;
+        }
+        html += `<div class="spot-item" data-idx="${i}" onclick="${r.action}" onmouseenter="_spotHover(${i})">
+            <span class="spot-icon">${r.icon}</span>
+            <div class="spot-body">
+                <div class="spot-title">${r.title}</div>
+                ${r.sub ? `<div class="spot-sub">${r.sub}</div>` : ''}
+            </div>
+        </div>`;
+    });
+    el.innerHTML = html;
+    window._spotResults = results;
+}
+
+function _spotHover(idx) {
+    _spotActiveIdx = idx;
+    document.querySelectorAll('#spotlightResults .spot-item').forEach((el,i) => {
+        el.classList.toggle('active', i === idx);
+    });
+}
+
+function _spotlightKey(e) {
+    const items = document.querySelectorAll('#spotlightResults .spot-item');
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _spotActiveIdx = Math.min(_spotActiveIdx + 1, items.length - 1);
+        items.forEach((el,i) => el.classList.toggle('active', i === _spotActiveIdx));
+        items[_spotActiveIdx]?.scrollIntoView({block:'nearest'});
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _spotActiveIdx = Math.max(_spotActiveIdx - 1, 0);
+        items.forEach((el,i) => el.classList.toggle('active', i === _spotActiveIdx));
+        items[_spotActiveIdx]?.scrollIntoView({block:'nearest'});
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const active = document.querySelector('#spotlightResults .spot-item.active');
+        if (active) active.click();
+        else if (items.length > 0) items[0].click();
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+// QUICK-ADD PROCEDIMIENTO desde la ficha del paciente
+// ════════════════════════════════════════════════════════════
+function abrirQuickProc() {
+    if (!currentPacienteId) return;
+    const inp = document.getElementById('quickProcNombre');
+    const precio = document.getElementById('quickProcPrecio');
+    const diente = document.getElementById('quickProcDiente');
+    if (inp) inp.value = '';
+    if (precio) precio.value = '';
+    if (diente) diente.value = '';
+    const sug = document.getElementById('quickProcSuggestions');
+    if (sug) { sug.style.display = 'none'; sug.innerHTML = ''; }
+    openModal('modalQuickProc');
+    setTimeout(() => document.getElementById('quickProcNombre')?.focus(), 100);
+}
+
+function _quickProcSearch() {
+    const q = (document.getElementById('quickProcNombre')?.value || '').toLowerCase().trim();
+    const sug = document.getElementById('quickProcSuggestions');
+    if (!sug) return;
+
+    // Get catalog items
+    const items = (clinicConfig.procItems || []);
+    if (!q || items.length === 0) { sug.style.display = 'none'; return; }
+
+    const matches = items.filter(it => (it.nombre||it).toLowerCase().includes(q)).slice(0, 8);
+    if (matches.length === 0) { sug.style.display = 'none'; return; }
+
+    sug.innerHTML = matches.map(it => {
+        const nombre = it.nombre || it;
+        const precio = it.precio ? formatCurrency(it.precio) : '';
+        return `<div onclick="_quickProcSelect('${nombre.replace(/'/g,"\\'")}',${it.precio||0})"
+            style="padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+                   border-bottom:1px solid rgba(30,28,26,0.05);"
+            onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='white'">
+            <span style="font-size:13px;color:var(--topo);">${nombre}</span>
+            ${precio ? `<span style="font-size:12px;color:var(--piedra);font-weight:500;">${precio}</span>` : ''}
+        </div>`;
+    }).join('');
+    sug.style.display = 'block';
+}
+
+function _quickProcSelect(nombre, precio) {
+    const inp = document.getElementById('quickProcNombre');
+    const pEl = document.getElementById('quickProcPrecio');
+    if (inp) inp.value = nombre;
+    if (pEl && precio > 0) pEl.value = precio;
+    const sug = document.getElementById('quickProcSuggestions');
+    if (sug) sug.style.display = 'none';
+    document.getElementById('quickProcPrecio')?.focus();
+}
+
+async function _quickProcConfirm() {
+    const nombre = (document.getElementById('quickProcNombre')?.value || '').trim();
+    const precio = parseFloat(document.getElementById('quickProcPrecio')?.value) || 0;
+    const diente = (document.getElementById('quickProcDiente')?.value || '').trim();
+
+    if (!nombre) { showToast('⚠️ Escribe el nombre del procedimiento'); return; }
+    if (precio <= 0) { showToast('⚠️ El precio debe ser mayor a cero'); return; }
+
+    const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+    if (!paciente) { showToast('⚠️ Paciente no encontrado'); return; }
+
+    // Buscar factura abierta (pendiente) del paciente
+    let factura = appData.facturas.find(f =>
+        (f.pacienteId === currentPacienteId || f.paciente === paciente.nombre) &&
+        f.estado !== 'pagada' && f.estado !== 'cancelada'
+    );
+
+    const proc = {
+        id: generateId('PROC-'),
+        nombre: nombre + (diente ? ` (${diente})` : ''),
+        precio,
+        diente: diente || null
+    };
+
+    if (factura) {
+        // Agregar a factura existente
+        factura.procedimientos = factura.procedimientos || [];
+        factura.procedimientos.push(proc);
+        factura.total = (factura.total || 0) + precio;
+        showToast(`✓ "${nombre}" añadido a factura existente`);
+    } else {
+        // Crear factura nueva
+        const prof = appData.currentRole === 'professional'
+            ? appData.currentUser
+            : (appData.personal.find(p => !p.isAdmin && p.tipo !== 'empleado')?.nombre || appData.currentUser);
+        factura = {
+            id: generateId('FAC-'),
+            numero: `F-${Date.now().toString().slice(-6)}`,
+            paciente: paciente.nombre,
+            pacienteId: paciente.id,
+            profesional: prof,
+            creadoPor: appData.currentUser,
+            procedimientos: [proc],
+            ordenesLab: [],
+            pagos: [],
+            total: precio,
+            estado: 'pendiente',
+            fecha: new Date().toISOString()
+        };
+        appData.facturas.push(factura);
+        showToast(`✓ Factura creada con "${nombre}"`);
+    }
+
+    closeModal('modalQuickProc');
+
+    // Refresh ficha
+    const pac = appData.pacientes.find(p => p.id === currentPacienteId);
+    if (pac) {
+        renderTabHistorial(pac);
+        renderTabResumen(pac);
+    }
+
+    try { await saveFacturas(); } catch(e) { showToast('⚠️ Error al guardar', 3000); }
 }
