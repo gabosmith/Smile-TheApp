@@ -2335,7 +2335,7 @@ function enviarCotizacion(facturaId) {
         .join('\n');
 
     const mensaje =
-`¡Hola! Te escribimos de *${clinica}* 🦷
+`🦷 *${clinica}*
 ━━━━━━━━━━━━━━━━━━━
 📋 *Cotización #${factura.numero}*
 📅 Fecha: ${fecha}
@@ -4945,11 +4945,11 @@ function contactarPaciente(pacienteId, tipo) {
     const clinica = clinicConfig.nombre || 'la clínica';
     let mensaje = '';
     if (tipo === 'saludo') {
-        mensaje = `¡Hola! Te escribimos de *${clinica}*. Hola ${paciente.nombre}, ¿en qué podemos ayudarte?`;
+        mensaje = `Hola ${paciente.nombre}, le contactamos desde ${clinica}. ¿En qué podemos ayudarle?`;
     } else if (tipo === 'recordatorio') {
-        mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, te recordamos que tienes una cita próxima. Por favor confirma tu asistencia.`;
+        mensaje = `Hola ${paciente.nombre}, le recordamos que tiene una cita próxima en ${clinica}. Por favor confirme su asistencia.`;
     } else {
-        mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, nos ponemos en contacto contigo.`;
+        mensaje = `Hola ${paciente.nombre}, le contactamos desde ${clinica}.`;
     }
 
     const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`;
@@ -4958,6 +4958,7 @@ function contactarPaciente(pacienteId, tipo) {
 
 function verPaciente(pacienteId) {
     currentPacienteId = pacienteId;
+    window.currentPacienteId = pacienteId; // sync para botones HTML
     const paciente = appData.pacientes.find(p => p.id === pacienteId);
     if (!paciente) return;
 
@@ -7943,7 +7944,7 @@ function avisarPacienteLab(ordenId) {
     }
 
     const mensaje =
-`¡Hola! Te escribimos de *${clinica}* 🦷
+`🦷 *${clinica}*
 ━━━━━━━━━━━━━━━━━━
 📋 *Actualización de Laboratorio*
 

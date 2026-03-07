@@ -2661,7 +2661,7 @@
     <div id="modalEditPersonal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Editar Personal</div><button class="close-modal" onclick="closeModal('modalEditPersonal')">×</button></div>
-            <div class="form-group"><label>Nombre</label><input type="text" id="editNombre"></div>
+            <div class="form-group"><label>Nombre</label><input type="text" id="editNombre" autocapitalize="words" oninput="_capitalizeName(this)" onblur="_capitalizeName(this)"></div>
 
             <!-- Remuneración — profesionales -->
             <div class="form-group hidden" id="editTipoRemuneracionGroup">
@@ -2882,7 +2882,7 @@
             <div class="form-group"><label>Dirección</label><input type="text" id="nuevoPacienteDireccion"></div>
             <div class="form-group"><label>Alergias</label><textarea id="nuevoPacienteAlergias" rows="2"></textarea></div>
             <div class="form-group"><label>Seguro Médico</label><input type="text" id="nuevoPacienteSeguro"></div>
-            <div class="form-group"><label>Contacto de Emergencia</label><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;"><input type="text" id="nuevoPacienteEmergenciaNombre" placeholder="Nombre"><input type="tel" id="nuevoPacienteEmergenciaTelefono" placeholder="Teléfono"></div></div>
+            <div class="form-group"><label>Contacto de Emergencia</label><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;"><input type="text" id="nuevoPacienteEmergenciaNombre" placeholder="Nombre" autocapitalize="words" oninput="_capitalizeName(this)" onblur="_capitalizeName(this)"><input type="tel" id="nuevoPacienteEmergenciaTelefono" placeholder="Teléfono"></div></div>
             <div class="form-group"><label>Condiciones médicas</label><textarea id="nuevoPacienteCondiciones"></textarea></div>
             <div style="margin-top: 30px; padding: 20px; background: var(--sand); border-radius: 8px; border: 2px solid var(--clinic-color);">
                 <h3 style="margin: 0 0 15px 0; color: var(--clinic-color); font-size: 18px;">📋 Consentimiento Informado</h3>
@@ -2898,25 +2898,44 @@
         <div class="modal-content" style="max-width: 1100px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header" style="background: linear-gradient(135deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%); color: white; padding: 24px; border-radius: 12px 12px 0 0; position: relative; overflow: visible;">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; position:relative; z-index:1;">
-                    <div style="flex: 1;"><div id="verPacienteNombre" style="color:#ffffff !important; font-size:24px; margin-bottom:4px; font-weight:700; letter-spacing:-0.3px; line-height:1.2;"></div><div id="verPacienteSubtitulo" style="font-size: 14px; color:rgba(255,255,255,0.9);"></div></div>
+                    <div style="flex: 1;"><div class="modal-title" id="verPacienteNombre" style="color: #ffffff; font-size: 24px; margin-bottom: 4px; font-weight:700; letter-spacing:-0.3px;"></div><div id="verPacienteSubtitulo" style="font-size: 14px; color:rgba(255,255,255,0.9);"></div></div>
                     <div style="display:flex;gap:8px;align-items:center;">
                         <button id="btnContactarPaciente" onclick="contactarPaciente(currentPacienteId,'saludo')"
                             title="Contactar por WhatsApp"
                             style="background:rgba(37,211,102,0.22);border:1px solid rgba(37,211,102,0.45);
                                    color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
                                    font-size:17px;display:flex;align-items:center;justify-content:center;">💬</button>
-                        <button onclick="editarPacienteActual()" title="Editar paciente"
-                            style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
-                                   color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
-                                   font-size:16px;display:flex;align-items:center;justify-content:center;">✏️</button>
-                        <button onclick="abrirModalNuevaCita(currentPacienteId,document.getElementById('verPacienteNombre').textContent)" title="Nueva cita"
-                            style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
-                                   color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
-                                   font-size:16px;display:flex;align-items:center;justify-content:center;">📅</button>
-                        <button id="btnEliminarPaciente" onclick="eliminarPacienteActual(window.currentPacienteId)" title="Eliminar paciente"
-                            style="background:rgba(220,50,50,0.25);border:1px solid rgba(220,50,50,0.45);
-                                   color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
-                                   font-size:16px;display:none;align-items:center;justify-content:center;">🗑️</button>
+                        <div style="position:relative;">
+                            <button id="btnPacienteMenu" onclick="_togglePacienteMenu()"
+                                style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
+                                       color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
+                                       font-size:18px;display:flex;align-items:center;justify-content:center;
+                                       font-weight:700;">⋯</button>
+                            <div id="pacienteMenuDropdown"
+                                style="display:none;position:absolute;right:0;top:44px;
+                                       background:white;border-radius:12px;
+                                       box-shadow:0 8px 32px rgba(0,0,0,0.18);
+                                       min-width:160px;z-index:10010;overflow:hidden;">
+                                <button onclick="_togglePacienteMenu();editarPacienteActual()"
+                                    style="width:100%;padding:13px 16px;border:none;background:none;
+                                           text-align:left;font-size:14px;font-family:inherit;cursor:pointer;
+                                           color:#333;display:flex;align-items:center;gap:10px;"
+                                    onmouseover="this.style.background='#f5f5f5'"
+                                    onmouseout="this.style.background='none'">✏️ <span>Editar paciente</span></button>
+                                <button onclick="_togglePacienteMenu();abrirModalNuevaCita(currentPacienteId,document.getElementById('verPacienteNombre').textContent)"
+                                    style="width:100%;padding:13px 16px;border:none;background:none;
+                                           text-align:left;font-size:14px;font-family:inherit;cursor:pointer;
+                                           color:#333;display:flex;align-items:center;gap:10px;"
+                                    onmouseover="this.style.background='#f5f5f5'"
+                                    onmouseout="this.style.background='none'">📅 <span>Nueva cita</span></button>
+                                <button id="btnEliminarPaciente" onclick="_togglePacienteMenu();eliminarPacienteActual(window.currentPacienteId)"
+                                    style="width:100%;padding:13px 16px;border:none;background:none;
+                                           text-align:left;font-size:14px;font-family:inherit;cursor:pointer;
+                                           color:#c0392b;display:none;align-items:center;gap:10px;"
+                                    onmouseover="this.style.background='#fff0f0'"
+                                    onmouseout="this.style.background='none'">🗑️ <span>Eliminar paciente</span></button>
+                            </div>
+                        </div>
                         <button onclick="abrirQuickProc()"
                             title="Agregar procedimiento rápido"
                             style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
@@ -2996,7 +3015,7 @@
             <div class="form-group"><label>Alergias</label><textarea id="editPacienteAlergias" rows="2"></textarea></div>
             <div class="form-group"><label>Condiciones Médicas</label><textarea id="editPacienteCondiciones" rows="2"></textarea></div>
             <div class="form-group"><label>Seguro Médico</label><input type="text" id="editPacienteSeguro"></div>
-            <div style="background: var(--sand); padding: 15px; border-radius: 8px; margin-top: 15px;"><h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--clinic-color);">Contacto de Emergencia</h4><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group" style="margin: 0;"><label>Nombre</label><input type="text" id="editPacienteContactoNombre"></div><div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="tel" id="editPacienteContactoTel"></div></div></div>
+            <div style="background: var(--sand); padding: 15px; border-radius: 8px; margin-top: 15px;"><h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--clinic-color);">Contacto de Emergencia</h4><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group" style="margin: 0;"><label>Nombre</label><input type="text" id="editPacienteContactoNombre" autocapitalize="words" oninput="_capitalizeName(this)" onblur="_capitalizeName(this)"></div><div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="tel" id="editPacienteContactoTel"></div></div></div>
             <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('modalEditarPaciente');if(currentPacienteId)verPaciente(currentPacienteId)">Cancelar</button><button class="btn btn-submit" onclick="withGuard(this, guardarEdicionPaciente)">💾 Guardar Cambios</button></div>
         </div>
     </div>
