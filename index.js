@@ -20,7 +20,7 @@ const PRICES = {
   usuario_adicional: 'price_1T6ADcLHxsBx9pJ7OzEjuP3f',
 };
 
-const APP_URL_FALLBACK = 'https://smile-dentalapp.vercel.app';
+const APP_URL_FALLBACK = 'https://smiledental.app';
 
 function getClinicSettingsRef(clinicId) {
   return db().collection('clinicas').doc(clinicId).collection('config').doc('settings');
