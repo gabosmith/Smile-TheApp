@@ -13631,11 +13631,9 @@ function _renderSwitcherSedes() {
         cursor:pointer;transition:background 0.15s;flex-shrink:0;
         position:relative;
     `;
-    switcher.innerHTML = `
-        <span style="font-size:14px">🏢</span>
-        <span style="font-size:12px;color:rgba(255,255,255,0.9);font-weight:300;letter-spacing:0.3px;white-space:nowrap">${actual.nombreSede}</span>
-        <span style="font-size:10px;color:rgba(255,255,255,0.6);margin-left:2px">▾</span>
-    `;
+    switcher.innerHTML = '<span style="font-size:14px">🏢</span>' +
+        '<span style="font-size:12px;color:rgba(255,255,255,0.9);font-weight:300;letter-spacing:0.3px;white-space:nowrap">' + actual.nombreSede + '</span>' +
+        '<span style="font-size:10px;color:rgba(255,255,255,0.6);margin-left:2px">▾</span>';
     switcher.onclick = _toggleDropdownSedes;
     switcher.onmouseover = () => switcher.style.background = 'rgba(255,255,255,0.18)';
     switcher.onmouseout  = () => { if (!document.getElementById('sedesDropdown')) switcher.style.background = 'rgba(255,255,255,0.12)'; };
