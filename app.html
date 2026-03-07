@@ -395,12 +395,10 @@
         display: flex; justify-content: space-between; align-items: center;
         position: sticky; top: 0; z-index: 100;
     }
-    #appTitle {
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: .2px;
-        color: var(--clinic-color, #C4856A);
-        opacity: 1;
+    .app-header h1 {
+        font-size: 9px; font-weight: 600;
+        letter-spacing: 5px; text-transform: uppercase;
+        color: var(--topo); opacity: .55;
     }
 
     .logout-btn {
@@ -1625,20 +1623,24 @@
         </div>
         <p style="font-size:14px;color:var(--piedra);text-align:center;
                   margin-bottom:36px;line-height:1.65;max-width:320px;">
-            Escribe el ID de tu clínica.<br>
-            Lo encontrarás en el email de bienvenida o en el enlace que usas normalmente.
+            Escribe el nombre de tu clínica o el ID que usas para entrar.<br>
+            <span style="font-size:12px;">Ejemplo: <em>Clínica Dental Dra. García</em> o <em>dr-garcia</em></span>
         </p>
 
         <div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;">
-            <input id="clinicIdInput" type="text" placeholder="ID de clínica (ej: dr-garcia)"
-                   autocomplete="off" autocorrect="off" autocapitalize="none"
+            <input id="clinicIdInput" type="text" placeholder="Nombre de tu clínica o ID"
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                    onkeydown="if(event.key==='Enter')accederPorId()"
+                   oninput="_clinicIdLiveFormat(this)"
                    style="width:100%;padding:16px 20px;border:none;border-radius:14px;
                           font-size:15px;font-family:inherit;font-weight:300;
                           background:var(--sand);color:var(--topo);
                           box-shadow:var(--neu-inset);outline:none;"
                    onfocus="this.style.boxShadow='var(--neu-inset-lg),0 0 0 2px rgba(125,142,160,.18)'"
                    onblur="this.style.boxShadow='var(--neu-inset)'">
+                <div id="clinicIdPreview" style="display:none;font-size:11px;color:var(--piedra);
+                     margin-top:6px;padding:6px 14px;background:var(--white);border-radius:8px;
+                     font-family:monospace;letter-spacing:.3px;"></div>
 
             <div id="clinicAccessErr" style="display:none;font-size:13px;color:#c0392b;
                  background:rgba(192,57,43,.07);border-radius:10px;
@@ -1672,11 +1674,7 @@
         <div class="app-header">
             <div id="appBrand" style="display:flex;align-items:center;gap:10px;min-width:0;">
                 <img id="appHeaderLogo" src="" alt="" style="height:28px;width:auto;object-fit:contain;display:none;filter:brightness(0) invert(1);opacity:0.92;flex-shrink:0;">
-                <div id="appTitle"
-    style="font-size:11px;font-weight:700;letter-spacing:.3px;
-           color:var(--clinic-color,#C4856A);
-           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-           max-width:180px;">Clínica</div>
+                <h1 id="appTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Clínica</h1>
             </div>
 
             <div style="flex: 1; max-width: 500px; margin: 0 30px; position: relative;">
@@ -2429,7 +2427,7 @@
             <!-- Diente (FDI number) -->
             <div class="form-group">
                 <label>Diente <span style="font-size:11px;color:var(--piedra);font-weight:300;">(Opcional — ej: 16, 21, 36)</span></label>
-                <input type="text" id="procDiente" placeholder="Nº diente FDI"
+                <input type="text" id="procDiente" placeholder="Nº FDI (ej: 16, 21, 36)" oninput="_procDienteAutoCount(this,'procCant')"
                     style="width:100%;padding:11px 14px;border:none;border-radius:12px;
                            font-family:inherit;font-size:14px;background:var(--sand);
                            color:var(--topo);box-shadow:var(--neu-inset);"
@@ -2438,7 +2436,7 @@
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div class="form-group" style="margin:0">
-                    <label>Cantidad</label>
+                    <label>Cantidad <span id="procCantHint" style="font-size:10px;color:var(--piedra);font-weight:300;"></span></label>
                     <input type="number" id="procCant" value="1" min="1">
                 </div>
                 <div class="form-group" style="margin:0">
@@ -2576,7 +2574,7 @@
     <div id="modalAddPersonal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Agregar Personal</div><button class="close-modal" onclick="closeModal('modalAddPersonal')">×</button></div>
-            <div class="form-group"><label>Nombre</label><input type="text" id="personalNombre" autocapitalize="words" oninput="_capitalizeName(this)" onblur="_capitalizeName(this)"></div>
+            <div class="form-group"><label>Nombre</label><input type="text" id="personalNombre" autocapitalize="words"></div>
             <div class="form-group"><label>Tipo</label><select id="personalTipo" onchange="toggleSueldo()">
                 <option value="regular">Odontólogo Regular</option>
                 <option value="especialista">Especialista</option>
@@ -2773,7 +2771,7 @@
 
                 <div class="form-group">
                     <label>Diente <span style="font-size:11px;color:var(--piedra,#9C9189);font-weight:300;">(Opcional — ej: 16, 21, 36 — actualiza el odontograma)</span></label>
-                    <input type="text" id="cotizProcDiente" placeholder="Nº FDI"
+                    <input type="text" id="cotizProcDiente" oninput="_procDienteAutoCount(this,'cotizProcCant')" placeholder="Nº FDI"
                         style="width:100%;padding:11px 14px;border:none;border-radius:12px;
                                font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
                                color:var(--topo,#6B635C);box-shadow:var(--neu-inset);"

@@ -1237,17 +1237,36 @@ function mostrarPantallaAcceso() {
     if (overlay) overlay.style.display = 'flex';
 }
 
+async 
+// ── Clinic ID live formatter ──────────────────────────────────
+function _clinicIdToSlug(val) {
+    return val.toLowerCase()
+        .replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e')
+        .replace(/[íìïî]/g,'i').replace(/[óòöô]/g,'o')
+        .replace(/[úùüû]/g,'u').replace(/ñ/g,'n')
+        .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+function _clinicIdLiveFormat(input) {
+    const raw  = input.value;
+    const slug = _clinicIdToSlug(raw);
+    const prev = document.getElementById('clinicIdPreview');
+    if (prev) {
+        if (slug && slug !== raw.toLowerCase()) {
+            prev.style.display = 'block';
+            prev.textContent   = 'ID: ' + slug;
+        } else {
+            prev.style.display = 'none';
+        }
+    }
+}
+
 async function accederPorId() {
     const idInput = document.getElementById('clinicIdInput');
     const passInput = document.getElementById('clinicAccessPass');
     const errEl = document.getElementById('clinicAccessErr');
     const btn = document.getElementById('clinicAccessBtn');
 
-    const clinicId = (idInput.value || '').toLowerCase()
-        .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
-        .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
-        .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
-        .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-|-$/g,'');
+    const clinicId = _clinicIdToSlug(idInput.value || '');
     const password = passInput.value.trim();
 
     if (!clinicId) { errEl.textContent = 'Escribe el ID de tu clínica.'; errEl.style.display='block'; return; }
@@ -1881,6 +1900,35 @@ function openAddProcedimiento() {
     document.getElementById('procCant').value = '1';
     document.getElementById('procPrecio').value = '';
     openModal('modalAddProcedimiento');
+}
+
+
+// ── Procedure diente → cantidad auto-fill ────────────────────
+function _procDienteAutoCount(dienteInput, cantId) {
+    const val  = (dienteInput.value || '').trim();
+    const cantEl = document.getElementById(cantId);
+    const hintEl = cantId === 'procCant'
+        ? document.getElementById('procCantHint') : null;
+    if (!cantEl) return;
+    if (!val) {
+        cantEl.readOnly = false;
+        cantEl.style.opacity = '1';
+        if (hintEl) hintEl.textContent = '';
+        return;
+    }
+    // Count comma-separated or space-separated dientes
+    const dientes = val.split(/[,\s]+/).filter(d => d.trim().length > 0);
+    const n = dientes.length;
+    if (n > 1) {
+        cantEl.value    = n;
+        cantEl.readOnly = true;
+        cantEl.style.opacity = '.65';
+        if (hintEl) hintEl.textContent = `(auto · ${n} dientes)`;
+    } else {
+        cantEl.readOnly = false;
+        cantEl.style.opacity = '1';
+        if (hintEl) hintEl.textContent = '';
+    }
 }
 
 function agregarProcedimiento() {
@@ -3124,7 +3172,7 @@ function toggleEditTipoRemuneracion() {
 }
 
 async function agregarPersonal() {
-    const nombre    = _toTitleCase(sanitize.str(document.getElementById('personalNombre')?.value, 120));
+    const nombre    = sanitize.str(document.getElementById('personalNombre')?.value, 120);
     const tipo      = document.getElementById('personalTipo')?.value || 'regular';
 
     // Fix 7: Validate duplicate name
