@@ -2335,6 +2335,13 @@ function openPagarFactura(facturaId) {
 
     selectTipoPago('total');
 
+    // Reset discount
+    const _ds = document.getElementById('pagoDescuentoSlider');
+    const _dl = document.getElementById('pagoDescuentoLabel');
+    if (_ds) _ds.value = 0;
+    if (_dl) _dl.textContent = '0%';
+    if (currentFacturaToPay) currentFacturaToPay._descuentoPendiente = 0;
+
     openModal('modalPagarFactura');
 }
 
@@ -2360,6 +2367,35 @@ document.getElementById('comprobanteFile').addEventListener('change', function(e
     }
 });
 
+async 
+// ═══════════════════════════════════════════════════════════════
+// DESCUENTO EN PAGO — slider y botones rápidos en modalPagarFactura
+// ═══════════════════════════════════════════════════════════════
+
+function actualizarDescuentoPago(pct) {
+    pct = parseInt(pct) || 0;
+    const label   = document.getElementById('pagoDescuentoLabel');
+    const balEl   = document.getElementById('pagoBalance');
+    const montoEl = document.getElementById('pagoMonto');
+
+    if (label) label.textContent = pct + '%';
+    if (!currentFacturaToPay) return;
+
+    const totalPagado  = (currentFacturaToPay.pagos || []).reduce((s,p) => s + p.monto, 0);
+    const totalConDesc  = currentFacturaToPay.total * (1 - pct / 100);
+    const balance       = Math.max(0, totalConDesc - totalPagado);
+
+    if (balEl)   balEl.textContent = formatCurrency(balance);
+    if (montoEl) montoEl.value     = balance.toFixed(2);
+
+    currentFacturaToPay._descuentoPendiente = pct;
+}
+
+function fijarDescuentoPago(pct) {
+    const slider = document.getElementById('pagoDescuentoSlider');
+    if (slider) { slider.value = pct; actualizarDescuentoPago(pct); }
+}
+
 async function confirmarPago() {
     const monto  = sanitize.num(document.getElementById('pagoMonto')?.value, 0);
     const metodo = sanitize.str(document.getElementById('pagoMetodo')?.value, 50);
@@ -2369,6 +2405,14 @@ async function confirmarPago() {
     }
 
     const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
+    // Apply pending discount from slider
+    const _descPct = currentFacturaToPay._descuentoPendiente || 0;
+    if (_descPct > 0) {
+        const descuento = currentFacturaToPay.total * _descPct / 100;
+        currentFacturaToPay.total     = Math.round((currentFacturaToPay.total - descuento) * 100) / 100;
+        currentFacturaToPay.descuento = _descPct;
+        currentFacturaToPay._descuentoPendiente = 0;
+    }
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
 
     if (monto > balancePendiente + 0.01) {
