@@ -1390,7 +1390,15 @@
         from { transform: rotate(0deg); }
         to   { transform: rotate(360deg); }
     }
-    </style>
+    
+        /* ── Agenda Timeline ─────────────────────────────── */
+        #tab-agenda .week-nav { display: none; } /* hide old nav — now uses cambiarFechaAgenda */
+        #agendaDiasSelector::-webkit-scrollbar { display: none; }
+        #agendaDiasSelector { scrollbar-width: none; -ms-overflow-style: none; }
+        #calendarioAgenda { user-select: none; }
+        #calendarioAgenda [data-cita-id]:active { opacity: .7 !important; }
+
+        </style>
     <script>
         // Stub: registerActivity puede dispararse en body events ANTES de que app.js cargue.
         // app.js redefine esta función con la lógica real una vez que carga.
@@ -1726,52 +1734,73 @@
             </div>
 
             <!-- Agenda Tab -->
-            <div id="tab-agenda" class="tab-content">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                    <div class="section-title" style="margin-bottom:4px">Agenda</div>
-                    <div class="section-sub">Citas y calendario semanal</div>
-                    <button class="btn btn-add" style="width:auto;padding:10px 20px;margin-bottom:0" onclick="abrirModalNuevaCita()">+ Nueva Cita</button>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <button class="btn btn-secondary" onclick="exportarCitasExcel()" style="font-size: 13px; padding: 8px 16px;">📥 Exportar Excel</button>
+            <div id="tab-agenda" class="tab-content" style="padding-bottom:80px;">
+
+                <!-- ── Header Agenda ───────────────────────────── -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+                    <div>
+                        <div class="section-title" style="margin-bottom:0">Agenda</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <!-- Toggle vista -->
+                        <div style="display:flex;background:var(--surface,#F5F2EE);border-radius:100px;padding:3px;gap:2px;box-shadow:var(--neu-inset);">
+                            <button id="btnVistaDia" onclick="setAgendaVista('dia')"
+                                style="padding:7px 16px;border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;transition:all .15s;background:var(--clinic-color,#C4856A);color:white;">
+                                Día
+                            </button>
+                            <button id="btnVistaSemana" onclick="setAgendaVista('semana')"
+                                style="padding:7px 16px;border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;transition:all .15s;background:transparent;color:var(--piedra);">
+                                Semana
+                            </button>
+                        </div>
+                        <!-- Filtro profesional -->
+                        <select id="filtroProfesionalCita" onchange="updateAgendaTab()"
+                            style="padding:8px 12px;border:1.5px solid rgba(30,28,26,0.1);border-radius:100px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--topo);min-width:130px;">
+                            <option value="todos">Todos</option>
+                        </select>
+                        <!-- Exportar -->
+                        <button onclick="exportarCitasExcel()"
+                            style="padding:8px 14px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.1);border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;color:var(--piedra);">
+                            📥
+                        </button>
                         <div id="agendaToggle"></div>
                     </div>
                 </div>
 
-                <div class="filter-card" style="margin-bottom: 16px;">
-                    <div class="filter-label">Filtros</div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
-                        <div class="form-group" style="margin: 0;">
-                            <label style="font-size: 13px;">Estado:</label>
-                            <select id="filtroEstadoCita" onchange="updateAgendaTab()">
-                                <option value="todos">Todos</option>
-                                <option value="Pendiente">Pendiente</option>
-                                <option value="Confirmada">Confirmada</option>
-                                <option value="En Sala de Espera">En Sala de Espera</option>
-                                <option value="Completada">Completada</option>
-                                <option value="Cancelada">Cancelada</option>
-                                <option value="Inasistencia">Inasistencia</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label style="font-size: 13px;">Profesional:</label>
-                            <select id="filtroProfesionalCita" onchange="updateAgendaTab()">
-                                <option value="todos">Todos</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label style="font-size: 13px;">Paciente:</label>
-                            <input type="text" id="filtroPacienteCita" placeholder="Buscar..." oninput="updateAgendaTab()">
-                        </div>
+                <!-- ── Navegación de fecha ─────────────────────── -->
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;background:var(--surface,#F5F2EE);border-radius:14px;padding:10px 14px;box-shadow:var(--neu-flat);">
+                    <button onclick="cambiarFechaAgenda(-1)"
+                        style="width:34px;height:34px;border:none;background:var(--white,white);border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:var(--neu-raised);color:var(--topo);">
+                        ←
+                    </button>
+                    <div style="text-align:center;flex:1;">
+                        <div id="agendaFechaTitulo" style="font-size:15px;font-weight:500;color:var(--topo);letter-spacing:-0.3px;"></div>
+                        <div id="agendaSemanaTexto" style="font-size:11px;color:var(--piedra);margin-top:1px;"></div>
                     </div>
+                    <button onclick="cambiarFechaAgenda(1)"
+                        style="width:34px;height:34px;border:none;background:var(--white,white);border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:var(--neu-raised);color:var(--topo);">
+                        →
+                    </button>
                 </div>
 
-                <div class="week-nav">
-                    <button class="week-nav-btn" onclick="cambiarSemana(-1)">←</button>
-                    <h2 id="agendaSemanaTexto" style="margin: 0; min-width: 200px; text-align: center; font-size: 15px; font-weight: 300; color: var(--topo);">Semana</h2>
-                    <button class="week-nav-btn" onclick="cambiarSemana(1)">→</button>
-                </div>
+                <!-- ── Selectores de día (vista semana) ───────── -->
+                <div id="agendaDiasSelector" style="display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;"></div>
 
-                <div id="calendarioAgenda" class="card"></div>
+                <!-- ── Canvas principal ───────────────────────── -->
+                <div id="calendarioAgenda" style="position:relative;"></div>
+
+                <!-- ── FAB Nueva Cita ─────────────────────────── -->
+                <button onclick="abrirModalNuevaCita()"
+                    style="position:fixed;bottom:80px;right:20px;width:52px;height:52px;
+                           background:var(--clinic-color,#C4856A);color:white;border:none;
+                           border-radius:50%;font-size:24px;cursor:pointer;z-index:900;
+                           box-shadow:0 4px 20px rgba(196,133,106,0.5);
+                           display:flex;align-items:center;justify-content:center;
+                           transition:transform .15s,box-shadow .15s;"
+                    onmouseover="this.style.transform='scale(1.08)';this.style.boxShadow='0 6px 24px rgba(196,133,106,0.6)'"
+                    onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 20px rgba(196,133,106,0.5)'">
+                    +
+                </button>
             </div>
 
             <!-- Factura Tab -->

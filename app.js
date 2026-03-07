@@ -6333,13 +6333,21 @@ function renderTabBalance(paciente) {
 // MÓDULO DE AGENDA - VISTA SEMANAL
 // ========================================
 
+// ─────────────────────────────────────────────────────────────
+// AGENDA STATE — vista día / semana + drag & drop
+// ─────────────────────────────────────────────────────────────
+let agendaVista = 'dia';
+let agendaFechaActual = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
 let agendaSemanaInicio = new Date();
-// Semana empieza en lunes (estándar en RD y Latinoamérica)
-const _hoy = new Date();
-const _diaHoy = _hoy.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
-const _offsetLunes = _diaHoy === 0 ? -6 : 1 - _diaHoy; // si es domingo, retroceder 6 días
-agendaSemanaInicio.setDate(_hoy.getDate() + _offsetLunes);
-let verAgendaPropia = false; // Toggle para ver agenda propia vs general
+{
+    const _h = new Date();
+    const _off = _h.getDay() === 0 ? -6 : 1 - _h.getDay();
+    agendaSemanaInicio.setDate(_h.getDate() + _off);
+    agendaSemanaInicio.setHours(0,0,0,0);
+}
+let verAgendaPropia = false;
+let _dragCitaId = null;
+let _dragOrigHora = null;
 
 function cambiarSemana(delta) {
     agendaSemanaInicio.setDate(agendaSemanaInicio.getDate() + (delta * 7));
@@ -6351,100 +6359,438 @@ function toggleAgenda() {
     updateAgendaTab();
 }
 
+function setAgendaVista(v) {
+    agendaVista = v;
+    const btnDia    = document.getElementById('btnVistaDia');
+    const btnSemana = document.getElementById('btnVistaSemana');
+    if (btnDia && btnSemana) {
+        if (v === 'dia') {
+            btnDia.style.background    = 'var(--clinic-color,#C4856A)';
+            btnDia.style.color         = 'white';
+            btnSemana.style.background = 'transparent';
+            btnSemana.style.color      = 'var(--piedra)';
+        } else {
+            btnSemana.style.background = 'var(--clinic-color,#C4856A)';
+            btnSemana.style.color      = 'white';
+            btnDia.style.background    = 'transparent';
+            btnDia.style.color         = 'var(--piedra)';
+        }
+    }
+    updateAgendaTab();
+}
+
+function cambiarFechaAgenda(delta) {
+    if (agendaVista === 'dia') {
+        agendaFechaActual.setDate(agendaFechaActual.getDate() + delta);
+    } else {
+        agendaSemanaInicio.setDate(agendaSemanaInicio.getDate() + (delta * 7));
+        agendaFechaActual = new Date(agendaSemanaInicio);
+    }
+    updateAgendaTab();
+}
+
 function updateAgendaTab() {
-    // Inicializar filtro de profesionales
     inicializarFiltrosProfesionales();
 
-    const inicio = new Date(agendaSemanaInicio);
-    const fin = new Date(inicio);
-    fin.setDate(fin.getDate() + 6); // Hasta sábado
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const diasNombre = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const diasNombreLargo = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const todayKey = getTodayKey();
+    const horaApertura = (appData.settings && appData.settings.horaApertura) ?? 8;
+    const horaCierre   = (appData.settings && appData.settings.horaCierre)   ?? 20;
+    const duracionMin  = (appData.settings && appData.settings.duracionCita) || 30;
 
-    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    document.getElementById('agendaSemanaTexto').textContent =
-        `${inicio.getDate()} ${meses[inicio.getMonth()]} - ${fin.getDate()} ${meses[fin.getMonth()]} ${fin.getFullYear()}`;
-
-    // Filtrar citas de la semana (EXCLUIR CANCELADAS)
-    const citasSemana = appData.citas.filter(c => {
-        const citaDate = new Date(c.fecha);
-        const enRango = citaDate >= inicio && citaDate <= fin;
-        const noCancelada = c.estado !== 'Cancelada';
-        return enRango && noCancelada;
-    });
-
-    // Filtrar por rol y toggle
+    // ── Filtrar citas por rol ──────────────────────────────
     const role = appData.currentRole;
-    let citasFiltradas = citasSemana;
-
-    if (role === 'professional') {
-        if (verAgendaPropia) {
-            citasFiltradas = citasSemana.filter(c => c.profesional === appData.currentUser);
-        }
-        // Si no, ve todas (agenda general)
+    let citasTodas = appData.citas.filter(c => c.estado !== 'Cancelada');
+    if (role === 'professional' && verAgendaPropia) {
+        citasTodas = citasTodas.filter(c => c.profesional === appData.currentUser);
     }
+    citasTodas = aplicarFiltrosCitas(citasTodas);
 
-    // Aplicar filtros adicionales
-    citasFiltradas = aplicarFiltrosCitas(citasFiltradas);
-
-    // Botón de toggle solo para profesionales
-    const toggleBtn = role === 'professional' ?
-        `<button class="btn" onclick="toggleAgenda()" style="margin-left: 10px;">${verAgendaPropia ? '👁️ Ver Agenda General' : '👤 Ver Mi Agenda'}</button>` : '';
-
+    // Toggle profesional
+    const toggleBtn = role === 'professional'
+        ? `<button onclick="toggleAgenda()" style="padding:7px 14px;border:none;background:var(--surface);border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;color:var(--topo);box-shadow:var(--neu-raised);">${verAgendaPropia ? '👁️ General' : '👤 Mi agenda'}</button>`
+        : '';
     document.getElementById('agendaToggle').innerHTML = toggleBtn;
 
-    // Renderizar vista semanal
-    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-    const colores = {1: 'var(--azul, #7B8FA1)', 2: 'var(--green, #6B8F71)', 3: 'var(--terracota, #C4856A)', 4: '#8B7BA8'};
+    if (agendaVista === 'dia') {
+        _renderVistaDia(agendaFechaActual, citasTodas, horaApertura, horaCierre, duracionMin, todayKey, meses, diasNombreLargo);
+    } else {
+        _renderVistaSemana(citasTodas, horaApertura, horaCierre, duracionMin, todayKey, meses, diasNombre);
+    }
+}
 
-    let html = '<div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">';
+// ─────────────────────────────────────────────────────────────
+// VISTA DÍA — Timeline vertical con columnas por consultorio
+// ─────────────────────────────────────────────────────────────
+function _renderVistaDia(fecha, citasTodas, horaApertura, horaCierre, durMin, todayKey, meses, diasLargo) {
+    const diaKey = `${fecha.getFullYear()}-${String(fecha.getMonth()+1).padStart(2,'0')}-${String(fecha.getDate()).padStart(2,'0')}`;
+    const esHoy  = diaKey === todayKey;
+    const nombreDia = diasLargo[fecha.getDay()];
+    const fechaStr  = `${nombreDia}, ${fecha.getDate()} ${meses[fecha.getMonth()]}`;
 
-    for (let i = 0; i < 7; i++) {
-        const dia = new Date(inicio);
-        dia.setDate(dia.getDate() + i);
+    // ── Header fecha ──────────────────────────────────────
+    const tituloEl = document.getElementById('agendaFechaTitulo');
+    if (tituloEl) tituloEl.textContent = fechaStr + (esHoy ? '  —  hoy' : '');
+    const subEl = document.getElementById('agendaSemanaTexto');
+    if (subEl) subEl.textContent = '';
 
-        // Usar isSameDayTZ para respetar la zona horaria configurada de la clínica
-        const diaKey = `${dia.getFullYear()}-${String(dia.getMonth()+1).padStart(2,'0')}-${String(dia.getDate()).padStart(2,'0')}`;
-        const citasDelDia = citasFiltradas.filter(c => isSameDayTZ(c.fecha, diaKey))
-            .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
+    // ── Días de la semana (mini selector) ─────────────────
+    const lunes = new Date(fecha);
+    const off = fecha.getDay() === 0 ? -6 : 1 - fecha.getDay();
+    lunes.setDate(lunes.getDate() + off);
+    const diasSemHTML = Array.from({length:7},(_,i) => {
+        const d = new Date(lunes); d.setDate(d.getDate()+i);
+        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const active = dk === diaKey;
+        const isT = dk === todayKey;
+        const nCitas = citasTodas.filter(c => _citaEnDia(c, dk)).length;
+        return `<button onclick="_saltoADia('${dk}')"
+            style="flex:1;min-width:44px;padding:8px 4px;border:none;border-radius:12px;cursor:pointer;font-family:inherit;
+                   transition:all .15s;text-align:center;
+                   background:${active ? 'var(--clinic-color,#C4856A)' : isT ? 'rgba(196,133,106,0.12)' : 'var(--surface,#F5F2EE)'};
+                   color:${active ? 'white' : isT ? 'var(--clinic-color,#C4856A)' : 'var(--piedra)'};
+                   box-shadow:${active ? '0 2px 10px rgba(196,133,106,0.35)' : 'none'};
+                   font-weight:${active||isT?'600':'400'};">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.6px;opacity:${active?1:.8};">${['D','L','M','X','J','V','S'][d.getDay()]}</div>
+            <div style="font-size:16px;margin:2px 0;">${d.getDate()}</div>
+            ${nCitas > 0 ? `<div style="width:5px;height:5px;border-radius:50%;background:${active?'rgba(255,255,255,.7)':'var(--clinic-color,#C4856A)'};margin:0 auto;"></div>` : '<div style="height:5px;"></div>'}
+        </button>`;
+    }).join('');
+    const selEl = document.getElementById('agendaDiasSelector');
+    if (selEl) selEl.innerHTML = diasSemHTML;
 
-        const todayKey2 = getTodayKey();
-        const esHoy = diaKey === todayKey2;
+    // ── Citas del día ─────────────────────────────────────
+    const citasDia = citasTodas.filter(c => _citaEnDia(c, diaKey))
+        .sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
 
-        html += `
-            <div style="border: 1.5px solid ${esHoy ? 'var(--clinic-color, #C4856A)' : 'rgba(30,28,26,0.08)'}; border-radius: 10px; padding: 10px; min-height: 400px; background: ${esHoy ? 'rgba(196,133,106,0.05)' : 'var(--white, white)'};">
-                <div style="text-align: center; margin-bottom: 12px;">
-                    <div style="font-size: 12px; color:var(--piedra); font-weight: 600;">${dias[i]}</div>
-                    <div style="font-size: 20px; font-weight: 700; color: ${esHoy ? 'var(--clinic-color, #C4856A)' : '#1d1d1f'};">${dia.getDate()}</div>
-                </div>
-                ${citasDelDia.map(c => {
-                    const estadoCita = c.estado || 'Pendiente';
-                    const colorEstado = getColorEstadoCita(estadoCita);
-                    const iconoEstado = getIconoEstadoCita(estadoCita);
+    // ── Cuántos consultorios hay con citas? (min 1, max 4) ─
+    const consultoriosUsados = [...new Set(citasDia.map(c => c.consultorio))].sort();
+    const nCols = Math.max(1, consultoriosUsados.length);
+    // Siempre mostramos al menos consultorio 1
+    const cols = consultoriosUsados.length ? consultoriosUsados : [1];
 
-                    // Fix 7: check balance for visual indicator
-                    const _balPac = calcularBalancePaciente(c.paciente);
-                    const _balIndicator = _balPac > 0
-                        ? `<span title="Balance pendiente: ${formatCurrency(_balPac)}" style="font-size:9px;background:rgba(255,255,255,0.25);border-radius:6px;padding:1px 4px;margin-left:3px;">💰</span>`
-                        : '';
+    const HORA_H = 56; // px por hora
+    const totalH = (horaCierre - horaApertura) * HORA_H;
+    const COL_COLORS = { 1:'#7B8FA1', 2:'#6B8F71', 3:'#C4856A', 4:'#8B7BA8' };
 
-                    return `
-                    <div onclick="verDetalleCita('${c.id}')" style="background: ${colores[c.consultorio]}; color: white; padding: 8px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; transition: transform 0.2s; border-left: 4px solid ${colorEstado};" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                        <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">${c.hora}</div>
-                        <div style="font-size: 11px; opacity: 0.95; margin-bottom: 2px; display:flex; align-items:center;">${c.paciente}${_balIndicator}</div>
-                        <div style="font-size: 10px; opacity: 0.9;">${c.profesional}</div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-                            <div style="font-size: 10px; opacity: 0.85;">C${c.consultorio}</div>
-                            <div style="background: ${colorEstado}; padding: 2px 6px; border-radius: 10px; font-size: 9px; font-weight: 600;">
-                                ${iconoEstado} ${estadoCita}
-                            </div>
-                        </div>
-                    </div>
-                `}).join('')}
-            </div>
-        `;
+    // ── Hora actual ───────────────────────────────────────
+    const ahora = new Date();
+    const horaActualMin = ahora.getHours() * 60 + ahora.getMinutes();
+    const topeAperturaMin = horaApertura * 60;
+    const topeCierreMin   = horaCierre   * 60;
+    const mostrarLinea = esHoy && horaActualMin >= topeAperturaMin && horaActualMin < topeCierreMin;
+    const lineaTop = mostrarLinea ? ((horaActualMin - topeAperturaMin) / 60 * HORA_H) : null;
+
+    // ── Construir grid ────────────────────────────────────
+    let colHeaders = cols.map(col =>
+        `<div style="text-align:center;padding:8px 4px;font-size:11px;font-weight:600;
+                     color:${COL_COLORS[col]||'var(--piedra)'};letter-spacing:.6px;text-transform:uppercase;">
+            C${col}
+         </div>`
+    ).join('');
+
+    // Time axis + cita blocks
+    let horasHTML = '';
+    for (let h = horaApertura; h < horaCierre; h++) {
+        const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
+        horasHTML += `<div style="height:${HORA_H}px;display:flex;align-items:flex-start;">
+            <span style="font-size:10px;color:var(--muted,#C0B8B0);width:34px;flex-shrink:0;padding-top:2px;">${label}</span>
+            <div style="flex:1;border-top:1px solid rgba(30,28,26,0.06);"></div>
+        </div>`;
     }
 
-    html += '</div>';
-    document.getElementById('calendarioAgenda').innerHTML = html;
+    // Cita blocks — absolute positioned
+    let citaBlocks = '';
+    const COL_W = `calc((100% - 38px) / ${cols.length})`;
+    const OCUPADO = {}; // track overlaps
+    citasDia.forEach(c => {
+        const [hh,mm] = (c.hora||'00:00').split(':').map(Number);
+        const startMin = hh * 60 + mm - topeAperturaMin;
+        if (startMin < 0) return;
+        const duracion = c.duracionMin || durMin;
+        const topPx  = (startMin / 60) * HORA_H;
+        const heightPx = Math.max(28, (duracion / 60) * HORA_H - 3);
+        const colIdx   = cols.indexOf(c.consultorio);
+        const colColor = COL_COLORS[c.consultorio] || '#7B8FA1';
+        const estadoColor = getColorEstadoCita(c.estado || 'Pendiente');
+        const estadoIcon  = getIconoEstadoCita(c.estado || 'Pendiente');
+        const balPac = calcularBalancePaciente(c.paciente);
+        const balDot = balPac > 0 ? '<span style="width:6px;height:6px;border-radius:50%;background:#ffc107;display:inline-block;margin-left:4px;flex-shrink:0;"></span>' : '';
+        const leftPx = `calc(38px + ${colIdx} * ${COL_W})`;
+        citaBlocks += `
+            <div data-cita-id="${c.id}"
+                draggable="true"
+                ondragstart="_onDragStart(event,'${c.id}','${c.hora}')"
+                onclick="verDetalleCita('${c.id}')"
+                style="position:absolute;top:${topPx}px;left:${leftPx};width:${COL_W};
+                       height:${heightPx}px;background:${colColor};color:white;
+                       border-radius:8px;padding:5px 7px;cursor:pointer;
+                       box-sizing:border-box;overflow:hidden;
+                       border-left:3px solid ${estadoColor};
+                       box-shadow:0 2px 8px rgba(0,0,0,0.15);
+                       transition:opacity .12s,transform .1s;z-index:2;"
+                onmouseenter="this.style.opacity='.88';this.style.transform='scale(1.01)'"
+                onmouseleave="this.style.opacity='1';this.style.transform='scale(1)'">
+                <div style="font-size:11px;font-weight:700;line-height:1;">${c.hora}</div>
+                ${heightPx > 38 ? `<div style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;">${c.paciente}${balDot}</div>` : ''}
+                ${heightPx > 56 ? `<div style="font-size:10px;opacity:.8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.profesional}</div>` : ''}
+                ${heightPx > 70 ? `<div style="font-size:9px;margin-top:3px;background:${estadoColor};border-radius:6px;padding:1px 5px;display:inline-block;">${estadoIcon} ${c.estado||'Pendiente'}</div>` : ''}
+            </div>`;
+    });
+
+    // Drop zones (click en slot vacío = nueva cita)
+    let dropZones = '';
+    for (let h = horaApertura; h < horaCierre; h++) {
+        for (let hh = 0; hh < 2; hh++) { // cada 30 min
+            const minOffset = (h - horaApertura) * 60 + hh * 30;
+            const topPx = (minOffset / 60) * HORA_H;
+            const hora = `${String(h).padStart(2,'0')}:${hh === 0 ? '00' : '30'}`;
+            cols.forEach((col, colIdx) => {
+                const leftPx = `calc(38px + ${colIdx} * ${COL_W})`;
+                dropZones += `<div
+                    ondragover="_onDragOver(event)"
+                    ondrop="_onDrop(event,'${diaKey}','${hora}',${col})"
+                    onclick="_onSlotClick(event,'${diaKey}','${hora}',${col})"
+                    style="position:absolute;top:${topPx}px;left:${leftPx};
+                           width:${COL_W};height:${(HORA_H/2)}px;z-index:1;
+                           cursor:pointer;"
+                    onmouseenter="this.style.background='rgba(196,133,106,0.07)'"
+                    onmouseleave="this.style.background='transparent'">
+                </div>`;
+            });
+        }
+    }
+
+    // Línea de hora actual
+    const lineaHTML = lineaTop !== null
+        ? `<div style="position:absolute;top:${lineaTop}px;left:34px;right:0;
+                       height:2px;background:var(--clinic-color,#C4856A);z-index:5;pointer-events:none;">
+               <div style="width:8px;height:8px;border-radius:50%;background:var(--clinic-color,#C4856A);
+                            position:absolute;left:-4px;top:-3px;"></div>
+           </div>`
+        : '';
+
+    const cuentaEl = document.getElementById('calendarioAgenda');
+    if (!cuentaEl) return;
+
+    // ── Resumen del día (badges) ──────────────────────────
+    const total    = citasDia.length;
+    const enSala   = citasDia.filter(c => c.estado === 'En Sala de Espera').length;
+    const completadas = citasDia.filter(c => c.estado === 'Completada').length;
+    const pendBal  = citasDia.filter(c => calcularBalancePaciente(c.paciente) > 0).length;
+
+    const resumenHTML = total > 0 ? `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <span style="background:var(--surface);padding:5px 12px;border-radius:100px;font-size:11px;color:var(--topo);box-shadow:var(--neu-flat);">📅 ${total} cita${total!==1?'s':''}</span>
+            ${enSala > 0 ? `<span style="background:rgba(107,143,113,.15);padding:5px 12px;border-radius:100px;font-size:11px;color:var(--salvia,#6B8F71);font-weight:600;">🏥 ${enSala} en sala</span>` : ''}
+            ${completadas > 0 ? `<span style="background:rgba(107,143,113,.1);padding:5px 12px;border-radius:100px;font-size:11px;color:var(--salvia,#6B8F71);">✓ ${completadas} completadas</span>` : ''}
+            ${pendBal > 0 ? `<span style="background:rgba(196,133,106,.12);padding:5px 12px;border-radius:100px;font-size:11px;color:var(--terra,#C4856A);">💰 ${pendBal} con balance</span>` : ''}
+        </div>` : '';
+
+    // ── Sin citas ─────────────────────────────────────────
+    const vacioHTML = total === 0 ? `
+        <div onclick="abrirModalNuevaCita()" style="position:absolute;top:50%;left:38px;right:0;
+             transform:translateY(-50%);text-align:center;pointer-events:auto;cursor:pointer;padding:20px;">
+            <div style="font-size:36px;margin-bottom:8px;">📅</div>
+            <div style="font-size:14px;color:var(--piedra);">Sin citas — toca para agendar</div>
+        </div>` : '';
+
+    cuentaEl.innerHTML = `
+        ${resumenHTML}
+        <div style="background:var(--white,white);border-radius:14px;overflow:hidden;box-shadow:var(--neu-flat);">
+            <!-- col headers -->
+            <div style="display:flex;padding:0 0 0 38px;background:var(--surface,#F5F2EE);border-bottom:1px solid rgba(30,28,26,.06);">
+                ${colHeaders}
+            </div>
+            <!-- timeline -->
+            <div style="position:relative;height:${totalH}px;overflow:hidden;">
+                <!-- horas axis -->
+                <div style="position:absolute;top:0;left:0;right:0;">${horasHTML}</div>
+                <!-- drop zones -->
+                ${dropZones}
+                <!-- cita blocks -->
+                ${citaBlocks}
+                <!-- línea hora actual -->
+                ${lineaHTML}
+                ${vacioHTML}
+            </div>
+        </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// VISTA SEMANA — Grid 7 días mejorado con bloques proporcionales
+// ─────────────────────────────────────────────────────────────
+function _renderVistaSemana(citasTodas, horaApertura, horaCierre, durMin, todayKey, meses, diasNombre) {
+    const inicio = new Date(agendaSemanaInicio);
+    const fin    = new Date(inicio); fin.setDate(fin.getDate() + 6);
+
+    const tituloEl = document.getElementById('agendaFechaTitulo');
+    if (tituloEl) tituloEl.textContent = `Semana del ${inicio.getDate()} ${meses[inicio.getMonth()]}`;
+    const subEl = document.getElementById('agendaSemanaTexto');
+    if (subEl) subEl.textContent = `${inicio.getDate()} ${meses[inicio.getMonth()]} — ${fin.getDate()} ${meses[fin.getMonth()]} ${fin.getFullYear()}`;
+
+    const selEl = document.getElementById('agendaDiasSelector');
+    if (selEl) selEl.innerHTML = '';
+
+    const COL_COLORS = { 1:'#7B8FA1', 2:'#6B8F71', 3:'#C4856A', 4:'#8B7BA8' };
+    const HORA_H = 40;
+    const totalH = (horaCierre - horaApertura) * HORA_H;
+
+    let colsHTML = '<div style="display:grid;grid-template-columns:36px repeat(7,1fr);gap:0;background:var(--white,white);border-radius:14px;overflow:hidden;box-shadow:var(--neu-flat);">';
+
+    // Header row
+    colsHTML += '<div style="background:var(--surface,#F5F2EE);border-bottom:1px solid rgba(30,28,26,.06);"></div>';
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(inicio); d.setDate(d.getDate() + i);
+        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const esHoy = dk === todayKey;
+        colsHTML += `<div onclick="_saltoADia('${dk}')" style="text-align:center;padding:8px 4px;background:var(--surface,#F5F2EE);border-bottom:1px solid rgba(30,28,26,.06);cursor:pointer;${esHoy?'color:var(--clinic-color,#C4856A);font-weight:700;':'color:var(--piedra);'}">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;">${diasNombre[i]}</div>
+            <div style="font-size:16px;">${d.getDate()}</div>
+        </div>`;
+    }
+
+    // Time axis + day columns
+    colsHTML += `<div style="position:relative;display:contents;">`;
+
+    // Axis
+    colsHTML += `<div style="position:relative;grid-column:1;grid-row:2;">`;
+    for (let h = horaApertura; h < horaCierre; h++) {
+        const label = h < 12 ? `${h}` : h === 12 ? '12' : `${h-12}`;
+        colsHTML += `<div style="height:${HORA_H}px;display:flex;align-items:flex-start;justify-content:flex-end;padding-right:4px;">
+            <span style="font-size:9px;color:var(--muted,#C0B8B0);">${label}</span>
+        </div>`;
+    }
+    colsHTML += '</div>';
+
+    // Each day column
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(inicio); d.setDate(d.getDate() + i);
+        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const esHoy = dk === todayKey;
+        const citasDia = citasTodas.filter(c => _citaEnDia(c, dk)).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
+
+        let blockHTML = '';
+        citasDia.forEach(c => {
+            const [hh,mm] = (c.hora||'00:00').split(':').map(Number);
+            const startMin = hh*60+mm - horaApertura*60;
+            if (startMin < 0) return;
+            const dur   = c.duracionMin || durMin;
+            const topPx = (startMin/60)*HORA_H;
+            const hPx   = Math.max(20, (dur/60)*HORA_H - 2);
+            const col   = COL_COLORS[c.consultorio] || '#7B8FA1';
+            const eCol  = getColorEstadoCita(c.estado||'Pendiente');
+            blockHTML += `<div onclick="verDetalleCita('${c.id}')"
+                style="position:absolute;top:${topPx}px;left:2px;right:2px;height:${hPx}px;
+                       background:${col};color:white;border-radius:6px;padding:3px 5px;
+                       cursor:pointer;overflow:hidden;box-sizing:border-box;
+                       border-left:3px solid ${eCol};font-size:10px;
+                       box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:2;transition:opacity .1s;"
+                onmouseenter="this.style.opacity='.82'" onmouseleave="this.style.opacity='1'">
+                <div style="font-weight:700;line-height:1.1;">${c.hora}</div>
+                ${hPx>30?`<div style="opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.paciente}</div>`:''}
+            </div>`;
+        });
+
+        // drop zones
+        let dzHTML = '';
+        for (let h = horaApertura; h < horaCierre; h++) {
+            const topPx = (h - horaApertura) * HORA_H;
+            const hora = `${String(h).padStart(2,'0')}:00`;
+            dzHTML += `<div ondragover="_onDragOver(event)" ondrop="_onDrop(event,'${dk}','${hora}',1)"
+                onclick="_onSlotClick(event,'${dk}','${hora}',1)"
+                style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;z-index:1;"
+                onmouseenter="this.style.background='rgba(196,133,106,0.06)'"
+                onmouseleave="this.style.background='transparent'"></div>`;
+        }
+
+        colsHTML += `<div style="position:relative;height:${totalH}px;border-left:1px solid rgba(30,28,26,.05);${esHoy?'background:rgba(196,133,106,0.03)':''}">
+            ${Array.from({length:horaCierre-horaApertura},(_,i)=>`<div style="position:absolute;top:${i*HORA_H}px;left:0;right:0;height:1px;background:rgba(30,28,26,.04);"></div>`).join('')}
+            ${dzHTML}${blockHTML}
+        </div>`;
+    }
+
+    colsHTML += '</div></div>';
+    const el = document.getElementById('calendarioAgenda');
+    if (el) el.innerHTML = colsHTML;
+}
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS AGENDA
+// ─────────────────────────────────────────────────────────────
+function _citaEnDia(c, diaKey) {
+    return isSameDayTZ ? isSameDayTZ(c.fecha, diaKey) : c.fecha && c.fecha.startsWith(diaKey);
+}
+
+function _saltoADia(diaKey) {
+    const [y,m,d] = diaKey.split('-').map(Number);
+    agendaFechaActual = new Date(y, m-1, d);
+    agendaVista = 'dia';
+    setAgendaVista('dia');
+}
+
+// Drag & Drop
+function _onDragStart(e, citaId, horaOrig) {
+    _dragCitaId   = citaId;
+    _dragOrigHora = horaOrig;
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '.45';
+    setTimeout(() => { if (e.target) e.target.style.opacity = '1'; }, 0);
+}
+
+function _onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+async function _onDrop(e, diaKey, hora, consultorio) {
+    e.preventDefault();
+    if (!_dragCitaId) return;
+    const cita = appData.citas.find(c => c.id === _dragCitaId);
+    if (!cita) { _dragCitaId = null; return; }
+
+    const oldHora = cita.hora;
+    const oldFecha = cita.fecha;
+    const [y,m,d] = diaKey.split('-').map(Number);
+    const newFecha = `${diaKey}T${hora}`;
+
+    // Optimistic update
+    cita.hora  = hora;
+    cita.fecha = newFecha;
+    cita.consultorio = consultorio;
+    _dragCitaId = null;
+    updateAgendaTab();
+    showToast(`✓ Cita movida a las ${hora}`);
+
+    try {
+        await saveCitas();
+    } catch(err) {
+        cita.hora  = oldHora;
+        cita.fecha = oldFecha;
+        updateAgendaTab();
+        showToast('⚠️ Error al mover — revertido', 3000);
+    }
+}
+
+function _onSlotClick(e, diaKey, hora, consultorio) {
+    // Si el click fue en una cita (no en el slot vacío), no hacer nada
+    if (e.target.closest && e.target.closest('[data-cita-id]')) return;
+    // Pre-fill y abrir modal
+    const [y,m,d] = diaKey.split('-').map(Number);
+    const fechaVal = diaKey;
+    abrirModalNuevaCita();
+    setTimeout(() => {
+        const fEl = document.getElementById('citaFecha');
+        const hEl = document.getElementById('citaHora');
+        const cEl = document.getElementById('citaConsultorio');
+        if (fEl) fEl.value = fechaVal;
+        if (hEl) hEl.value = hora;
+        if (cEl) cEl.value = String(consultorio);
+        // Actualizar hora fin
+        if (typeof actualizarHoraFin === 'function') actualizarHoraFin();
+    }, 60);
 }
 
 function verDetalleCita(citaId) {
