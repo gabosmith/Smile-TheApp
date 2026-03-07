@@ -757,7 +757,6 @@ async function loadData() {
             appData.citas = data.citas || [];
             appData.settings = data.settings || {};
             appData.laboratorios = data.laboratorios || [];
-            if (appData.laboratorios.length > 0) window._labCargadoConDatos = true;
             appData.reversiones = data.reversiones || [];
             appData.auditLogs = data.auditLogs || [];
             appData.inventario = (data.inventario || []).map(i => ({ movimientos: [], ...i }));
@@ -1403,7 +1402,6 @@ async function migratePasswordIfNeeded(person, plaintext) {
         const hashed = await hashPassword(plaintext);
         person.password    = hashed;
         person._pwHashed   = true;
-        // Usar update() — NO saveData() para no sobreescribir laboratorios con []
         const idx = appData.personal.findIndex(p => p.id === person.id || p.nombre === person.nombre);
         if (idx !== -1) appData.personal[idx] = person;
         await db.collection('clinicas').doc(CLINIC_PATH).update({
