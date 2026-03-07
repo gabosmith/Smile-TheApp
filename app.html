@@ -2423,6 +2423,75 @@
     </div>
 
     <!-- Modal Nueva Cotización desde ficha del paciente -->
+    <div id="modalNuevaCotizacion" class="modal" style="z-index:10002;">
+        <div class="modal-content" style="max-width:680px;max-height:90vh;display:flex;flex-direction:column;">
+            <div class="modal-header" style="background:linear-gradient(135deg,var(--clinic-color) 0%,var(--clinic-color-light) 100%);color:white;padding:20px 24px;border-radius:12px 12px 0 0;">
+                <div>
+                    <div class="modal-title" style="color:white;font-size:18px;margin-bottom:2px;">Nueva Cotización</div>
+                    <div id="cotizPacienteLabel" style="font-size:13px;opacity:.85;"></div>
+                </div>
+                <button onclick="closeModal('modalNuevaCotizacion')" style="background:rgba(255,255,255,.25);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:20px 24px;">
+                <!-- Profesional (solo admin) -->
+                <div class="form-group" id="cotizSelectorProfesional" style="display:none;">
+                    <label>Profesional que atendió *</label>
+                    <select id="cotizProfesional" style="width:100%;padding:11px 14px;border:none;border-radius:12px;font-family:inherit;font-size:14px;background:var(--sand);color:var(--topo);box-shadow:var(--neu-inset);">
+                        <option value="">Seleccione el profesional...</option>
+                    </select>
+                </div>
+
+                <!-- Procedimientos -->
+                <div class="form-group">
+                    <label>Procedimientos</label>
+                    <div id="cotizProcedimientosList" style="margin-bottom:10px;"></div>
+                    <button class="btn btn-add" onclick="cotizOpenAddProc()">+ Agregar Procedimiento</button>
+                </div>
+
+                <!-- Lab -->
+                <div class="form-group">
+                    <label>Órdenes de Laboratorio <span style="font-size:11px;color:var(--piedra);font-weight:300;">(Opcional)</span></label>
+                    <div id="cotizLabList" style="margin-bottom:10px;"></div>
+                    <button class="btn" onclick="abrirModalOrdenLabCotiz()" style="background:var(--slate);color:white;font-size:12px;letter-spacing:.5px;">+ Orden de Lab</button>
+                </div>
+
+                <!-- Descuento -->
+                <div class="form-group">
+                    <label>Descuento (%)</label>
+                    <input type="range" id="cotizDescuentoSlider" min="0" max="100" value="0" oninput="cotizUpdateTotal()">
+                    <div style="text-align:center;margin:8px 0;font-weight:400;color:var(--clinic-color);">
+                        <span id="cotizDescuentoValue">0</span>%
+                    </div>
+                    <div class="discount-buttons">
+                        <button class="discount-btn" onclick="cotizSetDescuento(5)">5%</button>
+                        <button class="discount-btn" onclick="cotizSetDescuento(10)">10%</button>
+                        <button class="discount-btn" onclick="cotizSetDescuento(15)">15%</button>
+                        <button class="discount-btn" onclick="cotizSetDescuento(20)">20%</button>
+                    </div>
+                </div>
+
+                <!-- Total -->
+                <div class="card" style="background:var(--sand);box-shadow:var(--neu-raised);margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--piedra);">Total</span>
+                        <span style="font-size:28px;font-weight:200;color:var(--topo);letter-spacing:-1px;" id="cotizTotal">RD$ 0.00</span>
+                    </div>
+                </div>
+
+                <!-- Notas -->
+                <div class="form-group">
+                    <label>Notas <span style="font-size:11px;color:var(--piedra);font-weight:300;">(Opcional)</span></label>
+                    <textarea id="cotizNotas" style="min-height:70px;"></textarea>
+                </div>
+            </div>
+            <div style="padding:16px 24px;border-top:1px solid rgba(30,28,26,.07);">
+                <button class="btn btn-submit" onclick="generarCotizacionDesdeFicha()" style="width:100%;padding:14px;font-size:15px;">
+                    Generar Cotización →
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalPagarFactura" class="modal" style="z-index:10100;">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Procesar Pago</div><button class="close-modal" onclick="closeModal('modalPagarFactura')">×</button></div>
@@ -2432,22 +2501,6 @@
                 <div style="margin-bottom: 10px;"><strong>Atendido por:</strong> <span id="pagoProfesional"></span></div>
                 <div style="margin-bottom: 10px;"><strong>Total:</strong> <span style="font-weight: 400;" id="pagoTotal"></span></div>
                 <div><strong>Balance Pendiente:</strong> <span style="color: #ff3b30; font-weight: 400;" id="pagoBalance"></span></div>
-            </div>
-                        <div class="form-group" id="pagoDescuentoSection">
-                <label style="display:flex;justify-content:space-between;align-items:center;">
-                    <span>Descuento</span>
-                    <span id="pagoDescuentoLabel" style="font-weight:500;color:var(--clinic-color);">0%</span>
-                </label>
-                <input type="range" id="pagoDescuentoSlider" min="0" max="100" value="0"
-                    oninput="actualizarDescuentoPago(this.value)"
-                    style="width:100%;accent-color:var(--clinic-color);">
-                <div style="display:flex;gap:8px;margin-top:8px;">
-                    <button class="discount-btn" onclick="fijarDescuentoPago(0)"  style="flex:1;">0%</button>
-                    <button class="discount-btn" onclick="fijarDescuentoPago(5)"  style="flex:1;">5%</button>
-                    <button class="discount-btn" onclick="fijarDescuentoPago(10)" style="flex:1;">10%</button>
-                    <button class="discount-btn" onclick="fijarDescuentoPago(15)" style="flex:1;">15%</button>
-                    <button class="discount-btn" onclick="fijarDescuentoPago(20)" style="flex:1;">20%</button>
-                </div>
             </div>
             <div class="form-group">
                 <label>Tipo de Pago</label>
@@ -3480,6 +3533,7 @@
     }
 
     async function lsVerify() {
+        try {
         const person = _lsUser;
         const errEl  = document.getElementById('lsPinErr');
 
@@ -3526,6 +3580,14 @@
             `Inicio de sesión: ${person.nombre} (${appData.currentRole})`);
         initRealtimeListener();
         await showApp();
+        } catch(e) {
+            console.error('[lsVerify] Error:', e);
+            const errEl2 = document.getElementById('lsPinErr');
+            if (errEl2) errEl2.textContent = 'Error de conexión. Intenta de nuevo.';
+            const pinDots = document.getElementById('lsPinDots');
+            if (pinDots) { pinDots.style.animation = 'lsShake .35s ease'; setTimeout(()=>pinDots.style.animation='',400); }
+            _lsPin = ''; if(typeof _lsRefreshDots==='function') _lsRefreshDots();
+        }
     }
 
     function lsVolverUsuarios() {
