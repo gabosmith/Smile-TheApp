@@ -2335,7 +2335,7 @@ function enviarCotizacion(facturaId) {
         .join('\n');
 
     const mensaje =
-`🦷 *${clinica}*
+`¡Hola! Te escribimos de *${clinica}* 🦷
 ━━━━━━━━━━━━━━━━━━━
 📋 *Cotización #${factura.numero}*
 📅 Fecha: ${fecha}
@@ -4945,11 +4945,11 @@ function contactarPaciente(pacienteId, tipo) {
     const clinica = clinicConfig.nombre || 'la clínica';
     let mensaje = '';
     if (tipo === 'saludo') {
-        mensaje = `Hola ${paciente.nombre}, le contactamos desde ${clinica}. ¿En qué podemos ayudarle?`;
+        mensaje = `¡Hola! Te escribimos de *${clinica}*. Hola ${paciente.nombre}, ¿en qué podemos ayudarte?`;
     } else if (tipo === 'recordatorio') {
-        mensaje = `Hola ${paciente.nombre}, le recordamos que tiene una cita próxima en ${clinica}. Por favor confirme su asistencia.`;
+        mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, te recordamos que tienes una cita próxima. Por favor confirma tu asistencia.`;
     } else {
-        mensaje = `Hola ${paciente.nombre}, le contactamos desde ${clinica}.`;
+        mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, nos ponemos en contacto contigo.`;
     }
 
     const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`;
@@ -7943,7 +7943,7 @@ function avisarPacienteLab(ordenId) {
     }
 
     const mensaje =
-`🦷 *${clinica}*
+`¡Hola! Te escribimos de *${clinica}* 🦷
 ━━━━━━━━━━━━━━━━━━
 📋 *Actualización de Laboratorio*
 
@@ -14232,33 +14232,23 @@ async function guardarAbonoLab() {
 
 // ── Menú ··· de la ficha del paciente ─────────────────
 function _togglePacienteMenu() {
-    const dd  = document.getElementById('pacienteMenuDropdown');
-    const btn = document.getElementById('btnPacienteMenu');
-    if (!dd || !btn) return;
+    const dd = document.getElementById('pacienteMenuDropdown');
+    if (!dd) return;
     const open = dd.style.display === 'block';
-    if (open) {
-        dd.style.display = 'none';
-        return;
-    }
-    // Posicionar con fixed para escapar de cualquier overflow:hidden padre
-    const rect = btn.getBoundingClientRect();
-    dd.style.position   = 'fixed';
-    dd.style.top        = (rect.bottom + 6) + 'px';
-    dd.style.right      = (window.innerWidth - rect.right) + 'px';
-    dd.style.left       = 'auto';
-    dd.style.zIndex     = '99999';
-    dd.style.display    = 'block';
-    setTimeout(() => {
-        function _closePacMenu(e) {
-            const menu = document.getElementById('pacienteMenuDropdown');
-            const b    = document.getElementById('btnPacienteMenu');
-            if (menu && b && !menu.contains(e.target) && !b.contains(e.target)) {
-                menu.style.display = 'none';
-                document.removeEventListener('click', _closePacMenu);
+    dd.style.display = open ? 'none' : 'block';
+    if (!open) {
+        setTimeout(() => {
+            function _closePacMenu(e) {
+                const menu = document.getElementById('pacienteMenuDropdown');
+                const btn  = document.getElementById('btnPacienteMenu');
+                if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+                    menu.style.display = 'none';
+                    document.removeEventListener('click', _closePacMenu);
+                }
             }
-        }
-        document.addEventListener('click', _closePacMenu);
-    }, 50);
+            document.addEventListener('click', _closePacMenu);
+        }, 50);
+    }
 }
 
 // ════════════════════════════════════════════════════════════
