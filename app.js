@@ -14042,7 +14042,6 @@ async function eliminarPacienteActual(pacienteIdParam) {
         showToast('⛔ Solo el administrador puede eliminar pacientes', 3000, '#c0392b');
         return;
     }
-    // Acepta ID directo (desde admin o lista) o busca el abierto en ficha
     const idEl = document.getElementById('detallePacienteId') ||
                  document.getElementById('pacienteDetalleId');
     const pacienteId = pacienteIdParam
@@ -14237,26 +14236,6 @@ function _togglePacienteMenu() {
         }, 50);
     }
 }
-
-// ── AGENDA FAB ───────────────────────────────────────────
-(function _initAgendaFab() {
-    document.addEventListener('tabchange', function(e) {
-        let fab = document.getElementById('agendaFab');
-        if (e.detail === 'agenda') {
-            if (!fab) {
-                fab = document.createElement('button');
-                fab.id = 'agendaFab';
-                fab.innerHTML = '+';
-                fab.style.cssText = 'position:fixed;bottom:84px;right:20px;width:52px;height:52px;border-radius:50%;background:var(--clinic-color,#C4856A);color:white;font-size:28px;font-weight:300;border:none;box-shadow:0 4px 16px rgba(0,0,0,.2);cursor:pointer;z-index:200;display:flex;align-items:center;justify-content:center;line-height:1;';
-                fab.onclick = () => abrirModalNuevaCita();
-                document.body.appendChild(fab);
-            }
-            fab.style.display = 'flex';
-        } else if (fab) {
-            fab.style.display = 'none';
-        }
-    });
-})();
 
 // ════════════════════════════════════════════════════════════
 // SPOTLIGHT SEARCH — búsqueda global instantánea
