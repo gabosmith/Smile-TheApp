@@ -3297,9 +3297,9 @@
     // Returns the display name — skips title prefix, shows first + last name
     // "I. Apellido" — ej: "L. López", "A. Martínez". Omite títulos (Dr., Dra., etc.)
     function _displayName(name) {
-        const TITULOS = ['dr','dra','dr.','dra.','lic','lic.','ing','ing.','sr','sr.','sra','sra.'];
-        const words = (name || '').split(/\s+/).filter(Boolean);
-        const meaningful = words.filter(w => !TITULOS.includes(w.toLowerCase().replace('.', '')));
+        const _TIT2 = ['dr','dra','dr.','dra.','lic','lic.','ing','ing.','sr','sr.','sra','sra.'];
+        const _words2 = (name || '').split(/\s+/).filter(Boolean);
+        const meaningful = _words2.filter(w => !_TIT2.includes(w.toLowerCase().replace('.', '')));
         if (meaningful.length === 0) return name || '?';
         if (meaningful.length === 1) return meaningful[0];
         // Inicial del primer nombre + primer apellido: "L. López"
@@ -3383,12 +3383,12 @@
         const personal = (typeof appData !== 'undefined') ? (appData.personal || []) : [];
 
         // If personal is empty, Firebase data may not have loaded yet — retry
+        const grid = document.getElementById('lsUserGrid');
         if (personal.length === 0 && _lsMostrarRetries < 20) {
             _lsMostrarRetries++;
             setTimeout(lsMostrar, 200);
             // Show a subtle loading state on first attempt
             if (_lsMostrarRetries === 1) {
-                const grid = document.getElementById('lsUserGrid');
                 if (grid) grid.innerHTML = `
                     <div style="grid-column:1/-1;padding:32px 0;text-align:center;
                                 font-size:12px;color:var(--muted);letter-spacing:1px;">
@@ -3402,7 +3402,6 @@
         // Show ALL users — with or without password.
         // Users without password will get a "set up PIN" prompt when tapped.
         // This ensures the admin always appears on first login.
-        const grid = document.getElementById('lsUserGrid');
         grid.innerHTML = '';
 
         if (personal.length === 0) {
@@ -3512,6 +3511,13 @@
         });
     }
 
+    function _lsRefreshDots() {
+        for (let i = 0; i < PIN_LEN; i++) {
+            const d = document.getElementById('pd' + i);
+            if (d) d.classList.toggle('ls-pin-filled', i < _lsPin.length);
+        }
+    }
+
     function lsKeyPress(d) {
         if (_lsPin.length >= PIN_LEN) return;
         _lsPin += d;
@@ -3525,17 +3531,10 @@
         _lsRefreshDots();
     }
 
-    function _lsRefreshDots() {
-        for (let i = 0; i < PIN_LEN; i++) {
-            const d = document.getElementById('pd' + i);
-            if (d) d.classList.toggle('ls-pin-filled', i < _lsPin.length);
-        }
-    }
-
     async function lsVerify() {
         try {
         const person = _lsUser;
-        const errEl  = document.getElementById('lsPinErr');
+        const _errElV = document.getElementById('lsPinErr');
 
         if (!checkRateLimit(person.nombre)) {
             _lsPin = ''; _lsRefreshDots(); return;
@@ -3557,14 +3556,14 @@
                 document.querySelectorAll('.ls-pin-dot')
                     .forEach(d => d.classList.remove('ls-pin-error'));
             }, 380);
-            errEl.textContent = 'PIN incorrecto';
+            _errElV.textContent = 'PIN incorrecto';
             _lsPin = '';
             return;
         }
 
         // ✅ Acceso correcto
         clearLoginAttempts(person.nombre);
-        errEl.textContent = '';
+        _errElV.textContent = '';
 
         if      (person.isAdmin)              appData.currentRole = 'admin';
         else if (person.canAccessReception)   appData.currentRole = 'reception';
