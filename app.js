@@ -10008,6 +10008,16 @@ function updateDashboardTab() {
     });
 
     // ────────────────────────────────────────────────────
+    // SECCIÓN 3b — ¿QUÉ HAGO AHORA? (próxima acción prioritaria)
+    // ────────────────────────────────────────────────────
+    _renderNextAction({ enSala, citasPendientes, citasActivas, sortedCitasHoy: [...citasActivas].sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')), porCobrar, facturasPendientes, labAtrasado, dashRole, todayKey });
+
+    // ────────────────────────────────────────────────────
+    // SECCIÓN 3c — GRÁFICA INGRESOS
+    // ────────────────────────────────────────────────────
+    _renderDashChart(window._dashChartView || 'mes');
+
+    // ────────────────────────────────────────────────────
     // SECCIÓN 4 — KPI SECUNDARIOS
     // ────────────────────────────────────────────────────
     const kpiRow = document.getElementById('dashKpiRow');
@@ -14368,4 +14378,222 @@ async function _quickProcConfirm() {
     }
 
     try { await saveFacturas(); } catch(e) { showToast('⚠️ Error al guardar', 3000); }
+}
+
+// ════════════════════════════════════════════════════════════
+// DASHBOARD — ¿QUÉ HAGO AHORA? (próxima acción prioritaria)
+// ════════════════════════════════════════════════════════════
+function _renderNextAction({ enSala, citasPendientes, citasActivas, sortedCitasHoy, porCobrar, facturasPendientes, labAtrasado, dashRole, todayKey }) {
+    const el = document.getElementById('dashNextAction');
+    if (!el) return;
+
+    // Priority hierarchy: sala > cita inminente > cobro pendiente > día sin citas > todo ok
+    let icon, title, sub, btnLabel, btnClick, color;
+
+    const ahora = new Date();
+    const proximaCita = sortedCitasHoy.find(c => {
+        const h = c.hora || '00:00';
+        const [hh, mm] = h.split(':').map(Number);
+        const citaMin = hh * 60 + mm;
+        const ahoraMin = ahora.getHours() * 60 + ahora.getMinutes();
+        return (c.estado === 'Pendiente' || c.estado === 'Confirmada') && citaMin >= ahoraMin;
+    });
+
+    if (enSala > 0) {
+        icon = '🏥'; color = 'rgba(107,143,113,0.12)'; 
+        const citaEnSala = sortedCitasHoy.find(c => c.estado === 'En Sala de Espera');
+        title = `${citaEnSala ? citaEnSala.paciente : 'Paciente'} está en sala de espera`;
+        sub = `${enSala} paciente${enSala !== 1 ? 's' : ''} esperando atención`;
+        btnLabel = 'Ver agenda'; btnClick = `showTab('agenda')`;
+    } else if (proximaCita) {
+        const [hh, mm] = (proximaCita.hora || '00:00').split(':').map(Number);
+        const citaMin = hh * 60 + mm;
+        const ahoraMin = ahora.getHours() * 60 + ahora.getMinutes();
+        const diff = citaMin - ahoraMin;
+        icon = '⏰'; color = 'rgba(196,133,106,0.1)';
+        title = `${proximaCita.paciente} — ${proximaCita.hora}`;
+        sub = diff <= 15 ? `¡En ${diff} min! · ${proximaCita.motivo || 'sin motivo'}` : `En ${diff} min · ${proximaCita.profesional}`;
+        btnLabel = 'Ver cita'; btnClick = `verDetalleCita('${proximaCita.id}')`;
+    } else if (porCobrar > 0 && (dashRole === 'admin' || dashRole === 'reception')) {
+        const oldest = facturasPendientes.sort((a,b) => new Date(a.fecha)-new Date(b.fecha))[0];
+        icon = '💳'; color = 'rgba(196,133,106,0.1)';
+        title = `${formatCurrency(porCobrar)} pendiente de cobro`;
+        sub = oldest ? `Más antigua: ${oldest.paciente} · ${formatDate(oldest.fecha)}` : `${facturasPendientes.length} facturas por saldar`;
+        btnLabel = 'Ir a cobros'; btnClick = `showTab('cobros')`;
+    } else if (labAtrasado.length > 0) {
+        icon = '🧪'; color = 'rgba(123,143,161,0.12)';
+        title = `${labAtrasado.length} orden${labAtrasado.length!==1?'es':''} de lab sin movimiento`;
+        sub = 'Sin avance en más de 7 días';
+        btnLabel = 'Ver lab'; btnClick = `showTab('laboratorio')`;
+    } else if (citasActivas.length === 0) {
+        icon = '📅'; color = 'rgba(30,28,26,0.04)';
+        title = 'Sin citas programadas para hoy';
+        sub = 'Agenda libre — aprovecha para ponerte al día';
+        btnLabel = '+ Nueva cita'; btnClick = `abrirModalNuevaCita()`;
+    } else {
+        // Todo en orden
+        el.style.display = 'none';
+        return;
+    }
+
+    el.style.display = 'block';
+    el.innerHTML = `
+        <div style="background:${color};border-radius:14px;padding:14px 16px;
+                    display:flex;align-items:center;justify-content:space-between;gap:12px;
+                    border:1.5px solid rgba(30,28,26,0.07);">
+            <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+                <div style="font-size:26px;flex-shrink:0;">${icon}</div>
+                <div style="min-width:0;">
+                    <div style="font-size:14px;font-weight:500;color:var(--topo);
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
+                    <div style="font-size:12px;color:var(--piedra);margin-top:1px;">${sub}</div>
+                </div>
+            </div>
+            <button onclick="${btnClick}"
+                style="flex-shrink:0;padding:9px 16px;background:var(--topo);color:white;
+                       border:none;border-radius:100px;font-size:12px;font-weight:500;
+                       font-family:inherit;cursor:pointer;white-space:nowrap;
+                       box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+                ${btnLabel}
+            </button>
+        </div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// DASHBOARD — GRÁFICA DE INGRESOS (SVG puro, sin librerías)
+// ════════════════════════════════════════════════════════════
+window._dashChartView = 'mes';
+
+function _dashSetChartView(v) {
+    window._dashChartView = v;
+    const btnM = document.getElementById('dashChartTabMes');
+    const btnS = document.getElementById('dashChartTabSemana');
+    if (btnM && btnS) {
+        if (v === 'mes') {
+            btnM.style.background = 'var(--clinic-color,#C4856A)'; btnM.style.color = 'white';
+            btnS.style.background = 'transparent'; btnS.style.color = 'var(--piedra)';
+        } else {
+            btnS.style.background = 'var(--clinic-color,#C4856A)'; btnS.style.color = 'white';
+            btnM.style.background = 'transparent'; btnM.style.color = 'var(--piedra)';
+        }
+    }
+    _renderDashChart(v);
+}
+
+function _renderDashChart(view) {
+    const barsEl   = document.getElementById('dashChartBars');
+    const labelsEl = document.getElementById('dashChartLabels');
+    const totalEl  = document.getElementById('dashChartTotal');
+    const subEl    = document.getElementById('dashChartSub');
+    const avgEl    = document.getElementById('dashChartAvgVal');
+    if (!barsEl) return;
+
+    const hoy = new Date();
+    let data = []; // [{label, value, isToday}]
+
+    if (view === 'mes') {
+        const year = hoy.getFullYear(), month = hoy.getMonth();
+        const daysInMonth = new Date(year, month+1, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dk = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const val = appData.facturas.flatMap(f=>f.pagos||[])
+                .filter(p=>p && isSameDayTZ(p.fecha, dk))
+                .reduce((s,p)=>s+p.monto, 0);
+            data.push({ label: d%5===0||d===1||d===daysInMonth ? String(d) : '', value: val, isToday: dk === getTodayKey(), dk });
+        }
+        const mesNombre = hoy.toLocaleDateString(getLocale(), {month:'long'});
+        if (subEl) subEl.textContent = mesNombre + ' ' + year;
+    } else {
+        // Últimas 4 semanas (lunes a domingo)
+        for (let w = 3; w >= 0; w--) {
+            const lunes = new Date(hoy);
+            const off = (hoy.getDay()+6)%7;
+            lunes.setDate(hoy.getDate() - off - w*7);
+            lunes.setHours(0,0,0,0);
+            let wTotal = 0;
+            for (let d = 0; d < 7; d++) {
+                const dd = new Date(lunes); dd.setDate(lunes.getDate()+d);
+                const dk = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+                wTotal += appData.facturas.flatMap(f=>f.pagos||[])
+                    .filter(p=>p && isSameDayTZ(p.fecha, dk))
+                    .reduce((s,p)=>s+p.monto, 0);
+            }
+            const semFin = new Date(lunes); semFin.setDate(lunes.getDate()+6);
+            const label = w === 0 ? 'Esta sem' : `${lunes.getDate()}/${lunes.getMonth()+1}`;
+            data.push({ label, value: wTotal, isToday: w===0 });
+        }
+        if (subEl) subEl.textContent = 'Últimas 4 semanas';
+    }
+
+    const total = data.reduce((s,d)=>s+d.value, 0);
+    const daysWithData = data.filter(d=>d.value>0).length;
+    const avg = daysWithData > 0 ? total/daysWithData : 0;
+    const maxV = Math.max(...data.map(d=>d.value), 1);
+
+    if (totalEl) totalEl.textContent = formatCurrency(total);
+    if (avgEl)   avgEl.textContent   = formatCurrency(avg);
+
+    // Render bars
+    const BAR_H = 72;
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--clinic-color') || '#C4856A';
+
+    barsEl.innerHTML = data.map(d => {
+        const pct = d.value / maxV;
+        const h = Math.max(pct > 0 ? 4 : 2, Math.round(pct * BAR_H));
+        const isHoy = d.isToday;
+        const hasVal = d.value > 0;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${BAR_H}px;position:relative;"
+            ${hasVal ? `title="${formatCurrency(d.value)}"` : ''}>
+            <div style="width:100%;height:${h}px;border-radius:3px 3px 0 0;
+                        background:${isHoy ? 'var(--clinic-color,#C4856A)' : hasVal ? 'rgba(196,133,106,0.35)' : 'rgba(30,28,26,0.06)'};
+                        transition:height .3s;cursor:${hasVal?'default':'default'};">
+            </div>
+        </div>`;
+    }).join('');
+
+    // Labels — only show subset to avoid crowding
+    const showEvery = view === 'mes' ? 5 : 1;
+    labelsEl.innerHTML = `<div style="display:flex;width:100%;gap:3px;">` +
+        data.map((d,i) => `<div style="flex:1;text-align:center;font-size:9px;color:${d.isToday?'var(--clinic-color,#C4856A)':'var(--muted,#C0B8B0)'};font-weight:${d.isToday?'600':'400'};overflow:hidden;">${d.label}</div>`).join('') +
+        `</div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// DASHBOARD — ACCESOS RÁPIDOS (Quick Actions)
+// Ya existe dashQuickActions en el HTML — mejorar su contenido
+// ════════════════════════════════════════════════════════════
+// Override the existing renderDashQuickActions to add proc button
+const _origQuickActions = window.renderDashQuickActions;
+function renderDashQuickActions(role) {
+    const el = document.getElementById('dashQuickActions');
+    if (!el) return;
+
+    const canCita    = true;
+    const canPac     = role === 'admin' || role === 'reception';
+    const canProc    = role === 'admin' || role === 'professional';
+    const canCobrar  = role === 'admin' || role === 'reception';
+
+    const actions = [
+        canCita   && { icon:'📅', label:'Nueva cita',      click:'abrirModalNuevaCita()',           color:'var(--clinic-color,#C4856A)' },
+        canPac    && { icon:'👤', label:'Nuevo paciente',   click:"abrirModalNuevoPaciente()",        color:'var(--pizarra,#7B8FA1)' },
+        canProc   && { icon:'🦷', label:'Procedimiento',    click:'abrirQuickProc()',                color:'var(--salvia,#6B8F71)' },
+        canCobrar && { icon:'💳', label:'Cobrar',           click:"showTab('cobros')",               color:'var(--terra,#C4856A)' },
+    ].filter(Boolean);
+
+    el.innerHTML = `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${actions.map(a => `
+                <button onclick="${a.click}"
+                    style="display:flex;align-items:center;gap:7px;padding:10px 16px;
+                           background:white;border:1.5px solid rgba(30,28,26,0.1);
+                           border-radius:100px;font-size:13px;font-family:inherit;
+                           cursor:pointer;color:var(--topo);
+                           box-shadow:var(--neu-raised,3px 3px 8px rgba(185,177,167,.35),-2px -2px 6px rgba(255,255,255,.9));
+                           transition:box-shadow .15s,transform .12s;"
+                    onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)';this.style.transform='translateY(-1px)'"
+                    onmouseout="this.style.boxShadow='var(--neu-raised,3px 3px 8px rgba(185,177,167,.35),-2px -2px 6px rgba(255,255,255,.9))';this.style.transform='translateY(0)'">
+                    <span style="font-size:16px;">${a.icon}</span>
+                    <span style="font-weight:500;">${a.label}</span>
+                </button>`).join('')}
+        </div>`;
 }

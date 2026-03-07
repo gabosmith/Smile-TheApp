@@ -1685,8 +1685,40 @@
 
                 </div>
 
+                <!-- ── ¿Qué hago ahora? — próxima acción ─── -->
+                <div id="dashNextAction" style="display:none;margin-bottom:14px;"></div>
+
                 <!-- KPI secundarios: tasa cobro · pacientes nuevos · gastos mes -->
                 <div id="dashKpiRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;"></div>
+
+                <!-- ── Gráfica ingresos del mes ──────────────── -->
+                <div id="dashChartCard" class="card" style="margin-bottom:16px;padding:16px 18px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                        <span style="font-size:13px;font-weight:500;color:var(--topo);">Ingresos del mes</span>
+                        <div id="dashChartTabs" style="display:flex;background:var(--surface);border-radius:100px;padding:2px;gap:2px;">
+                            <button id="dashChartTabMes" onclick="_dashSetChartView('mes')"
+                                style="padding:5px 12px;border:none;border-radius:100px;font-size:11px;font-family:inherit;cursor:pointer;font-weight:500;background:var(--clinic-color,#C4856A);color:white;">
+                                Mes
+                            </button>
+                            <button id="dashChartTabSemana" onclick="_dashSetChartView('semana')"
+                                style="padding:5px 12px;border:none;border-radius:100px;font-size:11px;font-family:inherit;cursor:pointer;font-weight:500;background:transparent;color:var(--piedra);">
+                                Semana
+                            </button>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px;">
+                        <div>
+                            <div id="dashChartTotal" style="font-size:22px;font-weight:300;color:var(--topo);letter-spacing:-0.5px;"></div>
+                            <div id="dashChartSub" style="font-size:11px;color:var(--piedra);margin-top:1px;"></div>
+                        </div>
+                        <div id="dashChartAvg" style="text-align:right;">
+                            <div id="dashChartAvgVal" style="font-size:13px;font-weight:500;color:var(--topo);"></div>
+                            <div style="font-size:10px;color:var(--piedra);">promedio/día</div>
+                        </div>
+                    </div>
+                    <div id="dashChartBars" style="display:flex;align-items:flex-end;gap:3px;height:72px;"></div>
+                    <div id="dashChartLabels" style="display:flex;justify-content:space-between;margin-top:5px;"></div>
+                </div>
 
                 <!-- Alertas inteligentes con botones de acción -->
                 <div id="dashboardAlertas" class="card"
