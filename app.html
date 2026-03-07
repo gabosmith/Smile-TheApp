@@ -2905,37 +2905,18 @@
                             style="background:rgba(37,211,102,0.22);border:1px solid rgba(37,211,102,0.45);
                                    color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
                                    font-size:17px;display:flex;align-items:center;justify-content:center;">💬</button>
-                        <div style="position:relative;z-index:10020;">
-                            <button id="btnPacienteMenu" onclick="_togglePacienteMenu()"
-                                style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
-                                       color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
-                                       font-size:18px;display:flex;align-items:center;justify-content:center;
-                                       font-weight:700;">⋯</button>
-                            <div id="pacienteMenuDropdown"
-                                style="display:none;position:absolute;right:0;top:44px;
-                                       background:white;border-radius:12px;
-                                       box-shadow:0 8px 32px rgba(0,0,0,0.18);
-                                       min-width:160px;z-index:10010;overflow:hidden;">
-                                <button onclick="_togglePacienteMenu();editarPacienteActual()"
-                                    style="width:100%;padding:13px 16px;border:none;background:none;
-                                           text-align:left;font-size:14px;font-family:inherit;cursor:pointer;
-                                           color:#333;display:flex;align-items:center;gap:10px;"
-                                    onmouseover="this.style.background='#f5f5f5'"
-                                    onmouseout="this.style.background='none'">✏️ <span>Editar paciente</span></button>
-                                <button onclick="_togglePacienteMenu();abrirModalNuevaCita(currentPacienteId,document.getElementById('verPacienteNombre').textContent)"
-                                    style="width:100%;padding:13px 16px;border:none;background:none;
-                                           text-align:left;font-size:14px;font-family:inherit;cursor:pointer;
-                                           color:#333;display:flex;align-items:center;gap:10px;"
-                                    onmouseover="this.style.background='#f5f5f5'"
-                                    onmouseout="this.style.background='none'">📅 <span>Nueva cita</span></button>
-                                <button id="btnEliminarPaciente" onclick="_togglePacienteMenu();eliminarPacienteActual(window.currentPacienteId)"
-                                    style="width:100%;padding:13px 16px;border:none;background:none;
-                                           text-align:left;font-size:14px;font-family:inherit;cursor:pointer;
-                                           color:#c0392b;display:none;align-items:center;gap:10px;"
-                                    onmouseover="this.style.background='#fff0f0'"
-                                    onmouseout="this.style.background='none'">🗑️ <span>Eliminar paciente</span></button>
-                            </div>
-                        </div>
+                        <button onclick="editarPacienteActual()" title="Editar paciente"
+                            style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
+                                   color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
+                                   font-size:16px;display:flex;align-items:center;justify-content:center;">✏️</button>
+                        <button onclick="abrirModalNuevaCita(currentPacienteId,document.getElementById('verPacienteNombre').textContent)" title="Nueva cita"
+                            style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
+                                   color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
+                                   font-size:16px;display:flex;align-items:center;justify-content:center;">📅</button>
+                        <button id="btnEliminarPaciente" onclick="eliminarPacienteActual(window.currentPacienteId)" title="Eliminar paciente"
+                            style="background:rgba(220,50,50,0.25);border:1px solid rgba(220,50,50,0.45);
+                                   color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
+                                   font-size:16px;display:none;align-items:center;justify-content:center;">🗑️</button>
                         <button onclick="abrirQuickProc()"
                             title="Agregar procedimiento rápido"
                             style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
