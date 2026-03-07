@@ -2898,14 +2898,14 @@
         <div class="modal-content" style="max-width: 1100px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header" style="background: linear-gradient(135deg, var(--clinic-color) 0%, var(--clinic-color-light) 100%); color: white; padding: 24px; border-radius: 12px 12px 0 0; position: relative; overflow: visible;">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; position:relative; z-index:1;">
-                    <div style="flex: 1;"><div class="modal-title" id="verPacienteNombre" style="color: #ffffff; font-size: 24px; margin-bottom: 4px; font-weight:700; letter-spacing:-0.3px;"></div><div id="verPacienteSubtitulo" style="font-size: 14px; color:rgba(255,255,255,0.9);"></div></div>
+                    <div style="flex: 1;"><div id="verPacienteNombre" style="color:#ffffff !important; font-size:24px; margin-bottom:4px; font-weight:700; letter-spacing:-0.3px; line-height:1.2;"></div><div id="verPacienteSubtitulo" style="font-size: 14px; color:rgba(255,255,255,0.9);"></div></div>
                     <div style="display:flex;gap:8px;align-items:center;">
                         <button id="btnContactarPaciente" onclick="contactarPaciente(currentPacienteId,'saludo')"
                             title="Contactar por WhatsApp"
                             style="background:rgba(37,211,102,0.22);border:1px solid rgba(37,211,102,0.45);
                                    color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
                                    font-size:17px;display:flex;align-items:center;justify-content:center;">💬</button>
-                        <div style="position:relative;">
+                        <div style="position:relative;z-index:10020;">
                             <button id="btnPacienteMenu" onclick="_togglePacienteMenu()"
                                 style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
                                        color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;

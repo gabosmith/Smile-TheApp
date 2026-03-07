@@ -14232,23 +14232,33 @@ async function guardarAbonoLab() {
 
 // ── Menú ··· de la ficha del paciente ─────────────────
 function _togglePacienteMenu() {
-    const dd = document.getElementById('pacienteMenuDropdown');
-    if (!dd) return;
+    const dd  = document.getElementById('pacienteMenuDropdown');
+    const btn = document.getElementById('btnPacienteMenu');
+    if (!dd || !btn) return;
     const open = dd.style.display === 'block';
-    dd.style.display = open ? 'none' : 'block';
-    if (!open) {
-        setTimeout(() => {
-            function _closePacMenu(e) {
-                const menu = document.getElementById('pacienteMenuDropdown');
-                const btn  = document.getElementById('btnPacienteMenu');
-                if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
-                    menu.style.display = 'none';
-                    document.removeEventListener('click', _closePacMenu);
-                }
-            }
-            document.addEventListener('click', _closePacMenu);
-        }, 50);
+    if (open) {
+        dd.style.display = 'none';
+        return;
     }
+    // Posicionar con fixed para escapar de cualquier overflow:hidden padre
+    const rect = btn.getBoundingClientRect();
+    dd.style.position   = 'fixed';
+    dd.style.top        = (rect.bottom + 6) + 'px';
+    dd.style.right      = (window.innerWidth - rect.right) + 'px';
+    dd.style.left       = 'auto';
+    dd.style.zIndex     = '99999';
+    dd.style.display    = 'block';
+    setTimeout(() => {
+        function _closePacMenu(e) {
+            const menu = document.getElementById('pacienteMenuDropdown');
+            const b    = document.getElementById('btnPacienteMenu');
+            if (menu && b && !menu.contains(e.target) && !b.contains(e.target)) {
+                menu.style.display = 'none';
+                document.removeEventListener('click', _closePacMenu);
+            }
+        }
+        document.addEventListener('click', _closePacMenu);
+    }, 50);
 }
 
 // ════════════════════════════════════════════════════════════
