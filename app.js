@@ -414,6 +414,7 @@ function setConnectionState(state, detail) {
     }
 }
 
+function showSyncIndicator() { setConnectionState('online'); }
 
 // Connection detection via browser events + Firestore internal channel
 function initConnectionMonitor() {
@@ -1115,6 +1116,16 @@ async function saveCuadres() {
     } catch(e) { showError('Error al guardar cuadre.', e); }
 }
 
+async function deletePacienteDoc(pacienteId) {
+    // Deletes ONLY the patient doc - no saveData needed
+    if (!canWriteToFirebase('deletePaciente')) return;
+    try {
+        setConnectionState('saving');
+        await db.collection('clinicas').doc(CLINIC_PATH)
+            .collection('pacientes').doc(pacienteId).delete();
+        setConnectionState('online');
+    } catch(e) { showError('Error al eliminar el paciente.', e); }
+}
 
 // Default personnel data — generic for any new SMILE clinic
 function getDefaultPersonal() {
@@ -1830,7 +1841,10 @@ function showTab(tabName) {
                 }
             }
         }
-        if (tabName === 'dashboard') updateDashboardTab();
+        if (tabName === 'dashboard') {
+            try { updateDashboardTab(); }
+            catch(e) { console.error('Dashboard error:', e); }
+        }
         if (tabName === 'ingresos') updateIngresosTab();
         if (tabName === 'cobrar') updateCobrarTab();
         if (tabName === 'cuadre') updateCuadreTab();
@@ -2301,6 +2315,50 @@ function actualizarNuevoBalance() {
 // ════════════════════════════════════════════════════════
 // ENVIAR COTIZACIÓN AL PACIENTE (WhatsApp)
 // ════════════════════════════════════════════════════════
+function enviarCotizacion(facturaId) {
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) { showToast('⚠️ Factura no encontrada'); return; }
+
+    // Buscar teléfono del paciente
+    const paciente = appData.pacientes.find(p =>
+        p.id === factura.pacienteId || p.nombre === factura.paciente
+    );
+    const telefono = paciente?.telefono || '';
+    const telLimpio = telefono.replace(/\D/g, '');
+
+    // Construir mensaje de cotización
+    const clinica   = clinicConfig.nombre || 'Clínica Dental';
+    const moneda    = clinicConfig.moneda || 'RD$';
+    const fecha     = new Date(factura.fecha).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
+    const balance   = factura.total - (factura.pagos || []).reduce((s, p) => s + p.monto, 0);
+
+    // Líneas de procedimientos
+    const procs = (factura.procedimientos || [])
+        .map(p => `  • ${p.descripcion}${p.dientes ? ' (🦷 ' + p.dientes + ')' : ''}: ${moneda} ${Number(p.precio || 0).toLocaleString('es-DO')}`)
+        .join('\n');
+
+    const mensaje =
+`¡Hola! Te escribimos de *${clinica}* 🦷
+━━━━━━━━━━━━━━━━━━━
+📋 *Cotización #${factura.numero}*
+📅 Fecha: ${fecha}
+👤 Paciente: ${factura.paciente}
+
+*Procedimientos:*
+${procs || '  • (Sin procedimientos detallados)'}
+
+━━━━━━━━━━━━━━━━━━━
+💰 *Total: ${moneda} ${Number(factura.total).toLocaleString('es-DO')}*
+${balance < factura.total ? `✅ Abonado: ${moneda} ${Number(factura.total - balance).toLocaleString('es-DO')}\n⏳ Pendiente: ${moneda} ${Number(balance).toLocaleString('es-DO')}` : ''}
+
+_Para confirmar su cita o realizar consultas, responda este mensaje._`;
+
+    const url = telLimpio
+        ? `https://wa.me/1${telLimpio}?text=${encodeURIComponent(mensaje)}`
+        : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+
+    window.open(url, '_blank');
+}
 
 function openPagarFactura(facturaId) {
     // Solo admin y recepción pueden ejecutar cobros
@@ -2335,13 +2393,6 @@ function openPagarFactura(facturaId) {
 
     selectTipoPago('total');
 
-    // Reset discount
-    const _ds = document.getElementById('pagoDescuentoSlider');
-    const _dl = document.getElementById('pagoDescuentoLabel');
-    if (_ds) _ds.value = 0;
-    if (_dl) _dl.textContent = '0%';
-    if (currentFacturaToPay) currentFacturaToPay._descuentoPendiente = 0;
-
     openModal('modalPagarFactura');
 }
 
@@ -2367,35 +2418,6 @@ document.getElementById('comprobanteFile').addEventListener('change', function(e
     }
 });
 
-async 
-// ═══════════════════════════════════════════════════════════════
-// DESCUENTO EN PAGO — slider y botones rápidos en modalPagarFactura
-// ═══════════════════════════════════════════════════════════════
-
-function actualizarDescuentoPago(pct) {
-    pct = parseInt(pct) || 0;
-    const label   = document.getElementById('pagoDescuentoLabel');
-    const balEl   = document.getElementById('pagoBalance');
-    const montoEl = document.getElementById('pagoMonto');
-
-    if (label) label.textContent = pct + '%';
-    if (!currentFacturaToPay) return;
-
-    const totalPagado  = (currentFacturaToPay.pagos || []).reduce((s,p) => s + p.monto, 0);
-    const totalConDesc  = currentFacturaToPay.total * (1 - pct / 100);
-    const balance       = Math.max(0, totalConDesc - totalPagado);
-
-    if (balEl)   balEl.textContent = formatCurrency(balance);
-    if (montoEl) montoEl.value     = balance.toFixed(2);
-
-    currentFacturaToPay._descuentoPendiente = pct;
-}
-
-function fijarDescuentoPago(pct) {
-    const slider = document.getElementById('pagoDescuentoSlider');
-    if (slider) { slider.value = pct; actualizarDescuentoPago(pct); }
-}
-
 async function confirmarPago() {
     const monto  = sanitize.num(document.getElementById('pagoMonto')?.value, 0);
     const metodo = sanitize.str(document.getElementById('pagoMetodo')?.value, 50);
@@ -2405,14 +2427,6 @@ async function confirmarPago() {
     }
 
     const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
-    // Apply pending discount from slider
-    const _descPct = currentFacturaToPay._descuentoPendiente || 0;
-    if (_descPct > 0) {
-        const descuento = currentFacturaToPay.total * _descPct / 100;
-        currentFacturaToPay.total     = Math.round((currentFacturaToPay.total - descuento) * 100) / 100;
-        currentFacturaToPay.descuento = _descPct;
-        currentFacturaToPay._descuentoPendiente = 0;
-    }
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
 
     if (monto > balancePendiente + 0.01) {
@@ -4669,6 +4683,9 @@ function getTodayKey() {
 }
 
 // Returns the local-midnight timestamp for a YYYY-MM-DD key (for comparisons)
+function keyToTimestamp(key) {
+    return new Date(key + 'T00:00:00').getTime();
+}
 
 // Returns true if an ISO date string falls on a given YYYY-MM-DD key in clinic timezone.
 // Replaces all new Date(x).setHours(0,0,0,0) === today comparisons throughout the codebase.
@@ -6008,76 +6025,6 @@ function _cotizOnCatalogSelect(sel) {
 
 let _guardandoCotiz = false;
 
-async 
-// ═══════════════════════════════════════════════════════════════
-// ALIASES — funciones llamadas desde HTML que no existían
-// Cada una delega en la función real ya existente. No tocar la
-// función destino — solo el alias que conecta.
-// ═══════════════════════════════════════════════════════════════
-
-// Botón "+ Agregar Procedimiento" en ficha → abre modalCotizItem en modo proc
-function cotizOpenAddProc() {
-    abrirModalAgregarItem();
-}
-
-// Botón "+ Orden de Lab" en ficha → abre modalCotizItem en modo lab
-function abrirModalOrdenLabCotiz() {
-    abrirModalAgregarItem();
-    // Cambiar al tab de lab después de abrir
-    setTimeout(() => _cotizSetTipo('lab'), 30);
-}
-
-// Botón "Generar Cotización →" en modalNuevaCotizacion
-// El modal es legacy — los items ya fueron agregados uno a uno.
-// Solo cerramos el modal limpiamente.
-function generarCotizacionDesdeFicha() {
-    closeModal('modalNuevaCotizacion');
-    showToast('✓ Cotización guardada');
-}
-
-// Botón "Enviar por WhatsApp" en modal recibo
-// compartirWhatsApp() ya usa currentReciboText — el id no es necesario
-function enviarReciboWhatsApp(pacienteId) {
-    compartirWhatsApp();
-}
-
-// Actualiza el display del total al mover el slider de descuento
-// Llamado desde oninput del cotizDescuentoSlider
-function cotizUpdateTotal() {
-    const slider = document.getElementById('cotizDescuentoSlider');
-    const valEl  = document.getElementById('cotizDescuentoValue');
-    const totalEl= document.getElementById('cotizTotal');
-    if (!slider) return;
-    const pct = parseInt(slider.value) || 0;
-    if (valEl) valEl.textContent = pct;
-    // Recalcular total desde los items de la factura abierta
-    if (totalEl && currentPacienteId) {
-        const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
-        if (paciente) {
-            const f = appData.facturas.find(f =>
-                (f.pacienteId === paciente.id || f.paciente === paciente.nombre) &&
-                f.estado !== 'cancelada' &&
-                (f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0)) > 0
-            );
-            if (f) {
-                const subtotal = (f.subtotal || f.total || 0);
-                const neto = subtotal * (1 - pct / 100);
-                totalEl.textContent = formatCurrency(neto);
-            }
-        }
-    }
-}
-
-// Botones de descuento rápido 5% 10% 15% 20% en cotización
-function cotizSetDescuento(pct) {
-    const slider = document.getElementById('cotizDescuentoSlider');
-    if (slider) {
-        slider.value = pct;
-        cotizUpdateTotal();
-    }
-}
-
-
 async function guardarItemCotizacion() {
     if (_guardandoCotiz) return;
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
@@ -7299,6 +7246,17 @@ async function guardarCita() {
 // Órdenes de laboratorio temporales (para agregar a factura)
 let tempOrdenesLab = [];
 
+function abrirModalOrdenLab() {
+    document.getElementById('labTipo').value = 'Corona';
+    document.getElementById('labDientes').value = '';
+    document.getElementById('labDescripcion').value = '';
+    document.getElementById('labLaboratorio').value = '';
+    document.getElementById('labPrecio').value = '';
+    document.getElementById('labCosto').value = '';
+    calcularMargenLab();
+
+    openModal('modalOrdenLab');
+}
 
 function calcularMargenLab() {
     const precio = parseFloat(document.getElementById('labPrecio').value) || 0;
@@ -8896,6 +8854,23 @@ window.avanzarEstadoLab = avanzarEstadoLab;
 
 let currentPacienteRecetas = null;
 
+function abrirRecetasMedicas(pacienteId) {
+    const paciente = appData.pacientes.find(p => p.id === pacienteId);
+    if (!paciente) return;
+
+    currentPacienteRecetas = paciente;
+
+    // Inicializar recetas si no existe
+    if (!paciente.recetas) {
+        paciente.recetas = [];
+    }
+
+    document.getElementById('recetasPacienteNombre').textContent = paciente.nombre;
+    renderizarRecetas();
+
+    closeModal('modalVerPaciente');
+    openModal('modalRecetasMedicas');
+}
 
 function renderizarRecetas() {
     if (!currentPacienteRecetas) return;
@@ -9661,6 +9636,35 @@ function exportarPacientesExcel() {
     registrarAuditoria('exportar', 'pacientes', `Exportó ${pacientes.length} pacientes en Excel`);
 }
 
+function exportarCitasExcel() {
+    const XLSX = window.XLSX;
+    if (!XLSX) {
+        showToast('❌ Librería de Excel no disponible', 3000, '#c0392b'); console.error('[Export] XLSX no cargado.');
+        return;
+    }
+
+    // Preparar datos
+    const datos = appData.citas.map(c => ({
+        'Fecha': formatDateWithTimezone(c.fecha),
+        'Hora': c.hora,
+        'Paciente': c.paciente,
+        'Profesional': c.profesional,
+        'Consultorio': c.consultorio,
+        'Motivo': c.motivo,
+        'Estado': c.estado || 'Pendiente',
+        'Creado Por': c.creadoPor || '',
+        'Tiene Factura': c.facturaId ? 'Sí' : 'No'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Citas");
+
+    const nombreArchivo = `Citas_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, nombreArchivo);
+
+    showToast('✓ Archivo Excel generado');
+}
 
 function exportarComisionesExcel() {
     const XLSX = window.XLSX;
@@ -9776,6 +9780,25 @@ function formatDateWithTimezone(dateString) {
     }
 }
 
+function formatDateTimeWithTimezone(dateString) {
+    if (!dateString) return '';
+
+    try {
+        const date = new Date(dateString);
+        const timezone = getTimezone();
+
+        return date.toLocaleString(getLocale(), {
+            timeZone: timezone,
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return formatDate(dateString); // Fallback
+    }
+}
 
 // ========================================
 // DASHBOARD
@@ -11529,222 +11552,191 @@ function mostrarBannerPagoStripe() {
 // ─── Render Mi Plan ───────────────────────────────────────────────────────────
 
 function renderMiPlanTab() {
-    try {
-    
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    
-        let tab = document.getElementById('tab-miplan');
-        if (!tab) {
-            tab = document.createElement('div');
-            tab.id = 'tab-miplan';
-            tab.className = 'tab-content';
-            document.querySelector('.content-area').appendChild(tab);
-        }
-        tab.classList.add('active');
-        document.querySelectorAll('.nav-item').forEach(btn => {
-            if (btn.getAttribute('onclick') === "showTab('miplan')") btn.classList.add('active');
-        });
-    
-        const plan       = clinicConfig.plan || 'clinica';
-        const basePrice  = BASE_PRECIOS[plan] || 1200;
-        const moneda     = clinicConfig.moneda || 'RD$';
-        const enTrial    = clinicConfig.enTrial;
-        const suspendida = clinicConfig.suspendida;
-        const pagoPend   = clinicConfig.pagoPendiente;
-        const suscActiva = clinicConfig.subscripcionActiva;
-        const proxPago   = clinicConfig.proximoPago;
-        const hasta      = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
-        const diasTrial  = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / 86400000)) : 0;
-    
-        let pendientes = [...(clinicConfig.modulos || [])];
-    
-        function calcTotal() {
-            return basePrice + pendientes.reduce((s, k) => {
-                const m = MODULOS_DISPONIBLES.find(x => x.key === k);
-                return s + (m ? m.precio : 0);
-            }, 0);
-        }
-    
-        function renderToggle(modulo) {
-            const activo = pendientes.includes(modulo.key);
-            return `
-            <div class="miplan-modulo" id="mpmod-${modulo.key}" style="
-                display:flex;align-items:center;justify-content:space-between;
-                padding:16px 20px;background:var(--white);border-radius:var(--radius-md);
-                margin-bottom:10px;border:1.5px solid ${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.07)'};
-                transition:border-color 0.2s;cursor:pointer;
-            " onclick="togglePlanModulo('${modulo.key}')">
-                <div>
-                    <div style="font-size:14px;font-weight:400;color:var(--dark);margin-bottom:2px">${modulo.nombre}</div>
-                    <div style="font-size:12px;color:var(--light)">${modulo.desc}</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
-                    <div style="font-size:13px;color:var(--mid)">${moneda}${modulo.precio.toLocaleString()}<span style="font-size:10px;color:var(--light)">/mes</span></div>
-                    <div style="width:44px;height:24px;border-radius:100px;background:${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.15)'};transition:background 0.2s;position:relative;">
-                        <div style="width:18px;height:18px;border-radius:50%;background:white;position:absolute;top:3px;left:${activo ? '23px' : '3px'};transition:left 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
-                    </div>
-                </div>
-            </div>`;
-        }
-    
-        // ── Badge de estado ──────────────────────────────────────────
-        let badge = '';
-        if      (suspendida)  badge = `<span style="background:#c0392b;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⛔ Suspendida</span>`;
-        else if (pagoPend)    badge = `<span style="background:#e65100;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⚠️ Pago pendiente</span>`;
-        else if (enTrial)     badge = `<span style="background:var(--terracota,#C4856A);color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⏳ Trial · ${diasTrial}d</span>`;
-        else if (suscActiva)  badge = `<span style="background:#3a7a4a;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">✓ Activa</span>`;
-        else                  badge = `<span style="background:var(--muted,#aaa);color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">Sin suscripción</span>`;
-    
-        // ── Subtítulo ────────────────────────────────────────────────
-        let subtitulo = '';
-        if      (enTrial)    subtitulo = `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial !== 1 ? 's' : ''} restante${diasTrial !== 1 ? 's' : ''}</strong>`;
-        else if (suscActiva) subtitulo = proxPago ? `Próximo cobro: <strong>${new Date(proxPago).toLocaleDateString(getLocale(), {day:'2-digit', month:'long', year:'numeric'})}</strong>` : 'Plan activo';
-        else if (suspendida) subtitulo = 'Suscripción suspendida por falta de pago';
-        else                 subtitulo = 'Sin suscripción activa';
-    
-        // ── Alertas contextuales ─────────────────────────────────────
-        let alertas = '';
-        if (suspendida) {
-            alertas = `<div style="padding:12px 16px;background:rgba(192,57,43,0.08);border-radius:10px;border-left:3px solid #c0392b;font-size:13px;color:#c0392b;margin-bottom:16px;">
-                ⛔ Tu suscripción fue suspendida por falta de pago. Reactivá para recuperar el acceso completo.
-            </div>`;
-        } else if (pagoPend) {
-            const grace = clinicConfig.gracePeriodHasta ? new Date(clinicConfig.gracePeriodHasta) : null;
-            const dias  = grace ? Math.max(0, Math.ceil((grace - new Date()) / 86400000)) : 0;
-            alertas = `<div style="padding:12px 16px;background:rgba(230,81,0,0.08);border-radius:10px;border-left:3px solid #e65100;font-size:13px;color:#e65100;margin-bottom:16px;">
-                ⚠️ Hay un pago fallido. Tenés <strong>${dias} día${dias !== 1 ? 's' : ''}</strong> de gracia antes de la suspensión.
-            </div>`;
-        } else if (enTrial) {
-            alertas = `<div style="padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;border-left:3px solid var(--terracota,#C4856A);font-size:12px;color:var(--mid);margin-bottom:16px;">
-                💡 Durante el trial podés explorar todos los módulos. Al activar, solo pagás los que tengas encendidos.
-            </div>`;
-        }
-    
-        // ── Botón de acción principal según estado ───────────────────
-        let accion = '';
-        if (suspendida) {
-            accion = `
-                <button onclick="withGuard(this, abrirCheckoutStripe)" style="
-                    width:100%;padding:15px;background:#c0392b;color:white;border:none;
-                    border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
-                    text-transform:uppercase;font-family:inherit;cursor:pointer;">
-                    Reactivar suscripción
-                </button>`;
-        } else if (!suscActiva || enTrial) {
-            // Trial activo o sin suscripción: mostrar checkout
-            accion = `
-                <button onclick="withGuard(this, abrirCheckoutStripe)" style="
-                    width:100%;padding:15px;background:var(--clinic-color);color:white;border:none;
-                    border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
-                    text-transform:uppercase;font-family:inherit;cursor:pointer;transition:opacity 0.2s;"
-                    onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                    ${enTrial ? '🔒 Activar suscripción' : '💳 Suscribirme ahora'}
-                </button>
-                <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
-                    ${enTrial
-                        ? `Trial vence en <strong>${diasTrial} día${diasTrial !== 1 ? 's' : ''}</strong>. Activar no interrumpe el acceso.`
-                        : 'Pago mensual. Podés cancelar cuando quieras desde el portal.'}
-                </div>`;
-        } else {
-            // Suscripción activa: guardar módulos + portal de facturación
-            accion = `
-                <button onclick="withGuard(this, guardarCambiosPlan)" style="
-                    width:100%;padding:14px;background:var(--clinic-color);color:white;border:none;
-                    border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
-                    text-transform:uppercase;font-family:inherit;cursor:pointer;margin-bottom:10px;
-                    transition:opacity 0.2s;"
-                    onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                    Guardar módulos
-                </button>
-                <button onclick="withGuard(this, abrirPortalStripe)" style="
-                    width:100%;padding:12px;background:transparent;color:var(--mid);
-                    border:1.5px solid rgba(30,28,26,0.15);border-radius:var(--radius-sm);
-                    font-size:12px;letter-spacing:1px;text-transform:uppercase;
-                    font-family:inherit;cursor:pointer;transition:border-color 0.2s;"
-                    onmouseover="this.style.borderColor='var(--clinic-color)'" onmouseout="this.style.borderColor='rgba(30,28,26,0.15)'">
-                    ⚙️ Gestionar facturación / cambiar tarjeta
-                </button>
-                <div style="font-size:11px;color:var(--light);text-align:center;margin-top:8px;line-height:1.6">
-                    Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica en el próximo ciclo.
-                </div>`;
-        }
-    
-        tab.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-                <div class="section-title">Mi plan</div>
-                ${badge}
-            </div>
-            <div class="section-sub" style="margin-bottom:16px">${subtitulo}</div>
-            ${alertas}
-    
-            <!-- Plan base -->
-            <div class="card" style="margin-bottom:14px">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                    <div>
-                        <div style="font-size:13px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Plan base</div>
-                        <div style="font-size:18px;font-weight:300;color:var(--dark)">${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
-                        <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
-                    </div>
-                    <div style="text-align:right">
-                        <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">${moneda}${basePrice.toLocaleString()}</div>
-                        <div style="font-size:10px;color:var(--light)">/mes</div>
-                    </div>
-                </div>
-            </div>
-    
-            <!-- Módulos adicionales -->
-            <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding:0 2px">
-                Módulos adicionales
-            </div>
-            <div id="miplan-modulos">
-                ${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
-            </div>
-    
-            <!-- Total + acción -->
-            <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                    <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
-                    <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${moneda}${calcTotal().toLocaleString()}</div>
-                </div>
-                ${accion}
-            </div>
-        `;
-    
-        tab._pendientes   = pendientes;
-        tab._calcTotal    = calcTotal;
-        tab._renderToggle = renderToggle;
-        tab._plan         = plan;
-        tab._moneda       = moneda;
-    
-    } catch(e) {
-        console.error('[renderMiPlanTab]', e);
-        // Show friendly error inside the tab instead of blank screen
-        let errContainer = document.getElementById('tab-miplan');
-        if (!errContainer) {
-            errContainer = document.querySelector('.tab-content.active') || document.body;
-        }
-        if (errContainer) {
-            errContainer.innerHTML = `
-                <div style="display:flex;flex-direction:column;align-items:center;
-                     justify-content:center;padding:60px 24px;text-align:center;">
-                    <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
-                    <div style="font-size:16px;font-weight:500;color:var(--pizarra);margin-bottom:8px;">
-                        Error al cargar tab Mi Plan
-                    </div>
-                    <div style="font-size:13px;color:var(--piedra);margin-bottom:20px;">
-                        ${e.message || 'Error inesperado'}
-                    </div>
-                    <button onclick="location.reload()"
-                        style="background:var(--clinic-color);color:white;border:none;
-                               padding:10px 24px;border-radius:100px;font-size:13px;
-                               font-family:inherit;cursor:pointer;">
-                        Recargar
-                    </button>
-                </div>`;
-            errContainer.classList.add('active');
-        }
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    let tab = document.getElementById('tab-miplan');
+    if (!tab) {
+        tab = document.createElement('div');
+        tab.id = 'tab-miplan';
+        tab.className = 'tab-content';
+        document.querySelector('.content-area').appendChild(tab);
     }
+    tab.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        if (btn.getAttribute('onclick') === "showTab('miplan')") btn.classList.add('active');
+    });
+
+    const plan       = clinicConfig.plan || 'clinica';
+    const basePrice  = BASE_PRECIOS[plan] || 1200;
+    const moneda     = clinicConfig.moneda || 'RD$';
+    const enTrial    = clinicConfig.enTrial;
+    const suspendida = clinicConfig.suspendida;
+    const pagoPend   = clinicConfig.pagoPendiente;
+    const suscActiva = clinicConfig.subscripcionActiva;
+    const proxPago   = clinicConfig.proximoPago;
+    const hasta      = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
+    const diasTrial  = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / 86400000)) : 0;
+
+    let pendientes = [...(clinicConfig.modulos || [])];
+
+    function calcTotal() {
+        return basePrice + pendientes.reduce((s, k) => {
+            const m = MODULOS_DISPONIBLES.find(x => x.key === k);
+            return s + (m ? m.precio : 0);
+        }, 0);
+    }
+
+    function renderToggle(modulo) {
+        const activo = pendientes.includes(modulo.key);
+        return `
+        <div class="miplan-modulo" id="mpmod-${modulo.key}" style="
+            display:flex;align-items:center;justify-content:space-between;
+            padding:16px 20px;background:var(--white);border-radius:var(--radius-md);
+            margin-bottom:10px;border:1.5px solid ${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.07)'};
+            transition:border-color 0.2s;cursor:pointer;
+        " onclick="togglePlanModulo('${modulo.key}')">
+            <div>
+                <div style="font-size:14px;font-weight:400;color:var(--dark);margin-bottom:2px">${modulo.nombre}</div>
+                <div style="font-size:12px;color:var(--light)">${modulo.desc}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
+                <div style="font-size:13px;color:var(--mid)">${moneda}${modulo.precio.toLocaleString()}<span style="font-size:10px;color:var(--light)">/mes</span></div>
+                <div style="width:44px;height:24px;border-radius:100px;background:${activo ? 'var(--clinic-color)' : 'rgba(30,28,26,0.15)'};transition:background 0.2s;position:relative;">
+                    <div style="width:18px;height:18px;border-radius:50%;background:white;position:absolute;top:3px;left:${activo ? '23px' : '3px'};transition:left 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // ── Badge de estado ──────────────────────────────────────────
+    let badge = '';
+    if      (suspendida)  badge = `<span style="background:#c0392b;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⛔ Suspendida</span>`;
+    else if (pagoPend)    badge = `<span style="background:#e65100;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⚠️ Pago pendiente</span>`;
+    else if (enTrial)     badge = `<span style="background:var(--terracota,#C4856A);color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⏳ Trial · ${diasTrial}d</span>`;
+    else if (suscActiva)  badge = `<span style="background:#3a7a4a;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">✓ Activa</span>`;
+    else                  badge = `<span style="background:var(--muted,#aaa);color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">Sin suscripción</span>`;
+
+    // ── Subtítulo ────────────────────────────────────────────────
+    let subtitulo = '';
+    if      (enTrial)    subtitulo = `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial !== 1 ? 's' : ''} restante${diasTrial !== 1 ? 's' : ''}</strong>`;
+    else if (suscActiva) subtitulo = proxPago ? `Próximo cobro: <strong>${new Date(proxPago).toLocaleDateString(getLocale(), {day:'2-digit', month:'long', year:'numeric'})}</strong>` : 'Plan activo';
+    else if (suspendida) subtitulo = 'Suscripción suspendida por falta de pago';
+    else                 subtitulo = 'Sin suscripción activa';
+
+    // ── Alertas contextuales ─────────────────────────────────────
+    let alertas = '';
+    if (suspendida) {
+        alertas = `<div style="padding:12px 16px;background:rgba(192,57,43,0.08);border-radius:10px;border-left:3px solid #c0392b;font-size:13px;color:#c0392b;margin-bottom:16px;">
+            ⛔ Tu suscripción fue suspendida por falta de pago. Reactivá para recuperar el acceso completo.
+        </div>`;
+    } else if (pagoPend) {
+        const grace = clinicConfig.gracePeriodHasta ? new Date(clinicConfig.gracePeriodHasta) : null;
+        const dias  = grace ? Math.max(0, Math.ceil((grace - new Date()) / 86400000)) : 0;
+        alertas = `<div style="padding:12px 16px;background:rgba(230,81,0,0.08);border-radius:10px;border-left:3px solid #e65100;font-size:13px;color:#e65100;margin-bottom:16px;">
+            ⚠️ Hay un pago fallido. Tenés <strong>${dias} día${dias !== 1 ? 's' : ''}</strong> de gracia antes de la suspensión.
+        </div>`;
+    } else if (enTrial) {
+        alertas = `<div style="padding:10px 14px;background:rgba(196,133,106,0.08);border-radius:8px;border-left:3px solid var(--terracota,#C4856A);font-size:12px;color:var(--mid);margin-bottom:16px;">
+            💡 Durante el trial podés explorar todos los módulos. Al activar, solo pagás los que tengas encendidos.
+        </div>`;
+    }
+
+    // ── Botón de acción principal según estado ───────────────────
+    let accion = '';
+    if (suspendida) {
+        accion = `
+            <button onclick="withGuard(this, abrirCheckoutStripe)" style="
+                width:100%;padding:15px;background:#c0392b;color:white;border:none;
+                border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
+                text-transform:uppercase;font-family:inherit;cursor:pointer;">
+                Reactivar suscripción
+            </button>`;
+    } else if (!suscActiva || enTrial) {
+        // Trial activo o sin suscripción: mostrar checkout
+        accion = `
+            <button onclick="withGuard(this, abrirCheckoutStripe)" style="
+                width:100%;padding:15px;background:var(--clinic-color);color:white;border:none;
+                border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
+                text-transform:uppercase;font-family:inherit;cursor:pointer;transition:opacity 0.2s;"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                ${enTrial ? '🔒 Activar suscripción' : '💳 Suscribirme ahora'}
+            </button>
+            <div style="font-size:11px;color:var(--light);text-align:center;margin-top:10px;line-height:1.6">
+                ${enTrial
+                    ? `Trial vence en <strong>${diasTrial} día${diasTrial !== 1 ? 's' : ''}</strong>. Activar no interrumpe el acceso.`
+                    : 'Pago mensual. Podés cancelar cuando quieras desde el portal.'}
+            </div>`;
+    } else {
+        // Suscripción activa: guardar módulos + portal de facturación
+        accion = `
+            <button onclick="withGuard(this, guardarCambiosPlan)" style="
+                width:100%;padding:14px;background:var(--clinic-color);color:white;border:none;
+                border-radius:var(--radius-sm);font-size:12px;letter-spacing:1.5px;
+                text-transform:uppercase;font-family:inherit;cursor:pointer;margin-bottom:10px;
+                transition:opacity 0.2s;"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                Guardar módulos
+            </button>
+            <button onclick="withGuard(this, abrirPortalStripe)" style="
+                width:100%;padding:12px;background:transparent;color:var(--mid);
+                border:1.5px solid rgba(30,28,26,0.15);border-radius:var(--radius-sm);
+                font-size:12px;letter-spacing:1px;text-transform:uppercase;
+                font-family:inherit;cursor:pointer;transition:border-color 0.2s;"
+                onmouseover="this.style.borderColor='var(--clinic-color)'" onmouseout="this.style.borderColor='rgba(30,28,26,0.15)'">
+                ⚙️ Gestionar facturación / cambiar tarjeta
+            </button>
+            <div style="font-size:11px;color:var(--light);text-align:center;margin-top:8px;line-height:1.6">
+                Los módulos nuevos se activan al instante.<br>El ajuste de precio aplica en el próximo ciclo.
+            </div>`;
+    }
+
+    tab.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div class="section-title">Mi plan</div>
+            ${badge}
+        </div>
+        <div class="section-sub" style="margin-bottom:16px">${subtitulo}</div>
+        ${alertas}
+
+        <!-- Plan base -->
+        <div class="card" style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <div style="font-size:13px;color:var(--light);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Plan base</div>
+                    <div style="font-size:18px;font-weight:300;color:var(--dark)">${plan === 'solo' ? 'Plan Solo' : 'Plan Clínica'}</div>
+                    <div style="font-size:12px;color:var(--light);margin-top:2px">Agenda · Pacientes · Facturación · Expediente clínico</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-0.5px">${moneda}${basePrice.toLocaleString()}</div>
+                    <div style="font-size:10px;color:var(--light)">/mes</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulos adicionales -->
+        <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding:0 2px">
+            Módulos adicionales
+        </div>
+        <div id="miplan-modulos">
+            ${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
+        </div>
+
+        <!-- Total + acción -->
+        <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${moneda}${calcTotal().toLocaleString()}</div>
+            </div>
+            ${accion}
+        </div>
+    `;
+
+    tab._pendientes   = pendientes;
+    tab._calcTotal    = calcTotal;
+    tab._renderToggle = renderToggle;
+    tab._plan         = plan;
+    tab._moneda       = moneda;
 }
 
 function togglePlanModulo(key) {
@@ -11792,109 +11784,78 @@ async function guardarCambiosPlan() {
 // COBROS TAB — unifies factura, pendientes, ingresos, cuadre, gastos
 // ═══════════════════════════════════════════════
 function renderCobrosTab(subtab) {
-    try {
-    
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    
-        // Get or create container
-        let tab = document.getElementById('tab-cobros');
-        if (!tab) {
-            tab = document.createElement('div');
-            tab.id = 'tab-cobros';
-            tab.className = 'tab-content';
-            document.querySelector('.content-area').appendChild(tab);
-        }
-        tab.classList.add('active');
-        // Default subtab por rol
-        const _roleDefault = appData.currentRole === 'professional' ? 'mis-facturas'
-                           : appData.currentRole === 'reception'    ? 'cobrar'
-                           : 'cobrar';
-        const _requested = subtab || tab._activeSubtab || _roleDefault;
-        tab._activeSubtab = _requested;
-        const active = _requested;
-    
-        // Highlight nav
-        document.querySelectorAll('.nav-item').forEach(btn => {
-            if (btn.getAttribute('onclick') === "showTab('cobros')") btn.classList.add('active');
-        });
-    
-        // Subtabs según rol — cada rol ve solo lo que le corresponde
-        const role = appData.currentRole;
-        let subtabs;
-        if (role === 'admin') {
-            subtabs = [
-                { key: 'cobrar',        label: '💳 Cobrar'   },
-                { key: 'nueva',         label: '+ Nueva'     },
-                { key: 'ingresos',      label: 'Ingresos'    },
-                { key: 'cuadre',        label: 'Cuadre'      },
-                { key: 'gastos',        label: 'Gastos'      },
-            ];
-        } else if (role === 'reception') {
-            subtabs = [
-                { key: 'cobrar',        label: '💳 Cobrar'   },
-                { key: 'gastos',        label: 'Gastos'      },
-                { key: 'cuadre',        label: 'Cuadre'      },
-            ];
-        } else if (role === 'professional') {
-            subtabs = [
-                { key: 'mis-facturas',  label: '📋 Mis Facturas' },
-            ];
-        } else {
-            subtabs = [{ key: 'cobrar', label: '💳 Cobrar' }];
-        }
-    
-        const subtabsHtml = subtabs.map(s => `
-            <button onclick="setCobrosSubtab('${s.key}')" style="
-                padding:8px 16px;border:none;background:${active===s.key ? 'var(--dark)' : 'transparent'};
-                color:${active===s.key ? 'white' : 'var(--mid)'};
-                border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;
-                white-space:nowrap;letter-spacing:0.3px;transition:all 0.2s;
-                ${active===s.key ? 'box-shadow:0 2px 8px rgba(30,28,26,0.15)' : ''}
-            ">${s.label}</button>
-        `).join('');
-    
-        tab.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <div class="section-title" style="margin-bottom:0">Cobros</div>
-            </div>
-            <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:20px;
-                        scrollbar-width:none;-webkit-overflow-scrolling:touch">
-                ${subtabsHtml}
-            </div>
-            <div id="cobros-content"></div>
-        `;
-    
-        renderCobrosContent(active);
-    
-    } catch(e) {
-        console.error('[renderCobrosTab]', e);
-        // Show friendly error inside the tab instead of blank screen
-        let errContainer = document.getElementById('tab-cobros');
-        if (!errContainer) {
-            errContainer = document.querySelector('.tab-content.active') || document.body;
-        }
-        if (errContainer) {
-            errContainer.innerHTML = `
-                <div style="display:flex;flex-direction:column;align-items:center;
-                     justify-content:center;padding:60px 24px;text-align:center;">
-                    <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
-                    <div style="font-size:16px;font-weight:500;color:var(--pizarra);margin-bottom:8px;">
-                        Error al cargar tab Cobros
-                    </div>
-                    <div style="font-size:13px;color:var(--piedra);margin-bottom:20px;">
-                        ${e.message || 'Error inesperado'}
-                    </div>
-                    <button onclick="location.reload()"
-                        style="background:var(--clinic-color);color:white;border:none;
-                               padding:10px 24px;border-radius:100px;font-size:13px;
-                               font-family:inherit;cursor:pointer;">
-                        Recargar
-                    </button>
-                </div>`;
-            errContainer.classList.add('active');
-        }
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    // Get or create container
+    let tab = document.getElementById('tab-cobros');
+    if (!tab) {
+        tab = document.createElement('div');
+        tab.id = 'tab-cobros';
+        tab.className = 'tab-content';
+        document.querySelector('.content-area').appendChild(tab);
     }
+    tab.classList.add('active');
+    // Default subtab por rol
+    const _roleDefault = appData.currentRole === 'professional' ? 'mis-facturas'
+                       : appData.currentRole === 'reception'    ? 'cobrar'
+                       : 'cobrar';
+    const _requested = subtab || tab._activeSubtab || _roleDefault;
+    tab._activeSubtab = _requested;
+    const active = _requested;
+
+    // Highlight nav
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        if (btn.getAttribute('onclick') === "showTab('cobros')") btn.classList.add('active');
+    });
+
+    // Subtabs según rol — cada rol ve solo lo que le corresponde
+    const role = appData.currentRole;
+    let subtabs;
+    if (role === 'admin') {
+        subtabs = [
+            { key: 'cobrar',        label: '💳 Cobrar'   },
+            { key: 'nueva',         label: '+ Nueva'     },
+            { key: 'ingresos',      label: 'Ingresos'    },
+            { key: 'cuadre',        label: 'Cuadre'      },
+            { key: 'gastos',        label: 'Gastos'      },
+        ];
+    } else if (role === 'reception') {
+        subtabs = [
+            { key: 'cobrar',        label: '💳 Cobrar'   },
+            { key: 'gastos',        label: 'Gastos'      },
+            { key: 'cuadre',        label: 'Cuadre'      },
+        ];
+    } else if (role === 'professional') {
+        subtabs = [
+            { key: 'mis-facturas',  label: '📋 Mis Facturas' },
+        ];
+    } else {
+        subtabs = [{ key: 'cobrar', label: '💳 Cobrar' }];
+    }
+
+    const subtabsHtml = subtabs.map(s => `
+        <button onclick="setCobrosSubtab('${s.key}')" style="
+            padding:8px 16px;border:none;background:${active===s.key ? 'var(--dark)' : 'transparent'};
+            color:${active===s.key ? 'white' : 'var(--mid)'};
+            border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;
+            white-space:nowrap;letter-spacing:0.3px;transition:all 0.2s;
+            ${active===s.key ? 'box-shadow:0 2px 8px rgba(30,28,26,0.15)' : ''}
+        ">${s.label}</button>
+    `).join('');
+
+    tab.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div class="section-title" style="margin-bottom:0">Cobros</div>
+        </div>
+        <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:20px;
+                    scrollbar-width:none;-webkit-overflow-scrolling:touch">
+            ${subtabsHtml}
+        </div>
+        <div id="cobros-content"></div>
+    `;
+
+    renderCobrosContent(active);
 }
 
 function setCobrosSubtab(key) {
@@ -12211,87 +12172,56 @@ function irTab(tabName) {
 
 
 function renderCatalogoTab() {
-    try {
-    
-        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(b => {
-            if (b.textContent.trim().includes('Catálogo')) b.classList.add('active');
-        });
-    
-        const items = clinicConfig.procItems || [];
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    
-        let catTab = document.getElementById('tab-catalogo');
-        if (!catTab) {
-            catTab = document.createElement('div');
-            catTab.id = 'tab-catalogo';
-            catTab.className = 'tab-content';
-            const parent = document.querySelector('.tab-content')?.parentElement;
-            if (parent) parent.appendChild(catTab);
-        }
-        catTab.classList.add('active');
-    
-        catTab.innerHTML = `
-            <div class="card">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
-                    <div>
-                        <h2 style="margin:0 0 4px 0">Catálogo de procedimientos</h2>
-                        <div style="font-size:13px;color:var(--piedra)">Precios base que aparecen al crear una factura</div>
-                    </div>
-                    <button class="btn-primary" onclick="abrirModalProcedimiento(null)">+ Agregar</button>
-                </div>
-                <div id="catalogo-list">
-                    ${items.length === 0 ? `
-                        <div style="text-align:center;padding:48px 24px;color:var(--muted)">
-                            <div style="font-size:32px;margin-bottom:12px">📋</div>
-                            <div style="font-size:15px;margin-bottom:8px">Sin procedimientos aún</div>
-                            <div style="font-size:13px">Agrega los procedimientos que ofrece tu clínica</div>
-                        </div>
-                    ` : items.map((item, i) => `
-                        <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
-                            <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
-                            <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">${formatCurrency(item.precio||0)}</div>
-                            <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
-                            <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-            <div class="card" style="margin-top:16px;background:rgba(0,0,0,0.02)">
-                <div style="font-size:12px;color:var(--muted);line-height:1.7">
-                    💡 Estos precios son la referencia al crear facturas. El médico puede ajustar el precio en cada factura si lo necesita.
-                </div>
-            </div>
-        `;
-    
-    } catch(e) {
-        console.error('[renderCatalogoTab]', e);
-        // Show friendly error inside the tab instead of blank screen
-        let errContainer = document.getElementById('tab-catalogo');
-        if (!errContainer) {
-            errContainer = document.querySelector('.tab-content.active') || document.body;
-        }
-        if (errContainer) {
-            errContainer.innerHTML = `
-                <div style="display:flex;flex-direction:column;align-items:center;
-                     justify-content:center;padding:60px 24px;text-align:center;">
-                    <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
-                    <div style="font-size:16px;font-weight:500;color:var(--pizarra);margin-bottom:8px;">
-                        Error al cargar tab Catálogo
-                    </div>
-                    <div style="font-size:13px;color:var(--piedra);margin-bottom:20px;">
-                        ${e.message || 'Error inesperado'}
-                    </div>
-                    <button onclick="location.reload()"
-                        style="background:var(--clinic-color);color:white;border:none;
-                               padding:10px 24px;border-radius:100px;font-size:13px;
-                               font-family:inherit;cursor:pointer;">
-                        Recargar
-                    </button>
-                </div>`;
-            errContainer.classList.add('active');
-        }
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => {
+        if (b.textContent.trim().includes('Catálogo')) b.classList.add('active');
+    });
+
+    const items = clinicConfig.procItems || [];
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+    let catTab = document.getElementById('tab-catalogo');
+    if (!catTab) {
+        catTab = document.createElement('div');
+        catTab.id = 'tab-catalogo';
+        catTab.className = 'tab-content';
+        const parent = document.querySelector('.tab-content')?.parentElement;
+        if (parent) parent.appendChild(catTab);
     }
+    catTab.classList.add('active');
+
+    catTab.innerHTML = `
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 style="margin:0 0 4px 0">Catálogo de procedimientos</h2>
+                    <div style="font-size:13px;color:var(--piedra)">Precios base que aparecen al crear una factura</div>
+                </div>
+                <button class="btn-primary" onclick="abrirModalProcedimiento(null)">+ Agregar</button>
+            </div>
+            <div id="catalogo-list">
+                ${items.length === 0 ? `
+                    <div style="text-align:center;padding:48px 24px;color:var(--muted)">
+                        <div style="font-size:32px;margin-bottom:12px">📋</div>
+                        <div style="font-size:15px;margin-bottom:8px">Sin procedimientos aún</div>
+                        <div style="font-size:13px">Agrega los procedimientos que ofrece tu clínica</div>
+                    </div>
+                ` : items.map((item, i) => `
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
+                        <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
+                        <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">${formatCurrency(item.precio||0)}</div>
+                        <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
+                        <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        <div class="card" style="margin-top:16px;background:rgba(0,0,0,0.02)">
+            <div style="font-size:12px;color:var(--muted);line-height:1.7">
+                💡 Estos precios son la referencia al crear facturas. El médico puede ajustar el precio en cada factura si lo necesita.
+            </div>
+        </div>
+    `;
 }
 
 function abrirModalProcedimiento(idx) {
@@ -14032,6 +13962,18 @@ async function crearSede() {
 
 let _facturaACancelarId = null;
 
+function abrirCancelarFactura(facturaId) {
+    if (appData.currentRole !== 'admin') {
+        showToast('⛔ Solo el administrador puede cancelar facturas', 3000, '#c0392b');
+        return;
+    }
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) return;
+    _facturaACancelarId = facturaId;
+    const razon = document.getElementById('razonCancelacion');
+    if (razon) razon.value = '';
+    openModal('modalCancelarFactura');
+}
 
 async function confirmarCancelacionFactura() {
     const razon = document.getElementById('razonCancelacion')?.value.trim();
@@ -14129,6 +14071,21 @@ async function eliminarPacienteActual(pacienteIdParam) {
 // El modal #modalEditarOrden tiene campos: descripcion, laboratorio, precio.
 // window.currentOrdenLabId guarda la orden actualmente abierta en el detalle.
 
+function abrirEditarOrden(ordenId) {
+    const id = ordenId || window.currentOrdenLabId;
+    if (!id) return;
+    const orden = appData.laboratorios?.find(o => o.id === id);
+    if (!orden) return;
+
+    window._ordenEditandoId = id;
+    const descEl  = document.getElementById('editOrdenDescripcion');
+    const labEl   = document.getElementById('editOrdenLaboratorio');
+    const precioEl = document.getElementById('editOrdenPrecio');
+    if (descEl)   descEl.value   = orden.descripcion || '';
+    if (labEl)    labEl.value    = orden.laboratorio  || '';
+    if (precioEl) precioEl.value = orden.precio       || '';
+    openModal('modalEditarOrden');
+}
 
 async function guardarEdicionOrden() {
     const id = window._ordenEditandoId || window.currentOrdenLabId;
@@ -14165,6 +14122,31 @@ async function guardarEdicionOrden() {
 // El modal #modalAbonoLab muestra info de la orden y permite registrar un abono.
 // Los campos: abonoMonto, abonoFecha, abonoNotas.
 
+function abrirAbonoLab(ordenId) {
+    const id = ordenId || window.currentOrdenLabId;
+    if (!id) return;
+    const orden = appData.laboratorios?.find(o => o.id === id);
+    if (!orden) return;
+
+    window._ordenAbonoId = id;
+
+    const infoEl   = document.getElementById('abonoOrdenInfo');
+    const saldoEl  = document.getElementById('abonoSaldoActual');
+    const montoEl  = document.getElementById('abonoMonto');
+    const fechaEl  = document.getElementById('abonoFecha');
+    const notasEl  = document.getElementById('abonoNotas');
+
+    const totalAbonado = (orden.abonos || []).reduce((s, a) => s + (a.monto || 0), 0);
+    const saldoPendiente = Math.max(0, (orden.costo || 0) - totalAbonado);
+
+    if (infoEl)  infoEl.textContent  = `${orden.tipo || 'Orden'} — ${orden.laboratorio}`;
+    if (saldoEl) saldoEl.textContent = `Costo: ${formatCurrency(orden.costo || 0)} · Abonado: ${formatCurrency(totalAbonado)} · Pendiente: ${formatCurrency(saldoPendiente)}`;
+    if (montoEl) montoEl.value = '';
+    if (fechaEl) fechaEl.value = new Date().toISOString().split('T')[0];
+    if (notasEl) notasEl.value = '';
+
+    openModal('modalAbonoLab');
+}
 
 async function guardarAbonoLab() {
     const id = window._ordenAbonoId;
@@ -14210,6 +14192,25 @@ async function guardarAbonoLab() {
 
 
 // ── Menú ··· de la ficha del paciente ─────────────────
+function _togglePacienteMenu() {
+    const dd = document.getElementById('pacienteMenuDropdown');
+    if (!dd) return;
+    const open = dd.style.display === 'block';
+    dd.style.display = open ? 'none' : 'block';
+    if (!open) {
+        setTimeout(() => {
+            function _closePacMenu(e) {
+                const menu = document.getElementById('pacienteMenuDropdown');
+                const btn  = document.getElementById('btnPacienteMenu');
+                if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+                    menu.style.display = 'none';
+                    document.removeEventListener('click', _closePacMenu);
+                }
+            }
+            document.addEventListener('click', _closePacMenu);
+        }, 50);
+    }
+}
 
 // ════════════════════════════════════════════════════════════
 // SPOTLIGHT SEARCH — búsqueda global instantánea
