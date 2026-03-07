@@ -414,7 +414,6 @@ function setConnectionState(state, detail) {
     }
 }
 
-function showSyncIndicator() { setConnectionState('online'); }
 
 // Connection detection via browser events + Firestore internal channel
 function initConnectionMonitor() {
@@ -1116,16 +1115,6 @@ async function saveCuadres() {
     } catch(e) { showError('Error al guardar cuadre.', e); }
 }
 
-async function deletePacienteDoc(pacienteId) {
-    // Deletes ONLY the patient doc - no saveData needed
-    if (!canWriteToFirebase('deletePaciente')) return;
-    try {
-        setConnectionState('saving');
-        await db.collection('clinicas').doc(CLINIC_PATH)
-            .collection('pacientes').doc(pacienteId).delete();
-        setConnectionState('online');
-    } catch(e) { showError('Error al eliminar el paciente.', e); }
-}
 
 // Default personnel data — generic for any new SMILE clinic
 function getDefaultPersonal() {
@@ -2312,50 +2301,6 @@ function actualizarNuevoBalance() {
 // ════════════════════════════════════════════════════════
 // ENVIAR COTIZACIÓN AL PACIENTE (WhatsApp)
 // ════════════════════════════════════════════════════════
-function enviarCotizacion(facturaId) {
-    const factura = appData.facturas.find(f => f.id === facturaId);
-    if (!factura) { showToast('⚠️ Factura no encontrada'); return; }
-
-    // Buscar teléfono del paciente
-    const paciente = appData.pacientes.find(p =>
-        p.id === factura.pacienteId || p.nombre === factura.paciente
-    );
-    const telefono = paciente?.telefono || '';
-    const telLimpio = telefono.replace(/\D/g, '');
-
-    // Construir mensaje de cotización
-    const clinica   = clinicConfig.nombre || 'Clínica Dental';
-    const moneda    = clinicConfig.moneda || 'RD$';
-    const fecha     = new Date(factura.fecha).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
-    const balance   = factura.total - (factura.pagos || []).reduce((s, p) => s + p.monto, 0);
-
-    // Líneas de procedimientos
-    const procs = (factura.procedimientos || [])
-        .map(p => `  • ${p.descripcion}${p.dientes ? ' (🦷 ' + p.dientes + ')' : ''}: ${moneda} ${Number(p.precio || 0).toLocaleString('es-DO')}`)
-        .join('\n');
-
-    const mensaje =
-`¡Hola! Te escribimos de *${clinica}* 🦷
-━━━━━━━━━━━━━━━━━━━
-📋 *Cotización #${factura.numero}*
-📅 Fecha: ${fecha}
-👤 Paciente: ${factura.paciente}
-
-*Procedimientos:*
-${procs || '  • (Sin procedimientos detallados)'}
-
-━━━━━━━━━━━━━━━━━━━
-💰 *Total: ${moneda} ${Number(factura.total).toLocaleString('es-DO')}*
-${balance < factura.total ? `✅ Abonado: ${moneda} ${Number(factura.total - balance).toLocaleString('es-DO')}\n⏳ Pendiente: ${moneda} ${Number(balance).toLocaleString('es-DO')}` : ''}
-
-_Para confirmar su cita o realizar consultas, responda este mensaje._`;
-
-    const url = telLimpio
-        ? `https://wa.me/1${telLimpio}?text=${encodeURIComponent(mensaje)}`
-        : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-
-    window.open(url, '_blank');
-}
 
 function openPagarFactura(facturaId) {
     // Solo admin y recepción pueden ejecutar cobros
@@ -4680,9 +4625,6 @@ function getTodayKey() {
 }
 
 // Returns the local-midnight timestamp for a YYYY-MM-DD key (for comparisons)
-function keyToTimestamp(key) {
-    return new Date(key + 'T00:00:00').getTime();
-}
 
 // Returns true if an ISO date string falls on a given YYYY-MM-DD key in clinic timezone.
 // Replaces all new Date(x).setHours(0,0,0,0) === today comparisons throughout the codebase.
@@ -7321,17 +7263,6 @@ async function guardarCita() {
 // Órdenes de laboratorio temporales (para agregar a factura)
 let tempOrdenesLab = [];
 
-function abrirModalOrdenLab() {
-    document.getElementById('labTipo').value = 'Corona';
-    document.getElementById('labDientes').value = '';
-    document.getElementById('labDescripcion').value = '';
-    document.getElementById('labLaboratorio').value = '';
-    document.getElementById('labPrecio').value = '';
-    document.getElementById('labCosto').value = '';
-    calcularMargenLab();
-
-    openModal('modalOrdenLab');
-}
 
 function calcularMargenLab() {
     const precio = parseFloat(document.getElementById('labPrecio').value) || 0;
@@ -8929,23 +8860,6 @@ window.avanzarEstadoLab = avanzarEstadoLab;
 
 let currentPacienteRecetas = null;
 
-function abrirRecetasMedicas(pacienteId) {
-    const paciente = appData.pacientes.find(p => p.id === pacienteId);
-    if (!paciente) return;
-
-    currentPacienteRecetas = paciente;
-
-    // Inicializar recetas si no existe
-    if (!paciente.recetas) {
-        paciente.recetas = [];
-    }
-
-    document.getElementById('recetasPacienteNombre').textContent = paciente.nombre;
-    renderizarRecetas();
-
-    closeModal('modalVerPaciente');
-    openModal('modalRecetasMedicas');
-}
 
 function renderizarRecetas() {
     if (!currentPacienteRecetas) return;
@@ -9711,35 +9625,6 @@ function exportarPacientesExcel() {
     registrarAuditoria('exportar', 'pacientes', `Exportó ${pacientes.length} pacientes en Excel`);
 }
 
-function exportarCitasExcel() {
-    const XLSX = window.XLSX;
-    if (!XLSX) {
-        showToast('❌ Librería de Excel no disponible', 3000, '#c0392b'); console.error('[Export] XLSX no cargado.');
-        return;
-    }
-
-    // Preparar datos
-    const datos = appData.citas.map(c => ({
-        'Fecha': formatDateWithTimezone(c.fecha),
-        'Hora': c.hora,
-        'Paciente': c.paciente,
-        'Profesional': c.profesional,
-        'Consultorio': c.consultorio,
-        'Motivo': c.motivo,
-        'Estado': c.estado || 'Pendiente',
-        'Creado Por': c.creadoPor || '',
-        'Tiene Factura': c.facturaId ? 'Sí' : 'No'
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(datos);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Citas");
-
-    const nombreArchivo = `Citas_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, nombreArchivo);
-
-    showToast('✓ Archivo Excel generado');
-}
 
 function exportarComisionesExcel() {
     const XLSX = window.XLSX;
@@ -9855,25 +9740,6 @@ function formatDateWithTimezone(dateString) {
     }
 }
 
-function formatDateTimeWithTimezone(dateString) {
-    if (!dateString) return '';
-
-    try {
-        const date = new Date(dateString);
-        const timezone = getTimezone();
-
-        return date.toLocaleString(getLocale(), {
-            timeZone: timezone,
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    } catch (e) {
-        return formatDate(dateString); // Fallback
-    }
-}
 
 // ========================================
 // DASHBOARD
@@ -14130,18 +13996,6 @@ async function crearSede() {
 
 let _facturaACancelarId = null;
 
-function abrirCancelarFactura(facturaId) {
-    if (appData.currentRole !== 'admin') {
-        showToast('⛔ Solo el administrador puede cancelar facturas', 3000, '#c0392b');
-        return;
-    }
-    const factura = appData.facturas.find(f => f.id === facturaId);
-    if (!factura) return;
-    _facturaACancelarId = facturaId;
-    const razon = document.getElementById('razonCancelacion');
-    if (razon) razon.value = '';
-    openModal('modalCancelarFactura');
-}
 
 async function confirmarCancelacionFactura() {
     const razon = document.getElementById('razonCancelacion')?.value.trim();
@@ -14239,21 +14093,6 @@ async function eliminarPacienteActual(pacienteIdParam) {
 // El modal #modalEditarOrden tiene campos: descripcion, laboratorio, precio.
 // window.currentOrdenLabId guarda la orden actualmente abierta en el detalle.
 
-function abrirEditarOrden(ordenId) {
-    const id = ordenId || window.currentOrdenLabId;
-    if (!id) return;
-    const orden = appData.laboratorios?.find(o => o.id === id);
-    if (!orden) return;
-
-    window._ordenEditandoId = id;
-    const descEl  = document.getElementById('editOrdenDescripcion');
-    const labEl   = document.getElementById('editOrdenLaboratorio');
-    const precioEl = document.getElementById('editOrdenPrecio');
-    if (descEl)   descEl.value   = orden.descripcion || '';
-    if (labEl)    labEl.value    = orden.laboratorio  || '';
-    if (precioEl) precioEl.value = orden.precio       || '';
-    openModal('modalEditarOrden');
-}
 
 async function guardarEdicionOrden() {
     const id = window._ordenEditandoId || window.currentOrdenLabId;
@@ -14290,31 +14129,6 @@ async function guardarEdicionOrden() {
 // El modal #modalAbonoLab muestra info de la orden y permite registrar un abono.
 // Los campos: abonoMonto, abonoFecha, abonoNotas.
 
-function abrirAbonoLab(ordenId) {
-    const id = ordenId || window.currentOrdenLabId;
-    if (!id) return;
-    const orden = appData.laboratorios?.find(o => o.id === id);
-    if (!orden) return;
-
-    window._ordenAbonoId = id;
-
-    const infoEl   = document.getElementById('abonoOrdenInfo');
-    const saldoEl  = document.getElementById('abonoSaldoActual');
-    const montoEl  = document.getElementById('abonoMonto');
-    const fechaEl  = document.getElementById('abonoFecha');
-    const notasEl  = document.getElementById('abonoNotas');
-
-    const totalAbonado = (orden.abonos || []).reduce((s, a) => s + (a.monto || 0), 0);
-    const saldoPendiente = Math.max(0, (orden.costo || 0) - totalAbonado);
-
-    if (infoEl)  infoEl.textContent  = `${orden.tipo || 'Orden'} — ${orden.laboratorio}`;
-    if (saldoEl) saldoEl.textContent = `Costo: ${formatCurrency(orden.costo || 0)} · Abonado: ${formatCurrency(totalAbonado)} · Pendiente: ${formatCurrency(saldoPendiente)}`;
-    if (montoEl) montoEl.value = '';
-    if (fechaEl) fechaEl.value = new Date().toISOString().split('T')[0];
-    if (notasEl) notasEl.value = '';
-
-    openModal('modalAbonoLab');
-}
 
 async function guardarAbonoLab() {
     const id = window._ordenAbonoId;
@@ -14360,25 +14174,6 @@ async function guardarAbonoLab() {
 
 
 // ── Menú ··· de la ficha del paciente ─────────────────
-function _togglePacienteMenu() {
-    const dd = document.getElementById('pacienteMenuDropdown');
-    if (!dd) return;
-    const open = dd.style.display === 'block';
-    dd.style.display = open ? 'none' : 'block';
-    if (!open) {
-        setTimeout(() => {
-            function _closePacMenu(e) {
-                const menu = document.getElementById('pacienteMenuDropdown');
-                const btn  = document.getElementById('btnPacienteMenu');
-                if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
-                    menu.style.display = 'none';
-                    document.removeEventListener('click', _closePacMenu);
-                }
-            }
-            document.addEventListener('click', _closePacMenu);
-        }, 50);
-    }
-}
 
 // ════════════════════════════════════════════════════════════
 // SPOTLIGHT SEARCH — búsqueda global instantánea
