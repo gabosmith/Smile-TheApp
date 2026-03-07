@@ -1237,36 +1237,17 @@ function mostrarPantallaAcceso() {
     if (overlay) overlay.style.display = 'flex';
 }
 
-async 
-// ── Clinic ID live formatter ──────────────────────────────────
-function _clinicIdToSlug(val) {
-    return val.toLowerCase()
-        .replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e')
-        .replace(/[íìïî]/g,'i').replace(/[óòöô]/g,'o')
-        .replace(/[úùüû]/g,'u').replace(/ñ/g,'n')
-        .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-}
-function _clinicIdLiveFormat(input) {
-    const raw  = input.value;
-    const slug = _clinicIdToSlug(raw);
-    const prev = document.getElementById('clinicIdPreview');
-    if (prev) {
-        if (slug && slug !== raw.toLowerCase()) {
-            prev.style.display = 'block';
-            prev.textContent   = 'ID: ' + slug;
-        } else {
-            prev.style.display = 'none';
-        }
-    }
-}
-
 async function accederPorId() {
     const idInput = document.getElementById('clinicIdInput');
     const passInput = document.getElementById('clinicAccessPass');
     const errEl = document.getElementById('clinicAccessErr');
     const btn = document.getElementById('clinicAccessBtn');
 
-    const clinicId = _clinicIdToSlug(idInput.value || '');
+    const clinicId = (idInput.value || '').toLowerCase()
+        .replace(/[áàä]/g,'a').replace(/[éèë]/g,'e')
+        .replace(/[íìï]/g,'i').replace(/[óòö]/g,'o')
+        .replace(/[úùü]/g,'u').replace(/ñ/g,'n')
+        .replace(/[^a-z0-9-]/g,'-').replace(/--+/g,'-').replace(/^-|-$/g,'');
     const password = passInput.value.trim();
 
     if (!clinicId) { errEl.textContent = 'Escribe el ID de tu clínica.'; errEl.style.display='block'; return; }
@@ -1900,35 +1881,6 @@ function openAddProcedimiento() {
     document.getElementById('procCant').value = '1';
     document.getElementById('procPrecio').value = '';
     openModal('modalAddProcedimiento');
-}
-
-
-// ── Procedure diente → cantidad auto-fill ────────────────────
-function _procDienteAutoCount(dienteInput, cantId) {
-    const val  = (dienteInput.value || '').trim();
-    const cantEl = document.getElementById(cantId);
-    const hintEl = cantId === 'procCant'
-        ? document.getElementById('procCantHint') : null;
-    if (!cantEl) return;
-    if (!val) {
-        cantEl.readOnly = false;
-        cantEl.style.opacity = '1';
-        if (hintEl) hintEl.textContent = '';
-        return;
-    }
-    // Count comma-separated or space-separated dientes
-    const dientes = val.split(/[,\s]+/).filter(d => d.trim().length > 0);
-    const n = dientes.length;
-    if (n > 1) {
-        cantEl.value    = n;
-        cantEl.readOnly = true;
-        cantEl.style.opacity = '.65';
-        if (hintEl) hintEl.textContent = `(auto · ${n} dientes)`;
-    } else {
-        cantEl.readOnly = false;
-        cantEl.style.opacity = '1';
-        if (hintEl) hintEl.textContent = '';
-    }
 }
 
 function agregarProcedimiento() {
@@ -12355,184 +12307,359 @@ async function eliminarProcedimiento(idx) {
 
 let _reportePeriodo = null; // { desde: 'YYYY-MM-DD', hasta: 'YYYY-MM-DD', label: '' }
 
-function setReportePeriodo(tipo) {
-    const tz = getTimezone();
-    const ahora = new Date();
+// ═════════════════════════════════════════════════════════════
+// REPORTES AVANZADOS
+// ═════════════════════════════════════════════════════════════
+let _reportePeriodoActivo = 'mes';
 
-    function keyEnTZ(d) {
-        return new Intl.DateTimeFormat('en-CA', {
-            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
-        }).format(d);
-    }
-
-    const hoy = keyEnTZ(ahora);
-
-    if (tipo === 'hoy') {
-        _reportePeriodo = { desde: hoy, hasta: hoy, label: 'Hoy' };
-    } else if (tipo === 'ayer') {
-        const ayer = new Date(ahora);
-        ayer.setDate(ayer.getDate() - 1);
-        const k = keyEnTZ(ayer);
-        _reportePeriodo = { desde: k, hasta: k, label: 'Ayer' };
-    } else if (tipo === 'semana') {
-        // Lunes de la semana actual
-        const dia = ahora.getDay();
-        const offsetLun = (dia === 0) ? -6 : 1 - dia;
-        const lunes = new Date(ahora);
-        lunes.setDate(ahora.getDate() + offsetLun);
-        _reportePeriodo = { desde: keyEnTZ(lunes), hasta: hoy, label: 'Esta semana' };
-    } else if (tipo === 'mes') {
-        const primeroDeMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-        _reportePeriodo = { desde: keyEnTZ(primeroDeMes), hasta: hoy, label: 'Este mes' };
-    } else if (tipo === 'mes_anterior') {
-        const primeroDeMesAnt = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1);
-        const ultimoDeMesAnt  = new Date(ahora.getFullYear(), ahora.getMonth(), 0);
-        _reportePeriodo = { desde: keyEnTZ(primeroDeMesAnt), hasta: keyEnTZ(ultimoDeMesAnt), label: 'Mes anterior' };
-    } else if (tipo === 'año') {
-        const primeroDeAño = new Date(ahora.getFullYear(), 0, 1);
-        _reportePeriodo = { desde: keyEnTZ(primeroDeAño), hasta: hoy, label: 'Este año' };
-    }
-
-    // Actualizar inputs de fecha
-    const desdeEl = document.getElementById('reporteFechaInicio');
-    const hastaEl = document.getElementById('reporteFechaFin');
-    if (desdeEl) desdeEl.value = _reportePeriodo.desde;
-    if (hastaEl) hastaEl.value = _reportePeriodo.hasta;
-
-    // Resaltar botón activo
-    document.querySelectorAll('.reporte-periodo-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.periodo === tipo);
+function setReportePeriodo(p) {
+    _reportePeriodoActivo = p;
+    document.querySelectorAll('.reporte-periodo-btn').forEach(btn => {
+        const active = btn.dataset.periodo === p;
+        btn.style.background   = active ? 'var(--clinic-color,#C4856A)' : 'var(--sand)';
+        btn.style.color        = active ? 'white' : 'var(--topo)';
+        btn.style.boxShadow    = active ? '0 2px 8px rgba(196,133,106,.35)' : 'var(--neu-raised)';
     });
-
+    const hoy   = new Date();
+    const fmt   = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    let desde, hasta = fmt(hoy);
+    if (p === 'hoy') {
+        desde = fmt(hoy);
+    } else if (p === 'semana') {
+        const l = new Date(hoy); l.setDate(hoy.getDate() - (hoy.getDay()||7) + 1);
+        desde = fmt(l);
+    } else if (p === 'mes') {
+        desde = fmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+    } else if (p === 'mes_anterior') {
+        const f = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+        const u = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+        desde = fmt(f); hasta = fmt(u);
+    } else if (p === 'año') {
+        desde = fmt(new Date(hoy.getFullYear(), 0, 1));
+    }
+    const dEl = document.getElementById('reporteFechaInicio');
+    const hEl = document.getElementById('reporteFechaFin');
+    if (dEl) dEl.value = desde;
+    if (hEl) hEl.value = hasta;
     generarReporte();
 }
 
-function _fechaEnRango(fechaISO, desde, hasta) {
-    if (!fechaISO) return false;
-    try {
-        const tz = getTimezone();
-        const key = new Intl.DateTimeFormat('en-CA', {
-            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
-        }).format(new Date(fechaISO));
-        return key >= desde && key <= hasta;
-    } catch(e) {
-        const k = new Date(fechaISO).toISOString().slice(0, 10);
-        return k >= desde && k <= hasta;
-    }
+function _fechaEnRango(fecha, desde, hasta) {
+    if (!fecha) return false;
+    const f = fecha.substring(0, 10);
+    return f >= desde && f <= hasta;
+}
+
+
+function _fmtPeriodo(desde, hasta) {
+    const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const d = new Date(desde + 'T00:00:00');
+    const h = new Date(hasta  + 'T00:00:00');
+    if (desde === hasta) return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
+    if (d.getMonth() === h.getMonth() && d.getFullYear() === h.getFullYear())
+        return `${d.getDate()}–${h.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
+    return `${d.getDate()} ${MESES[d.getMonth()]} – ${h.getDate()} ${MESES[h.getMonth()]} ${h.getFullYear()}`;
 }
 
 function generarReporte() {
-    const desdeEl = document.getElementById('reporteFechaInicio');
-    const hastaEl = document.getElementById('reporteFechaFin');
-    if (!desdeEl || !hastaEl) return;
+    const desde = document.getElementById('reporteFechaInicio')?.value;
+    const hasta  = document.getElementById('reporteFechaFin')?.value;
+    if (!desde || !hasta) { showToast('⚠️ Selecciona el período'); return; }
+    if (desde > hasta)    { showToast('⚠️ Fecha inicio debe ser antes del fin'); return; }
 
-    const desde = desdeEl.value;
-    const hasta  = hastaEl.value;
-    if (!desde || !hasta) {
-        showToast('⚠️ Selecciona el período', 3000, '#e65100');
-        return;
-    }
-    if (desde > hasta) {
-        showToast('⚠️ La fecha de inicio debe ser antes del fin', 3000, '#e65100');
-        return;
-    }
+    // ── Etiqueta período ──────────────────────────────────
+    const labelEl = document.getElementById('reportePeriodoLabel');
+    if (labelEl) labelEl.textContent = _fmtPeriodo(desde, hasta);
 
-    // ── Calcular métricas ────────────────────────────────
-    const facturasDelPeriodo = appData.facturas.filter(f => _fechaEnRango(f.fecha, desde, hasta));
-    const gastosDelPeriodo   = appData.gastos.filter(g => _fechaEnRango(g.fecha, desde, hasta));
-    const citasDelPeriodo    = appData.citas.filter(c => _fechaEnRango(c.fecha, desde, hasta));
-    const labDelPeriodo      = (appData.laboratorios || []).filter(o => _fechaEnRango(o.fechaCreacion, desde, hasta));
+    // ── Calcular datos ────────────────────────────────────
+    const facturasPeriodo = (appData.facturas || []).filter(f => _fechaEnRango(f.fecha, desde, hasta));
+    const gastosPeriodo   = (appData.gastos   || []).filter(g => _fechaEnRango(g.fecha, desde, hasta));
+    const citasPeriodo    = (appData.citas    || []).filter(c => _fechaEnRango(c.fecha, desde, hasta));
+    const labPeriodo      = (appData.laboratorios || []).filter(o => _fechaEnRango(o.fechaCreacion, desde, hasta));
 
-    // Ingresos: suma de pagos cuya fecha cae en el período (no la fecha de factura)
-    const pagosDelPeriodo = appData.facturas
-        .flatMap(f => (f.pagos || []).map(p => ({ ...p, facturaId: f.id, paciente: f.paciente, profesional: f.profesional })))
+    const pagosPeriodo = (appData.facturas || [])
+        .flatMap(f => (f.pagos||[]).map(p => ({...p, profesional: f.profesional, paciente: f.paciente})))
         .filter(p => _fechaEnRango(p.fecha, desde, hasta));
 
-    const totalCobrado    = pagosDelPeriodo.reduce((s, p) => s + p.monto, 0);
-    const totalGastos     = gastosDelPeriodo.reduce((s, g) => s + g.monto, 0);
-    const balanceNeto     = totalCobrado - totalGastos;
-    const pendienteCobro  = facturasDelPeriodo.reduce((s, f) => {
-        const pagado = (f.pagos || []).reduce((a, p) => a + p.monto, 0);
-        return s + Math.max(0, f.total - pagado);
+    const totalCobrado   = pagosPeriodo.reduce((s,p) => s+p.monto, 0);
+    const totalGastos    = gastosPeriodo.reduce((s,g) => s+g.monto, 0);
+    const balanceNeto    = totalCobrado - totalGastos;
+    const totalFacturado = facturasPeriodo.reduce((s,f) => s+f.total, 0);
+    const pendiente      = facturasPeriodo.reduce((s,f) => {
+        const cobrado = (f.pagos||[]).reduce((a,p) => a+p.monto, 0);
+        return s + Math.max(0, f.total - cobrado);
     }, 0);
-    const totalFacturado  = facturasDelPeriodo.reduce((s, f) => s + f.total, 0);
 
-    // Desglose por método de pago
-    const efectivo      = pagosDelPeriodo.filter(p => p.metodo === 'efectivo').reduce((s, p) => s + p.monto, 0);
-    const tarjeta       = pagosDelPeriodo.filter(p => p.metodo === 'tarjeta').reduce((s, p) => s + p.monto, 0);
-    const transferencia = pagosDelPeriodo.filter(p => p.metodo === 'transferencia').reduce((s, p) => s + p.monto, 0);
+    const efectivo      = pagosPeriodo.filter(p=>p.metodo==='efectivo').reduce((s,p)=>s+p.monto,0);
+    const tarjeta       = pagosPeriodo.filter(p=>p.metodo==='tarjeta').reduce((s,p)=>s+p.monto,0);
+    const transferencia = pagosPeriodo.filter(p=>p.metodo==='transferencia').reduce((s,p)=>s+p.monto,0);
 
     // Por profesional
-    const porProfesional = {};
-    facturasDelPeriodo.forEach(f => {
-        const p = f.profesional || 'Sin asignar';
-        if (!porProfesional[p]) porProfesional[p] = { facturado: 0, cobrado: 0, facturas: 0, pacientesSet: new Set() };
-        porProfesional[p].facturado += f.total;
-        porProfesional[p].cobrado   += (f.pagos || []).reduce((s, pg) => s + pg.monto, 0);
-        porProfesional[p].facturas  += 1;
-        if (f.paciente) porProfesional[p].pacientesSet.add(f.paciente);
+    const porProf = {};
+    facturasPeriodo.forEach(f => {
+        const k = f.profesional || 'Sin asignar';
+        if (!porProf[k]) porProf[k] = { facturado:0, cobrado:0, pacs: new Set() };
+        porProf[k].facturado += f.total;
+        porProf[k].cobrado   += (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        if (f.paciente) porProf[k].pacs.add(f.paciente);
     });
 
     // Top procedimientos
-    const procCount = {};
-    facturasDelPeriodo.forEach(f => {
-        (f.procedimientos || []).forEach(p => {
+    const procMap = {};
+    facturasPeriodo.forEach(f => {
+        (f.procedimientos||[]).forEach(p => {
             const desc = p.descripcion || 'Sin nombre';
-            if (!procCount[desc]) procCount[desc] = { cantidad: 0, ingresos: 0 };
-            procCount[desc].cantidad += (p.cantidad || 1);
-            procCount[desc].ingresos += (p.cantidad || 1) * (p.precioUnitario || 0);
+            if (!procMap[desc]) procMap[desc] = { n:0, ingresos:0 };
+            procMap[desc].n       += (p.cantidad||1);
+            procMap[desc].ingresos += (p.cantidad||1)*(p.precioUnitario||0);
         });
     });
-    const topProc = Object.entries(procCount)
-        .sort((a, b) => b[1].cantidad - a[1].cantidad)
-        .slice(0, 8);
+    const topProc = Object.entries(procMap).sort((a,b)=>b[1].n-a[1].n).slice(0,6);
 
     // Citas por estado
     const citasEstados = {};
-    citasDelPeriodo.forEach(c => {
-        const e = c.estado || 'Pendiente';
-        citasEstados[e] = (citasEstados[e] || 0) + 1;
+    citasPeriodo.forEach(c => {
+        const e = c.estado||'Pendiente';
+        citasEstados[e] = (citasEstados[e]||0)+1;
     });
 
-    // Laboratorio
-    const labEstados = {};
-    labDelPeriodo.forEach(o => {
-        const e = o.estadoActual || 'Desconocido';
-        labEstados[e] = (labEstados[e] || 0) + 1;
-    });
-    const costoLab    = labDelPeriodo.reduce((s, o) => s + (o.costo  || 0), 0);
-    const ingresoLab  = labDelPeriodo.reduce((s, o) => s + (o.precio || 0), 0);
-    const margenLab   = ingresoLab - costoLab;
+    const pacNuevos = (appData.pacientes||[]).filter(p=>_fechaEnRango(p.fechaCreacion,desde,hasta)).length;
 
-    // Pacientes nuevos (registrados en el período)
-    const pacientesNuevos = (appData.pacientes || []).filter(p => _fechaEnRango(p.fechaCreacion, desde, hasta)).length;
+    // Lab
+    const costoLab   = labPeriodo.reduce((s,o)=>s+(o.costo||0),0);
+    const ingresoLab = labPeriodo.reduce((s,o)=>s+(o.precio||0),0);
 
     // ── Renderizar ────────────────────────────────────────
-    _renderReporteResumen({ totalCobrado, totalGastos, balanceNeto, pendienteCobro, totalFacturado, efectivo, tarjeta, transferencia, pagosDelPeriodo, desde, hasta });
-    _renderReporteProfesional(porProfesional);
-    _renderReporteTopProc(topProc);
-    _renderReporteCitas(citasEstados, citasDelPeriodo.length, pacientesNuevos);
-    if (hasModule('laboratorio')) _renderReporteLab(labEstados, labDelPeriodo.length, costoLab, ingresoLab, margenLab);
+    _renderReporte({
+        totalCobrado, totalGastos, balanceNeto, totalFacturado, pendiente,
+        efectivo, tarjeta, transferencia, pagosPeriodo,
+        porProf, topProc, citasEstados, citasPeriodo: citasPeriodo.length,
+        pacNuevos, labPeriodo: labPeriodo.length, costoLab, ingresoLab,
+        desde, hasta
+    });
 }
+
+function _renderReporte(d) {
+    const el = document.getElementById('reporteContenido');
+    if (!el) return;
+
+    const recup = _pct(d.totalCobrado, d.totalFacturado);
+    const maxProf = Math.max(...Object.values(d.porProf).map(p=>p.facturado), 1);
+    const maxProc = d.topProc.length ? d.topProc[0][1].n : 1;
+
+    // Colors
+    const GREEN  = '#6B8F71';
+    const ORANGE = 'var(--clinic-color,#C4856A)';
+    const RED    = '#c0392b';
+    const BLUE   = '#7B8FA1';
+
+    el.innerHTML = `
+
+    <!-- ── KPIs Hero ── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+
+        <div style="background:linear-gradient(145deg,rgba(107,143,113,.15),rgba(107,143,113,.06));
+                    border:1.5px solid rgba(107,143,113,.25);border-radius:16px;padding:16px 14px;
+                    position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-8px;right:-6px;font-size:36px;opacity:.08;">💰</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;
+                        color:${GREEN};font-weight:700;margin-bottom:8px;">Cobrado</div>
+            <div style="font-size:clamp(16px,4vw,24px);font-weight:300;color:${GREEN};
+                        line-height:1;letter-spacing:-0.5px;">${formatCurrency(d.totalCobrado)}</div>
+            <div style="font-size:10px;color:var(--piedra);margin-top:6px;">${d.pagosPeriodo.length} pago${d.pagosPeriodo.length!==1?'s':''}</div>
+        </div>
+
+        <div style="background:linear-gradient(145deg,rgba(196,133,106,.12),rgba(196,133,106,.04));
+                    border:1.5px solid rgba(196,133,106,.25);border-radius:16px;padding:16px 14px;
+                    position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-8px;right:-6px;font-size:36px;opacity:.08;">📋</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;
+                        color:${ORANGE};font-weight:700;margin-bottom:8px;">Pendiente</div>
+            <div style="font-size:clamp(16px,4vw,24px);font-weight:300;color:${ORANGE};
+                        line-height:1;letter-spacing:-0.5px;">${formatCurrency(d.pendiente)}</div>
+            <div style="font-size:10px;color:var(--piedra);margin-top:6px;">${recup}% recuperado</div>
+        </div>
+
+        <div style="background:${d.balanceNeto>=0?'linear-gradient(145deg,rgba(107,143,113,.1),rgba(107,143,113,.03))':'linear-gradient(145deg,rgba(192,57,43,.08),rgba(192,57,43,.02))'};
+                    border:1.5px solid ${d.balanceNeto>=0?'rgba(107,143,113,.2)':'rgba(192,57,43,.2)'};
+                    border-radius:16px;padding:16px 14px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-8px;right:-6px;font-size:36px;opacity:.08;">${d.balanceNeto>=0?'📈':'📉'}</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;
+                        color:${d.balanceNeto>=0?GREEN:RED};font-weight:700;margin-bottom:8px;">Balance neto</div>
+            <div style="font-size:clamp(16px,4vw,24px);font-weight:300;
+                        color:${d.balanceNeto>=0?GREEN:RED};line-height:1;letter-spacing:-0.5px;">
+                ${d.balanceNeto<0?'-':''}${formatCurrency(Math.abs(d.balanceNeto))}</div>
+            <div style="font-size:10px;color:var(--piedra);margin-top:6px;">
+                Gastos: ${formatCurrency(d.totalGastos)}</div>
+        </div>
+    </div>
+
+    <!-- ── Barra de salud financiera ── -->
+    <div style="background:white;border-radius:16px;padding:18px 20px;
+                box-shadow:var(--neu-flat);margin-bottom:14px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+                    color:var(--piedra);margin-bottom:14px;font-weight:600;">Salud financiera</div>
+        ${_renderBarraMetodos(d.efectivo, d.tarjeta, d.transferencia, d.totalCobrado)}
+        <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            ${_renderMetodoPill('Efectivo',       d.efectivo,       d.totalCobrado, '💵')}
+            ${_renderMetodoPill('Tarjeta',        d.tarjeta,        d.totalCobrado, '💳')}
+            ${_renderMetodoPill('Transferencia',  d.transferencia,  d.totalCobrado, '🏦')}
+        </div>
+    </div>
+
+    <!-- ── Por profesional ── -->
+    ${Object.keys(d.porProf).length > 0 ? `
+    <div style="background:white;border-radius:16px;padding:18px 20px;
+                box-shadow:var(--neu-flat);margin-bottom:14px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+                    color:var(--piedra);margin-bottom:14px;font-weight:600;">Por profesional</div>
+        ${Object.entries(d.porProf)
+            .sort((a,b) => b[1].facturado - a[1].facturado)
+            .map(([nombre, datos]) => {
+                const pct = _pct(datos.facturado, maxProf);
+                const recPct = _pct(datos.cobrado, datos.facturado);
+                return `
+                <div style="margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                        <div style="font-size:13px;font-weight:500;color:var(--topo);">${nombre}</div>
+                        <div style="font-size:11px;color:var(--piedra);">${datos.pacs.size} pac · ${recPct}% cobrado</div>
+                    </div>
+                    <div style="height:6px;background:var(--sand);border-radius:100px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:var(--clinic-color,#C4856A);
+                                    border-radius:100px;transition:width .4s;"></div>
+                    </div>
+                    <div style="font-size:12px;color:var(--clinic-color,#C4856A);margin-top:4px;font-weight:500;">
+                        ${formatCurrency(datos.facturado)}
+                    </div>
+                </div>`;
+            }).join('')}
+    </div>` : ''}
+
+    <!-- ── Top procedimientos ── -->
+    ${d.topProc.length > 0 ? `
+    <div style="background:white;border-radius:16px;padding:18px 20px;
+                box-shadow:var(--neu-flat);margin-bottom:14px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+                    color:var(--piedra);margin-bottom:14px;font-weight:600;">Top procedimientos</div>
+        ${d.topProc.map(([nombre, datos], i) => {
+            const pct = _pct(datos.n, maxProc);
+            const medals = ['🥇','🥈','🥉'];
+            return `
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                <div style="width:20px;text-align:center;font-size:14px;flex-shrink:0;">
+                    ${i < 3 ? medals[i] : `<span style="font-size:11px;color:var(--muted);">${i+1}</span>`}
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+                        <div style="font-size:13px;color:var(--topo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${nombre}</div>
+                        <div style="font-size:11px;color:var(--piedra);flex-shrink:0;">${datos.n}× · ${formatCurrency(datos.ingresos)}</div>
+                    </div>
+                    <div style="height:4px;background:var(--sand);border-radius:100px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:var(--clinic-color,#C4856A);
+                                    opacity:${1 - i*0.12};border-radius:100px;"></div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('')}
+    </div>` : ''}
+
+    <!-- ── Citas y pacientes ── -->
+    <div style="background:white;border-radius:16px;padding:18px 20px;
+                box-shadow:var(--neu-flat);margin-bottom:14px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+                    color:var(--piedra);margin-bottom:14px;font-weight:600;">Citas del período</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+            <div style="background:var(--sand);border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:28px;font-weight:300;color:var(--topo);">${d.citasPeriodo}</div>
+                <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Total citas</div>
+            </div>
+            <div style="background:var(--sand);border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:28px;font-weight:300;color:${GREEN};">${d.pacNuevos}</div>
+                <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Pacientes nuevos</div>
+            </div>
+        </div>
+        ${Object.entries(d.citasEstados).length > 0 ? `
+        <div style="display:flex;flex-direction:column;gap:7px;">
+            ${Object.entries(d.citasEstados)
+                .sort((a,b)=>b[1]-a[1])
+                .map(([estado, n]) => {
+                    const pct = _pct(n, d.citasPeriodo);
+                    const col = getColorEstadoCita(estado);
+                    return `
+                    <div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                            <span style="font-size:12px;color:var(--topo);">${estado}</span>
+                            <span style="font-size:12px;color:var(--piedra);">${n} (${pct}%)</span>
+                        </div>
+                        <div style="height:5px;background:var(--sand);border-radius:100px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:${col};border-radius:100px;"></div>
+                        </div>
+                    </div>`;
+                }).join('')}
+        </div>` : ''}
+    </div>
+
+    <!-- ── Laboratorio (si módulo activo) ── -->
+    ${hasModule('laboratorio') && d.labPeriodo > 0 ? `
+    <div style="background:white;border-radius:16px;padding:18px 20px;
+                box-shadow:var(--neu-flat);margin-bottom:14px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+                    color:var(--piedra);margin-bottom:14px;font-weight:600;">Laboratorio</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div style="background:var(--sand);border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:24px;font-weight:300;color:var(--topo);">${d.labPeriodo}</div>
+                <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Órdenes</div>
+            </div>
+            <div style="background:var(--sand);border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:18px;font-weight:300;color:${RED};">${formatCurrency(d.costoLab)}</div>
+                <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Costo</div>
+            </div>
+            <div style="background:var(--sand);border-radius:12px;padding:14px;text-align:center;">
+                <div style="font-size:18px;font-weight:300;color:${GREEN};">${formatCurrency(d.ingresoLab - d.costoLab)}</div>
+                <div style="font-size:10px;color:var(--piedra);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;">Margen</div>
+            </div>
+        </div>
+    </div>` : ''}
+
+    `;
+}
+
+function _renderBarraMetodos(efectivo, tarjeta, transferencia, total) {
+    if (!total) return '<div style="height:10px;background:var(--sand);border-radius:100px;"></div>';
+    const pE = _pct(efectivo,      total);
+    const pT = _pct(tarjeta,       total);
+    const pTr= _pct(transferencia, total);
+    return `
+    <div style="height:10px;border-radius:100px;overflow:hidden;display:flex;gap:2px;">
+        ${pE  ? `<div style="flex:${pE};background:#6B8F71;border-radius:100px;transition:flex .4s;"></div>` : ''}
+        ${pT  ? `<div style="flex:${pT};background:var(--clinic-color,#C4856A);border-radius:100px;transition:flex .4s;"></div>` : ''}
+        ${pTr ? `<div style="flex:${pTr};background:#7B8FA1;border-radius:100px;transition:flex .4s;"></div>` : ''}
+        ${100-pE-pT-pTr > 0 ? `<div style="flex:${100-pE-pT-pTr};background:var(--sand);border-radius:100px;"></div>` : ''}
+    </div>`;
+}
+
+function _renderMetodoPill(label, monto, total, icon) {
+    const pct = _pct(monto, total);
+    return `
+    <div style="background:var(--sand);border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:16px;margin-bottom:4px;">${icon}</div>
+        <div style="font-size:14px;font-weight:500;color:var(--topo);">${pct}%</div>
+        <div style="font-size:10px;color:var(--piedra);">${label}</div>
+        <div style="font-size:11px;color:var(--topo);margin-top:2px;">${formatCurrency(monto)}</div>
+    </div>`;
+}
+
+function updateReportesTab() {
+    setReportePeriodo(_reportePeriodoActivo || 'mes');
+}
+
+
 
 function _pct(parte, total) {
     if (!total) return 0;
     return Math.round((parte / total) * 100);
 }
 
-function _barraMetodo(label, monto, total, color) {
-    const pct = _pct(monto, total);
-    return `
-        <div style="margin-bottom:10px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                <span style="font-size:13px;color:var(--mid)">${label}</span>
-                <span style="font-size:13px;font-weight:500;color:var(--dark)">${formatCurrency(monto)} <span style="color:var(--mid);font-weight:400">${pct}%</span></span>
-            </div>
-            <div style="height:5px;background:rgba(30,28,26,0.07);border-radius:100px;overflow:hidden">
-                <div style="height:100%;width:${pct}%;background:${color};border-radius:100px;transition:width 0.4s ease"></div>
-            </div>
-        </div>`;
-}
 
 function _renderReporteResumen({ totalCobrado, totalGastos, balanceNeto, pendienteCobro, totalFacturado, efectivo, tarjeta, transferencia, pagosDelPeriodo, desde, hasta }) {
     const el = document.getElementById('reporteResumenFinanciero');

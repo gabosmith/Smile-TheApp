@@ -1623,24 +1623,20 @@
         </div>
         <p style="font-size:14px;color:var(--piedra);text-align:center;
                   margin-bottom:36px;line-height:1.65;max-width:320px;">
-            Escribe el nombre de tu clínica o el ID que usas para entrar.<br>
-            <span style="font-size:12px;">Ejemplo: <em>Clínica Dental Dra. García</em> o <em>dr-garcia</em></span>
+            Escribe el ID de tu clínica.<br>
+            Lo encontrarás en el email de bienvenida o en el enlace que usas normalmente.
         </p>
 
         <div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;">
-            <input id="clinicIdInput" type="text" placeholder="Nombre de tu clínica o ID"
-                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            <input id="clinicIdInput" type="text" placeholder="ID de clínica (ej: dr-garcia)"
+                   autocomplete="off" autocorrect="off" autocapitalize="none"
                    onkeydown="if(event.key==='Enter')accederPorId()"
-                   oninput="_clinicIdLiveFormat(this)"
                    style="width:100%;padding:16px 20px;border:none;border-radius:14px;
                           font-size:15px;font-family:inherit;font-weight:300;
                           background:var(--sand);color:var(--topo);
                           box-shadow:var(--neu-inset);outline:none;"
                    onfocus="this.style.boxShadow='var(--neu-inset-lg),0 0 0 2px rgba(125,142,160,.18)'"
                    onblur="this.style.boxShadow='var(--neu-inset)'">
-                <div id="clinicIdPreview" style="display:none;font-size:11px;color:var(--piedra);
-                     margin-top:6px;padding:6px 14px;background:var(--white);border-radius:8px;
-                     font-family:monospace;letter-spacing:.3px;"></div>
 
             <div id="clinicAccessErr" style="display:none;font-size:13px;color:#c0392b;
                  background:rgba(192,57,43,.07);border-radius:10px;
@@ -2058,79 +2054,56 @@
             </div>
 
             <!-- Reportes Tab -->
-            <div id="tab-reportes" class="tab-content">
+            <div id="tab-reportes" class="tab-content" style="padding-bottom:80px;">
 
-                <!-- Selector de período -->
-                <div class="card" style="padding:16px 20px">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px">Período</div>
-
-                    <!-- Botones rápidos -->
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-                        <button class="reporte-periodo-btn" data-periodo="hoy"          onclick="setReportePeriodo('hoy')"          style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Hoy</button>
-                        <button class="reporte-periodo-btn" data-periodo="ayer"         onclick="setReportePeriodo('ayer')"         style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Ayer</button>
-                        <button class="reporte-periodo-btn" data-periodo="semana"       onclick="setReportePeriodo('semana')"       style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Esta semana</button>
-                        <button class="reporte-periodo-btn active" data-periodo="mes"   onclick="setReportePeriodo('mes')"          style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--pizarra);color:white;cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-pizarra)">Este mes</button>
-                        <button class="reporte-periodo-btn" data-periodo="mes_anterior" onclick="setReportePeriodo('mes_anterior')" style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Mes anterior</button>
-                        <button class="reporte-periodo-btn" data-periodo="año"          onclick="setReportePeriodo('año')"          style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all 0.15s;box-shadow:var(--neu-raised)">Este año</button>
+                <!-- ── Header Reportes ──────────────────────────── -->
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                    <div>
+                        <div style="font-size:22px;font-weight:300;color:var(--topo);letter-spacing:-0.5px;">Reportes</div>
+                        <div id="reportePeriodoLabel" style="font-size:12px;color:var(--piedra);margin-top:2px;">Selecciona un período</div>
                     </div>
+                    <div style="font-size:9px;font-weight:700;letter-spacing:4px;color:var(--clinic-color,#C4856A);opacity:.6;text-transform:uppercase;">SMILE</div>
+                </div>
 
-                    <!-- Fechas manuales -->
-                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end">
-                        <div class="form-group" style="margin:0">
-                            <label style="font-size:11px;color:var(--topo);letter-spacing:0.5px">Desde</label>
-                            <input type="date" id="reporteFechaInicio" style="margin-top:4px">
+                <!-- ── Selector de período ──────────────────────── -->
+                <div style="background:white;border-radius:16px;padding:16px 18px;box-shadow:var(--neu-flat);margin-bottom:16px;">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+                        <button class="reporte-periodo-btn" data-periodo="hoy"          onclick="setReportePeriodo('hoy')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all .15s;box-shadow:var(--neu-raised);">Hoy</button>
+                        <button class="reporte-periodo-btn" data-periodo="semana"       onclick="setReportePeriodo('semana')"       style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all .15s;box-shadow:var(--neu-raised);">Esta semana</button>
+                        <button class="reporte-periodo-btn active" data-periodo="mes"   onclick="setReportePeriodo('mes')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--clinic-color,#C4856A);color:white;cursor:pointer;transition:all .15s;box-shadow:0 2px 8px rgba(196,133,106,.35);">Este mes</button>
+                        <button class="reporte-periodo-btn" data-periodo="mes_anterior" onclick="setReportePeriodo('mes_anterior')" style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all .15s;box-shadow:var(--neu-raised);">Mes anterior</button>
+                        <button class="reporte-periodo-btn" data-periodo="año"          onclick="setReportePeriodo('año')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all .15s;box-shadow:var(--neu-raised);">Este año</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end;">
+                        <div>
+                            <div style="font-size:10px;color:var(--piedra);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;">Desde</div>
+                            <input type="date" id="reporteFechaInicio">
                         </div>
-                        <div class="form-group" style="margin:0">
-                            <label style="font-size:11px;color:var(--topo);letter-spacing:0.5px">Hasta</label>
-                            <input type="date" id="reporteFechaFin" style="margin-top:4px">
+                        <div>
+                            <div style="font-size:10px;color:var(--piedra);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
+                            <input type="date" id="reporteFechaFin">
                         </div>
-                        <button onclick="generarReporte()" style="padding:10px 18px;background:linear-gradient(145deg,#8b9eb2,var(--pizarra));color:white;border:none;border-radius:10px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;letter-spacing:0.3px;box-shadow:var(--neu-pizarra)">
+                        <button onclick="generarReporte()"
+                            style="padding:11px 20px;background:var(--clinic-color,#C4856A);color:white;
+                                   border:none;border-radius:12px;font-size:13px;font-family:inherit;
+                                   cursor:pointer;font-weight:600;letter-spacing:.3px;
+                                   box-shadow:0 3px 12px rgba(196,133,106,.35);transition:opacity .15s;"
+                            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                             Generar →
                         </button>
                     </div>
                 </div>
 
-                <!-- Resumen financiero -->
-                <div class="card">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Resumen financiero</div>
-                    <div id="reporteResumenFinanciero">
-                        <div style="text-align:center;padding:32px;color:var(--topo);font-size:13px">Selecciona un período para ver los datos</div>
+                <!-- ── Contenido del reporte ─────────────────────── -->
+                <div id="reporteContenido">
+                    <!-- Estado vacío -->
+                    <div style="text-align:center;padding:48px 24px;">
+                        <div style="font-size:48px;margin-bottom:12px;">📊</div>
+                        <div style="font-size:16px;font-weight:300;color:var(--topo);">Selecciona un período y genera el reporte</div>
+                        <div style="font-size:13px;color:var(--piedra);margin-top:6px;">Ingresos · Profesionales · Procedimientos · Citas</div>
                     </div>
                 </div>
 
-                <!-- Por profesional -->
-                <div class="card">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Por profesional</div>
-                    <div id="reportePorProfesional">
-                        <div style="text-align:center;padding:32px;color:var(--topo);font-size:13px">—</div>
-                    </div>
-                </div>
-
-                <!-- Top procedimientos -->
-                <div class="card">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Procedimientos</div>
-                    <ul class="item-list" id="reporteTopProcedimientos" style="padding:0;margin:0;list-style:none">
-                        <li style="text-align:center;padding:24px;color:var(--topo);font-size:13px">—</li>
-                    </ul>
-                </div>
-
-                <!-- Citas -->
-                <div class="card">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Citas y pacientes</div>
-                    <div id="reporteEstadoCitas">
-                        <div style="text-align:center;padding:24px;color:var(--topo);font-size:13px">—</div>
-                    </div>
-                </div>
-
-                <!-- Laboratorio (solo si módulo activo) -->
-                <div class="card" id="reporteCardLab" style="display:none">
-                    <div style="font-size:11px;color:var(--topo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Laboratorio</div>
-                    <div id="reporteLaboratorio">
-                        <div style="text-align:center;padding:24px;color:var(--topo);font-size:13px">—</div>
-                    </div>
-                </div>
-
-            </div>
 
             <!-- Sedes Tab -->
             <div id="tab-sedes" class="tab-content">
@@ -2427,7 +2400,7 @@
             <!-- Diente (FDI number) -->
             <div class="form-group">
                 <label>Diente <span style="font-size:11px;color:var(--piedra);font-weight:300;">(Opcional — ej: 16, 21, 36)</span></label>
-                <input type="text" id="procDiente" placeholder="Nº FDI (ej: 16, 21, 36)" oninput="_procDienteAutoCount(this,'procCant')"
+                <input type="text" id="procDiente" placeholder="Nº diente FDI"
                     style="width:100%;padding:11px 14px;border:none;border-radius:12px;
                            font-family:inherit;font-size:14px;background:var(--sand);
                            color:var(--topo);box-shadow:var(--neu-inset);"
@@ -2436,7 +2409,7 @@
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div class="form-group" style="margin:0">
-                    <label>Cantidad <span id="procCantHint" style="font-size:10px;color:var(--piedra);font-weight:300;"></span></label>
+                    <label>Cantidad</label>
                     <input type="number" id="procCant" value="1" min="1">
                 </div>
                 <div class="form-group" style="margin:0">
@@ -2771,7 +2744,7 @@
 
                 <div class="form-group">
                     <label>Diente <span style="font-size:11px;color:var(--piedra,#9C9189);font-weight:300;">(Opcional — ej: 16, 21, 36 — actualiza el odontograma)</span></label>
-                    <input type="text" id="cotizProcDiente" oninput="_procDienteAutoCount(this,'cotizProcCant')" placeholder="Nº FDI"
+                    <input type="text" id="cotizProcDiente" placeholder="Nº FDI"
                         style="width:100%;padding:11px 14px;border:none;border-radius:12px;
                                font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
                                color:var(--topo,#6B635C);box-shadow:var(--neu-inset);"
