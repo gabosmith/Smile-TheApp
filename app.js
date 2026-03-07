@@ -1229,6 +1229,9 @@ window.addEventListener('load', async function() {
     await loadData();
     updateProfessionalPicker();
     inicializarEstadosCitas();
+
+    // Show login screen — triggers MutationObserver in app.html → lsMostrar()
+    document.getElementById('loginScreen').style.display = 'flex';
 });
 
 // ── PANTALLA DE ACCESO POR ID DE CLÍNICA ──────────────────────
