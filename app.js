@@ -970,7 +970,7 @@ async function saveData(context = '') {
             settings:     appData.settings     || {},
             lastUpdated:  new Date().toISOString(),
             usaSubcollectionPacientes: true
-        }, { merge: true });  // merge:true — nunca borra campos no incluidos
+        }, { merge: true });
 
         // Save patients in batches of 100
         if (appData.pacientes.length > 0) {
@@ -1064,11 +1064,9 @@ async function savePersonal() {
 
 async function saveLaboratorios() {
     if (!canWriteToFirebase('saveLaboratorios')) return;
-    // Guardia: nunca escribir array vacío si ya había datos cargados
-    // Esto previene borrar órdenes existentes por un bug de timing en el load
     const labActual = appData.laboratorios || [];
     if (labActual.length === 0 && window._labCargadoConDatos) {
-        console.warn('[Lab] saveLaboratorios bloqueado — array vacío pero había datos. Posible bug de timing.');
+        console.warn('[Lab] saveLaboratorios bloqueado — array vacío pero había datos.');
         return;
     }
     try {
@@ -1077,7 +1075,6 @@ async function saveLaboratorios() {
             laboratorios: labActual,
             lastUpdated: new Date().toISOString()
         });
-        // Marcar que ya se guardó con datos para futuras guardas
         if (labActual.length > 0) window._labCargadoConDatos = true;
         setConnectionState('online');
     } catch(e) { showError('Error al guardar laboratorios.', e); }
@@ -1406,8 +1403,7 @@ async function migratePasswordIfNeeded(person, plaintext) {
         const hashed = await hashPassword(plaintext);
         person.password    = hashed;
         person._pwHashed   = true;
-        // Usar update() en vez de saveData() para NO sobreescribir laboratorios
-        // ni otros campos con valores vacíos durante la migración de contraseña
+        // Usar update() — NO saveData() para no sobreescribir laboratorios con []
         const idx = appData.personal.findIndex(p => p.id === person.id || p.nombre === person.nombre);
         if (idx !== -1) appData.personal[idx] = person;
         await db.collection('clinicas').doc(CLINIC_PATH).update({
