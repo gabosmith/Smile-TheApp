@@ -2335,7 +2335,7 @@ function enviarCotizacion(facturaId) {
         .join('\n');
 
     const mensaje =
-`🦷 *${clinica}*
+`¡Hola! Te escribimos de *${clinica}* 🦷
 ━━━━━━━━━━━━━━━━━━━
 📋 *Cotización #${factura.numero}*
 📅 Fecha: ${fecha}
@@ -4945,11 +4945,11 @@ function contactarPaciente(pacienteId, tipo) {
     const clinica = clinicConfig.nombre || 'la clínica';
     let mensaje = '';
     if (tipo === 'saludo') {
-        mensaje = `Hola ${paciente.nombre}, le contactamos desde ${clinica}. ¿En qué podemos ayudarle?`;
+        mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, ¿en qué podemos ayudarte?`;
     } else if (tipo === 'recordatorio') {
-        mensaje = `Hola ${paciente.nombre}, le recordamos que tiene una cita próxima en ${clinica}. Por favor confirme su asistencia.`;
+        mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, te recordamos que tienes una cita próxima. Por favor confirma tu asistencia.`;
     } else {
-        mensaje = `Hola ${paciente.nombre}, le contactamos desde ${clinica}.`;
+        mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, nos ponemos en contacto contigo.`;
     }
 
     const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`;
@@ -7944,7 +7944,7 @@ function avisarPacienteLab(ordenId) {
     }
 
     const mensaje =
-`🦷 *${clinica}*
+`¡Hola! Te escribimos de *${clinica}* 🦷
 ━━━━━━━━━━━━━━━━━━
 📋 *Actualización de Laboratorio*
 
