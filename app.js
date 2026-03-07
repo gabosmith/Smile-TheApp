@@ -3124,7 +3124,7 @@ function toggleEditTipoRemuneracion() {
 }
 
 async function agregarPersonal() {
-    const nombre    = sanitize.str(document.getElementById('personalNombre')?.value, 120);
+    const nombre    = _toTitleCase(sanitize.str(document.getElementById('personalNombre')?.value, 120));
     const tipo      = document.getElementById('personalTipo')?.value || 'regular';
 
     // Fix 7: Validate duplicate name

@@ -395,10 +395,12 @@
         display: flex; justify-content: space-between; align-items: center;
         position: sticky; top: 0; z-index: 100;
     }
-    .app-header h1 {
-        font-size: 9px; font-weight: 600;
-        letter-spacing: 5px; text-transform: uppercase;
-        color: var(--topo); opacity: .55;
+    #appTitle {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .2px;
+        color: var(--clinic-color, #C4856A);
+        opacity: 1;
     }
 
     .logout-btn {
@@ -1670,7 +1672,11 @@
         <div class="app-header">
             <div id="appBrand" style="display:flex;align-items:center;gap:10px;min-width:0;">
                 <img id="appHeaderLogo" src="" alt="" style="height:28px;width:auto;object-fit:contain;display:none;filter:brightness(0) invert(1);opacity:0.92;flex-shrink:0;">
-                <h1 id="appTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Clínica</h1>
+                <div id="appTitle"
+    style="font-size:11px;font-weight:700;letter-spacing:.3px;
+           color:var(--clinic-color,#C4856A);
+           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+           max-width:180px;">Clínica</div>
             </div>
 
             <div style="flex: 1; max-width: 500px; margin: 0 30px; position: relative;">
@@ -2570,7 +2576,7 @@
     <div id="modalAddPersonal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><div class="modal-title">Agregar Personal</div><button class="close-modal" onclick="closeModal('modalAddPersonal')">×</button></div>
-            <div class="form-group"><label>Nombre</label><input type="text" id="personalNombre" autocapitalize="words"></div>
+            <div class="form-group"><label>Nombre</label><input type="text" id="personalNombre" autocapitalize="words" oninput="_capitalizeName(this)" onblur="_capitalizeName(this)"></div>
             <div class="form-group"><label>Tipo</label><select id="personalTipo" onchange="toggleSueldo()">
                 <option value="regular">Odontólogo Regular</option>
                 <option value="especialista">Especialista</option>
