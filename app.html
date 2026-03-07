@@ -1036,6 +1036,52 @@
     }
 
     /* ── PATIENT MODAL: full-screen on mobile ── */
+    /* ── Responsive: ficha paciente ───────────────────── */
+    @media (max-width: 700px) {
+        /* Modal ocupa toda la pantalla */
+        #modalVerPaciente .modal-content {
+            max-width: 100% !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+        }
+        /* Header más compacto */
+        #modalVerPaciente .modal-header {
+            padding: 16px !important;
+        }
+        #verPacienteNombre { font-size: 18px !important; }
+        #verPacienteSubtitulo { font-size: 12px !important; }
+        /* Tabs: scroll horizontal, más compactos */
+        #modalVerPaciente .modal-content > div:nth-child(2) {
+            padding: 0 12px !important;
+            gap: 0 !important;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        #modalVerPaciente .modal-content > div:nth-child(2)::-webkit-scrollbar { display: none; }
+        .paciente-tab {
+            padding: 12px 12px !important;
+            font-size: 11px !important;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        /* Contenido de tabs con padding reducido */
+        #modalVerPaciente .modal-content > div:last-child {
+            padding: 16px !important;
+        }
+        /* Stats grid: 2 columnas en móvil */
+        #tabResumen > div:first-child {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+        }
+        /* Info del paciente: 1 columna */
+        #tabResumen div[style*="grid-template-columns: 1fr 1fr"],
+        #tabResumen div[style*="grid-template-columns:1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
     @media (max-width: 700px) {
         #modalVerPaciente .modal-content {
             max-width: 100% !important;
@@ -2832,7 +2878,7 @@
     <div id="modalNuevoPaciente" class="modal">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header"><div class="modal-title">Nuevo Paciente</div></div>
-            <div class="form-group"><label>Nombre Completo *</label><input type="text" id="nuevoPacienteNombre" autocapitalize="words"></div>
+            <div class="form-group"><label>Nombre Completo *</label><input type="text" id="nuevoPacienteNombre" autocapitalize="words" oninput="_capitalizeName(this)" onblur="_capitalizeName(this)"></div>
             <div class="form-group"><label>Cédula</label><input type="text" id="nuevoPacienteCedula"></div>
             <div class="form-group"><label>Teléfono *</label><input type="tel" id="nuevoPacienteTelefono" inputmode="tel" autocomplete="tel"></div>
             <div class="form-group"><label>Email</label><input type="email" id="nuevoPacienteEmail"></div>
@@ -2970,7 +3016,7 @@
     <div id="modalEditarPaciente" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header"><div class="modal-title">✏️ Editar Paciente</div><button class="close-modal" onclick="closeModal('modalEditarPaciente');if(currentPacienteId)verPaciente(currentPacienteId)">×</button></div>
-            <div class="form-group"><label>Nombre Completo *</label><input type="text" id="editPacienteNombre" autocapitalize="words"></div>
+            <div class="form-group"><label>Nombre Completo *</label><input type="text" id="editPacienteNombre" autocapitalize="words" oninput="_capitalizeName(this)" onblur="_capitalizeName(this)"></div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group"><label>Teléfono *</label><input type="tel" id="editPacienteTelefono" inputmode="tel" autocomplete="tel"></div><div class="form-group"><label>Cédula</label><input type="text" id="editPacienteCedula"></div></div>
             <div class="form-group"><label>Email</label><input type="email" id="editPacienteEmail"></div>
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;"><div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="editPacienteFechaNac"></div><div class="form-group"><label>Sexo</label><select id="editPacienteSexo"><option value="">Seleccionar...</option><option value="Masculino">Masculino</option><option value="Femenino">Femenino</option></select></div><div class="form-group"><label>Grupo Sanguíneo</label><input type="text" id="editPacienteGrupoSang"></div></div>
@@ -3774,7 +3820,119 @@
     #spotlightResults .spot-item .spot-title { font-size:14px;font-weight:500;color:var(--topo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
     #spotlightResults .spot-item .spot-sub { font-size:11px;color:var(--piedra);margin-top:1px; }
     #spotlightResults .spot-group { padding:6px 18px 2px;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px; }
-    </style>
+    
+        /* ════════════════════════════════════════════════════
+           RESPONSIVE GLOBAL — mobile-first improvements
+           ════════════════════════════════════════════════════ */
+
+        /* ── Ficha paciente (modal full-screen en móvil) ─── */
+        @media (max-width: 700px) {
+            #modalVerPaciente .modal-content {
+                max-width: 100% !important;
+                width: 100% !important;
+                height: 100dvh !important;
+                max-height: 100dvh !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
+                display: flex;
+                flex-direction: column;
+            }
+            #modalVerPaciente .modal-header { padding: 14px 16px !important; }
+            #verPacienteNombre { font-size: 17px !important; }
+            /* Tabs barra: scroll lateral sin scrollbar visible */
+            #modalVerPaciente .modal-content > div:nth-child(2) {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                flex-shrink: 0;
+            }
+            #modalVerPaciente .modal-content > div:nth-child(2)::-webkit-scrollbar { display: none; }
+            .paciente-tab { padding: 12px 10px !important; font-size: 11px !important; white-space: nowrap; flex-shrink: 0; }
+            /* Área scrollable del contenido */
+            #modalVerPaciente .modal-content > div:last-child { padding: 14px !important; }
+            /* Stats resumen: 2 cols */
+            #tabResumen > div:first-child { grid-template-columns: repeat(2,1fr) !important; gap: 8px !important; }
+            /* Grids de info: colapsar a 1 col */
+            #tabResumen div[style*="1fr 1fr"],
+            #tabHistorial div[style*="1fr 1fr"],
+            #tabTratamientos div[style*="1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        /* ── Modal nuevo/editar paciente ─────────────────── */
+        @media (max-width: 600px) {
+            #modalNuevoPaciente .modal-content,
+            #modalEditarPaciente .modal-content {
+                max-width: 100% !important;
+                margin: 0 !important;
+                border-radius: 20px 20px 0 0 !important;
+                max-height: 95dvh !important;
+                overflow-y: auto;
+            }
+            #modalNuevoPaciente div[style*="1fr 1fr"],
+            #modalNuevoPaciente div[style*="2fr 1fr"],
+            #modalEditarPaciente div[style*="1fr 1fr"],
+            #modalEditarPaciente div[style*="1fr 1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        /* ── Agenda timeline en móvil ────────────────────── */
+        @media (max-width: 600px) {
+            #calendarioAgenda { font-size: 11px; }
+            /* FAB más pequeño */
+            #tab-agenda button[style*="position:fixed"] { width: 46px !important; height: 46px !important; font-size: 20px !important; }
+        }
+
+        /* ── Dashboard cards: 2 cols en móvil ───────────── */
+        @media (max-width: 540px) {
+            #dashStatCards {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 8px !important;
+            }
+            #dashStatCards .dash-stat { padding: 14px !important; }
+            #dashStatCards .dash-stat div:first-child { font-size: 9px !important; }
+            #dashStatCards [id$="Hoy"], #dashStatCards [id$="Cobrar"], #dashStatCards [id="dashLabActivo"] {
+                font-size: 20px !important;
+            }
+        }
+
+        /* ── Modales genéricos: bottom sheet en móvil ────── */
+        @media (max-width: 600px) {
+            .modal { align-items: flex-end !important; }
+            .modal-content {
+                max-width: 100% !important;
+                width: 100% !important;
+                border-radius: 20px 20px 0 0 !important;
+                margin: 0 !important;
+                max-height: 92dvh !important;
+            }
+            /* Excepciones: modales que deben ser centrados */
+            #modalVerPaciente,
+            #modalDetalleCita {
+                align-items: stretch !important;
+            }
+            #modalVerPaciente .modal-content {
+                border-radius: 0 !important;
+                max-height: 100dvh !important;
+                height: 100dvh !important;
+            }
+        }
+
+        /* ── Lista de pacientes: cards más compactas ─────── */
+        @media (max-width: 500px) {
+            .list-item { padding: 12px 14px !important; }
+            .list-item > div:first-child > div:first-child { font-size: 15px !important; }
+        }
+
+        /* ── Botones de acción: full width en muy pequeño ── */
+        @media (max-width: 380px) {
+            .modal-footer { flex-direction: column !important; gap: 8px !important; }
+            .modal-footer button { width: 100% !important; }
+        }
+
+        </style>
 
 
     <!-- ══ QUICK ADD PROCEDIMIENTO ══════════════════════════ -->

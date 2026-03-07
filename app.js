@@ -4855,7 +4855,7 @@ function abrirModalNuevoPaciente() {
 
 async function guardarPaciente() {
     try {
-    const nombre   = sanitize.str(document.getElementById('nuevoPacienteNombre')?.value, 120);
+    const nombre   = _toTitleCase(sanitize.str(document.getElementById('nuevoPacienteNombre')?.value, 120));
     const telefono = sanitize.phone(document.getElementById('nuevoPacienteTelefono')?.value);
 
     if (!nombre)   { showToast('⚠️ El nombre del paciente es obligatorio'); return; }
@@ -11106,7 +11106,7 @@ async function guardarEdicionPaciente() {
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
     if (!paciente) return;
 
-    const nombre   = document.getElementById('editPacienteNombre').value.trim();
+    const nombre   = _toTitleCase(document.getElementById('editPacienteNombre').value.trim());
     const telefono = document.getElementById('editPacienteTelefono').value.trim();
 
     if (!nombre || !telefono) {
@@ -14596,4 +14596,36 @@ function renderDashQuickActions(role) {
                     <span style="font-weight:500;">${a.label}</span>
                 </button>`).join('')}
         </div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// CAPITALIZE NAME — Capitaliza la primera letra de cada palabra
+// ignorando partículas como "de", "del", "la", "los", "las"
+// ════════════════════════════════════════════════════════════
+function _capitalizeName(input) {
+    const PARTICULAS = new Set(['de','del','la','las','los','el','y','e','a','o']);
+    const val = input.value;
+    const pos = input.selectionStart; // Preserve cursor position
+
+    const capitalized = val.replace(/\b(\p{L}+)/gu, (word, _, offset) => {
+        // Never capitalize particles unless they are the first word
+        if (offset > 0 && PARTICULAS.has(word.toLowerCase())) return word.toLowerCase();
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    });
+
+    if (capitalized !== val) {
+        input.value = capitalized;
+        // Restore cursor
+        try { input.setSelectionRange(pos, pos); } catch(e) {}
+    }
+}
+
+// Capitalize string utility (para usar al guardar)
+function _toTitleCase(str) {
+    if (!str) return str;
+    const PARTICULAS = new Set(['de','del','la','las','los','el','y','e','a','o']);
+    return str.trim().replace(/\b(\p{L}+)/gu, (word, _, offset) => {
+        if (offset > 0 && PARTICULAS.has(word.toLowerCase())) return word.toLowerCase();
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    });
 }
