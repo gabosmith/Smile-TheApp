@@ -3462,7 +3462,7 @@ function openPersonalDetail(id) {
     openModal('modalPersonalDetail');
 }
 
-function confirmarPagoSalarioFijo(person) {
+async function confirmarPagoSalarioFijo(person) {
     const avances = calcularTotalAvances(person.id);
     const base    = person.salarioFijo || 0;
     const neto    = Math.max(0, base - avances);
@@ -3635,7 +3635,7 @@ Firma: _____________________
     });
 }
 
-function confirmarPagoEmpleado(id) {
+async function confirmarPagoEmpleado(id) {
     const person = appData.personal.find(p => p.id === id);
     if (!person) return;
 
@@ -4020,7 +4020,7 @@ function resetearComisionPersonal(personId) {
     openPersonalDetail(personId);
 }
 
-function eliminarPersonal(id) {
+async function eliminarPersonal(id) {
     const person = appData.personal.find(p => p.id === id);
     if (!person) return;
 
@@ -4451,7 +4451,7 @@ document.querySelectorAll('.modal').forEach(modal => {
 // ELIMINAR FACTURA (SOLO ADMIN)
 // ========================================
 
-function eliminarFactura(facturaId) {
+async function eliminarFactura(facturaId) {
     const factura = appData.facturas.find(f => f.id === facturaId);
     if (!factura) return;
 
@@ -11077,7 +11077,7 @@ function generarVistaPrevia() {
     document.getElementById('vistaPrevia').innerHTML = html;
 }
 
-function ejecutarImportacion() {
+async function ejecutarImportacion() {
     if (!window.pacientesAImportar || window.pacientesAImportar.length === 0) {
         showToast('⚠️ No hay pacientes para importar', 3000, '#e65100');
         return;
@@ -11309,7 +11309,7 @@ async function guardarEdicionCita() {
     });
 }
 
-function cancelarCita() {
+async function cancelarCita() {
     if (!currentCitaIdDetalle) {
         showToast('⚠️ No se puede identificar la cita', 3000, '#e65100');
         return;
@@ -13312,7 +13312,7 @@ async function registrarMovimiento(itemId) {
 }
 
 // ── Eliminar producto ────────────────────────────────────
-function confirmarEliminarItem(itemId) {
+async function confirmarEliminarItem(itemId) {
     const item = (appData.inventario || []).find(i => i.id === itemId);
     if (!item) return;
     cerrarModal();
