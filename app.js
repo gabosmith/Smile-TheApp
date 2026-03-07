@@ -6077,14 +6077,6 @@ function cotizSetDescuento(pct) {
     }
 }
 
-// Botón "← Cambiar usuario" en loginScreen (ls* PIN system)
-// Mientras el sistema ls* no esté implementado, redirige al overlay de acceso
-function lsVolverUsuarios() {
-    const loginEl = document.getElementById('loginScreen');
-    if (loginEl) loginEl.style.display = 'none';
-    const overlay = document.getElementById('clinicAccessOverlay');
-    if (overlay) overlay.style.display = 'flex';
-}
 
 async function guardarItemCotizacion() {
     if (_guardandoCotiz) return;
