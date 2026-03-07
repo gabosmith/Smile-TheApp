@@ -6022,6 +6022,84 @@ function _cotizOnCatalogSelect(sel) {
 
 let _guardandoCotiz = false;
 
+async 
+// ═══════════════════════════════════════════════════════════════
+// ALIASES — funciones llamadas desde HTML que no existían
+// Cada una delega en la función real ya existente. No tocar la
+// función destino — solo el alias que conecta.
+// ═══════════════════════════════════════════════════════════════
+
+// Botón "+ Agregar Procedimiento" en ficha → abre modalCotizItem en modo proc
+function cotizOpenAddProc() {
+    abrirModalAgregarItem();
+}
+
+// Botón "+ Orden de Lab" en ficha → abre modalCotizItem en modo lab
+function abrirModalOrdenLabCotiz() {
+    abrirModalAgregarItem();
+    // Cambiar al tab de lab después de abrir
+    setTimeout(() => _cotizSetTipo('lab'), 30);
+}
+
+// Botón "Generar Cotización →" en modalNuevaCotizacion
+// El modal es legacy — los items ya fueron agregados uno a uno.
+// Solo cerramos el modal limpiamente.
+function generarCotizacionDesdeFicha() {
+    closeModal('modalNuevaCotizacion');
+    showToast('✓ Cotización guardada');
+}
+
+// Botón "Enviar por WhatsApp" en modal recibo
+// compartirWhatsApp() ya usa currentReciboText — el id no es necesario
+function enviarReciboWhatsApp(pacienteId) {
+    compartirWhatsApp();
+}
+
+// Actualiza el display del total al mover el slider de descuento
+// Llamado desde oninput del cotizDescuentoSlider
+function cotizUpdateTotal() {
+    const slider = document.getElementById('cotizDescuentoSlider');
+    const valEl  = document.getElementById('cotizDescuentoValue');
+    const totalEl= document.getElementById('cotizTotal');
+    if (!slider) return;
+    const pct = parseInt(slider.value) || 0;
+    if (valEl) valEl.textContent = pct;
+    // Recalcular total desde los items de la factura abierta
+    if (totalEl && currentPacienteId) {
+        const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+        if (paciente) {
+            const f = appData.facturas.find(f =>
+                (f.pacienteId === paciente.id || f.paciente === paciente.nombre) &&
+                f.estado !== 'cancelada' &&
+                (f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0)) > 0
+            );
+            if (f) {
+                const subtotal = (f.subtotal || f.total || 0);
+                const neto = subtotal * (1 - pct / 100);
+                totalEl.textContent = formatCurrency(neto);
+            }
+        }
+    }
+}
+
+// Botones de descuento rápido 5% 10% 15% 20% en cotización
+function cotizSetDescuento(pct) {
+    const slider = document.getElementById('cotizDescuentoSlider');
+    if (slider) {
+        slider.value = pct;
+        cotizUpdateTotal();
+    }
+}
+
+// Botón "← Cambiar usuario" en loginScreen (ls* PIN system)
+// Mientras el sistema ls* no esté implementado, redirige al overlay de acceso
+function lsVolverUsuarios() {
+    const loginEl = document.getElementById('loginScreen');
+    if (loginEl) loginEl.style.display = 'none';
+    const overlay = document.getElementById('clinicAccessOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
 async function guardarItemCotizacion() {
     if (_guardandoCotiz) return;
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
