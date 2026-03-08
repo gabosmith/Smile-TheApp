@@ -1963,7 +1963,29 @@ async function activateClinic() {
         waPhone: state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : ''
       });
 
-    // ── Show success screen ──────────────────────────
+    // ── Identify completed signup in Intercom ──────────
+  try {
+    if (typeof Intercom !== 'undefined') {
+      Intercom('update', {
+        app_id:  'a3ti8klo',
+        email:   state.adminEmail,
+        name:    state.adminName.trim(),
+        'Onboarding paso':     'Completado',
+        'Onboarding plan':     planKey,
+        'Clínica ID':          clinicId,
+        'Clínica nombre':      state.clinicName,
+        'País':                state.pais || '—',
+        company: {
+          id:       clinicId,
+          name:     state.clinicName,
+          plan:     planKey,
+          industry: 'Dental',
+        }
+      });
+    }
+  } catch(e) {}
+
+  // ── Show success screen ──────────────────────────
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
     document.getElementById('success').classList.add('active');
     document.getElementById('progressFill').style.width = '100%';
@@ -2037,30 +2059,8 @@ async function activateClinic() {
         pais: state.pais || '',
       });
     } catch(regErr) {
+      // No crítico — si falla el índice, la clínica ya fue creada
       console.warn('[Anti-spam] No se pudo registrar email:', regErr.message);
-    }
-
-    // ── Notificación al panel admin (incluye PIN para enviar credenciales) ──
-    try {
-      const waPhoneFull = state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : '';
-      await db.collection('smile_notifications').add({
-        tipo: 'nueva_clinica',
-        clinicaId: clinicId,
-        nombre: state.clinicName,
-        adminNombre: state.adminName.trim(),
-        plan: planKey,
-        adminEmail: state.adminEmail,
-        mrr: total,
-        pin: adminPassword,
-        pais: state.pais || '',
-        moneda: state.moneda || 'USD',
-        waPhone: waPhoneFull,
-        fecha: new Date().toISOString(),
-        origenRegistro: 'onboarding',
-        leida: false,
-      });
-    } catch(notifErr) {
-      console.warn('[Notif] No se pudo registrar notificacion:', notifErr.message);
     }
 
     const mockup = document.getElementById('appMockup');
@@ -2152,5 +2152,36 @@ function shareUrl() {
 }
 </script>
 <script src="smile-nav.js"></script>
+
+<!-- ═══ INTERCOM ═══════════════════════════════════════ -->
+<script>
+  (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',w.intercomSettings);}else{var d=document;var i=function(){i.c(arguments);};i.q=[];i.c=function(args){i.q.push(args);};w.Intercom=i;var l=function(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://widget.intercom.io/widget/a3ti8klo';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);};if(document.readyState==='complete'){l();}else if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
+
+  // Boot anonymous — will update as user fills in the form
+  Intercom('boot', {
+    app_id: 'a3ti8klo',
+    'Página': 'Onboarding SMILE'
+  });
+
+  // Call this after each step to keep Intercom updated with progress
+  function updateIntercomOnboarding(step, data) {
+    try {
+      if (typeof Intercom === 'undefined') return;
+      var payload = {
+        app_id: 'a3ti8klo',
+        'Onboarding paso': step,
+        'Onboarding plan': data.plan || '—',
+      };
+      if (data.email) {
+        payload.email = data.email;
+        payload.name  = data.adminName || data.email;
+        payload['Clínica nombre'] = data.clinicName || '—';
+        payload['País'] = data.pais || '—';
+      }
+      Intercom('update', payload);
+    } catch(e) {}
+  }
+</script>
+<!-- ═══════════════════════════════════════════════════ -->
 </body>
 </html>
