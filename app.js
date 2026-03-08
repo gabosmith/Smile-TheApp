@@ -1846,7 +1846,11 @@ function showTab(tabName) {
         }
         if (tabName === 'dashboard') {
             try { updateDashboardTab(); }
-            catch(e) { console.error('Dashboard error:', e); }
+            catch(e) {
+                console.error('Dashboard error:', e);
+                const _t = document.getElementById('tab-dashboard');
+                if (_t) _t.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#c0392b;font-size:13px;">Error al cargar dashboard: ' + e.message + '</div>';
+            }
         }
         if (tabName === 'ingresos') updateIngresosTab();
         if (tabName === 'cobrar') updateCobrarTab();
@@ -2431,8 +2435,8 @@ async function confirmarPago() {
     }
 
     const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
-    const _dPct=currentFacturaToPay._descuentoPendiente||0; if(_dPct>0){currentFacturaToPay.total=Math.round(currentFacturaToPay.total*(1-_dPct/100)*100)/100;currentFacturaToPay.descuento=_dPct;currentFacturaToPay._descuentoPendiente=0;}
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
+    const _dPct=currentFacturaToPay._descuentoPendiente||0; if(_dPct>0){currentFacturaToPay.total=Math.round(currentFacturaToPay.total*(1-_dPct/100)*100)/100;currentFacturaToPay.descuento=_dPct;currentFacturaToPay._descuentoPendiente=0;}
 
     if (monto > balancePendiente + 0.01) {
         showToast(`⚠️ El monto supera el balance pendiente (${formatCurrency(balancePendiente)})`, 4000, '#e65100'); return;
@@ -9912,17 +9916,22 @@ function updateDashboardTab() {
     const fraseDia    = getFrase();
     const fechaEl     = document.getElementById('dashboardFecha');
     if (fechaEl) {
-        const logoWatermark = clinicConfig._logoSrc
-            ? `<img src="${clinicConfig._logoSrc}" alt="" style="position:absolute;right:0;top:50%;transform:translateY(-50%);height:52px;width:auto;object-fit:contain;opacity:.08;pointer-events:none;filter:grayscale(1);" onerror="this.style.display='none'">`
-            : '';
+        var _logoWM = '';
+        if (clinicConfig._logoSrc) {
+            var _imgEl = document.createElement('img');
+            _imgEl.src = clinicConfig._logoSrc;
+            _imgEl.alt = '';
+            _imgEl.style.cssText = 'position:absolute;right:0;top:50%;transform:translateY(-50%);height:52px;width:auto;object-fit:contain;opacity:.08;pointer-events:none;filter:grayscale(1);';
+            _imgEl.onerror = function(){ this.style.display='none'; };
+            _logoWM = _imgEl.outerHTML;
+        }
         fechaEl.style.position = 'relative';
         fechaEl.style.overflow = 'hidden';
-        fechaEl.innerHTML = `
-            ${logoWatermark}
-            <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-.5px;margin-bottom:2px;">${saludoDia}${nombreCorto ? `, ${nombreCorto}` : ''}.</div>
-            <div style="font-size:12px;color:var(--light);margin-bottom:7px;text-transform:capitalize;">${fechaStr}</div>
-            <div style="font-size:13px;color:var(--mid);font-style:italic;font-weight:300;line-height:1.5;">"${fraseDia}"</div>
-        `;
+        var _nombreMostrar = nombreCorto ? ', ' + nombreCorto : '';
+        fechaEl.innerHTML = _logoWM
+            + '<div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-.5px;margin-bottom:2px;">' + saludoDia + _nombreMostrar + '.</div>'
+            + '<div style="font-size:12px;color:var(--light);margin-bottom:7px;text-transform:capitalize;">' + fechaStr + '</div>'
+            + '<div style="font-size:13px;color:var(--mid);font-style:italic;font-weight:300;line-height:1.5;">"' + fraseDia + '"</div>';
     }
 
     // ────────────────────────────────────────────────────
