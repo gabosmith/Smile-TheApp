@@ -12193,11 +12193,18 @@ function irTab(tabName) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const tab = document.getElementById('tab-' + tabName);
     if (tab) tab.classList.add('active');
-    if (tabName === 'perfil') updatePerfilTab();
-    if (tabName === 'reportes'   && typeof updateReportesTab   === 'function') updateReportesTab();
-    if (tabName === 'personal'   && typeof updatePersonalTab   === 'function') updatePersonalTab();
-    if (tabName === 'inventario' && typeof updateInventarioTab === 'function') updateInventarioTab();
-    if (tabName === 'sedes'      && typeof updateSedesTab      === 'function') updateSedesTab();
+    try {
+        if (tabName === 'perfil') updatePerfilTab();
+        if (tabName === 'reportes'   && typeof updateReportesTab   === 'function') updateReportesTab();
+        if (tabName === 'personal'   && typeof updatePersonalTab   === 'function') updatePersonalTab();
+        if (tabName === 'inventario' && typeof updateInventarioTab === 'function') updateInventarioTab();
+        if (tabName === 'sedes'      && typeof updateSedesTab      === 'function') updateSedesTab();
+    } catch(e) {
+        console.error('[irTab] Error en tab ' + tabName + ':', e);
+        var p = document.getElementById('_dbgPanel');
+        if (p) { p.style.display='block'; p.textContent += '\n[irTab:'+tabName+'] ' + e.message + '\n' + (e.stack||'').split('\n').slice(0,3).join('\n'); }
+        if (tab) tab.innerHTML = '<div style="padding:30px;color:#c0392b;font-size:13px;font-family:monospace;word-break:break-all"><b>Error en ' + tabName + ':</b><br>' + e.message + '<br><small>' + (e.stack||'').split('\n')[1] + '</small></div>';
+    }
 }
 
 

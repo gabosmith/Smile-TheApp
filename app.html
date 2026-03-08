@@ -3914,5 +3914,27 @@
         </div>
     </div>
 
+
+<div id="_dbgPanel" style="display:none;position:fixed;bottom:80px;left:10px;right:10px;
+  background:#1a1a1a;color:#ff6b6b;font-family:monospace;font-size:11px;
+  padding:12px;border-radius:8px;z-index:99999;max-height:200px;overflow-y:auto;
+  white-space:pre-wrap;word-break:break-all;"></div>
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  var p = document.getElementById('_dbgPanel');
+  if (p) {
+    p.style.display = 'block';
+    p.textContent += '\n[JS ERROR] ' + msg + '\n  at ' + src + ':' + line + ':' + col;
+  }
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var p = document.getElementById('_dbgPanel');
+  if (p) {
+    p.style.display = 'block';
+    p.textContent += '\n[PROMISE] ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+  }
+});
+</script>
+
 </body>
 </html>
