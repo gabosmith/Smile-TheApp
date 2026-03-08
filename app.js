@@ -1838,7 +1838,7 @@ function showTab(tabName) {
                     const select = document.getElementById('profesionalQueAtendio');
                     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
                     select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                        profesionales.map(function(p){ return '<option value="' + p.nombre + '">' + p.nombre + '</option>'; }).join('');
+                        profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
                 } else {
                     container.style.display = 'none';
                 }
@@ -1846,11 +1846,7 @@ function showTab(tabName) {
         }
         if (tabName === 'dashboard') {
             try { updateDashboardTab(); }
-            catch(e) {
-                console.error('[SMILE] Dashboard crash:', e);
-                var _errT = document.getElementById('tab-dashboard');
-                if (_errT) _errT.innerHTML = '<div style="padding:30px;color:red;font-size:13px;font-family:monospace;">' + e.message + '</div>';
-            }
+            catch(e) { console.error('Dashboard error:', e); }
         }
         if (tabName === 'ingresos') updateIngresosTab();
         if (tabName === 'cobrar') updateCobrarTab();
@@ -2400,6 +2396,7 @@ function openPagarFactura(facturaId) {
 
     selectTipoPago('total');
 
+    var _ds=document.getElementById('pagoDescuentoSlider'),_dl=document.getElementById('pagoDescuentoLabel');if(_ds)_ds.value=0;if(_dl)_dl.textContent='0%';if(currentFacturaToPay)currentFacturaToPay._descuentoPendiente=0;
     openModal('modalPagarFactura');
 }
 
@@ -2435,6 +2432,7 @@ async function confirmarPago() {
 
     const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
+    const _dPct=currentFacturaToPay._descuentoPendiente||0; if(_dPct>0){currentFacturaToPay.total=Math.round(currentFacturaToPay.total*(1-_dPct/100)*100)/100;currentFacturaToPay.descuento=_dPct;currentFacturaToPay._descuentoPendiente=0;}
 
     if (monto > balancePendiente + 0.01) {
         showToast(`⚠️ El monto supera el balance pendiente (${formatCurrency(balancePendiente)})`, 4000, '#e65100'); return;
@@ -3499,7 +3497,7 @@ async function confirmarPagoSalarioFijo(person) {
         confirmText: 'Sí, Pagar Ahora',
         onConfirm: async () => {
             const fecha = new Date().toLocaleDateString(getLocale(), {weekday:'long',year:'numeric',month:'long',day:'numeric'});
-            const hora  = new Date().toLocaleTimeString(getLocale());
+            var hora  = new Date().toLocaleTimeString(getLocale());
             let recibo  = '================================\n' + getNombreClinica() + '\n================================\n\n'
                         + 'RECIBO DE PAGO DE SALARIO\n\n'
                         + 'Fecha: ' + fecha + '\nHora: ' + hora + '\n'
@@ -3765,7 +3763,7 @@ Firma: _____________________
 // ══════════════════════════════════════════════════════
 function generarReciboHTML(tipo, person, monto, detalle) {
     const fecha = new Date().toLocaleDateString(getLocale(), {year:'numeric', month:'long', day:'numeric'});
-    const hora  = new Date().toLocaleTimeString(getLocale(), {hour:'2-digit', minute:'2-digit'});
+    var hora  = new Date().toLocaleTimeString(getLocale(), {hour:'2-digit', minute:'2-digit'});
     const clinica = getNombreClinica();
     const color = clinicConfig.color || '#C4856A';
 
@@ -6033,7 +6031,7 @@ function _cotizOnCatalogSelect(sel) {
 let _guardandoCotiz = false;
 
 
-// ═══ ALIASES ════════════════════════════════════════════════════════════════
+// ═══ ALIASES ═══════════════════════════════════════════════════════════════
 function cotizOpenAddProc() { abrirModalAgregarItem(); }
 function abrirModalOrdenLabCotiz() { abrirModalAgregarItem(); setTimeout(function(){ if(typeof _cotizSetTipo==='function') _cotizSetTipo('lab'); }, 30); }
 function generarCotizacionDesdeFicha() { closeModal('modalNuevaCotizacion'); showToast('✓ Cotización guardada'); }
@@ -6587,7 +6585,7 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
     for (let h = horaApertura; h < horaCierre; h++) {
         const topPx = (h - horaApertura)*HORA_H;
         const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
-        var hora  = `${String(h).padStart(2,'0')}:00`;
+        const hora  = `${String(h).padStart(2,'0')}:00`;
         horasHTML += `
         <div style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;
                     border-top:1px solid rgba(30,28,26,.06);pointer-events:none;">
@@ -6793,7 +6791,7 @@ function _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES,
         let dz = '';
         for (let h = horaApertura; h < horaCierre; h++) {
             const topPx = (h-horaApertura)*HORA_H;
-            var hora  = `${String(h).padStart(2,'0')}:00`;
+            const hora  = `${String(h).padStart(2,'0')}:00`;
             dz += `<div ondragover="_onDragOver(event)" ondrop="_onDrop(event,'${dk}','${hora}',1)"
                 onclick="_abrirCitaEnSlot('${dk}','${hora}')"
                 style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;z-index:1;
@@ -12188,7 +12186,6 @@ function cerrarMas() {
 }
 
 function irTab(tabName) {
-    // For tabs that still live as direct tab-content elements
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const tab = document.getElementById('tab-' + tabName);
@@ -12200,10 +12197,8 @@ function irTab(tabName) {
         if (tabName === 'inventario' && typeof updateInventarioTab === 'function') updateInventarioTab();
         if (tabName === 'sedes'      && typeof updateSedesTab      === 'function') updateSedesTab();
     } catch(e) {
-        console.error('[irTab] Error en tab ' + tabName + ':', e);
-        var p = document.getElementById('_dbgPanel');
-        if (p) { p.style.display='block'; p.textContent += '\n[irTab:'+tabName+'] ' + e.message + '\n' + (e.stack||'').split('\n').slice(0,3).join('\n'); }
-        if (tab) tab.innerHTML = '<div style="padding:30px;color:#c0392b;font-size:13px;font-family:monospace;word-break:break-all"><b>Error en ' + tabName + ':</b><br>' + e.message + '<br><small>' + (e.stack||'').split('\n')[1] + '</small></div>';
+        console.error('[irTab] Error:', tabName, e);
+        if (tab) tab.innerHTML = '<div style="padding:30px;color:red;font-family:monospace;font-size:13px;word-break:break-all"><b>Error en ' + tabName + ':</b><br>' + e.message + '</div>';
     }
 }
 
