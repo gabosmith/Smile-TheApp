@@ -92,7 +92,7 @@ let clinicConfig = {
     activa: true,
     procMode: 'libre',   // 'libre' | 'lista'
     procItems: [],       // [{nombre, precio}] when procMode=lista
-    moneda:   'RD$',     // símbolo de moneda — configurable por país
+    moneda:   'USD',     // símbolo de moneda — configurable por país
     locale:   'es-419',      // locale para fechas y números (getLocale() se llama después de init)
     pais:     'República Dominicana',
 };
@@ -133,7 +133,7 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda              = cfg.moneda              || 'RD$';
+        clinicConfig.moneda              = cfg.moneda              || 'USD';
         clinicConfig.locale              = cfg.locale              || getLocale();
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
@@ -152,6 +152,7 @@ async function loadClinicBranding() {
         clinicConfig.proximoPago          = cfg.proximoPago          || null;
         clinicConfig.stripeCustomerId     = cfg.stripeCustomerId     || null;
         clinicConfig.stripeSubscriptionId = cfg.stripeSubscriptionId || null;
+        clinicConfig.exonerada            = cfg.exonerada === true;
 
         // ── Apply branding ──
         if (cfg.nombre) {
@@ -645,17 +646,16 @@ async function logErrorToFirestore(codigoError, titulo, detalle, contexto) {
     }
 }
 
-// == Capturador global JS ==
-window.onerror = function(message, source, lineno, colno, error) {
-    if (!source || source.includes('extension')) return false;
-    var tab=''; try { var el=document.querySelector('.tab-content.active'); if(el) tab=' | tab:'+el.id; } catch(e2){}
-    logErrorToFirestore('js-runtime-error','Error JS: '+String(message).slice(0,80),String(message)+' | '+(source||'')+' L'+lineno+tab,'window.onerror');
+window.onerror = function(msg, src, line) {
+    if (!src || src.includes('extension')) return false;
+    var tab = ''; try { var el = document.querySelector('.tab-content.active'); if (el) tab = ' | tab:' + el.id; } catch(e2) {}
+    logErrorToFirestore('js-runtime-error', 'Error JS: ' + String(msg).slice(0,80), String(msg) + ' | ' + (src||'') + ' L' + line + tab, 'window.onerror');
     return false;
 };
-window.addEventListener('unhandledrejection', function(event) {
-    var r=event.reason, msg=r instanceof Error?r.message:String(r);
-    var tab=''; try { var el=document.querySelector('.tab-content.active'); if(el) tab=' | tab:'+el.id; } catch(e2){}
-    logErrorToFirestore(r&&r.code?r.code:'unhandled-promise','Promesa rechazada: '+msg.slice(0,80),msg+tab,'unhandledrejection');
+window.addEventListener('unhandledrejection', function(ev) {
+    var r = ev.reason, msg = r instanceof Error ? r.message : String(r);
+    var tab = ''; try { var el = document.querySelector('.tab-content.active'); if (el) tab = ' | tab:' + el.id; } catch(e2) {}
+    logErrorToFirestore(r && r.code ? r.code : 'unhandled-promise', 'Promesa rechazada: ' + msg.slice(0,80), msg + tab, 'unhandledrejection');
 });
 
 
@@ -1875,7 +1875,7 @@ function showTab(tabName) {
 
 // Currency format
 function formatCurrency(amount) {
-    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'RD$';
+    const simbolo = (typeof clinicConfig !== 'undefined' && clinicConfig.moneda) ? clinicConfig.moneda : 'USD';
     const locale  = (typeof clinicConfig !== 'undefined' && clinicConfig.locale)  ? clinicConfig.locale  : getLocale();
     return simbolo + ' ' + parseFloat(amount || 0).toLocaleString(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
@@ -6043,12 +6043,27 @@ function _cotizOnCatalogSelect(sel) {
 let _guardandoCotiz = false;
 
 
-function cotizOpenAddProc(){abrirModalAgregarItem();}
-function abrirModalOrdenLabCotiz(){abrirModalAgregarItem();}
-function generarCotizacionDesdeFicha(){showToast('✓ Cotización guardada');}
-function enviarReciboWhatsApp(){if(typeof compartirWhatsApp==='function')compartirWhatsApp();}
-function actualizarDescuentoPago(pct){pct=parseInt(pct)||0;var lb=document.getElementById('pagoDescuentoLabel'),ba=document.getElementById('pagoBalance'),mo=document.getElementById('pagoMonto');if(lb)lb.textContent=pct+'%';if(!currentFacturaToPay)return;var paid=(currentFacturaToPay.pagos||[]).reduce(function(s,p){return s+p.monto;},0);var bal=Math.max(0,currentFacturaToPay.total*(1-pct/100)-paid);if(ba)ba.textContent=formatCurrency(bal);if(mo)mo.value=bal.toFixed(2);currentFacturaToPay._descuentoPendiente=pct;}
-function fijarDescuentoPago(pct){var s=document.getElementById('pagoDescuentoSlider');if(s){s.value=pct;actualizarDescuentoPago(pct);}}
+function cotizOpenAddProc() { abrirModalAgregarItem(); }
+function abrirModalOrdenLabCotiz() { abrirModalAgregarItem(); }
+function generarCotizacionDesdeFicha() { showToast('✓ Cotización guardada'); }
+function enviarReciboWhatsApp() { if (typeof compartirWhatsApp === 'function') compartirWhatsApp(); }
+function actualizarDescuentoPago(pct) {
+    pct = parseInt(pct) || 0;
+    var lb = document.getElementById('pagoDescuentoLabel');
+    var ba = document.getElementById('pagoBalance');
+    var mo = document.getElementById('pagoMonto');
+    if (lb) lb.textContent = pct + '%';
+    if (!currentFacturaToPay) return;
+    var paid = (currentFacturaToPay.pagos || []).reduce(function(s,p){ return s + p.monto; }, 0);
+    var bal = Math.max(0, currentFacturaToPay.total * (1 - pct/100) - paid);
+    if (ba) ba.textContent = formatCurrency(bal);
+    if (mo) mo.value = bal.toFixed(2);
+    currentFacturaToPay._descuentoPendiente = pct;
+}
+function fijarDescuentoPago(pct) {
+    var s = document.getElementById('pagoDescuentoSlider');
+    if (s) { s.value = pct; actualizarDescuentoPago(pct); }
+}
 async function guardarItemCotizacion() {
     if (_guardandoCotiz) return;
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
@@ -11476,13 +11491,13 @@ const CHECKOUT_URL  = 'https://createcheckoutsession-dvpa6bf75q-uc.a.run.app';
 const PORTAL_URL    = 'https://createportalsession-dvpa6bf75q-uc.a.run.app';
 
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',        precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',             precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados', precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional', precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',        precio: 9,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',             precio: 9,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',         precio: 9,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados', precio: 9,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional', precio: 19,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
 ];
-const BASE_PRECIOS = { clinica: 1200, solo: 990 };
+const BASE_PRECIOS = { clinica: 49, solo: 29 }; // SMILE pricing — always USD
 
 // ─── Helpers Stripe ──────────────────────────────────────────────────────────
 
@@ -11593,7 +11608,7 @@ function renderMiPlanTab() {
 
     var plan       = clinicConfig.plan || 'clinica';
     var basePrice  = BASE_PRECIOS[plan] || 1200;
-    var moneda     = clinicConfig.moneda || 'RD$';
+    var moneda     = 'USD'; // SMILE charges always in USD — separate from clinic's local currency
     var enTrial    = clinicConfig.enTrial;
     var suspendida = clinicConfig.suspendida;
     var pagoPend   = clinicConfig.pagoPendiente;
@@ -11772,7 +11787,7 @@ function togglePlanModulo(key) {
     document.getElementById('miplan-modulos').innerHTML =
         MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(tab._plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
     document.getElementById('miplan-total').textContent =
-        (tab._moneda || 'RD$') + tab._calcTotal().toLocaleString();
+        (tab._moneda || clinicConfig.moneda || 'USD') + tab._calcTotal().toLocaleString();
 }
 
 async function guardarCambiosPlan() {
@@ -12143,7 +12158,7 @@ function abrirMas() {
     if (clinicConfig.procMode === 'lista' && role === 'admin') {
         items.push({ icon: '📋', label: 'Catálogo',    action: `cerrarMas();showTab('catalogo')` });
     }
-    if (role === 'admin') {
+    if (role === 'admin' && !clinicConfig.exonerada) {
         items.push({ icon: '💳', label: 'Mi Plan',     action: `cerrarMas();showTab('miplan')` });
     }
     items.push({ icon: '👤', label: 'Perfil',          action: `cerrarMas();irTab('perfil')` });
