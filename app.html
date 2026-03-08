@@ -2056,20 +2056,23 @@
             <!-- Reportes Tab -->
             <div id="tab-reportes" class="tab-content" style="padding-bottom:80px;">
 
+                <!-- ── Header Reportes ──────────────────────────── -->
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
                     <div>
                         <div style="font-size:22px;font-weight:300;color:var(--topo);letter-spacing:-0.5px;">Reportes</div>
                         <div id="reportePeriodoLabel" style="font-size:12px;color:var(--piedra);margin-top:2px;">Selecciona un período</div>
                     </div>
+                    <div style="font-size:9px;font-weight:700;letter-spacing:4px;color:var(--clinic-color,#C4856A);opacity:.6;text-transform:uppercase;">SMILE</div>
                 </div>
 
+                <!-- ── Selector de período ──────────────────────── -->
                 <div style="background:white;border-radius:16px;padding:16px 18px;box-shadow:var(--neu-flat);margin-bottom:16px;">
                     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-                        <button class="reporte-periodo-btn" data-periodo="hoy"          onclick="setReportePeriodo('hoy')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;">Hoy</button>
-                        <button class="reporte-periodo-btn" data-periodo="semana"       onclick="setReportePeriodo('semana')"       style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;">Esta semana</button>
-                        <button class="reporte-periodo-btn active" data-periodo="mes"   onclick="setReportePeriodo('mes')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--clinic-color,#C4856A);color:white;cursor:pointer;">Este mes</button>
-                        <button class="reporte-periodo-btn" data-periodo="mes_anterior" onclick="setReportePeriodo('mes_anterior')" style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;">Mes anterior</button>
-                        <button class="reporte-periodo-btn" data-periodo="año"          onclick="setReportePeriodo('año')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;">Este año</button>
+                        <button class="reporte-periodo-btn" data-periodo="hoy"          onclick="setReportePeriodo('hoy')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all .15s;box-shadow:var(--neu-raised);">Hoy</button>
+                        <button class="reporte-periodo-btn" data-periodo="semana"       onclick="setReportePeriodo('semana')"       style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all .15s;box-shadow:var(--neu-raised);">Esta semana</button>
+                        <button class="reporte-periodo-btn active" data-periodo="mes"   onclick="setReportePeriodo('mes')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--clinic-color,#C4856A);color:white;cursor:pointer;transition:all .15s;box-shadow:0 2px 8px rgba(196,133,106,.35);">Este mes</button>
+                        <button class="reporte-periodo-btn" data-periodo="mes_anterior" onclick="setReportePeriodo('mes_anterior')" style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all .15s;box-shadow:var(--neu-raised);">Mes anterior</button>
+                        <button class="reporte-periodo-btn" data-periodo="año"          onclick="setReportePeriodo('año')"          style="padding:6px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;background:var(--sand);color:var(--topo);cursor:pointer;transition:all .15s;box-shadow:var(--neu-raised);">Este año</button>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end;">
                         <div>
@@ -2080,18 +2083,29 @@
                             <div style="font-size:10px;color:var(--piedra);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
                             <input type="date" id="reporteFechaFin">
                         </div>
-                        <button onclick="generarReporte()" style="padding:11px 20px;background:var(--clinic-color,#C4856A);color:white;border:none;border-radius:12px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600;">Generar →</button>
+                        <button onclick="generarReporte()"
+                            style="padding:11px 20px;background:var(--clinic-color,#C4856A);color:white;
+                                   border:none;border-radius:12px;font-size:13px;font-family:inherit;
+                                   cursor:pointer;font-weight:600;letter-spacing:.3px;
+                                   box-shadow:0 3px 12px rgba(196,133,106,.35);transition:opacity .15s;"
+                            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                            Generar →
+                        </button>
                     </div>
                 </div>
 
-                <div id="reporteResumenFinanciero" style="margin-bottom:16px;"></div>
-                <div id="reportePorProfesional"    style="margin-bottom:16px;"></div>
-                <div id="reporteTopProcedimientos" style="margin-bottom:16px;"></div>
-                <div id="reporteEstadoCitas"        style="margin-bottom:16px;"></div>
-                <div id="reporteLaboratorio"        style="margin-bottom:16px;"></div>
+                <!-- ── Contenido del reporte ─────────────────────── -->
+                <div id="reporteContenido">
+                    <!-- Estado vacío -->
+                    <div style="text-align:center;padding:48px 24px;">
+                        <div style="font-size:48px;margin-bottom:12px;">📊</div>
+                        <div style="font-size:16px;font-weight:300;color:var(--topo);">Selecciona un período y genera el reporte</div>
+                        <div style="font-size:13px;color:var(--piedra);margin-top:6px;">Ingresos · Profesionales · Procedimientos · Citas</div>
+                    </div>
+                </div>
 
-            </div>
 
+            <!-- Sedes Tab -->
             <div id="tab-sedes" class="tab-content">
                 <!-- Contenido generado por updateSedesTab() -->
             </div>
