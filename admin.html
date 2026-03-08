@@ -13,20 +13,20 @@
      SMILE ADMIN — Brand v3 Neumorphic Warm
   ══════════════════════════════════════════════ */
   :root {
-    /* ── Paleta base ── */
+    /* ── Paleta base — más contraste ── */
     --sand:     #EEEAE4;
     --sand-lt:  #F7F4EF;
     --white:    #FDFCFB;
-    --topo:     var(--muted);
-    --piedra:   #A89F96;
-    --muted:    #C8C2BB;
-    --carbon:   #3A3532;
-    --terra:    #C4856A;
-    --salvia:   #6B8F71;
-    --pizarra:  #7D8EA0;
+    --topo:     #2C2825;
+    --piedra:   #7A6F68;
+    --muted:    #A89F96;
+    --carbon:   #1E1C1A;
+    --terra:    #B8714A;
+    --salvia:   #4E7A54;
+    --pizarra:  #5C7A94;
     --rosa:     #EAC0B2;
-    --red:      #C47070;
-    --green:    #6B8F71;
+    --red:      #A84848;
+    --green:    #4E7A54;
 
     /* ── Sombras neumórficas ── */
     --neu-raised:    8px 8px 20px rgba(168,159,150,.30), -6px -6px 16px rgba(255,255,255,.80);
@@ -121,46 +121,46 @@
   /* ══ SIDEBAR ══════════════════════════════════════ */
   .sidebar {
     width: 230px; flex-shrink: 0;
-    background: linear-gradient(180deg, #F0ECE5 0%, #E8E3DA 100%);
+    background: linear-gradient(180deg, #2C2825 0%, #1E1C1A 100%);
     min-height: 100vh; display: flex; flex-direction: column;
     padding: 32px 0; position: sticky; top: 0; height: 100vh;
-    border-right: 1px solid rgba(255,255,255,.7);
-    box-shadow: 4px 0 20px rgba(168,159,150,.12);
+    border-right: none;
+    box-shadow: 4px 0 24px rgba(30,28,26,.25);
   }
   .sidebar-logo {
     font-size: 11px; font-weight: 600; letter-spacing: 7px;
-    color: var(--topo); padding: 0 28px; margin-bottom: 3px;
+    color: #F7F4EF; padding: 0 28px; margin-bottom: 3px;
   }
   .sidebar-role {
     font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
-    color: var(--terra); padding: 0 28px; margin-bottom: 36px;
+    color: #C4856A; padding: 0 28px; margin-bottom: 36px;
   }
   .sidebar-nav { flex: 1; }
   .nav-item {
     display: flex; align-items: center; gap: 11px;
-    padding: 11px 28px; font-size: 13px; color: var(--piedra);
+    padding: 11px 28px; font-size: 13px; color: rgba(247,244,239,.5);
     cursor: pointer; transition: all .2s;
     border-left: 2px solid transparent;
   }
-  .nav-item:hover { color: var(--topo); }
+  .nav-item:hover { color: rgba(247,244,239,.85); }
   .nav-item.active {
-    color: var(--topo); font-weight: 400;
-    border-left-color: var(--pizarra);
-    background: rgba(125,142,160,.07);
+    color: #F7F4EF; font-weight: 500;
+    border-left-color: #C4856A;
+    background: rgba(255,255,255,.06);
   }
   .nav-item .nav-icon { font-size: 15px; width: 20px; text-align: center; }
   .sidebar-bottom {
     padding: 24px 28px 0;
-    border-top: 1px solid rgba(168,159,150,.25);
+    border-top: 1px solid rgba(255,255,255,.10);
     margin-top: 16px;
   }
-  .sidebar-version { font-size: 10px; color: var(--piedra); letter-spacing: 1px; }
+  .sidebar-version { font-size: 10px; color: rgba(247,244,239,.3); letter-spacing: 1px; }
   .logout-btn {
-    font-size: 12px; color: var(--piedra); background: none; border: none;
+    font-size: 12px; color: rgba(247,244,239,.4); background: none; border: none;
     font-family: inherit; cursor: pointer; padding: 8px 0;
     transition: color .2s; display: block; margin-top: 8px;
   }
-  .logout-btn:hover { color: var(--red); }
+  .logout-btn:hover { color: #C47070; }
 
   /* ══ MAIN ═════════════════════════════════════════ */
   .main { flex: 1; overflow-y: auto; padding: 40px 48px; background: var(--sand); }
@@ -170,7 +170,7 @@
     display: flex; justify-content: space-between;
     align-items: flex-start; margin-bottom: 36px;
   }
-  .page-title { font-size: 30px; font-weight: 200; letter-spacing: -1px; color: var(--topo); }
+  .page-title { font-size: 30px; font-weight: 300; letter-spacing: -1px; color: #1E1C1A; }
   .page-sub { font-size: 13px; color: var(--piedra); margin-top: 4px; }
 
   .header-btn {
@@ -212,11 +212,11 @@
   .stat-card:hover { box-shadow: var(--neu-raised-lg); transform: translateY(-2px); }
   .stat-accent { width: 28px; height: 3px; border-radius: 2px; margin-bottom: 14px; }
   .stat-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--piedra); margin-bottom: 12px; }
-  .stat-val { font-size: 32px; font-weight: 200; letter-spacing: -1px; color: var(--topo); margin-bottom: 6px; }
+  .stat-val { font-size: 32px; font-weight: 300; letter-spacing: -1px; color: #1E1C1A; margin-bottom: 6px; }
   .stat-sub { font-size: 11px; color: var(--piedra); }
 
   /* ══ CLINICS TABLE ════════════════════════════════ */
-  .section-title { font-size: 16px; font-weight: 400; color: var(--topo); margin-bottom: 16px; }
+  .section-title { font-size: 16px; font-weight: 500; color: #2C2825; margin-bottom: 16px; }
 
   .clinics-table {
     background: var(--sand); border-radius: var(--radius-lg);
@@ -238,7 +238,7 @@
   .clinic-row:last-child { border-bottom: none; }
   .clinic-row:hover { background: rgba(255,255,255,.5); }
 
-  .clinic-name { font-size: 14px; font-weight: 400; color: var(--topo); }
+  .clinic-name { font-size: 14px; font-weight: 500; color: #1E1C1A; }
   .clinic-id   { font-size: 10px; color: var(--piedra); margin-top: 2px; letter-spacing: 1px; font-family: monospace; }
 
   /* ══ BADGES ═══════════════════════════════════════ */
@@ -418,7 +418,7 @@
   .sev-aviso   { background: rgba(196,181,106,.12); color: #8a6f00; }
   .sev-info    { background: rgba(125,142,160,.12); color: var(--pizarra); }
 
-  .error-title { font-size: 14px; font-weight: 500; color: var(--topo); margin-bottom: 4px; }
+  .error-title { font-size: 14px; font-weight: 600; color: #1E1C1A; margin-bottom: 4px; }
   .error-meta  { font-size: 11px; color: var(--piedra); }
   .error-detail { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.8); }
   .error-detail.open { display: block; }
@@ -475,6 +475,48 @@
   .resolve-btn:hover      { box-shadow: var(--neu-raised); }
 
   .section { animation: fadeIn .3s ease; }
+
+  /* ══ HEALTH DASHBOARD ═════════════════════════════ */
+  .health-banner {
+    border-radius: var(--radius-lg); padding: 24px 28px;
+    margin-bottom: 24px; display: flex; align-items: center;
+    justify-content: space-between; gap: 20px;
+    box-shadow: var(--neu-raised-lg); transition: all .3s;
+  }
+  .health-banner.green  { background: linear-gradient(135deg, rgba(78,122,84,.10) 0%, rgba(78,122,84,.05) 100%); border: 1.5px solid rgba(78,122,84,.2); }
+  .health-banner.yellow { background: linear-gradient(135deg, rgba(196,133,106,.10) 0%, rgba(196,133,106,.05) 100%); border: 1.5px solid rgba(196,133,106,.2); }
+  .health-banner.red    { background: linear-gradient(135deg, rgba(168,72,72,.10) 0%, rgba(168,72,72,.05) 100%); border: 1.5px solid rgba(168,72,72,.2); }
+
+  .health-semaforo { font-size: 42px; flex-shrink: 0; }
+  .health-title { font-size: 18px; font-weight: 500; color: #1E1C1A; margin-bottom: 4px; }
+  .health-sub   { font-size: 13px; color: var(--piedra); line-height: 1.5; }
+
+  .health-stats {
+    display: flex; gap: 20px; flex-shrink: 0;
+  }
+  .health-stat {
+    text-align: center; padding: 12px 18px;
+    background: rgba(255,255,255,.6); border-radius: var(--radius-sm);
+    min-width: 80px;
+  }
+  .health-stat-num  { font-size: 24px; font-weight: 300; color: #1E1C1A; line-height: 1; }
+  .health-stat-label { font-size: 10px; color: var(--piedra); letter-spacing: .5px; margin-top: 4px; }
+  .health-stat.red-stat .health-stat-num { color: var(--red); }
+
+  .affected-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 600; letter-spacing: .5px;
+    background: rgba(92,122,148,.12); color: var(--pizarra);
+    padding: 3px 9px; border-radius: 100px; margin-left: 8px;
+  }
+  .affected-badge.multi { background: rgba(168,72,72,.10); color: var(--red); }
+
+  .error-summary-line {
+    font-size: 12px; color: var(--piedra); margin-top: 6px;
+    padding: 8px 12px; background: rgba(255,255,255,.5);
+    border-radius: var(--radius-sm); line-height: 1.6;
+  }
+
 </style>
 </head>
 <body>
@@ -1981,6 +2023,97 @@ function marcarResuelto(id, activo, event) {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// SMILE HEALTH — Panel de salud de la app
+// ══════════════════════════════════════════════════════════════════
+
+function renderHealthBanner() {
+  const banner = document.getElementById('healthBanner');
+  if (!banner) return;
+
+  const ahora = new Date();
+  const hace7dias = new Date(ahora - 7 * 24 * 60 * 60 * 1000);
+  const hace30dias = new Date(ahora - 30 * 24 * 60 * 60 * 1000);
+
+  const abiertos   = _errLogs.filter(e => !e._resuelto && !e.resuelto);
+  const criticos   = abiertos.filter(e => (e.severidad || 'error') === 'critico');
+  const esta_semana = _errLogs.filter(e => new Date(e.fecha) > hace7dias);
+  const este_mes   = _errLogs.filter(e => new Date(e.fecha) > hace30dias);
+
+  // Agrupar por código para detectar patrones repetitivos
+  const porCodigo = {};
+  abiertos.forEach(e => {
+    const k = e.codigoError || e.codigo || 'DEFAULT';
+    if (!porCodigo[k]) porCodigo[k] = { count: 0, clinicas: new Set(), titulo: e.titulo || k };
+    porCodigo[k].count++;
+    if (e.clinicaId) porCodigo[k].clinicas.add(e.clinicaId);
+  });
+  const masFrec = Object.entries(porCodigo).sort((a,b) => b[1].count - a[1].count)[0];
+
+  // Clínicas únicas afectadas esta semana
+  const clinicasAfectadas = new Set(esta_semana.map(e => e.clinicaId).filter(Boolean)).size;
+
+  // Determinar estado general
+  let estado, emoji, titulo, subtitulo;
+  if (criticos.length > 0) {
+    estado = 'red';
+    emoji  = '🔴';
+    titulo = criticos.length === 1
+      ? '1 problema crítico sin resolver'
+      : `${criticos.length} problemas críticos sin resolver`;
+    subtitulo = masFrec
+      ? `El más frecuente: "${masFrec[1].titulo}" — ocurrió ${masFrec[1].count} veces en ${masFrec[1].clinicas.size} clínica${masFrec[1].clinicas.size !== 1 ? 's' : ''}.`
+      : 'Revisar los errores críticos abajo.';
+  } else if (abiertos.length > 0) {
+    estado = 'yellow';
+    emoji  = '🟡';
+    titulo = `${abiertos.length} error${abiertos.length !== 1 ? 'es' : ''} sin resolver esta semana`;
+    subtitulo = masFrec
+      ? `El patrón más frecuente: "${masFrec[1].titulo}" (${masFrec[1].count} veces).`
+      : 'Sin errores críticos, pero hay situaciones que revisar.';
+  } else {
+    estado = 'green';
+    emoji  = '🟢';
+    titulo = 'Todo funcionando correctamente';
+    subtitulo = esta_semana.length === 0
+      ? 'Sin errores registrados esta semana. La app está estable.'
+      : `${este_mes.length} error${este_mes.length !== 1 ? 'es' : ''} este mes, todos resueltos.`;
+  }
+
+  banner.innerHTML = `
+    <div class="health-banner ${estado}">
+      <div style="display:flex;align-items:center;gap:20px;flex:1;min-width:0">
+        <div class="health-semaforo">${emoji}</div>
+        <div style="min-width:0">
+          <div class="health-title">${titulo}</div>
+          <div class="health-sub">${subtitulo}</div>
+          ${clinicasAfectadas > 0 ? `
+            <div class="error-summary-line">
+              📍 ${clinicasAfectadas} clínica${clinicasAfectadas !== 1 ? 's' : ''} afectada${clinicasAfectadas !== 1 ? 's' : ''} esta semana
+              &nbsp;·&nbsp; ${esta_semana.length} evento${esta_semana.length !== 1 ? 's' : ''} en 7 días
+              &nbsp;·&nbsp; ${este_mes.length} en 30 días
+            </div>` : ''}
+        </div>
+      </div>
+      <div class="health-stats">
+        <div class="health-stat ${criticos.length > 0 ? 'red-stat' : ''}">
+          <div class="health-stat-num">${criticos.length}</div>
+          <div class="health-stat-label">Críticos</div>
+        </div>
+        <div class="health-stat">
+          <div class="health-stat-num">${abiertos.length}</div>
+          <div class="health-stat-label">Sin resolver</div>
+        </div>
+        <div class="health-stat">
+          <div class="health-stat-num">${esta_semana.length}</div>
+          <div class="health-stat-label">Esta semana</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function filtrarYRenderErrorList(container) {
   let lista = _errLogs;
   if (_errFiltro === 'abiertos')       lista = lista.filter(e => !e._resuelto && !e.resuelto);
@@ -1997,19 +2130,35 @@ function filtrarYRenderErrorList(container) {
     return;
   }
 
+  // Pre-calcular clínicas afectadas por código de error
+  const codigoClincias = {};
+  _errLogs.forEach(e => {
+    const k = e.codigoError || e.codigo || 'DEFAULT';
+    if (!codigoClincias[k]) codigoClincias[k] = new Set();
+    if (e.clinicaId) codigoClincias[k].add(e.clinicaId);
+  });
+
   container.innerHTML = lista.map((err, i) => {
     const uid = err._docId || err.id || ('err-' + i);
     const kb  = ERROR_KB[err.codigoError] || ERROR_KB[err.codigo] || ERROR_KB['DEFAULT'];
     const sev = err.severidad || kb.severidad || 'error';
     const titulo = err.titulo || kb.titulo || 'Error sin clasificar';
     const resuelto = err._resuelto || err.resuelto;
+    const codKey = err.codigoError || err.codigo || 'DEFAULT';
+    const afectadas = codigoClincias[codKey] ? codigoClincias[codKey].size : 1;
+    const afectadaBadge = afectadas > 1
+      ? `<span class="affected-badge multi">⚠ ${afectadas} clínicas afectadas</span>`
+      : `<span class="affected-badge">1 clínica</span>`;
 
     return `
-    <div class="error-card ${resuelto ? 'opacity: 0.6' : ''}" id="card-${uid}" onclick="toggleErrorCard('${uid}')"
-         style="${resuelto ? 'opacity:0.55' : ''}">
+    <div class="error-card" id="card-${uid}" onclick="toggleErrorCard('${uid}')"
+         style="${resuelto ? 'opacity:0.5' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
         <div style="flex:1;min-width:0">
-          <div class="error-card-severity sev-${sev}">${getSeveridadLabel(sev)}</div>
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+            <div class="error-card-severity sev-${sev}">${getSeveridadLabel(sev)}</div>
+            ${afectadaBadge}
+          </div>
           <div class="error-title">${titulo}</div>
           <div class="error-meta">
             🏥 ${err.clinicaNombre || err.clinicaId || 'Sin clínica'} &nbsp;·&nbsp;
@@ -2040,8 +2189,16 @@ function filtrarYRenderErrorList(container) {
             </div>`).join('')}
         </div>
 
+        ${(err.tabActivo || err.nPacientes || err.userAgent) ? `
+          <div class="error-section-title">Contexto al momento del error</div>
+          <div class="error-summary-line">
+            ${err.tabActivo  ? '📍 Tab activo: <b>' + err.tabActivo + '</b>&nbsp;&nbsp;' : ''}
+            ${err.nPacientes ? '👥 Pacientes: <b>' + err.nPacientes + '</b>&nbsp;&nbsp;' : ''}
+            ${err.nFacturas  ? '🧾 Facturas: <b>' + err.nFacturas  + '</b>&nbsp;&nbsp;' : ''}
+            ${err.userAgent  ? '<br>🌐 ' + err.userAgent.slice(0,60) + '...' : ''}
+          </div>` : ''}
         ${(err.detalle || err.rawError) ? `
-          <div class="error-section-title">Detalle técnico (para desarrolladores)</div>
+          <div class="error-section-title" style="margin-top:12px">Detalle técnico</div>
           <div class="error-raw">${(err.detalle || err.rawError || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
         ` : ''}
       </div>
@@ -2054,13 +2211,22 @@ async function renderErrorLog(main) {
     <div class="section">
       <div class="page-header">
         <div>
-          <div class="page-title">Log de Errores</div>
-          <div class="page-sub">Errores de todas las clínicas · con explicación y pasos para resolver</div>
+          <div class="page-title">Salud de la App</div>
+          <div class="page-sub">Monitoreo en tiempo real · todas las clínicas</div>
         </div>
         <button class="header-btn" onclick="recargarErrorLog()" style="background:none;box-shadow:var(--neu-flat);border:none;color:var(--piedra)">
           ↻ Actualizar
         </button>
       </div>
+
+      <div id="healthBanner">
+        <div style="text-align:center;padding:32px;color:var(--piedra)">
+          <div style="font-size:20px;margin-bottom:8px">⏳</div>
+          <div style="font-size:13px">Analizando estado del sistema...</div>
+        </div>
+      </div>
+
+      <div id="healthBanner" style="margin-bottom:20px"></div>
 
       <div class="error-filters">
         <button class="filter-pill active" onclick="setErrFiltro('todos', this)">Todos</button>
@@ -2074,7 +2240,7 @@ async function renderErrorLog(main) {
 
       <div id="errorLogContainer">
         <div style="text-align:center;padding:60px 20px;color:var(--piedra)">
-          <div style="font-size:24px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block">⏳</div>
+          <div style="font-size:24px;margin-bottom:12px;display:inline-block">⏳</div>
           <div>Cargando errores de todas las clínicas...</div>
         </div>
       </div>
@@ -2086,9 +2252,9 @@ async function renderErrorLog(main) {
   } catch(e) {
     console.error('[Admin] Error cargando error logs:', e);
   }
-  // Verificar que el container sigue en el DOM (el usuario pudo navegar a otro tab)
   const container = document.getElementById('errorLogContainer');
   if (container) filtrarYRenderErrorList(container);
+  renderHealthBanner();
 }
 
 function setErrFiltro(filtro, btn) {
@@ -2097,6 +2263,7 @@ function setErrFiltro(filtro, btn) {
   btn.classList.add('active');
   const container = document.getElementById('errorLogContainer');
   if (container) filtrarYRenderErrorList(container);
+  renderHealthBanner();
 }
 
 async function recargarErrorLog() {
