@@ -1807,8 +1807,8 @@ function showTab(tabName) {
     // Old tab names redirect to cobros subtab for consistency
     const cobrosMap = { 'factura': 'nueva', 'cobrar': 'cobrar', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
     if (cobrosMap[tabName]) { renderCobrosTab(cobrosMap[tabName]); return; }
-    // Personal, reportes go through irTab
-    if (tabName === 'personal' || tabName === 'reportes') { irTab(tabName); return; }
+    // Personal, reportes, inventario, sedes go through irTab
+    if (tabName === 'personal' || tabName === 'reportes' || tabName === 'inventario' || tabName === 'sedes') { irTab(tabName); return; }
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
@@ -2396,6 +2396,7 @@ function openPagarFactura(facturaId) {
 
     selectTipoPago('total');
 
+    var _ds=document.getElementById('pagoDescuentoSlider'),_dl=document.getElementById('pagoDescuentoLabel');if(_ds)_ds.value=0;if(_dl)_dl.textContent='0%';if(currentFacturaToPay)currentFacturaToPay._descuentoPendiente=0;
     openModal('modalPagarFactura');
 }
 
@@ -2430,6 +2431,7 @@ async function confirmarPago() {
     }
 
     const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
+    const _dPct=currentFacturaToPay._descuentoPendiente||0; if(_dPct>0){currentFacturaToPay.total=Math.round(currentFacturaToPay.total*(1-_dPct/100)*100)/100;currentFacturaToPay.descuento=_dPct;currentFacturaToPay._descuentoPendiente=0;}
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
 
     if (monto > balancePendiente + 0.01) {
@@ -6028,6 +6030,24 @@ function _cotizOnCatalogSelect(sel) {
 
 let _guardandoCotiz = false;
 
+
+// ═══ ALIASES ════════════════════════════════════════════════════════════════
+function cotizOpenAddProc() { abrirModalAgregarItem(); }
+function abrirModalOrdenLabCotiz() { abrirModalAgregarItem(); setTimeout(function(){ if(typeof _cotizSetTipo==='function') _cotizSetTipo('lab'); }, 30); }
+function generarCotizacionDesdeFicha() { closeModal('modalNuevaCotizacion'); showToast('✓ Cotización guardada'); }
+function enviarReciboWhatsApp() { if(typeof compartirWhatsApp==='function') compartirWhatsApp(); }
+// ═══ DESCUENTO EN PAGO ══════════════════════════════════════════════════════
+function actualizarDescuentoPago(pct) {
+    pct=parseInt(pct)||0;
+    var lb=document.getElementById('pagoDescuentoLabel'),ba=document.getElementById('pagoBalance'),mo=document.getElementById('pagoMonto');
+    if(lb)lb.textContent=pct+'%';
+    if(!currentFacturaToPay)return;
+    var paid=(currentFacturaToPay.pagos||[]).reduce(function(s,p){return s+p.monto;},0);
+    var bal=Math.max(0,currentFacturaToPay.total*(1-pct/100)-paid);
+    if(ba)ba.textContent=formatCurrency(bal); if(mo)mo.value=bal.toFixed(2);
+    currentFacturaToPay._descuentoPendiente=pct;
+}
+function fijarDescuentoPago(pct){var s=document.getElementById('pagoDescuentoSlider');if(s){s.value=pct;actualizarDescuentoPago(pct);}}
 async function guardarItemCotizacion() {
     if (_guardandoCotiz) return;
     const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
