@@ -17,8 +17,8 @@
     --sand:     #EEEAE4;
     --sand-lt:  #F7F4EF;
     --white:    #FDFCFB;
-    --topo:     #2C2825;
-    --piedra:   #7A6F68;
+    --topo:     var(--muted);
+    --piedra:   #A89F96;
     --muted:    #C8C2BB;
     --carbon:   #3A3532;
     --terra:    #C4856A;
@@ -121,7 +121,7 @@
   /* ══ SIDEBAR ══════════════════════════════════════ */
   .sidebar {
     width: 230px; flex-shrink: 0;
-    background: linear-gradient(180deg, #2C2825 0%, #1E1C1A 100%);
+    background: linear-gradient(180deg, #F0ECE5 0%, #E8E3DA 100%);
     min-height: 100vh; display: flex; flex-direction: column;
     padding: 32px 0; position: sticky; top: 0; height: 100vh;
     border-right: 1px solid rgba(255,255,255,.7);
@@ -129,24 +129,24 @@
   }
   .sidebar-logo {
     font-size: 11px; font-weight: 600; letter-spacing: 7px;
-    color: #F7F4EF; padding: 0 28px; margin-bottom: 3px;
+    color: var(--topo); padding: 0 28px; margin-bottom: 3px;
   }
   .sidebar-role {
     font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
-    color: #C4856A; padding: 0 28px; margin-bottom: 36px;
+    color: var(--terra); padding: 0 28px; margin-bottom: 36px;
   }
   .sidebar-nav { flex: 1; }
   .nav-item {
     display: flex; align-items: center; gap: 11px;
-    padding: 11px 28px; font-size: 13px; color: rgba(247,244,239,.5);
+    padding: 11px 28px; font-size: 13px; color: var(--piedra);
     cursor: pointer; transition: all .2s;
     border-left: 2px solid transparent;
   }
-  .nav-item:hover { color: rgba(247,244,239,.85); }
+  .nav-item:hover { color: var(--topo); }
   .nav-item.active {
-    color: #F7F4EF; font-weight: 500;
-    border-left-color: #C4856A;
-    background: rgba(255,255,255,.07);
+    color: var(--topo); font-weight: 400;
+    border-left-color: var(--pizarra);
+    background: rgba(125,142,160,.07);
   }
   .nav-item .nav-icon { font-size: 15px; width: 20px; text-align: center; }
   .sidebar-bottom {
@@ -154,9 +154,9 @@
     border-top: 1px solid rgba(168,159,150,.25);
     margin-top: 16px;
   }
-  .sidebar-version { font-size: 10px; color: rgba(247,244,239,.35); letter-spacing: 1px; }
+  .sidebar-version { font-size: 10px; color: var(--piedra); letter-spacing: 1px; }
   .logout-btn {
-    font-size: 12px; color: rgba(247,244,239,.45); background: none; border: none;
+    font-size: 12px; color: var(--piedra); background: none; border: none;
     font-family: inherit; cursor: pointer; padding: 8px 0;
     transition: color .2s; display: block; margin-top: 8px;
   }
@@ -511,9 +511,8 @@
       <div class="nav-item" data-section="clinicas" onclick="showSection('clinicas')">
         <span class="nav-icon">🏥</span> Clínicas
       </div>
-      <div class="nav-item" data-section="nueva" onclick="showSection('nueva')" style="justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:11px"><span class="nav-icon">✦</span> Nueva clínica</div>
-        <span id="nuevaBadge" style="display:none;background:#C4856A;color:white;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px"></span>
+      <div class="nav-item" data-section="nueva" onclick="showSection('nueva')">
+        <span class="nav-icon">✦</span> Nueva clínica
       </div>
       <div class="nav-item" data-section="contactos" onclick="showSection('contactos')">
         <span class="nav-icon">💬</span> Contactos
@@ -704,65 +703,18 @@ async function loadClinicas() {
 }
 
 function calcMRR(plan, modulos = []) {
-  const BASE = { clinica: 49, solo: 29 }; // USD — SMILE pricing
-  const MODULE_PRICES = { laboratorio: 9, nomina: 9, inventario: 9, reportes: 9, multisucursal: 19 };
+  const BASE = { clinica: 1200, solo: 990 };
+  const MODULE_PRICES = { laboratorio: 300, nomina: 300, inventario: 300, reportes: 300, multisucursal: 800 };
   const base = BASE[plan] || 1200;
   const extra = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
   return base + extra;
 }
 
 function fmtMRR(c) {
-  // SMILE pricing is always USD
-  return '$' + (c.mrr || 0).toLocaleString('en-US', {minimumFractionDigits:0}) + ' USD';
+  return 'RD$' + (c.mrr || 0).toLocaleString();
 }
 
 // ── SECTIONS ──────────────────────────────────────────
-
-// ══ Onboarding signup notifications ══════════════
-async function actualizarNuevasBadge() {
-  try {
-    const snap = await db.collection('smile_notifications')
-      .where('leida', '==', false).where('tipo', '==', 'nueva_clinica').limit(9).get();
-    const badge = document.getElementById('nuevaBadge');
-    if (!badge) return;
-    badge.textContent = snap.size;
-    badge.style.display = snap.size > 0 ? 'inline-block' : 'none';
-  } catch(e) { /* collection may not exist yet */ }
-}
-async function marcarNotifsLeidas() {
-  try {
-    const snap = await db.collection('smile_notifications')
-      .where('leida', '==', false).where('tipo', '==', 'nueva_clinica').get();
-    const batch = db.batch();
-    snap.docs.forEach(d => batch.update(d.ref, { leida: true }));
-    await batch.commit();
-    const b = document.getElementById('nuevaBadge');
-    if (b) b.style.display = 'none';
-  } catch(e) {}
-}
-async function _cargarRegistrosPendientes() {
-  let pendingHtml = '';
-  try {
-    const snap = await db.collection('smile_notifications')
-      .where('tipo', '==', 'nueva_clinica')
-      .orderBy('fecha', 'desc').limit(10).get();
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const noLeidas = items.filter(i => !i.leida).length;
-      pendingHtml = `<div style="background:rgba(184,113,74,.07);border:1.5px solid rgba(184,113,74,.2);border-radius:16px;padding:20px 24px;margin-bottom:28px">`
-        + `<div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--terra);margin-bottom:14px;font-weight:600">${noLeidas > 0 ? '🔔 ' + noLeidas + ' nuevo' + (noLeidas !== 1 ? 's' : '') + ' desde onboarding' : '📋 Últimos registros vía onboarding'}</div>`
-        + items.map(n => `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(168,159,150,.1);gap:16px">`
-          + `<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500;color:#1E1C1A">${n.nombre || n.clinicaId}${!n.leida ? ' <span style="display:inline-block;width:6px;height:6px;background:var(--terra);border-radius:50%;vertical-align:middle"></span>' : ''}</div>`
-          + `<div style="font-size:11px;color:var(--piedra);margin-top:2px">${n.plan || '—'} · $${(n.mrr||0).toLocaleString('en-US')} USD/mes · ${n.adminEmail || ''} · ${n.fecha ? new Date(n.fecha).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'}) : ''}</div></div>`
-          + `<button onclick="showSection('clinicas')" style="padding:6px 14px;border:none;border-radius:100px;background:var(--sand);font-size:11px;font-family:inherit;color:var(--piedra);cursor:pointer;flex-shrink:0">Ver →</button></div>`
-        ).join('')
-        + '</div>';
-    }
-  } catch(e) { /* no notifications yet */ }
-  return pendingHtml;
-}
-// ═══════════════════════════════════════════════
-
 async function showSection(section) {
   currentSection = section;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -772,7 +724,7 @@ async function showSection(section) {
   const main = document.getElementById('main');
   if (section === 'overview') renderOverview(main);
   else if (section === 'clinicas') renderClinicas(main);
-  else if (section === 'nueva') renderNuevaClinica(main);
+  else if (section === 'nueva') { renderNuevaClinica(main); setTimeout(cargarNotifsOnboarding, 100); }
   else if (section === 'contactos') renderContactos(main);
   else if (section === 'errores') await renderErrorLog(main);
 
@@ -1316,6 +1268,52 @@ function openClinicDetail(id) {
         ${c.activa ? 'Pausar' : 'Reactivar'}
       </button>
     </div>
+
+    <!-- ENVIAR CREDENCIALES -->
+    <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(168,159,150,.12)">
+      <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
+                  color:var(--piedra);margin-bottom:12px;font-weight:600">
+        Enviar credenciales al cliente
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <button onclick="enviarCredencialesWAClinica('${c.id}')"
+          style="display:flex;flex-direction:column;align-items:center;gap:6px;
+                 padding:14px 8px;background:linear-gradient(135deg,#25d366,#1da851);
+                 border:none;border-radius:12px;cursor:pointer;color:white;
+                 font-family:inherit;font-size:11px;font-weight:600;
+                 box-shadow:0 3px 10px rgba(37,211,102,.25);transition:transform .15s"
+          onmouseover="this.style.transform='translateY(-1px)'"
+          onmouseout="this.style.transform=''">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          WhatsApp
+        </button>
+        <button onclick="enviarCredencialesEmailClinica('${c.id}')"
+          style="display:flex;flex-direction:column;align-items:center;gap:6px;
+                 padding:14px 8px;background:linear-gradient(135deg,#4285f4,#1a73e8);
+                 border:none;border-radius:12px;cursor:pointer;color:white;
+                 font-family:inherit;font-size:11px;font-weight:600;
+                 box-shadow:0 3px 10px rgba(66,133,244,.25);transition:transform .15s"
+          onmouseover="this.style.transform='translateY(-1px)'"
+          onmouseout="this.style.transform=''">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          Email
+        </button>
+        <button onclick="copiarCredencialesClinica('${c.id}')"
+          style="display:flex;flex-direction:column;align-items:center;gap:6px;
+                 padding:14px 8px;background:rgba(255,255,255,.5);
+                 border:1.5px solid rgba(168,159,150,.2);border-radius:12px;
+                 cursor:pointer;color:var(--piedra);font-family:inherit;font-size:11px;
+                 font-weight:600;transition:all .15s"
+          onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
+          onmouseout="this.style.borderColor='rgba(168,159,150,.2)';this.style.color='var(--piedra)'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          Copiar
+        </button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">
+        ⚠ El PIN solo se muestra al crearse. Usa <strong>Reset PIN</strong> si necesitas uno nuevo.
+      </div>
+    </div>
   `;
 
   document.getElementById('modalOverlay').classList.add('open');
@@ -1333,11 +1331,11 @@ function openEditModal(id) {
   if (!c) return;
 
   const allModulos = [
-    { key: 'laboratorio',   label: 'Laboratorio',         price: 9  },
-    { key: 'nomina',        label: 'Nómina',              price: 9  },
-    { key: 'inventario',    label: 'Inventario',          price: 9  },
-    { key: 'reportes',      label: 'Reportes avanzados',  price: 9  },
-    { key: 'multisucursal', label: 'Sucursal adicional',  price: 19 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
+    { key: 'nomina',        label: 'Nómina',              price: 300 },
+    { key: 'inventario',    label: 'Inventario',          price: 300 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
   ];
 
   document.getElementById('modalTitle').textContent = 'Editar — ' + c.nombre;
@@ -1414,8 +1412,111 @@ async function saveClinicEdit(id) {
 }
 
 // ── NUEVA CLÍNICA ─────────────────────────────────────
-async function renderNuevaClinica(main) {
-  const pendingHtml = await _cargarRegistrosPendientes();
+// ── ONBOARDING NOTIFICATIONS PANEL ───────────────────
+
+async function cargarNotifsOnboarding() {
+  const panel = document.getElementById('onboarding-notifs-panel');
+  if (!panel) return;
+
+  try {
+    const snap = await db.collection('smile_notifications')
+      .orderBy('fecha', 'desc').limit(10).get();
+
+    if (snap.empty) { panel.innerHTML = ''; return; }
+
+    const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Mark all as read
+    const batch = db.batch();
+    notifs.filter(n => !n.leida).forEach(n => {
+      batch.update(db.collection('smile_notifications').doc(n.id), { leida: true });
+    });
+    batch.commit().catch(() => {});
+
+    panel.innerHTML = `
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
+                  color:var(--piedra);font-weight:600">
+        Registros del onboarding
+        <span style="margin-left:8px;background:var(--terra);color:white;
+                     padding:2px 8px;border-radius:100px;font-size:9px">
+          ${notifs.filter(n => !n.leida).length || notifs.length} recientes
+        </span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${notifs.map(n => {
+          const fecha = n.fecha ? new Date(n.fecha).toLocaleDateString('es-DO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+          const plan  = n.plan === 'solo' ? 'Solo' : 'Clínica';
+          const mrr   = n.mrr ? `$${n.mrr} USD/mes` : '—';
+          const pin   = n.pin || null; // only present if saved at onboarding time
+          const waPhone = n.waPhone || '';
+
+          return `
+          <div style="background:${n.leida ? 'var(--sand)' : 'rgba(196,133,106,.07)'};
+                      border:1.5px solid ${n.leida ? 'rgba(168,159,150,.12)' : 'rgba(196,133,106,.25)'};
+                      border-radius:16px;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  ${!n.leida ? '<div style="width:7px;height:7px;border-radius:50%;background:var(--terra);flex-shrink:0"></div>' : ''}
+                  <div style="font-size:15px;font-weight:500;color:var(--topo)">${n.nombre || n.clinicaId}</div>
+                </div>
+                <div style="font-size:12px;color:var(--piedra)">
+                  ${n.adminEmail || '—'} &nbsp;·&nbsp; Plan ${plan} &nbsp;·&nbsp; ${mrr}
+                </div>
+                <div style="font-size:11px;color:var(--muted);margin-top:3px">${fecha} · ${n.pais || ''} · ID: ${n.clinicaId || '—'}</div>
+              </div>
+              <div style="display:flex;gap:7px;flex-wrap:wrap;flex-shrink:0">
+                ${pin ? `
+                <button onclick="enviarCredencialesWANotif('${(n.nombre||'').replace(/'/g,"\\'")}','${(n.adminNombre||n.adminEmail||'Admin').replace(/'/g,"\\'")}','${n.clinicaId}','${pin}','${waPhone}')"
+                  title="Enviar por WhatsApp"
+                  style="display:flex;align-items:center;gap:6px;padding:8px 14px;
+                         background:linear-gradient(135deg,#25d366,#1da851);border:none;
+                         border-radius:100px;cursor:pointer;color:white;font-family:inherit;
+                         font-size:11px;font-weight:600;white-space:nowrap;
+                         box-shadow:0 2px 8px rgba(37,211,102,.3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  WhatsApp
+                </button>
+                <button onclick="enviarCredencialesEmailNotif('${(n.nombre||'').replace(/'/g,"\\'")}','${(n.adminNombre||n.adminEmail||'Admin').replace(/'/g,"\\'")}','${n.clinicaId}','${pin}','${n.adminEmail||''}')"
+                  title="Enviar por Email"
+                  style="display:flex;align-items:center;gap:6px;padding:8px 14px;
+                         background:linear-gradient(135deg,#4285f4,#1a73e8);border:none;
+                         border-radius:100px;cursor:pointer;color:white;font-family:inherit;
+                         font-size:11px;font-weight:600;white-space:nowrap;
+                         box-shadow:0 2px 8px rgba(66,133,244,.3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                  Email
+                </button>
+                <button onclick="copiarCredencialesNotif('${(n.nombre||'').replace(/'/g,"\\'")}','${(n.adminNombre||n.adminEmail||'Admin').replace(/'/g,"\\'")}','${n.clinicaId}','${pin}')"
+                  title="Copiar credenciales"
+                  style="display:flex;align-items:center;gap:6px;padding:8px 12px;
+                         background:transparent;border:1.5px solid rgba(168,159,150,.25);
+                         border-radius:100px;cursor:pointer;color:var(--piedra);font-family:inherit;
+                         font-size:11px;transition:all .15s"
+                  onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
+                  onmouseout="this.style.borderColor='rgba(168,159,150,.25)';this.style.color='var(--piedra)'">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                  Copiar
+                </button>` : `
+                <button onclick="openClinicDetail('${n.clinicaId}')"
+                  style="padding:8px 14px;background:transparent;
+                         border:1.5px solid rgba(168,159,150,.25);border-radius:100px;
+                         cursor:pointer;color:var(--piedra);font-family:inherit;font-size:11px">
+                  Ver clínica → Reset PIN
+                </button>`}
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  } catch(e) {
+    console.warn('[Onboarding notifs] No se pudo cargar:', e.message);
+    panel.innerHTML = '';
+  }
+}
+
+function renderNuevaClinica(main) {
   const allModulos = [
     { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
     { key: 'nomina',        label: 'Nómina',              price: 300 },
@@ -1433,7 +1534,9 @@ async function renderNuevaClinica(main) {
         </div>
       </div>
 
-      ${pendingHtml}
+      <!-- REGISTROS DEL ONBOARDING -->
+      <div id="onboarding-notifs-panel" style="max-width:680px;margin-bottom:32px"></div>
+
       <div style="max-width:560px;background:var(--sand);border-radius:20px;padding:32px;border:1.5px solid rgba(168,159,150,.1)">
         <div class="modal-field">
           <label>Nombre de la clínica *</label>
@@ -1454,8 +1557,8 @@ async function renderNuevaClinica(main) {
           <div class="modal-field">
             <label>Plan</label>
             <select id="new-plan">
-              <option value="clinica">Clínica — $49 USD/mes</option>
-              <option value="solo">Solo — $29 USD/mes</option>
+              <option value="clinica">Clínica — RD$1,200/mes</option>
+              <option value="solo">Solo — RD$990/mes</option>
             </select>
           </div>
         </div>
@@ -1491,7 +1594,7 @@ async function renderNuevaClinica(main) {
 
         <div style="background:var(--sand);border-radius:16px;padding:20px 24px;margin-bottom:24px;box-shadow:var(--neu-raised)">
           <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--piedra);margin-bottom:8px">MRR estimado</div>
-          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">$49 USD</div>
+          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">RD$1,200</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px">/ mes</div>
         </div>
 
@@ -1508,22 +1611,12 @@ async function renderNuevaClinica(main) {
   });
 }
 
-function syncMonedaPorPais() {
-  const map = { US:'USD', DO:'RD$', MX:'$MX', CO:'COP', GT:'Q', PE:'S/', PA:'B/.', CL:'CLP', BR:'R$' };
-  const lmap = { US:'en-US', DO:'es-DO', MX:'es-MX', CO:'es-CO', GT:'es-GT', PE:'es-PE', PA:'es-PA', CL:'es-CL', BR:'pt-BR' };
-  const pais = document.getElementById('new-pais')?.value || 'DO';
-  const sel = document.getElementById('new-moneda');
-  if (sel && map[pais]) sel.value = map[pais];
-  updateMRRPreview();
-}
-
 function updateMRRPreview() {
   const plan = document.getElementById('new-plan')?.value || 'clinica';
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
   const mrr = calcMRR(plan, modulos);
   const el = document.getElementById('new-mrr-preview');
-  // SMILE always charges in USD — locale currency only applies inside the app
-  if (el) el.textContent = '$' + mrr.toLocaleString('en-US') + ' USD';
+  if (el) el.textContent = 'RD$' + mrr.toLocaleString();
 }
 
 function autoSlug(val) {
@@ -1586,24 +1679,33 @@ async function crearClinica() {
       lastUpdated: new Date().toISOString(),
     });
 
-    // Collect locale currency — separate from SMILE billing (always USD)
-    const pais   = document.getElementById('new-pais')?.value   || 'DO';
-    const moneda = document.getElementById('new-moneda')?.value || 'RD$';
-    const lmap   = { US:'en-US', DO:'es-DO', MX:'es-MX', CO:'es-CO', GT:'es-GT', PE:'es-PE', PA:'es-PA', CL:'es-CL', BR:'pt-BR' };
-    const locale = lmap[pais] || 'es-DO';
-
     // Create config/settings
     await db.collection('clinicas').doc(id)
       .collection('config').doc('settings').set({
         nombre, clinicaId: id, ciudad, plan,
         adminEmail: email, color, modulos,
-        pais, moneda, locale,   // client's local currency — app UI only
         activa: true, trial: true,
         creadaEn: new Date().toISOString(),
         trialHasta: getTrial14Days(),
-        origenRegistro: 'admin',
-        mrr: calcMRR(plan, modulos), // stored in USD
+        mrr: calcMRR(plan, modulos),
       });
+
+    // Save notification with PIN (plain) so admin can send credentials later
+    await db.collection('smile_notifications').add({
+      tipo: 'nueva_clinica',
+      clinicaId: id,
+      nombre,
+      adminNombre,
+      plan,
+      adminEmail: email,
+      mrr: calcMRR(plan, modulos),
+      pin: pinPlain,
+      pais: document.getElementById('new-pais')?.value || '',
+      moneda: document.getElementById('new-moneda')?.value || 'USD',
+      fecha: new Date().toISOString(),
+      origenRegistro: 'admin',
+      leida: false,
+    }).catch(() => {}); // non-blocking
 
     // Show success with the PIN so admin can share it
     showToast('✅ Clínica creada — PIN admin: ' + pinPlain, 8000);
@@ -1613,6 +1715,7 @@ async function crearClinica() {
         <div style="text-align:center;padding:16px 0 8px">
           <div style="font-size:13px;color:var(--piedra);margin-bottom:24px;line-height:1.7">
             <strong style="color:var(--topo)">${nombre}</strong> está lista.<br>
+
             Comparte este PIN con el administrador:
           </div>
           <div style="background:rgba(255,255,255,.4);border-radius:16px;padding:28px;
@@ -1629,11 +1732,50 @@ async function crearClinica() {
             El cliente puede cambiarlo desde Ajustes → Personal
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" onclick="closeModal()">Cerrar</button>
-          <button class="btn-save" onclick="copyToClipboard('${pinPlain}');showToast('✓ PIN copiado')">
-            Copiar PIN
+        <div style="margin-top:24px">
+          <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
+                      color:var(--piedra);margin-bottom:14px;font-weight:600">
+            Enviar credenciales al cliente
+          </div>
+          <button onclick="enviarCredencialesWA('${nombre}','${adminNombre}','${id}','${pinPlain}')"
+            style="width:100%;display:flex;align-items:center;gap:14px;padding:16px 20px;margin-bottom:10px;
+                   background:linear-gradient(135deg,#25d366,#1da851);border:none;border-radius:14px;
+                   cursor:pointer;color:white;font-family:inherit;text-align:left;
+                   box-shadow:0 4px 14px rgba(37,211,102,.3);transition:transform .15s,box-shadow .15s"
+            onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(37,211,102,.4)'"
+            onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(37,211,102,.3)'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:600;letter-spacing:.3px">Enviar por WhatsApp</div>
+              <div style="font-size:11px;opacity:.85;margin-top:2px">Abre WhatsApp con el mensaje listo</div>
+            </div>
           </button>
+          <button onclick="enviarCredencialesEmail('${nombre}','${adminNombre}','${id}','${pinPlain}','${email}')"
+            style="width:100%;display:flex;align-items:center;gap:14px;padding:16px 20px;margin-bottom:10px;
+                   background:linear-gradient(135deg,#4285f4,#1a73e8);border:none;border-radius:14px;
+                   cursor:pointer;color:white;font-family:inherit;text-align:left;
+                   box-shadow:0 4px 14px rgba(66,133,244,.3);transition:transform .15s,box-shadow .15s"
+            onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(66,133,244,.4)'"
+            onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(66,133,244,.3)'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:600;letter-spacing:.3px">Enviar por Email</div>
+              <div style="font-size:11px;opacity:.85;margin-top:2px">${email || 'Sin email registrado'}</div>
+            </div>
+          </button>
+          <button onclick="copiarCredenciales('${nombre}','${adminNombre}','${id}','${pinPlain}')"
+            style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 20px;margin-bottom:18px;
+                   background:transparent;border:1.5px solid rgba(168,159,150,.25);border-radius:14px;
+                   cursor:pointer;color:var(--piedra);font-family:inherit;text-align:left;transition:all .15s"
+            onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
+            onmouseout="this.style.borderColor='rgba(168,159,150,.25)';this.style.color='var(--piedra)'">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:500">Copiar credenciales</div>
+              <div style="font-size:11px;opacity:.7;margin-top:2px">Texto listo para pegar donde quieras</div>
+            </div>
+          </button>
+          <button class="btn-cancel" onclick="closeModal()" style="width:100%;text-align:center">Cerrar</button>
         </div>`;
       document.getElementById('modalOverlay').classList.add('open');
     }, 400);
@@ -1663,7 +1805,154 @@ function getTrial14Days() {
   return d.toISOString();
 }
 
-// ── ACTIONS ───────────────────────────────────────────
+// ── CREDENTIAL SHARING ────────────────────────────────
+
+function _buildAppUrl(clinicId) {
+  return `https://smiledental.app/${clinicId}`;
+}
+
+function _buildMsgWA(nombre, adminNombre, clinicId, pin) {
+  const url = _buildAppUrl(clinicId);
+  const msg =
+`¡Hola, ${adminNombre}! 👋🦷
+
+Bienvenido/a a *SMILE* — estamos felices de que nos hayas elegido para gestionar tu clínica.
+
+Tu espacio ya está listo. Aquí están tus datos de acceso:
+
+🔗 *Tu app:* ${url}
+👤 *Usuario:* ${adminNombre}
+🔐 *PIN de acceso:* ${pin}
+
+⚠️ _¡No los pierdas! Puedes cambiar tu PIN desde Ajustes → Personal una vez que entres._
+
+Desde SMILE, tu agenda, tus pacientes y tus cobros en un solo lugar. Cualquier duda, aquí estamos. ¡Mucho éxito, ${nombre}! 🚀
+
+— El equipo de SMILE`;
+  return msg;
+}
+
+function _buildMsgEmail(nombre, adminNombre, clinicId, pin) {
+  const url = _buildAppUrl(clinicId);
+  return {
+    subject: `Bienvenido/a a SMILE — Tus credenciales de acceso`,
+    body:
+`Hola, ${adminNombre}!
+
+Bienvenido/a a SMILE. Estamos muy felices de que hayas elegido nuestra plataforma para gestionar ${nombre}.
+
+Tu espacio ya está activo. Aquí están tus datos de acceso:
+
+  App: ${url}
+  Usuario: ${adminNombre}
+  PIN de acceso: ${pin}
+
+IMPORTANTE: No compartas tu PIN con nadie. Puedes cambiarlo en cualquier momento desde Ajustes → Personal una vez que accedas a la app.
+
+Si tienes alguna duda o necesitas ayuda para empezar, escríbenos directamente — estamos aquí para acompañarte en cada paso.
+
+¡Mucho éxito!
+
+El equipo de SMILE
+smile-theapp.web.app`
+  };
+}
+
+function _buildTextoCredenciales(nombre, adminNombre, clinicId, pin) {
+  const url = _buildAppUrl(clinicId);
+  return `SMILE — Credenciales de acceso\n\nClínica: ${nombre}\nApp: ${url}\nUsuario: ${adminNombre}\nPIN: ${pin}`;
+}
+
+// ── Al crear clínica (tiene PIN disponible) ────────────
+
+function enviarCredencialesWA(nombre, adminNombre, clinicId, pin) {
+  const msg = _buildMsgWA(nombre, adminNombre, clinicId, pin);
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function enviarCredencialesEmail(nombre, adminNombre, clinicId, pin, email) {
+  const { subject, body } = _buildMsgEmail(nombre, adminNombre, clinicId, pin);
+  window.open(`mailto:${email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+}
+
+function copiarCredenciales(nombre, adminNombre, clinicId, pin) {
+  const texto = _buildTextoCredenciales(nombre, adminNombre, clinicId, pin);
+  navigator.clipboard?.writeText(texto).then(() => showToast('✓ Credenciales copiadas'));
+}
+
+// ── Desde detalle de clínica existente (PIN no disponible — requiere Reset) ────
+
+function enviarCredencialesWAClinica(id) {
+  const c = clinicas.find(x => x.id === id);
+  if (!c) return;
+  const adminPerson = c.raw?.personal?.find(p => p.isAdmin) || c.raw?.personal?.[0];
+  const adminNombre = adminPerson?.nombre || 'Administrador';
+  // Sin PIN disponible (guardado como hash) — el admin deberá hacer Reset PIN primero
+  const msg =
+`¡Hola, ${adminNombre}! 👋🦷
+
+Te enviamos los datos de acceso a tu plataforma *SMILE*:
+
+🔗 *Tu app:* ${_buildAppUrl(id)}
+👤 *Usuario:* ${adminNombre}
+🔐 *PIN:* [usa tu PIN actual o solicita reset]
+
+Aquí quedamos a la orden para cualquier duda. ¡Mucho éxito con ${c.nombre}! 🚀
+
+— El equipo de SMILE`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function enviarCredencialesEmailClinica(id) {
+  const c = clinicas.find(x => x.id === id);
+  if (!c) return;
+  const adminPerson = c.raw?.personal?.find(p => p.isAdmin) || c.raw?.personal?.[0];
+  const adminNombre = adminPerson?.nombre || 'Administrador';
+  const email = c.adminEmail || c.raw?.config?.adminEmail || '';
+  const subject = 'Tu acceso a SMILE — ' + c.nombre;
+  const body =
+`Hola, ${adminNombre}!
+
+Aquí están tus datos de acceso a SMILE:
+
+  App: ${_buildAppUrl(id)}
+  Usuario: ${adminNombre}
+  PIN: [usa tu PIN actual — si lo olvidaste, contacta al soporte de SMILE]
+
+¡Cualquier duda estamos aquí!
+
+— El equipo de SMILE`;
+  window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+}
+
+function copiarCredencialesClinica(id) {
+  const c = clinicas.find(x => x.id === id);
+  if (!c) return;
+  const adminPerson = c.raw?.personal?.find(p => p.isAdmin) || c.raw?.personal?.[0];
+  const adminNombre = adminPerson?.nombre || 'Administrador';
+  const texto = `SMILE — ${c.nombre}\nApp: ${_buildAppUrl(id)}\nUsuario: ${adminNombre}\nPIN: [ver en Reset PIN]`;
+  navigator.clipboard?.writeText(texto).then(() => showToast('✓ Copiado al portapapeles'));
+}
+
+// ── Desde panel de onboarding (notificación tiene PIN si se guardó) ────
+
+function enviarCredencialesWANotif(nombre, adminNombre, clinicId, pin, waPhone) {
+  const msg = _buildMsgWA(nombre, adminNombre, clinicId, pin);
+  const tel = (waPhone || '').replace(/\D/g,'');
+  window.open('https://wa.me/' + (tel ? tel + '?text=' : '?text=') + encodeURIComponent(msg), '_blank');
+}
+
+function enviarCredencialesEmailNotif(nombre, adminNombre, clinicId, pin, email) {
+  const { subject, body } = _buildMsgEmail(nombre, adminNombre, clinicId, pin);
+  window.open(`mailto:${email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+}
+
+function copiarCredencialesNotif(nombre, adminNombre, clinicId, pin) {
+  const texto = _buildTextoCredenciales(nombre, adminNombre, clinicId, pin);
+  navigator.clipboard?.writeText(texto).then(() => showToast('✓ Credenciales copiadas'));
+}
+
+
 
 function openApp(id) {
   const base = window.location.origin + window.location.pathname.replace('admin.html','');

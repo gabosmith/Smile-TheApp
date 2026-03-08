@@ -1267,7 +1267,7 @@ const state = {
   subdomain: '',
   ciudad: '',
   pais: '',
-  moneda: state.moneda || 'USD',
+  moneda: 'USD $',
   locale: 'es-DO',
   adminName: '',
   adminEmail: '',
@@ -1946,7 +1946,6 @@ async function activateClinic() {
         trial: true,
         trialHasta: trialEnd.toISOString(),
         creadaEn: new Date().toISOString(),
-        origenRegistro: 'onboarding',
         mrr: total,
         equipo: {
           dentistas: counts.dentistas,
@@ -1963,22 +1962,6 @@ async function activateClinic() {
         waCargo: state.waCargo || '',
         waPhone: state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : ''
       });
-
-    // ── Notify SMILE admin of new signup ─────────────
-    try {
-      await db.collection('smile_notifications').add({
-        tipo: 'nueva_clinica',
-        clinicaId: clinicId,
-        nombre: state.clinicName,
-        plan: planKey,
-        adminEmail: state.adminEmail,
-        mrr: total,
-        pais: state.pais || '',
-        moneda: state.moneda || 'USD',
-        fecha: new Date().toISOString(),
-        leida: false,
-      });
-    } catch(e) { console.warn('notif failed', e); }
 
     // ── Show success screen ──────────────────────────
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
@@ -2054,8 +2037,30 @@ async function activateClinic() {
         pais: state.pais || '',
       });
     } catch(regErr) {
-      // No crítico — si falla el índice, la clínica ya fue creada
       console.warn('[Anti-spam] No se pudo registrar email:', regErr.message);
+    }
+
+    // ── Notificación al panel admin (incluye PIN para enviar credenciales) ──
+    try {
+      const waPhoneFull = state.waPhone ? '+1' + state.waPhone.replace(/[^0-9]/g,'') : '';
+      await db.collection('smile_notifications').add({
+        tipo: 'nueva_clinica',
+        clinicaId: clinicId,
+        nombre: state.clinicName,
+        adminNombre: state.adminName.trim(),
+        plan: planKey,
+        adminEmail: state.adminEmail,
+        mrr: total,
+        pin: adminPassword,
+        pais: state.pais || '',
+        moneda: state.moneda || 'USD',
+        waPhone: waPhoneFull,
+        fecha: new Date().toISOString(),
+        origenRegistro: 'onboarding',
+        leida: false,
+      });
+    } catch(notifErr) {
+      console.warn('[Notif] No se pudo registrar notificacion:', notifErr.message);
     }
 
     const mockup = document.getElementById('appMockup');
