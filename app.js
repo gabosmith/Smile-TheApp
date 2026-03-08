@@ -1765,12 +1765,12 @@ function tienePermiso(key) {
 function buildNavigation() {
     const role = appData.currentRole;
 
-    const svgDash     = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>`;
-    const svgPax      = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>`;
-    const svgAgenda   = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>`;
-    const svgLab      = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7 2a1 1 0 00-.707 1.707L7 4.414v3.758a1 1 0 01-.293.707l-4 4C.817 14.769 2.156 18 4.828 18h10.344c2.672 0 4.011-3.231 2.122-5.121l-4-4A1 1 0 0113 8.172V4.414l.707-.707A1 1 0 0013 2H7zm2 6.172V4h2v4.172a3 3 0 00.879 2.12l1.027 1.028a4 4 0 00-2.171.102l-.47.156a4 4 0 01-2.53 0l-.563-.187a1.993 1.993 0 00-.114-.035l1.063-1.063A3 3 0 009 8.172z" clip-rule="evenodd"></path></svg>`;
-    const svgCobros   = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path></svg>`;
-    const svgMas      = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path></svg>`;
+    var svgDash     = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>`;
+    var svgPax      = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>`;
+    var svgAgenda   = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>`;
+    var svgLab      = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7 2a1 1 0 00-.707 1.707L7 4.414v3.758a1 1 0 01-.293.707l-4 4C.817 14.769 2.156 18 4.828 18h10.344c2.672 0 4.011-3.231 2.122-5.121l-4-4A1 1 0 0113 8.172V4.414l.707-.707A1 1 0 0013 2H7zm2 6.172V4h2v4.172a3 3 0 00.879 2.12l1.027 1.028a4 4 0 00-2.171.102l-.47.156a4 4 0 01-2.53 0l-.563-.187a1.993 1.993 0 00-.114-.035l1.063-1.063A3 3 0 009 8.172z" clip-rule="evenodd"></path></svg>`;
+    var svgCobros   = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path></svg>`;
+    var svgMas      = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path></svg>`;
 
     let nav = '';
 
@@ -1812,7 +1812,7 @@ function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-    const tab = document.getElementById(`tab-${tabName}`);
+    const tab = document.getElementById('tab-' + tabName);
     if (tab) {
         tab.classList.add('active');
         // Fix 2: use data-tab attribute for exact matching
@@ -1838,7 +1838,7 @@ function showTab(tabName) {
                     const select = document.getElementById('profesionalQueAtendio');
                     const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
                     select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
-                        profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+                        profesionales.map(function(p){ return '<option value="' + p.nombre + '">' + p.nombre + '</option>'; }).join('');
                 } else {
                     container.style.display = 'none';
                 }
@@ -1847,9 +1847,9 @@ function showTab(tabName) {
         if (tabName === 'dashboard') {
             try { updateDashboardTab(); }
             catch(e) {
-                console.error('Dashboard error:', e);
-                const _t = document.getElementById('tab-dashboard');
-                if (_t) _t.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#c0392b;font-size:13px;">Error al cargar dashboard: ' + e.message + '</div>';
+                console.error('[SMILE] Dashboard crash:', e);
+                var _errT = document.getElementById('tab-dashboard');
+                if (_errT) _errT.innerHTML = '<div style="padding:30px;color:red;font-size:13px;font-family:monospace;">' + e.message + '</div>';
             }
         }
         if (tabName === 'ingresos') updateIngresosTab();
@@ -2400,7 +2400,6 @@ function openPagarFactura(facturaId) {
 
     selectTipoPago('total');
 
-    var _ds=document.getElementById('pagoDescuentoSlider'),_dl=document.getElementById('pagoDescuentoLabel');if(_ds)_ds.value=0;if(_dl)_dl.textContent='0%';if(currentFacturaToPay)currentFacturaToPay._descuentoPendiente=0;
     openModal('modalPagarFactura');
 }
 
@@ -2436,7 +2435,6 @@ async function confirmarPago() {
 
     const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
-    const _dPct=currentFacturaToPay._descuentoPendiente||0; if(_dPct>0){currentFacturaToPay.total=Math.round(currentFacturaToPay.total*(1-_dPct/100)*100)/100;currentFacturaToPay.descuento=_dPct;currentFacturaToPay._descuentoPendiente=0;}
 
     if (monto > balancePendiente + 0.01) {
         showToast(`⚠️ El monto supera el balance pendiente (${formatCurrency(balancePendiente)})`, 4000, '#e65100'); return;
@@ -2500,7 +2498,7 @@ async function confirmarPago() {
 }
 function generarFacturaCliente(factura, montoPagado, metodoPago) {
     const fecha = new Date().toLocaleDateString(getLocale(), {year: 'numeric', month: 'long', day: 'numeric'});
-    const hora = new Date().toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
+    var hora = new Date().toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
     const balance = factura.total - factura.pagos.reduce((sum, p) => sum + p.monto, 0);
     const esPagoTotal = balance <= 0;
 
@@ -2866,7 +2864,7 @@ function updateCuadreTab() {
         let htmlIngresos = '';
         facturasConPagosHoy.forEach(f => {
             f.pagosDeHoy.forEach(p => {
-                const hora = new Date(p.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
+                var hora = new Date(p.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
                 const icono = p.metodo === 'efectivo' ? '💵' : p.metodo === 'tarjeta' ? '💳' : '🔄';
                 htmlIngresos += `
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
@@ -5647,7 +5645,7 @@ function renderTabHistorial(paciente) {
            </button>`
         : '';
 
-    const balanceBanner = `
+    var balanceBanner = `
         <div style="background:${bannerBg};border:1.5px solid ${bannerBorder};
                     border-radius:14px;padding:14px 16px;margin-bottom:16px;">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:${balance>0?'4':'0'}px;">
@@ -5668,7 +5666,7 @@ function renderTabHistorial(paciente) {
         </div>`;
 
     // ── Toggle interno ──────────────────────────────────────
-    const toggleHTML = `
+    var toggleHTML = `
         <div style="display:flex;gap:6px;padding:4px;background:var(--sand,#F5F2EE);
                     border-radius:12px;margin-bottom:16px;" id="tratToggleBar">
             <button id="tratBtnCotiz" onclick="_tratSwitch('cotiz')"
@@ -6589,7 +6587,7 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
     for (let h = horaApertura; h < horaCierre; h++) {
         const topPx = (h - horaApertura)*HORA_H;
         const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
-        const hora  = `${String(h).padStart(2,'0')}:00`;
+        var hora  = `${String(h).padStart(2,'0')}:00`;
         horasHTML += `
         <div style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;
                     border-top:1px solid rgba(30,28,26,.06);pointer-events:none;">
@@ -6795,7 +6793,7 @@ function _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES,
         let dz = '';
         for (let h = horaApertura; h < horaCierre; h++) {
             const topPx = (h-horaApertura)*HORA_H;
-            const hora  = `${String(h).padStart(2,'0')}:00`;
+            var hora  = `${String(h).padStart(2,'0')}:00`;
             dz += `<div ondragover="_onDragOver(event)" ondrop="_onDrop(event,'${dk}','${hora}',1)"
                 onclick="_abrirCitaEnSlot('${dk}','${hora}')"
                 style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;z-index:1;
@@ -7646,7 +7644,7 @@ function verDetalleOrdenLab(ordenId) {
     const isReen = estadoActual === 'Reenviado a laboratorio';
     const efectivoIdx = isReen ? 2.5 : mainIdx;
 
-    const progressHTML = `
+    var progressHTML = `
         <div style="margin:16px 0 8px;">
             <div style="font-size:9px;color:var(--piedra,#7A7068);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:14px;">Progreso</div>
 
