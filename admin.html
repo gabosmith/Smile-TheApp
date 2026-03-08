@@ -486,23 +486,17 @@
   .health-banner.green  { background: linear-gradient(135deg, rgba(78,122,84,.10) 0%, rgba(78,122,84,.05) 100%); border: 1.5px solid rgba(78,122,84,.2); }
   .health-banner.yellow { background: linear-gradient(135deg, rgba(196,133,106,.10) 0%, rgba(196,133,106,.05) 100%); border: 1.5px solid rgba(196,133,106,.2); }
   .health-banner.red    { background: linear-gradient(135deg, rgba(168,72,72,.10) 0%, rgba(168,72,72,.05) 100%); border: 1.5px solid rgba(168,72,72,.2); }
-
   .health-semaforo { font-size: 42px; flex-shrink: 0; }
   .health-title { font-size: 18px; font-weight: 500; color: #1E1C1A; margin-bottom: 4px; }
   .health-sub   { font-size: 13px; color: var(--piedra); line-height: 1.5; }
-
-  .health-stats {
-    display: flex; gap: 20px; flex-shrink: 0;
-  }
+  .health-stats { display: flex; gap: 20px; flex-shrink: 0; }
   .health-stat {
     text-align: center; padding: 12px 18px;
-    background: rgba(255,255,255,.6); border-radius: var(--radius-sm);
-    min-width: 80px;
+    background: rgba(255,255,255,.6); border-radius: var(--radius-sm); min-width: 80px;
   }
-  .health-stat-num  { font-size: 24px; font-weight: 300; color: #1E1C1A; line-height: 1; }
+  .health-stat-num   { font-size: 24px; font-weight: 300; color: #1E1C1A; line-height: 1; }
   .health-stat-label { font-size: 10px; color: var(--piedra); letter-spacing: .5px; margin-top: 4px; }
   .health-stat.red-stat .health-stat-num { color: var(--red); }
-
   .affected-badge {
     display: inline-flex; align-items: center; gap: 5px;
     font-size: 10px; font-weight: 600; letter-spacing: .5px;
@@ -510,7 +504,6 @@
     padding: 3px 9px; border-radius: 100px; margin-left: 8px;
   }
   .affected-badge.multi { background: rgba(168,72,72,.10); color: var(--red); }
-
   .error-summary-line {
     font-size: 12px; color: var(--piedra); margin-top: 6px;
     padding: 8px 12px; background: rgba(255,255,255,.5);
@@ -745,9 +738,9 @@ async function loadClinicas() {
 }
 
 function calcMRR(plan, modulos = []) {
-  const BASE = { clinica: 1200, solo: 990 };
-  const MODULE_PRICES = { laboratorio: 300, nomina: 300, inventario: 300, reportes: 300, multisucursal: 800 };
-  const base = BASE[plan] || 1200;
+  const BASE = { clinica: 49, solo: 29 };
+  const MODULE_PRICES = { laboratorio: 9, nomina: 9, inventario: 9, reportes: 9, multisucursal: 19 };
+  const base = BASE[plan] || 49;
   const extra = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
   return base + extra;
 }
@@ -1327,11 +1320,11 @@ function openEditModal(id) {
   if (!c) return;
 
   const allModulos = [
-    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
-    { key: 'nomina',        label: 'Nómina',              price: 300 },
-    { key: 'inventario',    label: 'Inventario',          price: 300 },
-    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
-    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 9  },
+    { key: 'nomina',        label: 'Nómina',              price: 9  },
+    { key: 'inventario',    label: 'Inventario',          price: 9  },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 9  },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 19 },
   ];
 
   document.getElementById('modalTitle').textContent = 'Editar — ' + c.nombre;
@@ -1445,9 +1438,42 @@ function renderNuevaClinica(main) {
           </div>
           <div class="modal-field">
             <label>Plan</label>
-            <select id="new-plan">
-              <option value="clinica">Clínica — RD$1,200/mes</option>
-              <option value="solo">Solo — RD$990/mes</option>
+            <select id="new-plan" onchange="updateMRRPreview()">
+              <option value="clinica">Clínica — $49/mes</option>
+              <option value="solo">Solo — $29/mes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label>País</label>
+            <select id="new-pais" onchange="actualizarMonedaPorPais()">
+              <option value="US">🇺🇸 Estados Unidos</option>
+              <option value="DO">🇩🇴 República Dominicana</option>
+              <option value="MX">🇲🇽 México</option>
+              <option value="CO">🇨🇴 Colombia</option>
+              <option value="GT">🇬🇹 Guatemala</option>
+              <option value="PE">🇵🇪 Perú</option>
+              <option value="PA">🇵🇦 Panamá</option>
+              <option value="CL">🇨🇱 Chile</option>
+              <option value="AR">🇦🇷 Argentina</option>
+              <option value="VE">🇻🇪 Venezuela</option>
+              <option value="BR">🇧🇷 Brasil</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label>Moneda</label>
+            <select id="new-moneda" onchange="updateMRRPreview()">
+              <option value="USD">🇺🇸 USD — Dólar</option>
+              <option value="RD$">🇩🇴 RD$ — Peso dominicano</option>
+              <option value="$">🇲🇽 $ — Peso mexicano</option>
+              <option value="COP">🇨🇴 COP — Peso colombiano</option>
+              <option value="Q">🇬🇹 Q — Quetzal</option>
+              <option value="S/">🇵🇪 S/ — Sol peruano</option>
+              <option value="B/.">🇵🇦 B/. — Balboa panameño</option>
+              <option value="CLP">🇨🇱 CLP — Peso chileno</option>
+              <option value="R$">🇧🇷 R$ — Real brasileño</option>
             </select>
           </div>
         </div>
@@ -1483,8 +1509,8 @@ function renderNuevaClinica(main) {
 
         <div style="background:var(--sand);border-radius:16px;padding:20px 24px;margin-bottom:24px;box-shadow:var(--neu-raised)">
           <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--piedra);margin-bottom:8px">MRR estimado</div>
-          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">RD$1,200</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">/ mes</div>
+          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">$49</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">/ mes · basado en plan + módulos</div>
         </div>
 
         <button class="btn-save" style="width:100%;padding:16px;border-radius:14px;font-size:11px;letter-spacing:2px;text-transform:uppercase" onclick="crearClinica()">
@@ -1501,11 +1527,29 @@ function renderNuevaClinica(main) {
 }
 
 function updateMRRPreview() {
-  const plan = document.getElementById('new-plan')?.value || 'clinica';
+  const plan    = document.getElementById('new-plan')?.value || 'clinica';
+  const moneda  = document.getElementById('new-moneda')?.value || 'USD';
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
   const mrr = calcMRR(plan, modulos);
   const el = document.getElementById('new-mrr-preview');
-  if (el) el.textContent = 'RD$' + mrr.toLocaleString();
+  if (el) el.textContent = moneda + ' ' + mrr.toLocaleString();
+}
+
+function actualizarMonedaPorPais() {
+  const pais = document.getElementById('new-pais')?.value || 'US';
+  const monedaMap = {
+    'US': 'USD', 'DO': 'RD$', 'MX': '$', 'CO': 'COP',
+    'GT': 'Q', 'PE': 'S/', 'PA': 'B/.', 'CL': 'CLP',
+    'AR': '$', 'VE': 'VES', 'BR': 'R$'
+  };
+  const localeMap = {
+    'US': 'en-US', 'DO': 'es-DO', 'MX': 'es-MX', 'CO': 'es-CO',
+    'GT': 'es-GT', 'PE': 'es-PE', 'PA': 'es-PA', 'CL': 'es-CL',
+    'AR': 'es-AR', 'VE': 'es-VE', 'BR': 'pt-BR'
+  };
+  const monedaEl = document.getElementById('new-moneda');
+  if (monedaEl && monedaMap[pais]) monedaEl.value = monedaMap[pais];
+  updateMRRPreview();
 }
 
 function autoSlug(val) {
@@ -1568,11 +1612,22 @@ async function crearClinica() {
       lastUpdated: new Date().toISOString(),
     });
 
+    // Collect currency/locale
+    const pais   = document.getElementById('new-pais')?.value   || 'US';
+    const moneda = document.getElementById('new-moneda')?.value || 'USD';
+    const localeMap = {
+      'US': 'en-US', 'DO': 'es-DO', 'MX': 'es-MX', 'CO': 'es-CO',
+      'GT': 'es-GT', 'PE': 'es-PE', 'PA': 'es-PA', 'CL': 'es-CL',
+      'AR': 'es-AR', 'VE': 'es-VE', 'BR': 'pt-BR'
+    };
+    const locale = localeMap[pais] || 'en-US';
+
     // Create config/settings
     await db.collection('clinicas').doc(id)
       .collection('config').doc('settings').set({
         nombre, clinicaId: id, ciudad, plan,
         adminEmail: email, color, modulos,
+        pais, moneda, locale,
         activa: true, trial: true,
         creadaEn: new Date().toISOString(),
         trialHasta: getTrial14Days(),
@@ -2024,95 +2079,55 @@ function marcarResuelto(id, activo, event) {
 }
 
 
-// ══════════════════════════════════════════════════════════════════
-// SMILE HEALTH — Panel de salud de la app
-// ══════════════════════════════════════════════════════════════════
-
+// ══ SMILE HEALTH ══════════════════════════════════════════════
 function renderHealthBanner() {
   const banner = document.getElementById('healthBanner');
   if (!banner) return;
-
   const ahora = new Date();
-  const hace7dias = new Date(ahora - 7 * 24 * 60 * 60 * 1000);
-  const hace30dias = new Date(ahora - 30 * 24 * 60 * 60 * 1000);
-
-  const abiertos   = _errLogs.filter(e => !e._resuelto && !e.resuelto);
-  const criticos   = abiertos.filter(e => (e.severidad || 'error') === 'critico');
-  const esta_semana = _errLogs.filter(e => new Date(e.fecha) > hace7dias);
-  const este_mes   = _errLogs.filter(e => new Date(e.fecha) > hace30dias);
-
-  // Agrupar por código para detectar patrones repetitivos
-  const porCodigo = {};
+  const hace7  = new Date(ahora - 7  * 864e5);
+  const hace30 = new Date(ahora - 30 * 864e5);
+  const abiertos    = _errLogs.filter(e => !e._resuelto && !e.resuelto);
+  const criticos    = abiertos.filter(e => (e.severidad||'error') === 'critico');
+  const estaSemana  = _errLogs.filter(e => new Date(e.fecha) > hace7);
+  const esteMes     = _errLogs.filter(e => new Date(e.fecha) > hace30);
+  const porCodigo   = {};
   abiertos.forEach(e => {
     const k = e.codigoError || e.codigo || 'DEFAULT';
-    if (!porCodigo[k]) porCodigo[k] = { count: 0, clinicas: new Set(), titulo: e.titulo || k };
+    if (!porCodigo[k]) porCodigo[k] = { count:0, clinicas: new Set(), titulo: e.titulo||k };
     porCodigo[k].count++;
     if (e.clinicaId) porCodigo[k].clinicas.add(e.clinicaId);
   });
   const masFrec = Object.entries(porCodigo).sort((a,b) => b[1].count - a[1].count)[0];
-
-  // Clínicas únicas afectadas esta semana
-  const clinicasAfectadas = new Set(esta_semana.map(e => e.clinicaId).filter(Boolean)).size;
-
-  // Determinar estado general
+  const clinicasAfect = new Set(estaSemana.map(e => e.clinicaId).filter(Boolean)).size;
   let estado, emoji, titulo, subtitulo;
   if (criticos.length > 0) {
-    estado = 'red';
-    emoji  = '🔴';
-    titulo = criticos.length === 1
-      ? '1 problema crítico sin resolver'
-      : `${criticos.length} problemas críticos sin resolver`;
-    subtitulo = masFrec
-      ? `El más frecuente: "${masFrec[1].titulo}" — ocurrió ${masFrec[1].count} veces en ${masFrec[1].clinicas.size} clínica${masFrec[1].clinicas.size !== 1 ? 's' : ''}.`
-      : 'Revisar los errores críticos abajo.';
+    estado='red'; emoji='🔴';
+    titulo = criticos.length===1 ? '1 problema crítico sin resolver' : criticos.length+' problemas críticos sin resolver';
+    subtitulo = masFrec ? '"'+masFrec[1].titulo+'" ocurrió '+masFrec[1].count+' veces en '+masFrec[1].clinicas.size+' clínica'+(masFrec[1].clinicas.size!==1?'s':'')+' — atención inmediata.' : 'Revisar los errores críticos abajo.';
   } else if (abiertos.length > 0) {
-    estado = 'yellow';
-    emoji  = '🟡';
-    titulo = `${abiertos.length} error${abiertos.length !== 1 ? 'es' : ''} sin resolver esta semana`;
-    subtitulo = masFrec
-      ? `El patrón más frecuente: "${masFrec[1].titulo}" (${masFrec[1].count} veces).`
-      : 'Sin errores críticos, pero hay situaciones que revisar.';
+    estado='yellow'; emoji='🟡';
+    titulo = abiertos.length+' error'+(abiertos.length!==1?'es':'')+' sin resolver';
+    subtitulo = masFrec ? 'Patrón más frecuente: "'+masFrec[1].titulo+'" ('+masFrec[1].count+' veces).' : 'Sin críticos, pero hay situaciones que revisar.';
   } else {
-    estado = 'green';
-    emoji  = '🟢';
+    estado='green'; emoji='🟢';
     titulo = 'Todo funcionando correctamente';
-    subtitulo = esta_semana.length === 0
-      ? 'Sin errores registrados esta semana. La app está estable.'
-      : `${este_mes.length} error${este_mes.length !== 1 ? 'es' : ''} este mes, todos resueltos.`;
+    subtitulo = estaSemana.length===0 ? 'Sin errores esta semana. La app está estable.' : esteMes.length+' error'+(esteMes.length!==1?'es':'')+' este mes, todos resueltos.';
   }
-
-  banner.innerHTML = `
-    <div class="health-banner ${estado}">
-      <div style="display:flex;align-items:center;gap:20px;flex:1;min-width:0">
-        <div class="health-semaforo">${emoji}</div>
-        <div style="min-width:0">
-          <div class="health-title">${titulo}</div>
-          <div class="health-sub">${subtitulo}</div>
-          ${clinicasAfectadas > 0 ? `
-            <div class="error-summary-line">
-              📍 ${clinicasAfectadas} clínica${clinicasAfectadas !== 1 ? 's' : ''} afectada${clinicasAfectadas !== 1 ? 's' : ''} esta semana
-              &nbsp;·&nbsp; ${esta_semana.length} evento${esta_semana.length !== 1 ? 's' : ''} en 7 días
-              &nbsp;·&nbsp; ${este_mes.length} en 30 días
-            </div>` : ''}
-        </div>
-      </div>
-      <div class="health-stats">
-        <div class="health-stat ${criticos.length > 0 ? 'red-stat' : ''}">
-          <div class="health-stat-num">${criticos.length}</div>
-          <div class="health-stat-label">Críticos</div>
-        </div>
-        <div class="health-stat">
-          <div class="health-stat-num">${abiertos.length}</div>
-          <div class="health-stat-label">Sin resolver</div>
-        </div>
-        <div class="health-stat">
-          <div class="health-stat-num">${esta_semana.length}</div>
-          <div class="health-stat-label">Esta semana</div>
-        </div>
-      </div>
-    </div>
-  `;
+  banner.innerHTML = '<div class="health-banner '+estado+'">'
+    +'<div style="display:flex;align-items:center;gap:20px;flex:1;min-width:0">'
+    +'<div class="health-semaforo">'+emoji+'</div>'
+    +'<div style="min-width:0">'
+    +'<div class="health-title">'+titulo+'</div>'
+    +'<div class="health-sub">'+subtitulo+'</div>'
+    +(clinicasAfect>0 ? '<div class="error-summary-line">📍 '+clinicasAfect+' clínica'+(clinicasAfect!==1?'s':'')+' afectada'+(clinicasAfect!==1?'s':'')+' esta semana &nbsp;·&nbsp; '+estaSemana.length+' evento'+(estaSemana.length!==1?'s':'')+' en 7 días &nbsp;·&nbsp; '+esteMes.length+' en 30 días</div>' : '')
+    +'</div></div>'
+    +'<div class="health-stats">'
+    +'<div class="health-stat'+(criticos.length>0?' red-stat':'')+'"><div class="health-stat-num">'+criticos.length+'</div><div class="health-stat-label">Críticos</div></div>'
+    +'<div class="health-stat"><div class="health-stat-num">'+abiertos.length+'</div><div class="health-stat-label">Sin resolver</div></div>'
+    +'<div class="health-stat"><div class="health-stat-num">'+estaSemana.length+'</div><div class="health-stat-label">Esta semana</div></div>'
+    +'</div></div>';
 }
+// ═════════════════════════════════════════════════════════════
 
 function filtrarYRenderErrorList(container) {
   let lista = _errLogs;
@@ -2144,20 +2159,15 @@ function filtrarYRenderErrorList(container) {
     const sev = err.severidad || kb.severidad || 'error';
     const titulo = err.titulo || kb.titulo || 'Error sin clasificar';
     const resuelto = err._resuelto || err.resuelto;
-    const codKey = err.codigoError || err.codigo || 'DEFAULT';
-    const afectadas = codigoClincias[codKey] ? codigoClincias[codKey].size : 1;
-    const afectadaBadge = afectadas > 1
-      ? `<span class="affected-badge multi">⚠ ${afectadas} clínicas afectadas</span>`
-      : `<span class="affected-badge">1 clínica</span>`;
 
     return `
-    <div class="error-card" id="card-${uid}" onclick="toggleErrorCard('${uid}')"
-         style="${resuelto ? 'opacity:0.5' : ''}">
+    <div class="error-card ${resuelto ? 'opacity: 0.6' : ''}" id="card-${uid}" onclick="toggleErrorCard('${uid}')"
+         style="${resuelto ? 'opacity:0.55' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px">
             <div class="error-card-severity sev-${sev}">${getSeveridadLabel(sev)}</div>
-            ${afectadaBadge}
+            ${(codigoClincias[err.codigoError||err.codigo||'DEFAULT']?.size||1)>1 ? '<span class="affected-badge multi">⚠ '+(codigoClincias[err.codigoError||err.codigo||'DEFAULT']?.size||1)+' clínicas</span>' : '<span class="affected-badge">1 clínica</span>'}
           </div>
           <div class="error-title">${titulo}</div>
           <div class="error-meta">
@@ -2189,16 +2199,8 @@ function filtrarYRenderErrorList(container) {
             </div>`).join('')}
         </div>
 
-        ${(err.tabActivo || err.nPacientes || err.userAgent) ? `
-          <div class="error-section-title">Contexto al momento del error</div>
-          <div class="error-summary-line">
-            ${err.tabActivo  ? '📍 Tab activo: <b>' + err.tabActivo + '</b>&nbsp;&nbsp;' : ''}
-            ${err.nPacientes ? '👥 Pacientes: <b>' + err.nPacientes + '</b>&nbsp;&nbsp;' : ''}
-            ${err.nFacturas  ? '🧾 Facturas: <b>' + err.nFacturas  + '</b>&nbsp;&nbsp;' : ''}
-            ${err.userAgent  ? '<br>🌐 ' + err.userAgent.slice(0,60) + '...' : ''}
-          </div>` : ''}
         ${(err.detalle || err.rawError) ? `
-          <div class="error-section-title" style="margin-top:12px">Detalle técnico</div>
+          <div class="error-section-title">Detalle técnico (para desarrolladores)</div>
           <div class="error-raw">${(err.detalle || err.rawError || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
         ` : ''}
       </div>
@@ -2219,13 +2221,6 @@ async function renderErrorLog(main) {
         </button>
       </div>
 
-      <div id="healthBanner">
-        <div style="text-align:center;padding:32px;color:var(--piedra)">
-          <div style="font-size:20px;margin-bottom:8px">⏳</div>
-          <div style="font-size:13px">Analizando estado del sistema...</div>
-        </div>
-      </div>
-
       <div id="healthBanner" style="margin-bottom:20px"></div>
 
       <div class="error-filters">
@@ -2240,7 +2235,7 @@ async function renderErrorLog(main) {
 
       <div id="errorLogContainer">
         <div style="text-align:center;padding:60px 20px;color:var(--piedra)">
-          <div style="font-size:24px;margin-bottom:12px;display:inline-block">⏳</div>
+          <div style="font-size:24px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block">⏳</div>
           <div>Cargando errores de todas las clínicas...</div>
         </div>
       </div>
@@ -2252,6 +2247,7 @@ async function renderErrorLog(main) {
   } catch(e) {
     console.error('[Admin] Error cargando error logs:', e);
   }
+  // Verificar que el container sigue en el DOM (el usuario pudo navegar a otro tab)
   const container = document.getElementById('errorLogContainer');
   if (container) filtrarYRenderErrorList(container);
   renderHealthBanner();
