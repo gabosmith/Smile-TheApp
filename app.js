@@ -1812,7 +1812,7 @@ function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-    var tab = document.getElementById('tab-' + tabName);
+    var tab = document.getElementById(`tab-${tabName}`);
     if (tab) {
         tab.classList.add('active');
         // Fix 2: use data-tab attribute for exact matching
@@ -6036,8 +6036,7 @@ function enviarReciboWhatsApp() { if(typeof compartirWhatsApp==='function') comp
 function actualizarDescuentoPago(pct) {
     pct=parseInt(pct)||0;
     var lb=document.getElementById('pagoDescuentoLabel'),ba=document.getElementById('pagoBalance'),mo=document.getElementById('pagoMonto');
-    if(lb)lb.textContent=pct+'%';
-    if(!currentFacturaToPay)return;
+    if(lb)lb.textContent=pct+'%'; if(!currentFacturaToPay)return;
     var paid=(currentFacturaToPay.pagos||[]).reduce(function(s,p){return s+p.monto;},0);
     var bal=Math.max(0,currentFacturaToPay.total*(1-pct/100)-paid);
     if(ba)ba.textContent=formatCurrency(bal); if(mo)mo.value=bal.toFixed(2);
