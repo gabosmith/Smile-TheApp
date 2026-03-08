@@ -1812,7 +1812,7 @@ function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-    var tab = document.getElementById(`tab-${tabName}`);
+    var tab = document.getElementById('tab-' + tabName);
     if (tab) {
         tab.classList.add('active');
         // Fix 2: use data-tab attribute for exact matching
@@ -12571,18 +12571,18 @@ function _renderReporteResumen({ totalCobrado, totalGastos, balanceNeto, pendien
 }
 
 function _renderReporteProfesional(porProfesional) {
-    const el = document.getElementById('reportePorProfesional');
+    var el = document.getElementById('reportePorProfesional');
     if (!el) return;
-    const entries = Object.entries(porProfesional).sort((a, b) => b[1].cobrado - a[1].cobrado);
+    var entries = Object.entries(porProfesional).sort((a, b) => b[1].cobrado - a[1].cobrado);
     if (entries.length === 0) {
         el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--mid);font-size:13px">Sin facturas en este período</div>';
         return;
     }
-    const maxCobrado = Math.max(...entries.map(e => e[1].cobrado), 1);
+    var maxCobrado = Math.max(...entries.map(e => e[1].cobrado), 1);
     el.innerHTML = entries.map(([nombre, d]) => {
-        const cobradoPct = _pct(d.cobrado, maxCobrado);
-        const recuperacion = d.facturado > 0 ? _pct(d.cobrado, d.facturado) : 0;
-        const colorRecup = recuperacion >= 80 ? 'var(--green,#6B8F71)' : recuperacion >= 50 ? '#E8A838' : 'var(--red,#C47070)';
+        var cobradoPct = _pct(d.cobrado, maxCobrado);
+        var recuperacion = d.facturado > 0 ? _pct(d.cobrado, d.facturado) : 0;
+        var colorRecup = recuperacion >= 80 ? 'var(--green,#6B8F71)' : recuperacion >= 50 ? '#E8A838' : 'var(--red,#C47070)';
         return `
             <div style="padding:14px 0;border-bottom:1px solid rgba(30,28,26,0.06)">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
@@ -12603,15 +12603,15 @@ function _renderReporteProfesional(porProfesional) {
 }
 
 function _renderReporteTopProc(topProc) {
-    const el = document.getElementById('reporteTopProcedimientos');
+    var el = document.getElementById('reporteTopProcedimientos');
     if (!el) return;
     if (topProc.length === 0) {
         el.innerHTML = '<li style="text-align:center;padding:24px;color:var(--mid);font-size:13px">Sin procedimientos en este período</li>';
         return;
     }
-    const maxCantidad = topProc[0][1].cantidad;
+    var maxCantidad = topProc[0][1].cantidad;
     el.innerHTML = topProc.map(([desc, d], i) => {
-        const pct = _pct(d.cantidad, maxCantidad);
+        var pct = _pct(d.cantidad, maxCantidad);
         return `
             <li style="padding:12px 0;border-bottom:1px solid rgba(30,28,26,0.06)">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -12632,11 +12632,11 @@ function _renderReporteTopProc(topProc) {
 }
 
 function _renderReporteCitas(citasEstados, totalCitas, pacientesNuevos) {
-    const el = document.getElementById('reporteEstadoCitas');
+    var el = document.getElementById('reporteEstadoCitas');
     if (!el) return;
 
-    const ordenEstados = ['Completada', 'Confirmada', 'Pendiente', 'En Sala de Espera', 'Cancelada', 'Inasistencia'];
-    const coloresEstados = {
+    var ordenEstados = ['Completada', 'Confirmada', 'Pendiente', 'En Sala de Espera', 'Cancelada', 'Inasistencia'];
+    var coloresEstados = {
         'Completada':        'var(--green,#6B8F71)',
         'Confirmada':        'var(--azul,#7B8FA1)',
         'Pendiente':         '#E8A838',
@@ -12658,8 +12658,8 @@ function _renderReporteCitas(citasEstados, totalCitas, pacientesNuevos) {
         </div>
         ${totalCitas === 0 ? '<div style="text-align:center;padding:16px;color:var(--mid);font-size:13px">Sin citas en este período</div>' :
         ordenEstados.filter(e => citasEstados[e]).map(estado => {
-            const n = citasEstados[estado] || 0;
-            const pct = _pct(n, totalCitas);
+            var n = citasEstados[estado] || 0;
+            var pct = _pct(n, totalCitas);
             return `
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
                     <div style="width:8px;height:8px;border-radius:50%;background:${coloresEstados[estado]};flex-shrink:0"></div>
@@ -12672,14 +12672,14 @@ function _renderReporteCitas(citasEstados, totalCitas, pacientesNuevos) {
 }
 
 function _renderReporteLab(labEstados, totalOrdenes, costoLab, ingresoLab, margenLab) {
-    const el = document.getElementById('reporteLaboratorio');
+    var el = document.getElementById('reporteLaboratorio');
     if (!el) return;
     if (totalOrdenes === 0) {
         el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--mid);font-size:13px">Sin órdenes de laboratorio en este período</div>';
         return;
     }
-    const margenPct = ingresoLab > 0 ? _pct(margenLab, ingresoLab) : 0;
-    const ordenEstados = ['Toma de impresión','Enviado a laboratorio','Listo para prueba','Reenviado a laboratorio','Entregado'];
+    var margenPct = ingresoLab > 0 ? _pct(margenLab, ingresoLab) : 0;
+    var ordenEstados = ['Toma de impresión','Enviado a laboratorio','Listo para prueba','Reenviado a laboratorio','Entregado'];
     el.innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
             <div style="text-align:center">
