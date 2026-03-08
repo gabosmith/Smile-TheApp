@@ -2433,20 +2433,15 @@
                 <div style="margin-bottom: 10px;"><strong>Total:</strong> <span style="font-weight: 400;" id="pagoTotal"></span></div>
                 <div><strong>Balance Pendiente:</strong> <span style="color: #ff3b30; font-weight: 400;" id="pagoBalance"></span></div>
             </div>
-                        <div class="form-group" id="pagoDescuentoSection">
-                <label style="display:flex;justify-content:space-between;align-items:center;">
-                    <span>Descuento</span>
-                    <span id="pagoDescuentoLabel" style="font-weight:500;color:var(--clinic-color);">0%</span>
-                </label>
-                <input type="range" id="pagoDescuentoSlider" min="0" max="100" value="0"
-                    oninput="actualizarDescuentoPago(this.value)"
-                    style="width:100%;accent-color:var(--clinic-color);">
-                <div style="display:flex;gap:8px;margin-top:8px;">
-                    <button class="discount-btn" onclick="fijarDescuentoPago(0)"  style="flex:1;">0%</button>
-                    <button class="discount-btn" onclick="fijarDescuentoPago(5)"  style="flex:1;">5%</button>
-                    <button class="discount-btn" onclick="fijarDescuentoPago(10)" style="flex:1;">10%</button>
-                    <button class="discount-btn" onclick="fijarDescuentoPago(15)" style="flex:1;">15%</button>
-                    <button class="discount-btn" onclick="fijarDescuentoPago(20)" style="flex:1;">20%</button>
+                        <div class="form-group">
+                <label style="display:flex;justify-content:space-between"><span>Descuento</span><span id="pagoDescuentoLabel" style="color:var(--clinic-color)">0%</span></label>
+                <input type="range" id="pagoDescuentoSlider" min="0" max="100" value="0" oninput="actualizarDescuentoPago(this.value)" style="width:100%">
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button onclick="fijarDescuentoPago(0)"  style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">0%</button>
+                    <button onclick="fijarDescuentoPago(5)"  style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">5%</button>
+                    <button onclick="fijarDescuentoPago(10)" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">10%</button>
+                    <button onclick="fijarDescuentoPago(15)" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">15%</button>
+                    <button onclick="fijarDescuentoPago(20)" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">20%</button>
                 </div>
             </div>
             <div class="form-group">

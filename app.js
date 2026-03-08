@@ -1763,7 +1763,7 @@ function tienePermiso(key) {
 }
 
 function buildNavigation() {
-    const role = appData.currentRole;
+    var role = appData.currentRole;
 
     var svgDash     = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>`;
     var svgPax      = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>`;
@@ -1772,7 +1772,7 @@ function buildNavigation() {
     var svgCobros   = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path></svg>`;
     var svgMas      = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path></svg>`;
 
-    let nav = '';
+    var nav = '';
 
     // Dashboard — todos los roles (cada uno ve versión adaptada)
     nav += `<button class="nav-item" data-tab="dashboard" onclick="showTab('dashboard')">${svgDash}<span>Dashboard</span></button>`;
@@ -1805,24 +1805,24 @@ function showTab(tabName) {
     if (tabName === 'miplan') { renderMiPlanTab(); return; }
     if (tabName === 'cobros') { renderCobrosTab(); return; }
     // Old tab names redirect to cobros subtab for consistency
-    const cobrosMap = { 'factura': 'nueva', 'cobrar': 'cobrar', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
+    var cobrosMap = { 'factura': 'nueva', 'cobrar': 'cobrar', 'ingresos': 'ingresos', 'cuadre': 'cuadre', 'gastos': 'gastos' };
     if (cobrosMap[tabName]) { renderCobrosTab(cobrosMap[tabName]); return; }
-    // Personal, reportes, inventario, sedes go through irTab
+    // Personal, reportes go through irTab
     if (tabName === 'personal' || tabName === 'reportes' || tabName === 'inventario' || tabName === 'sedes') { irTab(tabName); return; }
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-    const tab = document.getElementById('tab-' + tabName);
+    var tab = document.getElementById('tab-' + tabName);
     if (tab) {
         tab.classList.add('active');
         // Fix 2: use data-tab attribute for exact matching
-        const navButtons = Array.from(document.querySelectorAll('.nav-item'));
-        const activeNav = navButtons.find(btn => btn.dataset.tab === tabName)
+        var navButtons = Array.from(document.querySelectorAll('.nav-item'));
+        var activeNav = navButtons.find(btn => btn.dataset.tab === tabName)
             || navButtons.find(btn => btn.textContent.toLowerCase().includes(tabName));
         if (activeNav) activeNav.classList.add('active');
 
         // Fix 1: scroll content area to top on tab change
-        const contentArea = document.querySelector('.content-area');
+        var contentArea = document.querySelector('.content-area');
         if (contentArea) contentArea.scrollTop = 0;
 
         // Fix 10: dispatch custom tabchange event
@@ -1830,13 +1830,13 @@ function showTab(tabName) {
 
         if (tabName === 'factura') {
             // Mostrar selector de profesional solo si es admin
-            const container = document.getElementById('selectorProfesionalFactura');
+            var container = document.getElementById('selectorProfesionalFactura');
             if (container) {
                 if (appData.currentRole === 'admin') {
                     container.style.display = 'block';
                     // Llenar dropdown con profesionales
-                    const select = document.getElementById('profesionalQueAtendio');
-                    const profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
+                    var select = document.getElementById('profesionalQueAtendio');
+                    var profesionales = appData.personal.filter(p => p.tipo !== 'empleado');
                     select.innerHTML = '<option value="">Seleccione el profesional...</option>' +
                         profesionales.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
                 } else {
@@ -2154,30 +2154,30 @@ async function generarFactura() {
 
 // Ingresos Tab
 function updateIngresosTab() {
-    const todayKey = getTodayKey();
-    const esAdmin = appData.currentRole === 'admin';
+    var todayKey = getTodayKey();
+    var esAdmin = appData.currentRole === 'admin';
 
     // Fix 5: Admin sees all invoices; professionals see only their own
-    const misFacturas = esAdmin
+    var misFacturas = esAdmin
         ? [...appData.facturas].sort((a,b) => new Date(b.fecha) - new Date(a.fecha))
         : appData.facturas.filter(f => f.profesional === appData.currentUser)
                           .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
-    const ingresosHoy = (esAdmin ? appData.facturas : misFacturas)
+    var ingresosHoy = (esAdmin ? appData.facturas : misFacturas)
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, todayKey))
         .reduce((sum, p) => sum + p.monto, 0);
 
-    const prof = appData.personal.find(p => p.nombre === appData.currentUser);
-    const comision = prof && prof.tipo !== 'empleado' && !prof.isAdmin ? getComisionRate(prof.tipo, prof) : 0;
-    const comisionesHoy = ingresosHoy * comision / 100;
+    var prof = appData.personal.find(p => p.nombre === appData.currentUser);
+    var comision = prof && prof.tipo !== 'empleado' && !prof.isAdmin ? getComisionRate(prof.tipo, prof) : 0;
+    var comisionesHoy = ingresosHoy * comision / 100;
 
-    const lastPayment = prof?.lastPaymentDate ? new Date(prof.lastPaymentDate) : new Date(0);
-    const comisionesAcum = misFacturas
+    var lastPayment = prof?.lastPaymentDate ? new Date(prof.lastPaymentDate) : new Date(0);
+    var comisionesAcum = misFacturas
         .filter(f => f.estado === 'pagada' && new Date(f.fecha) > lastPayment)
         .reduce((sum, f) => sum + ((f.pagos || []).reduce((s, p) => s + p.monto, 0) * comision / 100), 0);
 
-    const porCobrar = misFacturas
+    var porCobrar = misFacturas
         .filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada')
         .reduce((sum, f) => sum + (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)), 0);
 
@@ -2187,35 +2187,35 @@ function updateIngresosTab() {
     document.getElementById('porCobrar').textContent = formatCurrency(porCobrar);
 
     // Fix 5: Populate and read professional filter
-    const filtroProfEl = document.getElementById('ingresosFiltroProfesional');
+    var filtroProfEl = document.getElementById('ingresosFiltroProfesional');
     if (filtroProfEl && esAdmin) {
-        const currentVal = filtroProfEl.value;
-        const profesionales = [...new Set(appData.facturas.map(f => f.profesional).filter(Boolean))].sort();
+        var currentVal = filtroProfEl.value;
+        var profesionales = [...new Set(appData.facturas.map(f => f.profesional).filter(Boolean))].sort();
         filtroProfEl.innerHTML = '<option value="todos">Todos los profesionales</option>' +
             profesionales.map(p => `<option value="${p}" ${currentVal===p?'selected':''}>${p}</option>`).join('');
         filtroProfEl.style.display = '';
     } else if (filtroProfEl) {
         filtroProfEl.style.display = 'none';
     }
-    const filtroProf = filtroProfEl?.value || 'todos';
-    const facturasFiltradas = (filtroProf === 'todos' || !esAdmin)
+    var filtroProf = filtroProfEl?.value || 'todos';
+    var facturasFiltradas = (filtroProf === 'todos' || !esAdmin)
         ? misFacturas
         : misFacturas.filter(f => f.profesional === filtroProf);
 
-    const list = document.getElementById('facturasPersonal');
+    var list = document.getElementById('facturasPersonal');
     if (facturasFiltradas.length === 0) {
         list.innerHTML = '<li style="text-align:center;color:var(--muted,#A89F96);padding:24px 0;">Sin facturas para mostrar</li>';
         return;
     }
 
     // Fix 6: Add action buttons to each invoice row
-    const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+    var canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
     list.innerHTML = facturasFiltradas.map(f => {
-        const balance = f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
-        const badgeClass = f.estado === 'pagada' ? 'badge-paid'
+        var balance = f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        var badgeClass = f.estado === 'pagada' ? 'badge-paid'
                          : f.estado === 'cancelada' ? 'badge-cancel'
                          : f.estado === 'parcial' ? 'badge-partial' : 'badge-pending';
-        const badgeLabel = f.estado === 'pagada' ? 'Pagada'
+        var badgeLabel = f.estado === 'pagada' ? 'Pagada'
                          : f.estado === 'cancelada' ? 'Cancelada'
                          : f.estado === 'parcial' ? 'Con abono' : 'Pendiente';
         return `
@@ -2396,7 +2396,6 @@ function openPagarFactura(facturaId) {
 
     selectTipoPago('total');
 
-    var _ds=document.getElementById('pagoDescuentoSlider'),_dl=document.getElementById('pagoDescuentoLabel');if(_ds)_ds.value=0;if(_dl)_dl.textContent='0%';if(currentFacturaToPay)currentFacturaToPay._descuentoPendiente=0;
     openModal('modalPagarFactura');
 }
 
@@ -2432,7 +2431,6 @@ async function confirmarPago() {
 
     const totalPagadoActual = currentFacturaToPay.pagos.reduce((sum, p) => sum + p.monto, 0);
     const balancePendiente  = currentFacturaToPay.total - totalPagadoActual;
-    const _dPct=currentFacturaToPay._descuentoPendiente||0; if(_dPct>0){currentFacturaToPay.total=Math.round(currentFacturaToPay.total*(1-_dPct/100)*100)/100;currentFacturaToPay.descuento=_dPct;currentFacturaToPay._descuentoPendiente=0;}
 
     if (monto > balancePendiente + 0.01) {
         showToast(`⚠️ El monto supera el balance pendiente (${formatCurrency(balancePendiente)})`, 4000, '#e65100'); return;
@@ -2496,7 +2494,7 @@ async function confirmarPago() {
 }
 function generarFacturaCliente(factura, montoPagado, metodoPago) {
     const fecha = new Date().toLocaleDateString(getLocale(), {year: 'numeric', month: 'long', day: 'numeric'});
-    var hora = new Date().toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
+    const hora = new Date().toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
     const balance = factura.total - factura.pagos.reduce((sum, p) => sum + p.monto, 0);
     const esPagoTotal = balance <= 0;
 
@@ -2787,32 +2785,32 @@ function verComprobantesFactura(facturaId) {
 
 // Cuadre Tab
 function updateCuadreTab() {
-    const todayKey = getTodayKey();
-    const todayDate = new Date().toLocaleDateString(getLocale(), {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+    var todayKey = getTodayKey();
+    var todayDate = new Date().toLocaleDateString(getLocale(), {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
     document.getElementById('fechaCuadre').textContent = todayDate;
 
-    const pagosHoy = appData.facturas
+    var pagosHoy = appData.facturas
         .flatMap(f => f.pagos || [])
         .filter(p => p && isSameDayTZ(p.fecha, todayKey));
 
-    const efectivoHoy = pagosHoy.filter(p => p.metodo === 'efectivo').reduce((sum, p) => sum + p.monto, 0);
-    const tarjetaHoy = pagosHoy.filter(p => p.metodo === 'tarjeta').reduce((sum, p) => sum + p.monto, 0);
-    const transferenciaHoy = pagosHoy.filter(p => p.metodo === 'transferencia').reduce((sum, p) => sum + p.monto, 0);
-    const totalIngresos = efectivoHoy + tarjetaHoy + transferenciaHoy;
+    var efectivoHoy = pagosHoy.filter(p => p.metodo === 'efectivo').reduce((sum, p) => sum + p.monto, 0);
+    var tarjetaHoy = pagosHoy.filter(p => p.metodo === 'tarjeta').reduce((sum, p) => sum + p.monto, 0);
+    var transferenciaHoy = pagosHoy.filter(p => p.metodo === 'transferencia').reduce((sum, p) => sum + p.monto, 0);
+    var totalIngresos = efectivoHoy + tarjetaHoy + transferenciaHoy;
 
-    const gastosHoy = appData.gastos
+    var gastosHoy = appData.gastos
         .filter(g => isSameDayTZ(g.fecha, todayKey))
         .reduce((sum, g) => sum + g.monto, 0);
 
-    const gastosEfectivoHoy = appData.gastos
+    var gastosEfectivoHoy = appData.gastos
         .filter(g => isSameDayTZ(g.fecha, todayKey) && g.metodo === 'efectivo')
         .reduce((sum, g) => sum + g.monto, 0);
 
-    const balance = totalIngresos - gastosHoy;
+    var balance = totalIngresos - gastosHoy;
 
     // EFECTIVO EN CAJA = Inicial + Ingresos efectivo - Gastos efectivo
-    const efectivoInicial = parseFloat(document.getElementById('efectivoInicial').value) || 0;
-    const efectivoCaja = efectivoInicial + efectivoHoy - gastosEfectivoHoy;
+    var efectivoInicial = parseFloat(document.getElementById('efectivoInicial').value) || 0;
+    var efectivoCaja = efectivoInicial + efectivoHoy - gastosEfectivoHoy;
 
     document.getElementById('efectivoHoy').textContent = formatCurrency(efectivoHoy);
     document.getElementById('tarjetaHoy').textContent = formatCurrency(tarjetaHoy);
@@ -2851,19 +2849,19 @@ function updateCuadreTab() {
         document.getElementById('detalleTransacciones').style.display = 'block';
 
         // Obtener facturas con pagos de hoy para vincular
-        const facturasConPagosHoy = appData.facturas
+        var facturasConPagosHoy = appData.facturas
             .map(f => {
-                const pagosDeHoy = (f.pagos || []).filter(p => isSameDayTZ(p.fecha, todayKey));
+                var pagosDeHoy = (f.pagos || []).filter(p => isSameDayTZ(p.fecha, todayKey));
                 return pagosDeHoy.length > 0 ? { ...f, pagosDeHoy } : null;
             })
             .filter(f => f !== null);
 
         // Lista de ingresos
-        let htmlIngresos = '';
+        var htmlIngresos = '';
         facturasConPagosHoy.forEach(f => {
             f.pagosDeHoy.forEach(p => {
                 var hora = new Date(p.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
-                const icono = p.metodo === 'efectivo' ? '💵' : p.metodo === 'tarjeta' ? '💳' : '🔄';
+                var icono = p.metodo === 'efectivo' ? '💵' : p.metodo === 'tarjeta' ? '💳' : '🔄';
                 htmlIngresos += `
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                         <div>
@@ -2883,11 +2881,11 @@ function updateCuadreTab() {
         document.getElementById('listaIngresos').innerHTML = htmlIngresos;
 
         // Lista de gastos
-        const gastosDeHoy = appData.gastos.filter(g => isSameDayTZ(g.fecha, todayKey));
-        let htmlGastos = '';
+        var gastosDeHoy = appData.gastos.filter(g => isSameDayTZ(g.fecha, todayKey));
+        var htmlGastos = '';
         gastosDeHoy.forEach(g => {
-            const hora = new Date(g.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
-            const icono = g.metodo === 'efectivo' ? '💵' : g.metodo === 'tarjeta' ? '💳' : '🔄';
+            var hora = new Date(g.fecha).toLocaleTimeString(getLocale(), {hour: '2-digit', minute: '2-digit'});
+            var icono = g.metodo === 'efectivo' ? '💵' : g.metodo === 'tarjeta' ? '💳' : '🔄';
             htmlGastos += `
                 <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                     <div>
@@ -3031,7 +3029,7 @@ function registrarGasto() {
 }
 
 function updateGastosTab() {
-    const list = document.getElementById('gastosList');
+    var list = document.getElementById('gastosList');
     if (appData.gastos.length === 0) {
         list.innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay gastos registrados</li>';
     } else {
@@ -3201,11 +3199,11 @@ async function agregarPersonal() {
 }
 
 function updatePersonalTab() {
-    const list = document.getElementById('personalList');
+    var list = document.getElementById('personalList');
     // Fix 8: Search filter
-    const searchEl = document.getElementById('personalSearch');
-    const query = searchEl ? searchEl.value.toLowerCase().trim() : '';
-    const personal = appData.personal.filter(p =>
+    var searchEl = document.getElementById('personalSearch');
+    var query = searchEl ? searchEl.value.toLowerCase().trim() : '';
+    var personal = appData.personal.filter(p =>
         !p.isAdmin &&
         (query === '' || p.nombre.toLowerCase().includes(query) || getTipoLabel(p.tipo, p).toLowerCase().includes(query))
     );
@@ -3214,20 +3212,20 @@ function updatePersonalTab() {
         list.innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay personal registrado</li>';
     } else {
         list.innerHTML = personal.map(p => {
-            const esEmp   = p.tipo === 'empleado';
-            const esSalFj = !esEmp && p.tipoRemuneracion === 'salario';
-            const avances = calcularTotalAvances(p.id);
+            var esEmp   = p.tipo === 'empleado';
+            var esSalFj = !esEmp && p.tipoRemuneracion === 'salario';
+            var avances = calcularTotalAvances(p.id);
 
-            let rightHtml;
+            var rightHtml;
             if (esEmp || esSalFj) {
-                const base  = esEmp ? (p.sueldo || 0) : (p.salarioFijo || 0);
-                const frec  = getFrecuenciaLabel(p.frecuenciaPago || 'mensual');
+                var base  = esEmp ? (p.sueldo || 0) : (p.salarioFijo || 0);
+                var frec  = getFrecuenciaLabel(p.frecuenciaPago || 'mensual');
                 rightHtml   = '<div style="font-size:17px;font-weight:600;color:#34c759">' + formatCurrency(base) + '</div>'
                             + '<div style="font-size:11px;color:var(--light)">' + frec + '</div>'
                             + (avances > 0 ? '<div style="font-size:12px;color:#8e44ad">Avances: ' + formatCurrency(avances) + '</div>' : '');
             } else {
-                const rate  = getComisionRate(p.tipo, p);
-                const acum  = calcularComisionesAcumuladas(p);
+                var rate  = getComisionRate(p.tipo, p);
+                var acum  = calcularComisionesAcumuladas(p);
                 rightHtml   = '<div style="font-size:17px;font-weight:600;color:var(--clinic-color,#C4856A)">' + rate + '%</div>'
                             + '<div style="font-size:11px;color:var(--light)">comisión</div>'
                             + (acum > 0 ? '<div style="font-size:12px;color:#ff9500">' + formatCurrency(acum) + '</div>' : '');
@@ -3497,7 +3495,7 @@ async function confirmarPagoSalarioFijo(person) {
         confirmText: 'Sí, Pagar Ahora',
         onConfirm: async () => {
             const fecha = new Date().toLocaleDateString(getLocale(), {weekday:'long',year:'numeric',month:'long',day:'numeric'});
-            var hora  = new Date().toLocaleTimeString(getLocale());
+            const hora  = new Date().toLocaleTimeString(getLocale());
             let recibo  = '================================\n' + getNombreClinica() + '\n================================\n\n'
                         + 'RECIBO DE PAGO DE SALARIO\n\n'
                         + 'Fecha: ' + fecha + '\nHora: ' + hora + '\n'
@@ -3763,7 +3761,7 @@ Firma: _____________________
 // ══════════════════════════════════════════════════════
 function generarReciboHTML(tipo, person, monto, detalle) {
     const fecha = new Date().toLocaleDateString(getLocale(), {year:'numeric', month:'long', day:'numeric'});
-    var hora  = new Date().toLocaleTimeString(getLocale(), {hour:'2-digit', minute:'2-digit'});
+    const hora  = new Date().toLocaleTimeString(getLocale(), {hour:'2-digit', minute:'2-digit'});
     const clinica = getNombreClinica();
     const color = clinicConfig.color || '#C4856A';
 
@@ -4340,7 +4338,7 @@ async function guardarConfigAgenda() {
 
 function updatePerfilTab() {
     document.getElementById('perfilNombre').textContent = appData.currentUser;
-    const roles = {
+    var roles = {
         'professional': 'Profesional',
         'reception': 'Recepción',
         'admin': 'Administrador'
@@ -4348,9 +4346,9 @@ function updatePerfilTab() {
     document.getElementById('perfilRol').textContent = roles[appData.currentRole];
 
     // Clinic identity banner — always visible to all roles
-    const banner       = document.getElementById('perfilClinicaBanner');
-    const bannerLogo   = document.getElementById('perfilClinicaLogo');
-    const bannerNombre = document.getElementById('perfilClinicaNombre');
+    var banner       = document.getElementById('perfilClinicaBanner');
+    var bannerLogo   = document.getElementById('perfilClinicaLogo');
+    var bannerNombre = document.getElementById('perfilClinicaNombre');
     if (banner && clinicConfig.nombre) {
         banner.style.display = 'block';
         if (bannerNombre) bannerNombre.textContent = clinicConfig.nombre;
@@ -4366,20 +4364,20 @@ function updatePerfilTab() {
     }
 
     // Mostrar botón de auditoría solo para admin
-    const btnAuditoria = document.getElementById('btnAuditoria');
+    var btnAuditoria = document.getElementById('btnAuditoria');
     if (btnAuditoria) {
         btnAuditoria.style.display = appData.currentRole === 'admin' ? 'block' : 'none';
     }
 
     // Mostrar configuración de zona horaria solo para admin
-    const timezoneCard = document.getElementById('timezoneCard');
+    var timezoneCard = document.getElementById('timezoneCard');
     if (timezoneCard) {
         if (appData.currentRole === 'admin') {
             timezoneCard.style.display = 'block';
 
             // Establecer zona horaria actual
-            const currentTimezone = getTimezone();
-            const timezoneSelect = document.getElementById('timezoneSelect');
+            var currentTimezone = getTimezone();
+            var timezoneSelect = document.getElementById('timezoneSelect');
             if (timezoneSelect) {
                 timezoneSelect.value = currentTimezone;
             }
@@ -4389,7 +4387,7 @@ function updatePerfilTab() {
     }
 
     // Mostrar configuración de clínica solo para admin
-    const clinicaConfigCard = document.getElementById('clinicaConfigCard');
+    var clinicaConfigCard = document.getElementById('clinicaConfigCard');
     if (clinicaConfigCard) {
         if (appData.currentRole === 'admin') {
             clinicaConfigCard.style.display = 'block';
@@ -4400,29 +4398,29 @@ function updatePerfilTab() {
     }
 
     // Mostrar importar pacientes solo para admin
-    const importarCard = document.getElementById('importarCard');
+    var importarCard = document.getElementById('importarCard');
     if (importarCard) {
         importarCard.style.display = appData.currentRole === 'admin' ? 'block' : 'none';
     }
-    const exportarCard = document.getElementById('exportarCard');
+    var exportarCard = document.getElementById('exportarCard');
     if (exportarCard && appData.currentRole === 'admin') {
         exportarCard.style.display = 'block';
-        const stats = document.getElementById('exportarPacientesStats');
+        var stats = document.getElementById('exportarPacientesStats');
         if (stats) {
-            const total = (appData.pacientes || []).length;
-            const conTel = appData.pacientes.filter(p => p.telefono).length;
-            const conEmail = appData.pacientes.filter(p => p.email).length;
+            var total = (appData.pacientes || []).length;
+            var conTel = appData.pacientes.filter(p => p.telefono).length;
+            var conEmail = appData.pacientes.filter(p => p.email).length;
             stats.textContent = `${total} pacientes · ${conTel} con teléfono · ${conEmail} con email`;
         }
     }
 
     // Mostrar reversiones solo para admin
-    const reversionesCard = document.getElementById('reversionesCard');
+    var reversionesCard = document.getElementById('reversionesCard');
     if (appData.currentRole === 'admin') {
         reversionesCard.style.display = 'block';
 
-        const list = document.getElementById('reversionesList');
-        const reversiones = appData.reversiones || [];
+        var list = document.getElementById('reversionesList');
+        var reversiones = appData.reversiones || [];
 
         if (reversiones.length === 0) {
             list.innerHTML = '<li style="text-align: center; color: #8e8e93;">No hay reversiones registradas</li>';
@@ -5609,32 +5607,32 @@ function renderTabResumen(paciente) {
 }
 
 function renderTabHistorial(paciente) {
-    const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
-    const tieneModuloLab = hasModule('laboratorio');
+    var canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
+    var tieneModuloLab = hasModule('laboratorio');
 
     // ── Datos ──────────────────────────────────────────────
-    const todasFacturas  = getFacturasDePaciente(paciente).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
-    const citasPaciente  = getCitasDePaciente(paciente).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
-    const ordenesLab     = (appData.laboratorios||[]).filter(o=>o.paciente===paciente.nombre||o.pacienteId===paciente.id)
+    var todasFacturas  = getFacturasDePaciente(paciente).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+    var citasPaciente  = getCitasDePaciente(paciente).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+    var ordenesLab     = (appData.laboratorios||[]).filter(o=>o.paciente===paciente.nombre||o.pacienteId===paciente.id)
                            .sort((a,b)=>new Date(b.fechaCreacion)-new Date(a.fechaCreacion));
 
     // Factura "abierta" = la pendiente más reciente (cotización activa)
-    const facturaAbierta = todasFacturas.find(f => {
+    var facturaAbierta = todasFacturas.find(f => {
         if ((f.estado||'').toLowerCase()==='cancelada') return false;
-        const pagado = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        var pagado = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
         return pagado < f.total;
     });
 
     // ── Balance banner ─────────────────────────────────────
-    const balance        = calcularBalancePaciente(paciente.nombre);
-    const totalFacturado = todasFacturas.reduce((s,f)=>s+f.total,0);
-    const totalPagado    = todasFacturas.reduce((s,f)=>s+(f.pagos||[]).reduce((sp,p)=>sp+p.monto,0),0);
+    var balance        = calcularBalancePaciente(paciente.nombre);
+    var totalFacturado = todasFacturas.reduce((s,f)=>s+f.total,0);
+    var totalPagado    = todasFacturas.reduce((s,f)=>s+(f.pagos||[]).reduce((sp,p)=>sp+p.monto,0),0);
 
-    const bannerColor  = balance > 0 ? '#C4856A' : '#6B8F71';
-    const bannerBg     = balance > 0 ? 'rgba(196,133,106,0.08)' : 'rgba(107,143,113,0.08)';
-    const bannerBorder = balance > 0 ? 'rgba(196,133,106,0.25)' : 'rgba(107,143,113,0.25)';
+    var bannerColor  = balance > 0 ? '#C4856A' : '#6B8F71';
+    var bannerBg     = balance > 0 ? 'rgba(196,133,106,0.08)' : 'rgba(107,143,113,0.08)';
+    var bannerBorder = balance > 0 ? 'rgba(196,133,106,0.25)' : 'rgba(107,143,113,0.25)';
 
-    const cobrarBannerBtn = canCobrar && facturaAbierta && balance > 0
+    var cobrarBannerBtn = canCobrar && facturaAbierta && balance > 0
         ? `<button onclick="withGuard(this,()=>openPagarFactura('${facturaAbierta.id}'))"
               style="margin-top:10px;width:100%;padding:10px;background:${bannerColor};
                      color:white;border:none;border-radius:100px;font-size:13px;font-weight:500;
@@ -5684,7 +5682,7 @@ function renderTabHistorial(paciente) {
     // ════════════════════════════════════════════════════════
     // PANEL A — COTIZACIÓN ACTIVA
     // ════════════════════════════════════════════════════════
-    let panelCotiz = '';
+    var panelCotiz = '';
 
     if (!facturaAbierta) {
         panelCotiz = `
@@ -5694,14 +5692,14 @@ function renderTabHistorial(paciente) {
                 <div style="font-size:12px;color:#bbb;">Agrega un procedimiento para iniciar</div>
             </div>`;
     } else {
-        const pagadoF    = (facturaAbierta.pagos||[]).reduce((s,p)=>s+p.monto,0);
-        const pendienteF = facturaAbierta.total - pagadoF;
+        var pagadoF    = (facturaAbierta.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        var pendienteF = facturaAbierta.total - pagadoF;
 
-        const procsHTML = (facturaAbierta.procedimientos||[]).length === 0 ? '' :
+        var procsHTML = (facturaAbierta.procedimientos||[]).length === 0 ? '' :
             (facturaAbierta.procedimientos||[]).map(p => {
-                const eCol = 'var(--clinic-color,#C4856A)';
-                const totalProc = p.precioUnitario * (p.cantidad||1);
-                const subtitulo = [
+                var eCol = 'var(--clinic-color,#C4856A)';
+                var totalProc = p.precioUnitario * (p.cantidad||1);
+                var subtitulo = [
                     p.cantidad > 1 ? `${p.cantidad} unidades` : null,
                     p.dientes ? `Diente${p.dientes.includes(',')?' s':''} ${p.dientes}` : null,
                     p.precioUnitario && p.cantidad > 1 ? `${formatCurrency(p.precioUnitario)} c/u` : null,
@@ -5721,10 +5719,10 @@ function renderTabHistorial(paciente) {
                 </div>`;
             }).join('');
 
-        const labsHTML = (facturaAbierta.ordenesLab||[]).length === 0 ? '' :
+        var labsHTML = (facturaAbierta.ordenesLab||[]).length === 0 ? '' :
             (facturaAbierta.ordenesLab||[]).map(o => {
-                const estadoCol = o.estadoActual === 'Entregado' ? '#6B8F71' : 'var(--clinic-color,#C4856A)';
-                const detalles = [
+                var estadoCol = o.estadoActual === 'Entregado' ? '#6B8F71' : 'var(--clinic-color,#C4856A)';
+                var detalles = [
                     o.tipo && o.tipo !== o.descripcion ? o.tipo : null,
                     o.dientes ? `Diente${o.dientes.includes(',')?' s':''} ${o.dientes}` : null,
                     o.laboratorio || null,
@@ -5745,7 +5743,7 @@ function renderTabHistorial(paciente) {
                 </div>`;
             }).join('');
 
-        const descuentoHTML = facturaAbierta.descuento > 0 ? `
+        var descuentoHTML = facturaAbierta.descuento > 0 ? `
             <div style="display:flex;justify-content:space-between;padding:6px 0;color:#aaa;">
                 <span style="font-size:12px;">Descuento ${facturaAbierta.descuento}%</span>
                 <span style="font-size:12px;">−${formatCurrency(facturaAbierta.subtotal*(facturaAbierta.descuento/100))}</span>
@@ -5801,22 +5799,22 @@ function renderTabHistorial(paciente) {
     // ════════════════════════════════════════════════════════
 
     // Construir eventos unificados
-    const eventos = [];
+    var eventos = [];
 
     // Facturas ya cobradas (o parcialmente abonadas distintas a la abierta)
     todasFacturas.forEach(f => {
         if (f.id === facturaAbierta?.id) return; // ya está en cotización
-        const pagadoF = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
-        const pagada  = pagadoF >= f.total;
-        const procsDetalle = (f.procedimientos||[]).length > 0
+        var pagadoF = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+        var pagada  = pagadoF >= f.total;
+        var procsDetalle = (f.procedimientos||[]).length > 0
             ? (f.procedimientos||[]).map(p =>
                 `${p.descripcion}${p.cantidad>1?' ×'+p.cantidad:''}${p.dientes?' · 🦷'+p.dientes:''}`
               ).join(' · ')
             : null;
-        const labsDetalle = (f.ordenesLab||[]).length > 0
+        var labsDetalle = (f.ordenesLab||[]).length > 0
             ? (f.ordenesLab||[]).map(o => `🔬 ${o.descripcion||o.tipo||'Lab'}`).join(' · ')
             : null;
-        const detalleCompleto = [procsDetalle, labsDetalle].filter(Boolean).join('  ·  ');
+        var detalleCompleto = [procsDetalle, labsDetalle].filter(Boolean).join('  ·  ');
         eventos.push({
             fecha:  f.fecha,
             tipo:   'factura',
@@ -5876,7 +5874,7 @@ function renderTabHistorial(paciente) {
     // Ordenar por fecha descendente
     eventos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
-    let panelHist = '';
+    var panelHist = '';
     if (eventos.length === 0) {
         panelHist = `
             <div style="text-align:center;padding:40px 20px;color:#bbb;">
@@ -5885,10 +5883,10 @@ function renderTabHistorial(paciente) {
             </div>`;
     } else {
         // Agrupar por mes/año
-        const porMes = {};
+        var porMes = {};
         eventos.forEach(ev => {
-            const d   = new Date(ev.fecha);
-            const key = isNaN(d) ? 'Sin fecha' : d.toLocaleDateString(getLocale(),{month:'long',year:'numeric'});
+            var d   = new Date(ev.fecha);
+            var key = isNaN(d) ? 'Sin fecha' : d.toLocaleDateString(getLocale(),{month:'long',year:'numeric'});
             if (!porMes[key]) porMes[key] = [];
             porMes[key].push(ev);
         });
@@ -5937,7 +5935,7 @@ function renderTabHistorial(paciente) {
     }
 
     // ── Render final ────────────────────────────────────────
-    const _tabEl = document.getElementById('tabTratamientos') || document.getElementById('tabHistorial');
+    var _tabEl = document.getElementById('tabTratamientos') || document.getElementById('tabHistorial');
     _tabEl.innerHTML = `
         <div style="padding-bottom:24px;">
             ${balanceBanner}
@@ -6031,12 +6029,10 @@ function _cotizOnCatalogSelect(sel) {
 let _guardandoCotiz = false;
 
 
-// ═══ ALIASES ═══════════════════════════════════════════════════════════════
 function cotizOpenAddProc() { abrirModalAgregarItem(); }
-function abrirModalOrdenLabCotiz() { abrirModalAgregarItem(); setTimeout(function(){ if(typeof _cotizSetTipo==='function') _cotizSetTipo('lab'); }, 30); }
-function generarCotizacionDesdeFicha() { closeModal('modalNuevaCotizacion'); showToast('✓ Cotización guardada'); }
+function abrirModalOrdenLabCotiz() { abrirModalAgregarItem(); }
+function generarCotizacionDesdeFicha() { showToast('✓ Cotización guardada'); }
 function enviarReciboWhatsApp() { if(typeof compartirWhatsApp==='function') compartirWhatsApp(); }
-// ═══ DESCUENTO EN PAGO ══════════════════════════════════════════════════════
 function actualizarDescuentoPago(pct) {
     pct=parseInt(pct)||0;
     var lb=document.getElementById('pagoDescuentoLabel'),ba=document.getElementById('pagoBalance'),mo=document.getElementById('pagoMonto');
@@ -6499,21 +6495,21 @@ function _abrirCitaEnSlot(diaKey, hora) {
 function updateAgendaTab() {
     inicializarFiltrosProfesionales();
 
-    const MESES  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    const DIAS_S = ['D','L','M','X','J','V','S'];
-    const DIAS_L = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-    const todayKey     = _dk(new Date());
-    const horaApertura = appData.settings?.horaApertura ?? 8;
-    const horaCierre   = appData.settings?.horaCierre   ?? 20;
-    const durMin       = appData.settings?.duracionCita || 30;
+    var MESES  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    var DIAS_S = ['D','L','M','X','J','V','S'];
+    var DIAS_L = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    var todayKey     = _dk(new Date());
+    var horaApertura = appData.settings?.horaApertura ?? 8;
+    var horaCierre   = appData.settings?.horaCierre   ?? 20;
+    var durMin       = appData.settings?.duracionCita || 30;
 
-    let citas = (appData.citas || []).filter(c => c.estado !== 'Cancelada');
+    var citas = (appData.citas || []).filter(c => c.estado !== 'Cancelada');
     if (appData.currentRole === 'professional' && verAgendaPropia)
         citas = citas.filter(c => c.profesional === appData.currentUser);
     citas = aplicarFiltrosCitas(citas);
 
     // Toggle btn
-    const toggleEl = document.getElementById('agendaToggle');
+    var toggleEl = document.getElementById('agendaToggle');
     if (toggleEl) toggleEl.innerHTML = appData.currentRole === 'professional'
         ? `<button onclick="toggleAgenda()"
                style="padding:7px 14px;border:none;background:var(--surface);border-radius:100px;
@@ -6531,30 +6527,30 @@ function updateAgendaTab() {
 // VISTA DÍA
 // ─────────────────────────────────────────────────────────────
 function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DIAS_S, DIAS_L) {
-    const fecha   = agendaFechaActual;
-    const diaKey  = _dk(fecha);
-    const esHoy   = diaKey === todayKey;
-    const HORA_H  = 64;
-    const totalH  = (horaCierre - horaApertura) * HORA_H;
+    var fecha   = agendaFechaActual;
+    var diaKey  = _dk(fecha);
+    var esHoy   = diaKey === todayKey;
+    var HORA_H  = 64;
+    var totalH  = (horaCierre - horaApertura) * HORA_H;
 
     // Título
-    const tEl = document.getElementById('agendaFechaTitulo');
+    var tEl = document.getElementById('agendaFechaTitulo');
     if (tEl) tEl.textContent =
         `${DIAS_L[fecha.getDay()]}, ${fecha.getDate()} ${MESES[fecha.getMonth()]} ${fecha.getFullYear()}` +
         (esHoy ? '  ·  Hoy' : '');
-    const sEl = document.getElementById('agendaSemanaTexto');
+    var sEl = document.getElementById('agendaSemanaTexto');
     if (sEl) sEl.textContent = '';
 
     // Mini barra de días (semana)
-    const selEl = document.getElementById('agendaDiasSelector');
+    var selEl = document.getElementById('agendaDiasSelector');
     if (selEl) {
-        const lunes = new Date(agendaSemanaInicio);
+        var lunes = new Date(agendaSemanaInicio);
         selEl.innerHTML = Array.from({length:7}, (_,i) => {
-            const d = new Date(lunes); d.setDate(d.getDate() + i);
-            const dk = _dk(d);
-            const active = dk === diaKey;
-            const isHoy  = dk === todayKey;
-            const n = citas.filter(c => _citaEnDia(c, dk)).length;
+            var d = new Date(lunes); d.setDate(d.getDate() + i);
+            var dk = _dk(d);
+            var active = dk === diaKey;
+            var isHoy  = dk === todayKey;
+            var n = citas.filter(c => _citaEnDia(c, dk)).length;
             return `<button onclick="_saltoADia('${dk}')"
                 style="flex:1;min-width:38px;padding:7px 3px;border:none;border-radius:12px;
                        cursor:pointer;font-family:inherit;text-align:center;transition:all .15s;
@@ -6570,22 +6566,22 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
     }
 
     // Citas del día
-    const citasDia = citas.filter(c => _citaEnDia(c, diaKey))
+    var citasDia = citas.filter(c => _citaEnDia(c, diaKey))
         .sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
 
     // Línea hora actual
-    const ahora = new Date();
-    const minAhora = ahora.getHours()*60 + ahora.getMinutes();
-    const minApertura = horaApertura*60;
-    const lineaTop = esHoy && minAhora >= minApertura && minAhora <= horaCierre*60
+    var ahora = new Date();
+    var minAhora = ahora.getHours()*60 + ahora.getMinutes();
+    var minApertura = horaApertura*60;
+    var lineaTop = esHoy && minAhora >= minApertura && minAhora <= horaCierre*60
         ? ((minAhora - minApertura)/60)*HORA_H : null;
 
     // Build HTML
-    let horasHTML = '';
-    for (let h = horaApertura; h < horaCierre; h++) {
-        const topPx = (h - horaApertura)*HORA_H;
-        const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
-        const hora  = `${String(h).padStart(2,'0')}:00`;
+    var horasHTML = '';
+    for (var h = horaApertura; h < horaCierre; h++) {
+        var topPx = (h - horaApertura)*HORA_H;
+        var label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
+        var hora  = `${String(h).padStart(2,'0')}:00`;
         horasHTML += `
         <div style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;
                     border-top:1px solid rgba(30,28,26,.06);pointer-events:none;">
@@ -6600,18 +6596,18 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
              onmouseleave="this.style.background='transparent'"></div>`;
     }
 
-    let citasHTML = '';
+    var citasHTML = '';
     citasDia.forEach(c => {
-        const [hh,mm] = (c.hora||'08:00').split(':').map(Number);
-        const startMin = hh*60 + mm - minApertura;
+        var [hh,mm] = (c.hora||'08:00').split(':').map(Number);
+        var startMin = hh*60 + mm - minApertura;
         if (startMin < 0) return;
-        const dur   = c.duracionMin || durMin;
-        const topPx = (startMin/60)*HORA_H;
-        const hPx   = Math.max(30, (dur/60)*HORA_H - 4);
-        const eCol  = getColorEstadoCita(c.estado||'Pendiente');
-        const saldo = calcularBalancePaciente(c.paciente) > 0;
-        const waTel = (() => {
-            const pac = (appData.pacientes||[]).find(p=>p.nombre===c.paciente);
+        var dur   = c.duracionMin || durMin;
+        var topPx = (startMin/60)*HORA_H;
+        var hPx   = Math.max(30, (dur/60)*HORA_H - 4);
+        var eCol  = getColorEstadoCita(c.estado||'Pendiente');
+        var saldo = calcularBalancePaciente(c.paciente) > 0;
+        var waTel = (() => {
+            var pac = (appData.pacientes||[]).find(p=>p.nombre===c.paciente);
             return pac?.telefono || '';
         })();
         citasHTML += `
@@ -6663,7 +6659,7 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
         </div>`;
     });
 
-    const lineaHTML = lineaTop !== null ? `
+    var lineaHTML = lineaTop !== null ? `
         <div style="position:absolute;top:${lineaTop}px;left:0;right:0;z-index:10;pointer-events:none;">
             <div style="position:absolute;left:48px;right:0;height:2px;
                         background:var(--clinic-color,#C4856A);opacity:.8;"></div>
@@ -6671,7 +6667,7 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
                         border-radius:50%;background:var(--clinic-color,#C4856A);"></div>
         </div>` : '';
 
-    const sinCitasHTML = citasDia.length === 0 ? `
+    var sinCitasHTML = citasDia.length === 0 ? `
         <div style="position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);
                     text-align:center;pointer-events:none;">
             <div style="font-size:40px;margin-bottom:10px;">📅</div>
@@ -6680,7 +6676,7 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
                 Toca un bloque de horario o usa el botón +</div>
         </div>` : '';
 
-    const container = document.getElementById('calendarioAgenda');
+    var container = document.getElementById('calendarioAgenda');
     if (!container) return;
     container.innerHTML = `
         <div style="position:relative;background:white;border-radius:16px;
@@ -6694,32 +6690,32 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
 // VISTA SEMANA
 // ─────────────────────────────────────────────────────────────
 function _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DIAS_S) {
-    const inicio = new Date(agendaSemanaInicio);
-    const fin    = new Date(inicio); fin.setDate(fin.getDate()+6);
-    const HORA_H = 48;
-    const totalH = (horaCierre - horaApertura) * HORA_H;
+    var inicio = new Date(agendaSemanaInicio);
+    var fin    = new Date(inicio); fin.setDate(fin.getDate()+6);
+    var HORA_H = 48;
+    var totalH = (horaCierre - horaApertura) * HORA_H;
 
-    const tEl = document.getElementById('agendaFechaTitulo');
+    var tEl = document.getElementById('agendaFechaTitulo');
     if (tEl) tEl.textContent =
         `${inicio.getDate()} ${MESES[inicio.getMonth()]} — ${fin.getDate()} ${MESES[fin.getMonth()]} ${fin.getFullYear()}`;
-    const sEl = document.getElementById('agendaSemanaTexto');
+    var sEl = document.getElementById('agendaSemanaTexto');
     if (sEl) sEl.textContent = '';
-    const selEl = document.getElementById('agendaDiasSelector');
+    var selEl = document.getElementById('agendaDiasSelector');
     if (selEl) selEl.innerHTML = '';
 
     // Header
-    let html = `<div style="background:white;border-radius:16px;
+    var html = `<div style="background:white;border-radius:16px;
                             box-shadow:var(--neu-flat,0 2px 8px rgba(30,28,26,.08));overflow:hidden;">`;
 
     html += `<div style="display:grid;grid-template-columns:44px repeat(7,1fr);
                           background:var(--surface,#F5F2EE);
                           border-bottom:2px solid rgba(30,28,26,.07);">`;
     html += `<div></div>`;
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(inicio); d.setDate(d.getDate()+i);
-        const dk = _dk(d);
-        const isHoy = dk === todayKey;
-        const n = citas.filter(c => _citaEnDia(c, dk)).length;
+    for (var i = 0; i < 7; i++) {
+        var d = new Date(inicio); d.setDate(d.getDate()+i);
+        var dk = _dk(d);
+        var isHoy = dk === todayKey;
+        var n = citas.filter(c => _citaEnDia(c, dk)).length;
         html += `<div onclick="_saltoADia('${dk}')"
             style="text-align:center;padding:10px 2px;cursor:pointer;transition:background .1s;
                    border-left:1px solid rgba(30,28,26,.06);
@@ -6742,8 +6738,8 @@ function _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES,
 
     // Hora axis
     html += '<div>';
-    for (let h = horaApertura; h < horaCierre; h++) {
-        const label = h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
+    for (var h = horaApertura; h < horaCierre; h++) {
+        var label = h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
         html += `<div style="height:${HORA_H}px;display:flex;align-items:flex-start;
                              justify-content:flex-end;padding:4px 6px 0 0;
                              border-top:1px solid rgba(30,28,26,.05);">
@@ -6753,22 +6749,22 @@ function _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES,
     html += '</div>';
 
     // Day columns
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(inicio); d.setDate(d.getDate()+i);
-        const dk = _dk(d);
-        const isHoy = dk === todayKey;
-        const citasDia = citas.filter(c => _citaEnDia(c, dk))
+    for (var i = 0; i < 7; i++) {
+        var d = new Date(inicio); d.setDate(d.getDate()+i);
+        var dk = _dk(d);
+        var isHoy = dk === todayKey;
+        var citasDia = citas.filter(c => _citaEnDia(c, dk))
             .sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
 
-        let blocks = '';
+        var blocks = '';
         citasDia.forEach(c => {
-            const [hh,mm] = (c.hora||'08:00').split(':').map(Number);
-            const startMin = hh*60+mm - horaApertura*60;
+            var [hh,mm] = (c.hora||'08:00').split(':').map(Number);
+            var startMin = hh*60+mm - horaApertura*60;
             if (startMin < 0) return;
-            const dur   = c.duracionMin || durMin;
-            const topPx = (startMin/60)*HORA_H;
-            const hPx   = Math.max(22, (dur/60)*HORA_H-2);
-            const eCol  = getColorEstadoCita(c.estado||'Pendiente');
+            var dur   = c.duracionMin || durMin;
+            var topPx = (startMin/60)*HORA_H;
+            var hPx   = Math.max(22, (dur/60)*HORA_H-2);
+            var eCol  = getColorEstadoCita(c.estado||'Pendiente');
             blocks += `
             <div onclick="verDetalleCita('${c.id}')"
                  draggable="true"
@@ -6788,10 +6784,10 @@ function _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES,
             </div>`;
         });
 
-        let dz = '';
-        for (let h = horaApertura; h < horaCierre; h++) {
-            const topPx = (h-horaApertura)*HORA_H;
-            const hora  = `${String(h).padStart(2,'0')}:00`;
+        var dz = '';
+        for (var h = horaApertura; h < horaCierre; h++) {
+            var topPx = (h-horaApertura)*HORA_H;
+            var hora  = `${String(h).padStart(2,'0')}:00`;
             dz += `<div ondragover="_onDragOver(event)" ondrop="_onDrop(event,'${dk}','${hora}',1)"
                 onclick="_abrirCitaEnSlot('${dk}','${hora}')"
                 style="position:absolute;top:${topPx}px;left:0;right:0;height:${HORA_H}px;z-index:1;
@@ -6807,7 +6803,7 @@ function _agendaSemana(citas, horaApertura, horaCierre, durMin, todayKey, MESES,
     }
     html += '</div></div>';
 
-    const container = document.getElementById('calendarioAgenda');
+    var container = document.getElementById('calendarioAgenda');
     if (container) container.innerHTML = html;
 }
 
@@ -7418,10 +7414,10 @@ function updateLaboratorioTab() {
         appData.laboratorios = [];
     }
 
-    const filtroEstado = document.getElementById('filtroEstadoLab')?.value || 'todos';
-    const filtroProfesional = document.getElementById('filtroProfesionalLab')?.value || 'todos';
+    var filtroEstado = document.getElementById('filtroEstadoLab')?.value || 'todos';
+    var filtroProfesional = document.getElementById('filtroProfesionalLab')?.value || 'todos';
 
-    let ordenesFiltradas = appData.laboratorios;
+    var ordenesFiltradas = appData.laboratorios;
 
     if (filtroEstado !== 'todos') {
         ordenesFiltradas = ordenesFiltradas.filter(o => o.estadoActual === filtroEstado);
@@ -7435,7 +7431,7 @@ function updateLaboratorioTab() {
 
     ordenesFiltradas.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
 
-    const porEstado = {
+    var porEstado = {
         'Toma de impresión': appData.laboratorios.filter(o => o.estadoActual === 'Toma de impresión').length,
         'Enviado a laboratorio': appData.laboratorios.filter(o => o.estadoActual === 'Enviado a laboratorio').length,
         'Listo para prueba': appData.laboratorios.filter(o => o.estadoActual === 'Listo para prueba').length,
@@ -7463,7 +7459,7 @@ function updateLaboratorioTab() {
         </div>
     `;
 
-    const lista = document.getElementById('listaLaboratorio');
+    var lista = document.getElementById('listaLaboratorio');
 
     if (ordenesFiltradas.length === 0) {
         lista.innerHTML = '<div style="text-align:center;padding:44px 20px;color:var(--muted);">  <div style="font-size:36px;margin-bottom:10px;line-height:1;">🧪</div>  <div style="font-size:14px;font-weight:400;color:var(--piedra);">Sin órdenes activas</div><div style="font-size:12px;color:var(--piedra);margin-top:4px;">Todas las órdenes han sido entregadas</div></div>';
@@ -7471,18 +7467,18 @@ function updateLaboratorioTab() {
     }
 
     lista.innerHTML = ordenesFiltradas.map(orden => {
-        const timeline = orden.timeline || [];
-        const ultimoEvento = timeline.length > 0
+        var timeline = orden.timeline || [];
+        var ultimoEvento = timeline.length > 0
             ? timeline[timeline.length - 1]
             : { fecha: orden.fechaCreacion || new Date().toISOString(), usuario: 'Sistema', notas: '' };
-        const colorEstado = getColorEstado(orden.estadoActual);
+        var colorEstado = getColorEstado(orden.estadoActual);
 
         // ── Alerta de retraso ──────────────────────────────────
-        const diasDesdeUltimo = Math.floor(
+        var diasDesdeUltimo = Math.floor(
             (Date.now() - new Date(ultimoEvento.fecha).getTime()) / (1000 * 60 * 60 * 24)
         );
-        const atrasado = diasDesdeUltimo > 7 && orden.estadoActual !== 'Entregado';
-        const alertaHTML = atrasado
+        var atrasado = diasDesdeUltimo > 7 && orden.estadoActual !== 'Entregado';
+        var alertaHTML = atrasado
             ? `<div style="margin-top:8px;padding:6px 10px;background:#fff3cd;border-radius:8px;
                            font-size:11px;color:#856404;display:flex;align-items:center;gap:6px;">
                    ⚠️ Sin actualización hace <strong>${diasDesdeUltimo} días</strong>
@@ -7490,16 +7486,16 @@ function updateLaboratorioTab() {
             : '';
 
         // ── Margen de ganancia ─────────────────────────────────
-        const margen = (orden.precio || 0) - (orden.costo || 0);
-        const margenPct = orden.precio > 0 ? Math.round((margen / orden.precio) * 100) : 0;
-        const margenHTML = orden.costo > 0
+        var margen = (orden.precio || 0) - (orden.costo || 0);
+        var margenPct = orden.precio > 0 ? Math.round((margen / orden.precio) * 100) : 0;
+        var margenHTML = orden.costo > 0
             ? `<div style="font-size:11px;color:${margen >= 0 ? '#6B8F71' : '#C47070'};margin-top:3px;">
                    Margen: ${formatCurrency(margen)} (${margenPct}%)
                </div>`
             : '';
 
         // ── Timeline últimos 3 eventos ─────────────────────────
-        const timelineHTML = timeline.length > 0
+        var timelineHTML = timeline.length > 0
             ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f5f5f5;">
                    <div style="font-size:10px;color:#bbb;letter-spacing:1px;
                                 text-transform:uppercase;margin-bottom:6px;">Historial</div>
@@ -7576,7 +7572,7 @@ function getColorEstado(estado) {
 }
 
 function verDetalleOrdenLab(ordenId) {
-    const orden = appData.laboratorios.find(o => o.id === ordenId);
+    var orden = appData.laboratorios.find(o => o.id === ordenId);
     if (!orden) return;
 
     window.currentOrdenLabId = ordenId;
@@ -7628,19 +7624,19 @@ function verDetalleOrdenLab(ordenId) {
     `;
 
     // ── Progress track ───────────────────────────────────────
-    const FLUJO = [
+    var FLUJO = [
         { key: 'Toma de impresión',      icon: '🦷', label: 'Toma de\nimpresión' },
         { key: 'Enviado a laboratorio',  icon: '📤', label: 'Enviado a\nlaboratorio' },
         { key: 'Listo para prueba',      icon: '🔍', label: 'Listo para\nprueba' },
         { key: 'Entregado',              icon: '✅', label: 'Entregado' },
     ];
 
-    const estadoActual = orden.estadoActual;
+    var estadoActual = orden.estadoActual;
     // Determine current index in the main flow
-    const mainIdx = FLUJO.findIndex(s => s.key === estadoActual);
+    var mainIdx = FLUJO.findIndex(s => s.key === estadoActual);
     // "Reenviado" is between Listo (2) and Entregado (3) visually
-    const isReen = estadoActual === 'Reenviado a laboratorio';
-    const efectivoIdx = isReen ? 2.5 : mainIdx;
+    var isReen = estadoActual === 'Reenviado a laboratorio';
+    var efectivoIdx = isReen ? 2.5 : mainIdx;
 
     var progressHTML = `
         <div style="margin:16px 0 8px;">
@@ -7649,11 +7645,11 @@ function verDetalleOrdenLab(ordenId) {
             <!-- Track -->
             <div style="display:flex;align-items:flex-start;gap:0;position:relative;">
                 ${FLUJO.map((step, i) => {
-                    const done = mainIdx > i || (isReen && i < 2) || estadoActual === step.key;
-                    const active = estadoActual === step.key;
-                    const isLast = i === FLUJO.length - 1;
-                    const dotColor = done || active ? getColorEstado(step.key) : 'rgba(60,50,40,.15)';
-                    const lineColor = (mainIdx > i || (isReen && i < 2)) ? getColorEstado(FLUJO[i].key) : 'rgba(60,50,40,.12)';
+                    var done = mainIdx > i || (isReen && i < 2) || estadoActual === step.key;
+                    var active = estadoActual === step.key;
+                    var isLast = i === FLUJO.length - 1;
+                    var dotColor = done || active ? getColorEstado(step.key) : 'rgba(60,50,40,.15)';
+                    var lineColor = (mainIdx > i || (isReen && i < 2)) ? getColorEstado(FLUJO[i].key) : 'rgba(60,50,40,.12)';
 
                     return `
                         <div style="flex:${isLast ? '0' : '1'};display:flex;flex-direction:column;align-items:center;position:relative;">
@@ -7701,14 +7697,14 @@ function verDetalleOrdenLab(ordenId) {
     `;
 
     // ── Timeline (audit log) ─────────────────────────────────
-    const timeline = orden.timeline || [];
-    const timelineHTML = timeline.length === 0
+    var timeline = orden.timeline || [];
+    var timelineHTML = timeline.length === 0
         ? '<div style="text-align:center;padding:20px;color:var(--muted,#A89F96);font-size:13px;">Sin historial registrado</div>'
         : `<div style="position:relative;padding-left:20px;">
             ${timeline.map((evento, index) => {
-                const isLast  = index === timeline.length - 1;
-                const color   = getColorEstado(evento.estado);
-                const isReen  = evento.estado === 'Reenviado a laboratorio';
+                var isLast  = index === timeline.length - 1;
+                var color   = getColorEstado(evento.estado);
+                var isReen  = evento.estado === 'Reenviado a laboratorio';
                 return `
                     <div style="position:relative;padding-bottom:${isLast ? '0' : '20px'};">
                         <!-- Vertical line -->
@@ -7746,7 +7742,7 @@ function verDetalleOrdenLab(ordenId) {
     `;
 
     // ── Action buttons ───────────────────────────────────────
-    const botonesHTML = renderizarBotonesAvance(orden);
+    var botonesHTML = renderizarBotonesAvance(orden);
     document.getElementById('botonesAvanceLab').innerHTML = `
         ${orden.estadoActual !== 'Entregado' ? `
         <div style="margin-bottom:10px;">
@@ -9898,36 +9894,31 @@ function getSaludo() {
 }
 
 function updateDashboardTab() {
-    const todayKey     = getTodayKey();
-    const yesterdayKey = getYesterdayKey();
-    const dashRole     = appData.currentRole;
+    var todayKey     = getTodayKey();
+    var yesterdayKey = getYesterdayKey();
+    var dashRole     = appData.currentRole;
 
     // ────────────────────────────────────────────────────
     // SECCIÓN 1 — SALUDO / HEADER
     // ────────────────────────────────────────────────────
-    const fechaStr    = new Date().toLocaleDateString(getLocale(), { weekday:'long', day:'numeric', month:'long' });
-    const nombre      = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
-    const nombreCorto = nombre ? nombre.split(' ')[0] : '';
-    const saludoDia   = getSaludo();
-    const fraseDia    = getFrase();
-    const fechaEl     = document.getElementById('dashboardFecha');
+    var fechaStr    = new Date().toLocaleDateString(getLocale(), { weekday:'long', day:'numeric', month:'long' });
+    var nombre      = appData.currentUser === 'admin' ? getNombreAdmin() : appData.currentUser;
+    var nombreCorto = nombre ? nombre.split(' ')[0] : '';
+    var saludoDia   = getSaludo();
+    var fraseDia    = getFrase();
+    var fechaEl     = document.getElementById('dashboardFecha');
     if (fechaEl) {
-        var _logoWM = '';
-        if (clinicConfig._logoSrc) {
-            var _imgEl = document.createElement('img');
-            _imgEl.src = clinicConfig._logoSrc;
-            _imgEl.alt = '';
-            _imgEl.style.cssText = 'position:absolute;right:0;top:50%;transform:translateY(-50%);height:52px;width:auto;object-fit:contain;opacity:.08;pointer-events:none;filter:grayscale(1);';
-            _imgEl.onerror = function(){ this.style.display='none'; };
-            _logoWM = _imgEl.outerHTML;
-        }
+        var logoWatermark = clinicConfig._logoSrc
+            ? `<img src="${clinicConfig._logoSrc}" alt="" style="position:absolute;right:0;top:50%;transform:translateY(-50%);height:52px;width:auto;object-fit:contain;opacity:.08;pointer-events:none;filter:grayscale(1);" onerror="this.style.display='none'">`
+            : '';
         fechaEl.style.position = 'relative';
         fechaEl.style.overflow = 'hidden';
-        var _nombreMostrar = nombreCorto ? ', ' + nombreCorto : '';
-        fechaEl.innerHTML = _logoWM
-            + '<div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-.5px;margin-bottom:2px;">' + saludoDia + _nombreMostrar + '.</div>'
-            + '<div style="font-size:12px;color:var(--light);margin-bottom:7px;text-transform:capitalize;">' + fechaStr + '</div>'
-            + '<div style="font-size:13px;color:var(--mid);font-style:italic;font-weight:300;line-height:1.5;">"' + fraseDia + '"</div>';
+        fechaEl.innerHTML = `
+            ${logoWatermark}
+            <div style="font-size:22px;font-weight:200;color:var(--dark);letter-spacing:-.5px;margin-bottom:2px;">${saludoDia}${nombreCorto ? `, ${nombreCorto}` : ''}.</div>
+            <div style="font-size:12px;color:var(--light);margin-bottom:7px;text-transform:capitalize;">${fechaStr}</div>
+            <div style="font-size:13px;color:var(--mid);font-style:italic;font-weight:300;line-height:1.5;">"${fraseDia}"</div>
+        `;
     }
 
     // ────────────────────────────────────────────────────
@@ -9935,17 +9926,17 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
 
     // Pagos hoy / ayer
-    const pagosHoy  = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, todayKey));
-    const pagosAyer = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
-    const ingresosHoy  = pagosHoy.reduce((s,p)=>s+p.monto,0);
-    const ingresosAyer = pagosAyer.reduce((s,p)=>s+p.monto,0);
+    var pagosHoy  = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, todayKey));
+    var pagosAyer = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
+    var ingresosHoy  = pagosHoy.reduce((s,p)=>s+p.monto,0);
+    var ingresosAyer = pagosAyer.reduce((s,p)=>s+p.monto,0);
 
     // Sparkline: ingresos últimos 7 días
-    const sparkData = [];
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date();
+    var sparkData = [];
+    for (var i = 6; i >= 0; i--) {
+        var d = new Date();
         d.setDate(d.getDate() - i);
-        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        var dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         sparkData.push(
             appData.facturas.flatMap(f=>f.pagos||[])
                 .filter(p=>p && isSameDayTZ(p.fecha, dk))
@@ -9954,56 +9945,56 @@ function updateDashboardTab() {
     }
 
     // Citas hoy
-    const citasHoy         = appData.citas.filter(c => isSameDayTZ(c.fecha, todayKey));
-    const citasActivas     = citasHoy.filter(c => !['Cancelada','Inasistencia'].includes(c.estado));
-    const citasCompletadas = citasActivas.filter(c => c.estado === 'Completada').length;
-    const citasPendientes  = citasActivas.filter(c => c.estado === 'Pendiente' || c.estado === 'Confirmada').length;
-    const enSala           = citasActivas.filter(c => c.estado === 'En Sala de Espera').length;
+    var citasHoy         = appData.citas.filter(c => isSameDayTZ(c.fecha, todayKey));
+    var citasActivas     = citasHoy.filter(c => !['Cancelada','Inasistencia'].includes(c.estado));
+    var citasCompletadas = citasActivas.filter(c => c.estado === 'Completada').length;
+    var citasPendientes  = citasActivas.filter(c => c.estado === 'Pendiente' || c.estado === 'Confirmada').length;
+    var enSala           = citasActivas.filter(c => c.estado === 'En Sala de Espera').length;
 
     // Facturas
-    const facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada');
-    const porCobrar = facturasPendientes.reduce((s,f) => {
-        const pagado = (f.pagos||[]).reduce((ss,p)=>ss+p.monto,0);
+    var facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada');
+    var porCobrar = facturasPendientes.reduce((s,f) => {
+        var pagado = (f.pagos||[]).reduce((ss,p)=>ss+p.monto,0);
         return s + Math.max(0, f.total - pagado);
     }, 0);
-    const totalFacturado = appData.facturas
+    var totalFacturado = appData.facturas
         .filter(f => f.estado !== 'cancelada')
         .reduce((s,f)=>s+f.total, 0);
-    const totalCobrado = appData.facturas
+    var totalCobrado = appData.facturas
         .flatMap(f=>f.pagos||[])
         .reduce((s,p)=>s+p.monto, 0);
-    const tasaCobro = totalFacturado > 0 ? Math.round(totalCobrado/totalFacturado*100) : 0;
+    var tasaCobro = totalFacturado > 0 ? Math.round(totalCobrado/totalFacturado*100) : 0;
 
     // Lab
-    const labActivo    = (appData.laboratorios||[]).filter(o => o.estadoActual !== 'Entregado');
-    const labPendiente = labActivo.filter(o => ['Toma de impresión','Enviado a laboratorio'].includes(o.estadoActual)).length;
-    const labAtrasado  = labActivo.filter(o => {
-        const timeline = o.timeline||[];
+    var labActivo    = (appData.laboratorios||[]).filter(o => o.estadoActual !== 'Entregado');
+    var labPendiente = labActivo.filter(o => ['Toma de impresión','Enviado a laboratorio'].includes(o.estadoActual)).length;
+    var labAtrasado  = labActivo.filter(o => {
+        var timeline = o.timeline||[];
         if (!timeline.length) return false;
-        const ultimo = timeline[timeline.length-1];
+        var ultimo = timeline[timeline.length-1];
         return (Date.now() - new Date(ultimo.fecha).getTime()) > 7*24*60*60*1000;
     });
 
     // Pacientes nuevos esta semana vs semana anterior
-    const inicioSemana = new Date();
-    const dow = inicioSemana.getDay();
+    var inicioSemana = new Date();
+    var dow = inicioSemana.getDay();
     inicioSemana.setDate(inicioSemana.getDate() - (dow===0?6:dow-1));
     inicioSemana.setHours(0,0,0,0);
-    const inicioSemanaAnterior = new Date(inicioSemana);
+    var inicioSemanaAnterior = new Date(inicioSemana);
     inicioSemanaAnterior.setDate(inicioSemanaAnterior.getDate()-7);
 
-    const pacNuevosSemana    = appData.pacientes.filter(p => p.fechaCreacion && new Date(p.fechaCreacion) >= inicioSemana).length;
-    const pacNuevosAnterior  = appData.pacientes.filter(p => p.fechaCreacion && new Date(p.fechaCreacion) >= inicioSemanaAnterior && new Date(p.fechaCreacion) < inicioSemana).length;
+    var pacNuevosSemana    = appData.pacientes.filter(p => p.fechaCreacion && new Date(p.fechaCreacion) >= inicioSemana).length;
+    var pacNuevosAnterior  = appData.pacientes.filter(p => p.fechaCreacion && new Date(p.fechaCreacion) >= inicioSemanaAnterior && new Date(p.fechaCreacion) < inicioSemana).length;
 
     // Gastos del mes
-    const hoyDate = new Date();
-    const gastosDelMes = (appData.gastos||[]).filter(g => {
-        const d = new Date(g.fecha);
+    var hoyDate = new Date();
+    var gastosDelMes = (appData.gastos||[]).filter(g => {
+        var d = new Date(g.fecha);
         return d.getMonth()===hoyDate.getMonth() && d.getFullYear()===hoyDate.getFullYear();
     }).reduce((s,g)=>s+g.monto, 0);
 
     // Leaderboard: cobrado por profesional esta semana
-    const leaderMap = {};
+    var leaderMap = {};
     appData.facturas.forEach(f => {
         (f.pagos||[]).forEach(p => {
             if (new Date(p.fecha).getTime() >= inicioSemana.getTime()) {
@@ -10011,37 +10002,37 @@ function updateDashboardTab() {
             }
         });
     });
-    const leaderboard = Object.entries(leaderMap).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    var leaderboard = Object.entries(leaderMap).sort((a,b)=>b[1]-a[1]).slice(0,4);
 
     // ────────────────────────────────────────────────────
     // SECCIÓN 3 — TARJETAS DE STATS
     // ────────────────────────────────────────────────────
 
     // Card Ingresos
-    const cambio = ingresosAyer > 0 ? ((ingresosHoy-ingresosAyer)/ingresosAyer*100).toFixed(0) : null;
+    var cambio = ingresosAyer > 0 ? ((ingresosHoy-ingresosAyer)/ingresosAyer*100).toFixed(0) : null;
     document.getElementById('dashIngresosHoy').textContent = formatCurrency(ingresosHoy);
     document.getElementById('dashIngresosComparacion').innerHTML = cambio !== null
         ? `${Number(cambio)>=0?'↑':'↓'} ${Math.abs(cambio)}% vs ayer`
         : (ingresosHoy > 0 ? 'Primer cobro del día ✓' : 'Sin cobros aún hoy');
 
     // Sparkline SVG — barras de 7 días
-    const sparkEl = document.getElementById('dashSparkline');
+    var sparkEl = document.getElementById('dashSparkline');
     if (sparkEl) {
-        const maxV  = Math.max(...sparkData, 1);
-        const BW=10, GAP=4, H=24;
-        const W = sparkData.length*(BW+GAP)-GAP;
-        const bars = sparkData.map((v,i) => {
-            const barH = Math.max(2, Math.round(v/maxV*H));
-            const x = i*(BW+GAP);
-            const y = H - barH;
+        var maxV  = Math.max(...sparkData, 1);
+        var BW=10, GAP=4, H=24;
+        var W = sparkData.length*(BW+GAP)-GAP;
+        var bars = sparkData.map((v,i) => {
+            var barH = Math.max(2, Math.round(v/maxV*H));
+            var x = i*(BW+GAP);
+            var y = H - barH;
             return `<rect x="${x}" y="${y}" width="${BW}" height="${barH}" rx="3" fill="${i===6?'rgba(255,255,255,.95)':'rgba(255,255,255,.4)'}"/>`;
         }).join('');
-        const nowDow = new Date().getDay();
-        const labels = sparkData.map((_,i) => {
-            const dOff = 6-i;
-            const d = ((nowDow-dOff)%7+7)%7;
-            const lbl = ['D','L','M','M','J','V','S'][d];
-            const x = i*(BW+GAP)+Math.floor(BW/2);
+        var nowDow = new Date().getDay();
+        var labels = sparkData.map((_,i) => {
+            var dOff = 6-i;
+            var d = ((nowDow-dOff)%7+7)%7;
+            var lbl = ['D','L','M','M','J','V','S'][d];
+            var x = i*(BW+GAP)+Math.floor(BW/2);
             return `<text x="${x}" y="${H+10}" text-anchor="middle" font-size="8" font-family="inherit" fill="${i===6?'rgba(255,255,255,.9)':'rgba(255,255,255,.5)'}">${lbl}</text>`;
         }).join('');
         sparkEl.innerHTML = `<svg width="${W}" height="${H+12}" viewBox="0 0 ${W} ${H+12}">${bars}${labels}</svg>`;
@@ -10054,10 +10045,10 @@ function updateDashboardTab() {
         citasPendientes > 0 ? `${citasPendientes} pendiente${citasPendientes!==1?'s':''}` : 'Todas completadas';
 
     // Occupancy progress bar
-    const ocupEl = document.getElementById('dashOcupacion');
+    var ocupEl = document.getElementById('dashOcupacion');
     if (ocupEl) {
         if (citasActivas.length > 0) {
-            const pct = Math.round(citasCompletadas/citasActivas.length*100);
+            var pct = Math.round(citasCompletadas/citasActivas.length*100);
             ocupEl.innerHTML = `
                 <div style="display:flex;align-items:center;gap:6px;">
                     <div style="flex:1;height:3px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden;">
@@ -10071,19 +10062,19 @@ function updateDashboardTab() {
     }
 
     // Card Por Cobrar / Comisiones
-    const cobrarLabel = document.getElementById('dashCardCobrarLabel');
+    var cobrarLabel = document.getElementById('dashCardCobrarLabel');
     if (dashRole === 'professional') {
-        const person = appData.personal.find(p => p.nombre === appData.currentUser);
+        var person = appData.personal.find(p => p.nombre === appData.currentUser);
         if (person) {
-            const rate  = getComisionRate(person.tipo, person);
-            const acum  = calcularComisionesAcumuladas(person);
-            const avs   = calcularTotalAvances(person.id);
-            const neto  = Math.max(0, acum - avs);
+            var rate  = getComisionRate(person.tipo, person);
+            var acum  = calcularComisionesAcumuladas(person);
+            var avs   = calcularTotalAvances(person.id);
+            var neto  = Math.max(0, acum - avs);
             if (cobrarLabel) cobrarLabel.textContent = 'Mis comisiones';
             document.getElementById('dashPorCobrar').textContent = formatCurrency(acum);
             document.getElementById('dashFacturasPendientes').textContent =
                 avs > 0 ? `Neto ${formatCurrency(neto)} · ${rate}%` : `${rate}% comisión`;
-            const cardCobrar = document.getElementById('dashCardCobrar');
+            var cardCobrar = document.getElementById('dashCardCobrar');
             if (cardCobrar) cardCobrar.style.background = 'linear-gradient(135deg,#7B8FA1 0%,#5A7080 100%)';
         }
     } else {
@@ -10092,7 +10083,7 @@ function updateDashboardTab() {
         document.getElementById('dashFacturasPendientes').textContent =
             `${facturasPendientes.length} factura${facturasPendientes.length!==1?'s':''}`;
         // Collection rate bar
-        const rateEl = document.getElementById('dashCollectionRate');
+        var rateEl = document.getElementById('dashCollectionRate');
         if (rateEl) {
             rateEl.innerHTML = `
                 <div style="display:flex;align-items:center;gap:6px;">
@@ -10105,7 +10096,7 @@ function updateDashboardTab() {
     }
 
     // Card Lab
-    const labCard = document.getElementById('dashCardLab');
+    var labCard = document.getElementById('dashCardLab');
     if (labCard) labCard.style.display = hasModule('laboratorio') ? '' : 'none';
     document.getElementById('dashLabActivo').textContent = labActivo.length;
     document.getElementById('dashLabPendiente').textContent =
@@ -10113,14 +10104,14 @@ function updateDashboardTab() {
         labPendiente > 0 ? `${labPendiente} en proceso` : 'Al día ✓';
 
     // Click nav on stat cards
-    const cardNavMap = [
+    var cardNavMap = [
         { id:'dashCardIngresos', tab:'cobros' },
         { id:'dashCardCitas',    tab:'agenda' },
         { id:'dashCardCobrar',   tab:'cobros' },
         { id:'dashCardLab',      tab:'laboratorio' },
     ];
     cardNavMap.forEach(({id, tab}) => {
-        const el = document.getElementById(id);
+        var el = document.getElementById(id);
         if (el) el.onclick = () => showTab(tab);
     });
 
@@ -10137,15 +10128,15 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     // SECCIÓN 4 — KPI SECUNDARIOS
     // ────────────────────────────────────────────────────
-    const kpiRow = document.getElementById('dashKpiRow');
+    var kpiRow = document.getElementById('dashKpiRow');
     if (kpiRow) {
-        const pacDelta = pacNuevosSemana - pacNuevosAnterior;
-        const pacArrow = pacDelta > 0
+        var pacDelta = pacNuevosSemana - pacNuevosAnterior;
+        var pacArrow = pacDelta > 0
             ? `<span style="color:var(--salvia);font-size:11px;margin-left:3px;">↑${pacDelta}</span>`
             : pacDelta < 0
             ? `<span style="color:var(--terra);font-size:11px;margin-left:3px;">↓${Math.abs(pacDelta)}</span>`
             : '';
-        const gastosStr = formatCurrency(gastosDelMes).replace('RD$ ','').replace(' ','');
+        var gastosStr = formatCurrency(gastosDelMes).replace('RD$ ','').replace(' ','');
 
         kpiRow.innerHTML = `
             <div class="dash-kpi" data-tab="cobros" onclick="showTab('cobros')" title="Porcentaje del total facturado que ya está cobrado">
@@ -10166,15 +10157,15 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     // SECCIÓN 5 — ALERTAS INTELIGENTES CON ACCIONES
     // ────────────────────────────────────────────────────
-    const alertItems = [];
+    var alertItems = [];
 
     // Facturas vencidas > 30 días — por nombre de paciente
-    const hace30 = Date.now() - 30*24*60*60*1000;
-    const facturasViejas = facturasPendientes.filter(f => new Date(f.fecha).getTime() < hace30);
+    var hace30 = Date.now() - 30*24*60*60*1000;
+    var facturasViejas = facturasPendientes.filter(f => new Date(f.fecha).getTime() < hace30);
     facturasViejas.slice(0,3).forEach(f => {
-        const dias    = Math.floor((Date.now()-new Date(f.fecha).getTime())/(24*60*60*1000));
-        const deuda   = Math.max(0, f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0));
-        const facId   = f.id;
+        var dias    = Math.floor((Date.now()-new Date(f.fecha).getTime())/(24*60*60*1000));
+        var deuda   = Math.max(0, f.total - (f.pagos||[]).reduce((s,p)=>s+p.monto,0));
+        var facId   = f.id;
         alertItems.push({
             icon : '💰',
             text : `<strong>${f.paciente}</strong> — ${formatCurrency(deuda)} · <span style="color:var(--terra);">${dias} días</span>`,
@@ -10193,7 +10184,7 @@ function updateDashboardTab() {
 
     // Pacientes sin consentimiento (admin, max 3)
     if (dashRole === 'admin') {
-        const sinConsentimiento = appData.pacientes.filter(p => !p.consentimiento?.firmado);
+        var sinConsentimiento = appData.pacientes.filter(p => !p.consentimiento?.firmado);
         sinConsentimiento.slice(0,3).forEach(p => {
             alertItems.push({
                 icon : '📋',
@@ -10205,13 +10196,13 @@ function updateDashboardTab() {
     }
 
     // Cita en la próxima hora
-    const enUnaHora = Date.now() + 60*60*1000;
-    const citaProxima = appData.citas.find(c => {
-        const ts = new Date(c.fecha).getTime();
+    var enUnaHora = Date.now() + 60*60*1000;
+    var citaProxima = appData.citas.find(c => {
+        var ts = new Date(c.fecha).getTime();
         return ts > Date.now() && ts <= enUnaHora && (c.estado==='Pendiente'||c.estado==='Confirmada');
     });
     if (citaProxima) {
-        const hCita = new Date(citaProxima.fecha).toLocaleTimeString(getLocale(),{hour:'2-digit',minute:'2-digit'});
+        var hCita = new Date(citaProxima.fecha).toLocaleTimeString(getLocale(),{hour:'2-digit',minute:'2-digit'});
         alertItems.push({
             icon : '🕐',
             text : `Próxima cita a las <strong>${hCita}</strong> — ${citaProxima.paciente}`,
@@ -10230,9 +10221,9 @@ function updateDashboardTab() {
         });
     }
 
-    const alertasContainer = document.getElementById('dashboardAlertas');
-    const alertasList      = document.getElementById('dashAlertasList');
-    const alertaBadge      = document.getElementById('dashAlertaBadge');
+    var alertasContainer = document.getElementById('dashboardAlertas');
+    var alertasList      = document.getElementById('dashAlertasList');
+    var alertaBadge      = document.getElementById('dashAlertaBadge');
     if (alertItems.length > 0) {
         alertasContainer.style.display = 'block';
         if (alertaBadge) alertaBadge.textContent = alertItems.length;
@@ -10248,11 +10239,11 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     // SECCIÓN 6 — LEADERBOARD SEMANAL (admin, 2+ profesionales)
     // ────────────────────────────────────────────────────
-    const leaderEl = document.getElementById('dashLeaderboard');
+    var leaderEl = document.getElementById('dashLeaderboard');
     if (leaderEl) {
         if (dashRole === 'admin' && leaderboard.length >= 2) {
-            const medals = ['🥇','🥈','🥉',''];
-            const totalSemana = leaderboard.reduce((s,[,v])=>s+v,0);
+            var medals = ['🥇','🥈','🥉',''];
+            var totalSemana = leaderboard.reduce((s,[,v])=>s+v,0);
             leaderEl.style.display = 'block';
             leaderEl.innerHTML = `
                 <div class="card" style="padding:14px 16px;">
@@ -10261,7 +10252,7 @@ function updateDashboardTab() {
                         <span style="font-size:12px;color:var(--piedra);">${formatCurrency(totalSemana)} total</span>
                     </div>
                     ${leaderboard.map(([nom,monto],i) => {
-                        const pct = totalSemana > 0 ? Math.round(monto/totalSemana*100) : 0;
+                        var pct = totalSemana > 0 ? Math.round(monto/totalSemana*100) : 0;
                         return `
                         <div class="dash-leader-row">
                             <span style="width:20px;text-align:center;font-size:15px;flex-shrink:0;">${medals[i]||''}</span>
@@ -10285,7 +10276,7 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     // SECCIÓN 7 — AGENDA HOY (smart timeline)
     // ────────────────────────────────────────────────────
-    const salaBadge = document.getElementById('dashSalaBadge');
+    var salaBadge = document.getElementById('dashSalaBadge');
     if (salaBadge) {
         if (enSala > 0) {
             salaBadge.style.display = 'inline';
@@ -10295,10 +10286,10 @@ function updateDashboardTab() {
         }
     }
 
-    const sortedCitas = [...citasActivas]
+    var sortedCitas = [...citasActivas]
         .sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
 
-    const agendaEl = document.getElementById('dashAgendaHoy');
+    var agendaEl = document.getElementById('dashAgendaHoy');
     if (!agendaEl) { /* skip */ }
     else if (sortedCitas.length === 0) {
         agendaEl.innerHTML = `
@@ -10308,19 +10299,19 @@ function updateDashboardTab() {
             </div>`;
     } else {
         // Find "current" cita: en sala first, else next pending
-        let currentIdx = sortedCitas.findIndex(c => c.estado==='En Sala de Espera');
+        var currentIdx = sortedCitas.findIndex(c => c.estado==='En Sala de Espera');
         if (currentIdx === -1) currentIdx = sortedCitas.findIndex(c => c.estado==='Pendiente'||c.estado==='Confirmada');
 
-        const rows = sortedCitas.slice(0,6).map((c,i) => {
-            const color   = getColorEstadoCita(c.estado);
-            const icono   = getIconoEstadoCita(c.estado);
-            const esActual = i === currentIdx;
+        var rows = sortedCitas.slice(0,6).map((c,i) => {
+            var color   = getColorEstadoCita(c.estado);
+            var icono   = getIconoEstadoCita(c.estado);
+            var esActual = i === currentIdx;
             // Balance indicator
-            const balPac  = calcularBalancePaciente(c.paciente);
-            const balBadge = balPac > 0
+            var balPac  = calcularBalancePaciente(c.paciente);
+            var balBadge = balPac > 0
                 ? `<span style="font-size:10px;background:rgba(196,133,106,.18);color:var(--terra);padding:1px 6px;border-radius:8px;flex-shrink:0;">💰 debe</span>`
                 : '';
-            const salaBadgeRow = esActual && c.estado==='En Sala de Espera'
+            var salaBadgeRow = esActual && c.estado==='En Sala de Espera'
                 ? `<span style="font-size:10px;background:rgba(107,143,113,.2);color:var(--salvia);padding:1px 6px;border-radius:8px;flex-shrink:0;">en sala</span>`
                 : '';
             return `
@@ -10344,7 +10335,7 @@ function updateDashboardTab() {
                 </div>`;
         }).join('');
 
-        const extra = sortedCitas.length > 6
+        var extra = sortedCitas.length > 6
             ? `<div style="text-align:center;padding:6px;font-size:12px;color:var(--piedra);">+ ${sortedCitas.length-6} cita${sortedCitas.length-6!==1?'s':''} más hoy</div>`
             : '';
 
@@ -10354,17 +10345,17 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     // SECCIÓN 8 — LAB INSIGHT (módulo activo, solo si hay datos)
     // ────────────────────────────────────────────────────
-    const labInsightEl = document.getElementById('dashLabInsight');
+    var labInsightEl = document.getElementById('dashLabInsight');
     if (labInsightEl) {
         if (hasModule('laboratorio') && labActivo.length > 0) {
             // Bottleneck stage
-            const stageCounts = {};
+            var stageCounts = {};
             labActivo.forEach(o => { stageCounts[o.estadoActual] = (stageCounts[o.estadoActual]||0)+1; });
-            const [bottleStage, bottleCount] = Object.entries(stageCounts).sort((a,b)=>b[1]-a[1])[0];
+            var [bottleStage, bottleCount] = Object.entries(stageCounts).sort((a,b)=>b[1]-a[1])[0];
             // Oldest delayed
-            const oldestAtrasado = labAtrasado.sort((a,b) => {
-                const ta = (a.timeline||[]).slice(-1)[0]?.fecha || a.fechaCreacion;
-                const tb = (b.timeline||[]).slice(-1)[0]?.fecha || b.fechaCreacion;
+            var oldestAtrasado = labAtrasado.sort((a,b) => {
+                var ta = (a.timeline||[]).slice(-1)[0]?.fecha || a.fechaCreacion;
+                var tb = (b.timeline||[]).slice(-1)[0]?.fecha || b.fechaCreacion;
                 return new Date(ta) - new Date(tb);
             })[0];
 
@@ -10398,9 +10389,9 @@ function updateDashboardTab() {
     // ────────────────────────────────────────────────────
     // SECCIÓN 9 — QUICK ACTIONS POR ROL
     // ────────────────────────────────────────────────────
-    const qaEl = document.getElementById('dashQuickActions');
+    var qaEl = document.getElementById('dashQuickActions');
     if (qaEl) {
-        let buttons = [];
+        var buttons = [];
         if (dashRole === 'admin') {
             buttons = [
                 { label:'+ Nueva factura', primary:true,  click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
@@ -11583,7 +11574,7 @@ function renderMiPlanTab() {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-    let tab = document.getElementById('tab-miplan');
+    var tab = document.getElementById('tab-miplan');
     if (!tab) {
         tab = document.createElement('div');
         tab.id = 'tab-miplan';
@@ -11595,28 +11586,28 @@ function renderMiPlanTab() {
         if (btn.getAttribute('onclick') === "showTab('miplan')") btn.classList.add('active');
     });
 
-    const plan       = clinicConfig.plan || 'clinica';
-    const basePrice  = BASE_PRECIOS[plan] || 1200;
-    const moneda     = clinicConfig.moneda || 'RD$';
-    const enTrial    = clinicConfig.enTrial;
-    const suspendida = clinicConfig.suspendida;
-    const pagoPend   = clinicConfig.pagoPendiente;
-    const suscActiva = clinicConfig.subscripcionActiva;
-    const proxPago   = clinicConfig.proximoPago;
-    const hasta      = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
-    const diasTrial  = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / 86400000)) : 0;
+    var plan       = clinicConfig.plan || 'clinica';
+    var basePrice  = BASE_PRECIOS[plan] || 1200;
+    var moneda     = clinicConfig.moneda || 'RD$';
+    var enTrial    = clinicConfig.enTrial;
+    var suspendida = clinicConfig.suspendida;
+    var pagoPend   = clinicConfig.pagoPendiente;
+    var suscActiva = clinicConfig.subscripcionActiva;
+    var proxPago   = clinicConfig.proximoPago;
+    var hasta      = clinicConfig.trialHasta ? new Date(clinicConfig.trialHasta) : null;
+    var diasTrial  = hasta ? Math.max(0, Math.ceil((hasta - new Date()) / 86400000)) : 0;
 
-    let pendientes = [...(clinicConfig.modulos || [])];
+    var pendientes = [...(clinicConfig.modulos || [])];
 
     function calcTotal() {
         return basePrice + pendientes.reduce((s, k) => {
-            const m = MODULOS_DISPONIBLES.find(x => x.key === k);
+            var m = MODULOS_DISPONIBLES.find(x => x.key === k);
             return s + (m ? m.precio : 0);
         }, 0);
     }
 
     function renderToggle(modulo) {
-        const activo = pendientes.includes(modulo.key);
+        var activo = pendientes.includes(modulo.key);
         return `
         <div class="miplan-modulo" id="mpmod-${modulo.key}" style="
             display:flex;align-items:center;justify-content:space-between;
@@ -11638,7 +11629,7 @@ function renderMiPlanTab() {
     }
 
     // ── Badge de estado ──────────────────────────────────────────
-    let badge = '';
+    var badge = '';
     if      (suspendida)  badge = `<span style="background:#c0392b;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⛔ Suspendida</span>`;
     else if (pagoPend)    badge = `<span style="background:#e65100;color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⚠️ Pago pendiente</span>`;
     else if (enTrial)     badge = `<span style="background:var(--terracota,#C4856A);color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">⏳ Trial · ${diasTrial}d</span>`;
@@ -11646,21 +11637,21 @@ function renderMiPlanTab() {
     else                  badge = `<span style="background:var(--muted,#aaa);color:white;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;">Sin suscripción</span>`;
 
     // ── Subtítulo ────────────────────────────────────────────────
-    let subtitulo = '';
+    var subtitulo = '';
     if      (enTrial)    subtitulo = `Período de prueba · <strong style="color:var(--terracota)">${diasTrial} día${diasTrial !== 1 ? 's' : ''} restante${diasTrial !== 1 ? 's' : ''}</strong>`;
     else if (suscActiva) subtitulo = proxPago ? `Próximo cobro: <strong>${new Date(proxPago).toLocaleDateString(getLocale(), {day:'2-digit', month:'long', year:'numeric'})}</strong>` : 'Plan activo';
     else if (suspendida) subtitulo = 'Suscripción suspendida por falta de pago';
     else                 subtitulo = 'Sin suscripción activa';
 
     // ── Alertas contextuales ─────────────────────────────────────
-    let alertas = '';
+    var alertas = '';
     if (suspendida) {
         alertas = `<div style="padding:12px 16px;background:rgba(192,57,43,0.08);border-radius:10px;border-left:3px solid #c0392b;font-size:13px;color:#c0392b;margin-bottom:16px;">
             ⛔ Tu suscripción fue suspendida por falta de pago. Reactivá para recuperar el acceso completo.
         </div>`;
     } else if (pagoPend) {
-        const grace = clinicConfig.gracePeriodHasta ? new Date(clinicConfig.gracePeriodHasta) : null;
-        const dias  = grace ? Math.max(0, Math.ceil((grace - new Date()) / 86400000)) : 0;
+        var grace = clinicConfig.gracePeriodHasta ? new Date(clinicConfig.gracePeriodHasta) : null;
+        var dias  = grace ? Math.max(0, Math.ceil((grace - new Date()) / 86400000)) : 0;
         alertas = `<div style="padding:12px 16px;background:rgba(230,81,0,0.08);border-radius:10px;border-left:3px solid #e65100;font-size:13px;color:#e65100;margin-bottom:16px;">
             ⚠️ Hay un pago fallido. Tenés <strong>${dias} día${dias !== 1 ? 's' : ''}</strong> de gracia antes de la suspensión.
         </div>`;
@@ -11671,7 +11662,7 @@ function renderMiPlanTab() {
     }
 
     // ── Botón de acción principal según estado ───────────────────
-    let accion = '';
+    var accion = '';
     if (suspendida) {
         accion = `
             <button onclick="withGuard(this, abrirCheckoutStripe)" style="
@@ -11816,7 +11807,7 @@ function renderCobrosTab(subtab) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
     // Get or create container
-    let tab = document.getElementById('tab-cobros');
+    var tab = document.getElementById('tab-cobros');
     if (!tab) {
         tab = document.createElement('div');
         tab.id = 'tab-cobros';
@@ -11825,12 +11816,12 @@ function renderCobrosTab(subtab) {
     }
     tab.classList.add('active');
     // Default subtab por rol
-    const _roleDefault = appData.currentRole === 'professional' ? 'mis-facturas'
+    var _roleDefault = appData.currentRole === 'professional' ? 'mis-facturas'
                        : appData.currentRole === 'reception'    ? 'cobrar'
                        : 'cobrar';
-    const _requested = subtab || tab._activeSubtab || _roleDefault;
+    var _requested = subtab || tab._activeSubtab || _roleDefault;
     tab._activeSubtab = _requested;
-    const active = _requested;
+    var active = _requested;
 
     // Highlight nav
     document.querySelectorAll('.nav-item').forEach(btn => {
@@ -11838,8 +11829,8 @@ function renderCobrosTab(subtab) {
     });
 
     // Subtabs según rol — cada rol ve solo lo que le corresponde
-    const role = appData.currentRole;
-    let subtabs;
+    var role = appData.currentRole;
+    var subtabs;
     if (role === 'admin') {
         subtabs = [
             { key: 'cobrar',        label: '💳 Cobrar'   },
@@ -11862,7 +11853,7 @@ function renderCobrosTab(subtab) {
         subtabs = [{ key: 'cobrar', label: '💳 Cobrar' }];
     }
 
-    const subtabsHtml = subtabs.map(s => `
+    var subtabsHtml = subtabs.map(s => `
         <button onclick="setCobrosSubtab('${s.key}')" style="
             padding:8px 16px;border:none;background:${active===s.key ? 'var(--dark)' : 'transparent'};
             color:${active===s.key ? 'white' : 'var(--mid)'};
@@ -12101,7 +12092,7 @@ function renderCobrosContent(key) {
 // ═══════════════════════════════════════════════
 function abrirMas() {
     // Remove existing
-    const existing = document.getElementById('masSheet');
+    var existing = document.getElementById('masSheet');
     if (existing) { cerrarMas(); return; }
 
     // Mark nav
@@ -12110,14 +12101,14 @@ function abrirMas() {
         if (btn.getAttribute('onclick') === 'abrirMas()') btn.classList.add('active');
     });
 
-    const role = appData.currentRole;
-    const overlay = document.createElement('div');
+    var role = appData.currentRole;
+    var overlay = document.createElement('div');
     overlay.id = 'masOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:999;backdrop-filter:blur(4px);animation:fadeIn 0.2s ease';
     overlay.onclick = cerrarMas;
     document.body.appendChild(overlay);
 
-    const sheet = document.createElement('div');
+    var sheet = document.createElement('div');
     sheet.id = 'masSheet';
     sheet.style.cssText = `
         position:fixed;bottom:0;left:0;right:0;z-index:1000;
@@ -12127,7 +12118,7 @@ function abrirMas() {
         max-height:85vh;overflow-y:auto;
     `;
 
-    const items = [];
+    var items = [];
 
     if (role === 'admin' || role === 'professional') {
         items.push({ icon: '💰', label: 'Cobros',      action: `cerrarMas();showTab('cobros')` });
@@ -12153,7 +12144,7 @@ function abrirMas() {
     items.push({ icon: '👤', label: 'Perfil',          action: `cerrarMas();irTab('perfil')` });
     items.push({ icon: '🚪', label: 'Cerrar sesión',   action: `cerrarMas();logout()`, danger: true });
 
-    const itemsHtml = items.map(item => `
+    var itemsHtml = items.map(item => `
         <button onclick="${item.action}" style="
             width:100%;padding:16px 24px;background:none;border:none;
             display:flex;align-items:center;gap:16px;
@@ -12186,20 +12177,16 @@ function cerrarMas() {
 }
 
 function irTab(tabName) {
+    // For tabs that still live as direct tab-content elements
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const tab = document.getElementById('tab-' + tabName);
     if (tab) tab.classList.add('active');
-    try {
-        if (tabName === 'perfil') updatePerfilTab();
-        if (tabName === 'reportes'   && typeof updateReportesTab   === 'function') updateReportesTab();
-        if (tabName === 'personal'   && typeof updatePersonalTab   === 'function') updatePersonalTab();
-        if (tabName === 'inventario' && typeof updateInventarioTab === 'function') updateInventarioTab();
-        if (tabName === 'sedes'      && typeof updateSedesTab      === 'function') updateSedesTab();
-    } catch(e) {
-        console.error('[irTab] Error:', tabName, e);
-        if (tab) tab.innerHTML = '<div style="padding:30px;color:red;font-family:monospace;font-size:13px;word-break:break-all"><b>Error en ' + tabName + ':</b><br>' + e.message + '</div>';
-    }
+    if (tabName === 'perfil') updatePerfilTab();
+    if (tabName === 'reportes'   && typeof updateReportesTab   === 'function') updateReportesTab();
+    if (tabName === 'personal'   && typeof updatePersonalTab   === 'function') updatePersonalTab();
+    if (tabName === 'inventario' && typeof updateInventarioTab === 'function') updateInventarioTab();
+    if (tabName === 'sedes'      && typeof updateSedesTab      === 'function') updateSedesTab();
 }
 
 
@@ -12209,15 +12196,15 @@ function renderCatalogoTab() {
         if (b.textContent.trim().includes('Catálogo')) b.classList.add('active');
     });
 
-    const items = clinicConfig.procItems || [];
+    var items = clinicConfig.procItems || [];
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
 
-    let catTab = document.getElementById('tab-catalogo');
+    var catTab = document.getElementById('tab-catalogo');
     if (!catTab) {
         catTab = document.createElement('div');
         catTab.id = 'tab-catalogo';
         catTab.className = 'tab-content';
-        const parent = document.querySelector('.tab-content')?.parentElement;
+        var parent = document.querySelector('.tab-content')?.parentElement;
         if (parent) parent.appendChild(catTab);
     }
     catTab.classList.add('active');
@@ -12768,22 +12755,22 @@ function _invStatsResumen() {
 
 // ── Tab principal ─────────────────────────────────────────
 function updateInventarioTab() {
-    const tab = document.getElementById('tab-inventario');
+    var tab = document.getElementById('tab-inventario');
     if (!tab) return;
 
-    const stats  = _invStatsResumen();
-    const items  = _invItemsActivos();
+    var stats  = _invStatsResumen();
+    var items  = _invItemsActivos();
 
     // Categorías únicas para filtro
-    const cats = ['todos', ...new Set(items.map(i => i.categoria).filter(Boolean))].sort((a, b) =>
+    var cats = ['todos', ...new Set(items.map(i => i.categoria).filter(Boolean))].sort((a, b) =>
         a === 'todos' ? -1 : a.localeCompare(b));
 
     // Filtrar
-    let lista = items;
+    var lista = items;
     if (_invFiltroCategoria !== 'todos') lista = lista.filter(i => i.categoria === _invFiltroCategoria);
     if (_invFiltroAlerta)                lista = lista.filter(i => i.stock <= i.stockMinimo);
     if (_invBusqueda) {
-        const q = _invBusqueda.toLowerCase();
+        var q = _invBusqueda.toLowerCase();
         lista = lista.filter(i =>
             (i.nombre || '').toLowerCase().includes(q) ||
             (i.categoria || '').toLowerCase().includes(q) ||
