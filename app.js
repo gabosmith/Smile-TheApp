@@ -1763,7 +1763,7 @@ function bootIntercomUser() {
                         : 'Inactiva';
 
         const userConfig = {
-            app_id:    'a3ti8klo',
+            app_id:    'a3ti8k1o',
             // User identity — use clinicId + username as unique composite ID
             user_id:   CLINIC_PATH + '::' + (appData.currentUser || 'unknown'),
             name:      appData.currentUser || 'Usuario',
@@ -1797,7 +1797,7 @@ function shutdownIntercom() {
     try {
         if (typeof Intercom !== 'undefined') {
             Intercom('shutdown');
-            Intercom('boot', { app_id: 'a3ti8klo' }); // anonymous after logout
+            Intercom('boot', { app_id: 'a3ti8k1o' }); // anonymous after logout
         }
     } catch(e) {}
 }
