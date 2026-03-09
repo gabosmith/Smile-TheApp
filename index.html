@@ -281,6 +281,65 @@
     .pricing-hero{padding:26px 20px}
     .solo-card{padding:26px 20px}
   }
+
+  /* ═══ SCREENSHOTS SECTION ═══════════════════════════════ */
+  .screenshots-section { padding: 90px 60px; overflow: hidden; }
+  .screenshots-eyebrow { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--piedra); margin-bottom: 12px; }
+  .screenshots-title { font-size: clamp(28px, 4vw, 42px); font-weight: 200; color: var(--topo); line-height: 1.2; margin-bottom: 10px; letter-spacing: -1.5px; }
+  .screenshots-sub { font-size: 15px; color: var(--piedra); font-weight: 300; margin-bottom: 60px; max-width: 480px; line-height: 1.6; }
+
+  /* Spotlight — large feature shot */
+  .ss-spotlight {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; margin-bottom: 64px;
+  }
+  .ss-spotlight.reverse { direction: rtl; }
+  .ss-spotlight.reverse > * { direction: ltr; }
+  .ss-shot {
+    border-radius: 22px; overflow: hidden;
+    box-shadow: 12px 12px 32px rgba(182,174,164,.55), -6px -6px 20px rgba(255,255,255,.95);
+    position: relative; transition: transform .4s cubic-bezier(.34,1.2,.64,1), box-shadow .4s;
+  }
+  .ss-shot:hover { transform: translateY(-6px) scale(1.01); box-shadow: 18px 18px 42px rgba(182,174,164,.6), -8px -8px 24px rgba(255,255,255,.98); }
+  .ss-shot img { width: 100%; display: block; }
+
+  /* Browser chrome bar */
+  .ss-chrome {
+    background: var(--sand-lt); padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid rgba(185,177,167,.25);
+  }
+  .ss-chrome-dots { display: flex; gap: 5px; }
+  .ss-chrome-dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .ss-chrome-dots span:nth-child(1) { background: #e8b4a2; }
+  .ss-chrome-dots span:nth-child(2) { background: #e8d4a2; }
+  .ss-chrome-dots span:nth-child(3) { background: #a2c8a8; }
+  .ss-chrome-bar { flex: 1; background: var(--sand); border-radius: 6px; padding: 4px 12px; font-size: 10px; color: var(--muted); letter-spacing: .3px; }
+
+  /* Text side */
+  .ss-text { padding: 12px 0; }
+  .ss-tag { display: inline-block; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--pizarra); background: rgba(125,142,160,.1); padding: 4px 12px; border-radius: 100px; margin-bottom: 16px; box-shadow: var(--neu-flat); }
+  .ss-text-title { font-size: clamp(20px, 2.8vw, 28px); font-weight: 300; color: var(--topo); letter-spacing: -0.8px; margin-bottom: 12px; line-height: 1.25; }
+  .ss-text-desc { font-size: 14px; color: var(--piedra); line-height: 1.7; font-weight: 300; }
+
+  /* Strip of 3 smaller shots */
+  .ss-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 0; }
+  .ss-strip-card { border-radius: 18px; overflow: hidden; box-shadow: var(--neu-raised); transition: transform .3s ease, box-shadow .3s; cursor: default; }
+  .ss-strip-card:hover { transform: translateY(-5px); box-shadow: var(--neu-raised-lg); }
+  .ss-strip-card img { width: 100%; display: block; }
+  .ss-strip-label { padding: 12px 16px; background: var(--sand-lt); }
+  .ss-strip-label-title { font-size: 13px; font-weight: 400; color: var(--topo); margin-bottom: 2px; }
+  .ss-strip-label-sub { font-size: 11px; color: var(--piedra); }
+
+  @media (max-width: 860px) {
+    .screenshots-section { padding: 70px 20px; }
+    .ss-spotlight, .ss-spotlight.reverse { grid-template-columns: 1fr; direction: ltr; gap: 32px; margin-bottom: 48px; }
+    .ss-strip { grid-template-columns: 1fr; gap: 20px; }
+    .ss-text { padding: 0; }
+  }
+  @media (max-width: 600px) {
+    .ss-strip { grid-template-columns: repeat(2, 1fr); }
+    .ss-strip-card:last-child { grid-column: 1 / -1; }
+  }
+
 </style>
 </head>
 <body>
@@ -294,6 +353,7 @@
     <div class="nav-logo">SMILE</div>
     <ul class="nav-links">
       <li><a href="#producto">Producto</a></li>
+      <li><a href="#screenshots">App</a></li>
       <li><a href="#precios">Precios</a></li>
       <li><a href="#modulos">Módulos</a></li>
     </ul>
@@ -344,7 +404,7 @@
       </div>
       <div class="hero-note">
         ¿Ya tienes pacientes en otra app?
-        <a href="/cdn-cgi/l/email-protection#234b4c4f4263504e4a4f460d425353">Te ayudamos a migrarlos →</a>
+        <a href="/cdn-cgi/l/email-protection#0c6463606d4c7f61656069226d7c7c">Te ayudamos a migrarlos →</a>
       </div>
     </div>
 
@@ -402,6 +462,76 @@
   </div>
 </section>
 </div>
+
+
+<!-- ═══ SCREENSHOTS — Así se ve por dentro ══════════════════ -->
+<div class="sec-wrap" style="background:var(--sand-lt)">
+<section class="screenshots-section" id="screenshots">
+
+  <div class="eyebrow reveal">Así se ve por dentro</div>
+  <div class="sec-title reveal rd1">Diseñado para el<br>día a día dental.</div>
+  <div class="screenshots-sub reveal rd2">Sin curva de aprendizaje. Todo donde lo esperas, desde el primer día.</div>
+
+  <!-- Spotlight 1 — Dashboard -->
+  <div class="ss-spotlight reveal rd1">
+    <div class="ss-shot">
+      <div class="ss-chrome">
+        <div class="ss-chrome-dots"><span></span><span></span><span></span></div>
+        <div class="ss-chrome-bar">smiledental.app · Dashboard</div>
+      </div>
+      <img src="screenshot-dashboard.png" alt="Dashboard SMILE" loading="lazy">
+    </div>
+    <div class="ss-text">
+      <div class="ss-tag">Dashboard</div>
+      <div class="ss-text-title">Todo tu día,<br>de un vistazo.</div>
+      <div class="ss-text-desc">Ingresos de hoy, próximas citas, alertas del laboratorio y acciones rápidas — todo visible al entrar. Sin buscar, sin perder tiempo.</div>
+    </div>
+  </div>
+
+  <!-- Spotlight 2 — Agenda (reversed) -->
+  <div class="ss-spotlight reverse reveal rd2">
+    <div class="ss-shot">
+      <div class="ss-chrome">
+        <div class="ss-chrome-dots"><span></span><span></span><span></span></div>
+        <div class="ss-chrome-bar">smiledental.app · Agenda</div>
+      </div>
+      <img src="screenshot-agenda.png" alt="Agenda SMILE" loading="lazy">
+    </div>
+    <div class="ss-text">
+      <div class="ss-tag">Agenda</div>
+      <div class="ss-text-title">Semana completa,<br>sin conflictos.</div>
+      <div class="ss-text-desc">Vista diaria o semanal con citas por consultorio. Arrastra, reagenda, cambia estados al instante — desde el móvil o el escritorio.</div>
+    </div>
+  </div>
+
+  <!-- Strip de 3 — Cobros, Lab, Detalle cita -->
+  <div class="ss-strip reveal rd1">
+    <div class="ss-strip-card">
+      <img src="screenshot-cobros.png" alt="Cobros SMILE" loading="lazy">
+      <div class="ss-strip-label">
+        <div class="ss-strip-label-title">💳 Cobros</div>
+        <div class="ss-strip-label-sub">Ingresos, cuadre y pendientes en un solo lugar</div>
+      </div>
+    </div>
+    <div class="ss-strip-card">
+      <img src="screenshot-lab.png" alt="Laboratorio SMILE" loading="lazy">
+      <div class="ss-strip-label">
+        <div class="ss-strip-label-title">🧪 Laboratorio</div>
+        <div class="ss-strip-label-sub">Seguimiento de órdenes desde impresión hasta entrega</div>
+      </div>
+    </div>
+    <div class="ss-strip-card">
+      <img src="screenshot-paciente.png" alt="Expediente SMILE" loading="lazy">
+      <div class="ss-strip-label">
+        <div class="ss-strip-label-title">🦷 Expediente</div>
+        <div class="ss-strip-label-sub">Historial, tratamientos y balance del paciente</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+</div>
+
 
 <!-- TRUST STRIP -->
 <div class="trust-strip">
@@ -636,73 +766,5 @@ function toggleModule(card){
 function toggleMobileMenu(){document.getElementById('mobileMenu').classList.toggle('open');document.getElementById('navHamburger').classList.toggle('open')}
 document.addEventListener('click',e=>{const m=document.getElementById('mobileMenu'),b=document.getElementById('navHamburger');if(m.classList.contains('open')&&!m.contains(e.target)&&!b.contains(e.target)){m.classList.remove('open');b.classList.remove('open')}});
 
-// ACCESO — muestra modal para ingresar el link de la clínica
-function abrirAcceso() {
-  if (!document.getElementById('modalAcceso')) {
-    const m = document.createElement('div');
-    m.id = 'modalAcceso';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(107,99,92,.35);backdrop-filter:blur(8px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s';
-    m.innerHTML = `
-      <div style="background:var(--sand);border-radius:28px;padding:40px 36px;max-width:420px;width:100%;
-                  box-shadow:var(--neu-raised-lg);transform:translateY(12px);transition:transform .25s cubic-bezier(.34,1.56,.64,1)">
-        <div style="font-size:11px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--pizarra);margin-bottom:8px">Acceder</div>
-        <div style="font-size:22px;font-weight:200;color:var(--topo);margin-bottom:6px">¿Cuál es tu clínica?</div>
-        <div style="font-size:13px;color:var(--piedra);margin-bottom:28px;line-height:1.6">
-          Ingresa el ID que recibiste al crear tu cuenta.<br>Ejemplo: <code style="font-size:11px;background:rgba(0,0,0,.05);padding:2px 7px;border-radius:6px">mi-clinica-dental</code>
-        </div>
-        <div style="position:relative;margin-bottom:16px">
-          <input id="accesoInput" type="text" placeholder="ID de tu clínica"
-            style="width:100%;padding:14px 18px;border-radius:14px;border:none;
-                   background:var(--sand);font-family:inherit;font-size:14px;color:var(--topo);
-                   box-shadow:var(--neu-inset);outline:none;letter-spacing:.3px"
-            onkeydown="if(event.key==='Enter')irClinica()">
-        </div>
-        <div style="display:flex;gap:10px">
-          <button onclick="cerrarAcceso()"
-            style="flex:1;padding:13px;border-radius:14px;border:none;background:var(--sand);
-                   font-family:inherit;font-size:12px;color:var(--piedra);cursor:pointer;
-                   box-shadow:var(--neu-flat);letter-spacing:1px;text-transform:uppercase">
-            Cancelar
-          </button>
-          <button onclick="irClinica()"
-            style="flex:2;padding:13px;border-radius:14px;border:none;cursor:pointer;
-                   background:linear-gradient(145deg,#8c9db0,var(--pizarra));color:white;
-                   font-family:inherit;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;
-                   box-shadow:var(--neu-pizarra)">
-            Entrar →
-          </button>
-        </div>
-        <div id="accesoError" style="display:none;margin-top:12px;font-size:12px;color:var(--terra);text-align:center"></div>
-      </div>`;
-    m.addEventListener('click', e => { if (e.target === m) cerrarAcceso(); });
-    document.body.appendChild(m);
-    requestAnimationFrame(() => {
-      m.style.opacity = '1';
-      m.querySelector('div').style.transform = 'translateY(0)';
-    });
-  } else {
-    document.getElementById('modalAcceso').style.display = 'flex';
-  }
-  setTimeout(() => document.getElementById('accesoInput')?.focus(), 100);
-}
-
-function cerrarAcceso() {
-  const m = document.getElementById('modalAcceso');
-  if (m) { m.style.opacity = '0'; setTimeout(() => m.remove(), 200); }
-}
-
-function irClinica() {
-  const input = document.getElementById('accesoInput');
-  const errEl = document.getElementById('accesoError');
-  const id = input?.value?.trim().toLowerCase().replace(/\s+/g, '-');
-  if (!id) {
-    if (errEl) { errEl.textContent = 'Ingresa el ID de tu clínica.'; errEl.style.display = 'block'; }
-    input?.focus();
-    return;
-  }
-  window.location.href = window.location.origin + '/app.html?clinica=' + encodeURIComponent(id);
-}
-</script>
-
-</body>
-</html>
+// ACCESO
+function abrirAcceso(){cons
