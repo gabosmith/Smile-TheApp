@@ -113,12 +113,26 @@ function _stopHeartbeat() {
     _heartbeatInterval = null;
 }
 
+// Pulso inmediato cuando el usuario vuelve a la pestaña
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && _firebaseAuthUid && CLINIC_PATH) {
+        _sentinelPulse('activo');
+    }
+});
+
 function _sentinelPulse(estado = 'activo') {
     if (!CLINIC_PATH) return;
     try {
         const db_ = (typeof db !== 'undefined') ? db : null;
-        const user = (typeof firebase !== 'undefined') ? firebase.auth().currentUser : null;
-        if (!db_ || !user) return;
+        if (!db_) return;
+
+        const authOk = _firebaseAuthUid ||
+            ((typeof firebase !== 'undefined') && firebase.auth().currentUser);
+        if (!authOk) {
+            // Reintentar en 3 segundos — auth puede estar llegando
+            setTimeout(() => _sentinelPulse(estado), 3000);
+            return;
+        }
 
         const hora = new Date().toISOString();
         db_.collection('smile_health').doc(CLINIC_PATH).set({
@@ -130,9 +144,10 @@ function _sentinelPulse(estado = 'activo') {
             version:      SMILE_VERSION,
             url:          window.location.href.slice(0, 200),
             userAgent:    navigator.userAgent.slice(0, 100),
-            // Métricas ligeras de rendimiento
             memoria:      (performance?.memory?.usedJSHeapSize / 1048576)?.toFixed(1) + 'MB' || '—',
-        }, { merge: true }).catch(() => {});
+        }, { merge: true }).catch(e => {
+            console.warn('[Sentinel] pulse failed:', e.code || e.message);
+        });
     } catch(e) {}
 }
 
@@ -10189,9 +10204,16 @@ function updateDashboardTab() {
     // SECCIÓN 2 — CÁLCULOS (todos centralizados aquí)
     // ────────────────────────────────────────────────────
 
+    // Profesional solo ve sus propios cobros — admin/recep ven todo
+    const esProfesional = dashRole === 'professional';
+    const nombreProf    = appData.currentUser;
+    const facturasVista = esProfesional
+        ? appData.facturas.filter(f => f.profesional === nombreProf)
+        : appData.facturas;
+
     // Pagos hoy / ayer
-    const pagosHoy  = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, todayKey));
-    const pagosAyer = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
+    const pagosHoy  = facturasVista.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, todayKey));
+    const pagosAyer = facturasVista.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, yesterdayKey));
     const ingresosHoy  = pagosHoy.reduce((s,p)=>s+p.monto,0);
     const ingresosAyer = pagosAyer.reduce((s,p)=>s+p.monto,0);
 
@@ -10202,29 +10224,32 @@ function updateDashboardTab() {
         d.setDate(d.getDate() - i);
         const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         sparkData.push(
-            appData.facturas.flatMap(f=>f.pagos||[])
+            facturasVista.flatMap(f=>f.pagos||[])
                 .filter(p=>p && isSameDayTZ(p.fecha, dk))
                 .reduce((s,p)=>s+p.monto, 0)
         );
     }
 
-    // Citas hoy
-    const citasHoy         = appData.citas.filter(c => isSameDayTZ(c.fecha, todayKey));
+    // Citas hoy — profesional solo ve las suyas
+    const citasHoyAll  = appData.citas.filter(c => isSameDayTZ(c.fecha, todayKey));
+    const citasHoy     = esProfesional
+        ? citasHoyAll.filter(c => c.profesional === nombreProf)
+        : citasHoyAll;
     const citasActivas     = citasHoy.filter(c => !['Cancelada','Inasistencia'].includes(c.estado));
     const citasCompletadas = citasActivas.filter(c => c.estado === 'Completada').length;
     const citasPendientes  = citasActivas.filter(c => c.estado === 'Pendiente' || c.estado === 'Confirmada').length;
     const enSala           = citasActivas.filter(c => c.estado === 'En Sala de Espera').length;
 
     // Facturas
-    const facturasPendientes = appData.facturas.filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada');
+    const facturasPendientes = facturasVista.filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada');
     const porCobrar = facturasPendientes.reduce((s,f) => {
         const pagado = (f.pagos||[]).reduce((ss,p)=>ss+p.monto,0);
         return s + Math.max(0, f.total - pagado);
     }, 0);
-    const totalFacturado = appData.facturas
+    const totalFacturado = facturasVista
         .filter(f => f.estado !== 'cancelada')
         .reduce((s,f)=>s+f.total, 0);
-    const totalCobrado = appData.facturas
+    const totalCobrado = facturasVista
         .flatMap(f=>f.pagos||[])
         .reduce((s,p)=>s+p.monto, 0);
     const tasaCobro = totalFacturado > 0 ? Math.round(totalCobrado/totalFacturado*100) : 0;
@@ -10250,16 +10275,16 @@ function updateDashboardTab() {
     const pacNuevosSemana    = appData.pacientes.filter(p => p.fechaCreacion && new Date(p.fechaCreacion) >= inicioSemana).length;
     const pacNuevosAnterior  = appData.pacientes.filter(p => p.fechaCreacion && new Date(p.fechaCreacion) >= inicioSemanaAnterior && new Date(p.fechaCreacion) < inicioSemana).length;
 
-    // Gastos del mes
+    // Gastos del mes — profesional no ve gastos generales de la clínica
     const hoyDate = new Date();
-    const gastosDelMes = (appData.gastos||[]).filter(g => {
+    const gastosDelMes = esProfesional ? 0 : (appData.gastos||[]).filter(g => {
         const d = new Date(g.fecha);
         return d.getMonth()===hoyDate.getMonth() && d.getFullYear()===hoyDate.getFullYear();
     }).reduce((s,g)=>s+g.monto, 0);
 
-    // Leaderboard: cobrado por profesional esta semana
+    // Leaderboard filtrado por rol
     const leaderMap = {};
-    appData.facturas.forEach(f => {
+    facturasVista.forEach(f => {
         (f.pagos||[]).forEach(p => {
             if (new Date(p.fecha).getTime() >= inicioSemana.getTime()) {
                 leaderMap[f.profesional] = (leaderMap[f.profesional]||0) + p.monto;
@@ -14918,12 +14943,18 @@ function _renderDashChart(view) {
     const hoy = new Date();
     let data = []; // [{label, value, isToday}]
 
+    // Filtrar por profesional si aplica
+    const _esProfChart = appData.currentRole === 'professional';
+    const _facturasChart = _esProfChart
+        ? appData.facturas.filter(f => f.profesional === appData.currentUser)
+        : appData.facturas;
+
     if (view === 'mes') {
         const year = hoy.getFullYear(), month = hoy.getMonth();
         const daysInMonth = new Date(year, month+1, 0).getDate();
         for (let d = 1; d <= daysInMonth; d++) {
             const dk = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-            const val = appData.facturas.flatMap(f=>f.pagos||[])
+            const val = _facturasChart.flatMap(f=>f.pagos||[])
                 .filter(p=>p && isSameDayTZ(p.fecha, dk))
                 .reduce((s,p)=>s+p.monto, 0);
             data.push({ label: d%5===0||d===1||d===daysInMonth ? String(d) : '', value: val, isToday: dk === getTodayKey(), dk });
@@ -14941,7 +14972,7 @@ function _renderDashChart(view) {
             for (let d = 0; d < 7; d++) {
                 const dd = new Date(lunes); dd.setDate(lunes.getDate()+d);
                 const dk = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
-                wTotal += appData.facturas.flatMap(f=>f.pagos||[])
+                wTotal += _facturasChart.flatMap(f=>f.pagos||[])
                     .filter(p=>p && isSameDayTZ(p.fecha, dk))
                     .reduce((s,p)=>s+p.monto, 0);
             }
