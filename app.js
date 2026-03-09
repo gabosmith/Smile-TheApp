@@ -6392,10 +6392,13 @@ function _cotizActualizarOdontograma(paciente, dienteStr) {
 
 async function _cotizAgregarAFactura(paciente, procedimientos, ordenesLab) {
     try {
-        // Buscar factura abierta (pendiente, sin pagar totalmente)
+        // Buscar factura abierta del mismo profesional (pendiente, sin pagar totalmente)
+        // IMPORTANTE: filtrar por profesional para que los procedimientos de Dra. A
+        // no se mezclen con los de Dra. B en el mismo paciente
         const facturaAbierta = appData.facturas.find(f =>
             (f.pacienteId === paciente.id || f.paciente === paciente.nombre) &&
             f.estado !== 'cancelada' &&
+            f.profesional === appData.currentUser &&
             (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)) > 0
         );
 
