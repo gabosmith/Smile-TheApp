@@ -284,11 +284,6 @@
 
   /* ═══ SCREENSHOTS SECTION ═══════════════════════════════ */
   .screenshots-section { padding: 90px 60px; overflow: hidden; }
-  .screenshots-eyebrow { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--piedra); margin-bottom: 12px; }
-  .screenshots-title { font-size: clamp(28px, 4vw, 42px); font-weight: 200; color: var(--topo); line-height: 1.2; margin-bottom: 10px; letter-spacing: -1.5px; }
-  .screenshots-sub { font-size: 15px; color: var(--piedra); font-weight: 300; margin-bottom: 60px; max-width: 480px; line-height: 1.6; }
-
-  /* Spotlight — large feature shot */
   .ss-spotlight {
     display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; margin-bottom: 64px;
   }
@@ -297,12 +292,10 @@
   .ss-shot {
     border-radius: 22px; overflow: hidden;
     box-shadow: 12px 12px 32px rgba(182,174,164,.55), -6px -6px 20px rgba(255,255,255,.95);
-    position: relative; transition: transform .4s cubic-bezier(.34,1.2,.64,1), box-shadow .4s;
+    transition: transform .4s cubic-bezier(.34,1.2,.64,1), box-shadow .4s;
   }
   .ss-shot:hover { transform: translateY(-6px) scale(1.01); box-shadow: 18px 18px 42px rgba(182,174,164,.6), -8px -8px 24px rgba(255,255,255,.98); }
   .ss-shot img { width: 100%; display: block; }
-
-  /* Browser chrome bar */
   .ss-chrome {
     background: var(--sand-lt); padding: 10px 14px; display: flex; align-items: center; gap: 8px;
     border-bottom: 1px solid rgba(185,177,167,.25);
@@ -313,30 +306,21 @@
   .ss-chrome-dots span:nth-child(2) { background: #e8d4a2; }
   .ss-chrome-dots span:nth-child(3) { background: #a2c8a8; }
   .ss-chrome-bar { flex: 1; background: var(--sand); border-radius: 6px; padding: 4px 12px; font-size: 10px; color: var(--muted); letter-spacing: .3px; }
-
-  /* Text side */
   .ss-text { padding: 12px 0; }
   .ss-tag { display: inline-block; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--pizarra); background: rgba(125,142,160,.1); padding: 4px 12px; border-radius: 100px; margin-bottom: 16px; box-shadow: var(--neu-flat); }
   .ss-text-title { font-size: clamp(20px, 2.8vw, 28px); font-weight: 300; color: var(--topo); letter-spacing: -0.8px; margin-bottom: 12px; line-height: 1.25; }
   .ss-text-desc { font-size: 14px; color: var(--piedra); line-height: 1.7; font-weight: 300; }
-
-  /* Strip of 3 smaller shots */
-  .ss-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 0; }
-  .ss-strip-card { border-radius: 18px; overflow: hidden; box-shadow: var(--neu-raised); transition: transform .3s ease, box-shadow .3s; cursor: default; }
+  .ss-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .ss-strip-card { border-radius: 18px; overflow: hidden; box-shadow: var(--neu-raised); transition: transform .3s ease, box-shadow .3s; }
   .ss-strip-card:hover { transform: translateY(-5px); box-shadow: var(--neu-raised-lg); }
   .ss-strip-card img { width: 100%; display: block; }
   .ss-strip-label { padding: 12px 16px; background: var(--sand-lt); }
   .ss-strip-label-title { font-size: 13px; font-weight: 400; color: var(--topo); margin-bottom: 2px; }
   .ss-strip-label-sub { font-size: 11px; color: var(--piedra); }
-
   @media (max-width: 860px) {
-    .screenshots-section { padding: 70px 20px; }
-    .ss-spotlight, .ss-spotlight.reverse { grid-template-columns: 1fr; direction: ltr; gap: 32px; margin-bottom: 48px; }
-    .ss-strip { grid-template-columns: 1fr; gap: 20px; }
-    .ss-text { padding: 0; }
-  }
-  @media (max-width: 600px) {
-    .ss-strip { grid-template-columns: repeat(2, 1fr); }
+    .screenshots-section { padding: 60px 20px; }
+    .ss-spotlight, .ss-spotlight.reverse { grid-template-columns: 1fr; direction: ltr; gap: 28px; margin-bottom: 40px; }
+    .ss-strip { grid-template-columns: 1fr 1fr; gap: 16px; }
     .ss-strip-card:last-child { grid-column: 1 / -1; }
   }
 
@@ -404,7 +388,7 @@
       </div>
       <div class="hero-note">
         ¿Ya tienes pacientes en otra app?
-        <a href="/cdn-cgi/l/email-protection#0c6463606d4c7f61656069226d7c7c">Te ayudamos a migrarlos →</a>
+        <a href="/cdn-cgi/l/email-protection#afc7c0c3ceefdcc2c6c3ca81cedfdf">Te ayudamos a migrarlos →</a>
       </div>
     </div>
 
@@ -464,13 +448,13 @@
 </div>
 
 
-<!-- ═══ SCREENSHOTS — Así se ve por dentro ══════════════════ -->
+<!-- ═══ SCREENSHOTS — Así se ve por dentro ════════════════ -->
 <div class="sec-wrap" style="background:var(--sand-lt)">
 <section class="screenshots-section" id="screenshots">
 
   <div class="eyebrow reveal">Así se ve por dentro</div>
   <div class="sec-title reveal rd1">Diseñado para el<br>día a día dental.</div>
-  <div class="screenshots-sub reveal rd2">Sin curva de aprendizaje. Todo donde lo esperas, desde el primer día.</div>
+  <p style="font-size:15px;color:var(--piedra);font-weight:300;margin-bottom:56px;max-width:460px;line-height:1.6" class="reveal rd2">Sin curva de aprendizaje. Todo donde lo esperas, desde el primer día.</p>
 
   <!-- Spotlight 1 — Dashboard -->
   <div class="ss-spotlight reveal rd1">
@@ -500,11 +484,11 @@
     <div class="ss-text">
       <div class="ss-tag">Agenda</div>
       <div class="ss-text-title">Semana completa,<br>sin conflictos.</div>
-      <div class="ss-text-desc">Vista diaria o semanal con citas por consultorio. Arrastra, reagenda, cambia estados al instante — desde el móvil o el escritorio.</div>
+      <div class="ss-text-desc">Vista diaria o semanal por consultorio. Arrastra, reagenda y cambia estados al instante — desde el móvil o el escritorio.</div>
     </div>
   </div>
 
-  <!-- Strip de 3 — Cobros, Lab, Detalle cita -->
+  <!-- Strip de 3 -->
   <div class="ss-strip reveal rd1">
     <div class="ss-strip-card">
       <img src="screenshot-cobros.png" alt="Cobros SMILE" loading="lazy">
@@ -517,7 +501,7 @@
       <img src="screenshot-lab.png" alt="Laboratorio SMILE" loading="lazy">
       <div class="ss-strip-label">
         <div class="ss-strip-label-title">🧪 Laboratorio</div>
-        <div class="ss-strip-label-sub">Seguimiento de órdenes desde impresión hasta entrega</div>
+        <div class="ss-strip-label-sub">Seguimiento desde impresión hasta entrega</div>
       </div>
     </div>
     <div class="ss-strip-card">
@@ -531,7 +515,6 @@
 
 </section>
 </div>
-
 
 <!-- TRUST STRIP -->
 <div class="trust-strip">
@@ -629,7 +612,7 @@
     </div>
     <div style="text-align:right" class="reveal rd2">
       <div class="total-label">Tu plan desde · expediente incluido</div>
-      <div class="total-price" id="totalPrice">$23 <span style="font-size:14px;font-weight:300;opacity:.5;letter-spacing:1px">USD</span></div>
+      <div class="total-price" id="totalPrice">$23 <span style="font-size:14px;font-weight:300;opn></div>
       <div class="total-base" id="totalBase">base · sin módulos</div>
     </div>
   </div>
@@ -715,7 +698,7 @@
   </div>
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 // CURSOR
 const cursor=document.getElementById('cursor'),ring=document.getElementById('cursorRing');
 let mx=0,my=0,rx=0,ry=0;
@@ -766,5 +749,41 @@ function toggleModule(card){
 function toggleMobileMenu(){document.getElementById('mobileMenu').classList.toggle('open');document.getElementById('navHamburger').classList.toggle('open')}
 document.addEventListener('click',e=>{const m=document.getElementById('mobileMenu'),b=document.getElementById('navHamburger');if(m.classList.contains('open')&&!m.contains(e.target)&&!b.contains(e.target)){m.classList.remove('open');b.classList.remove('open')}});
 
-// ACCESO
-function abrirAcceso(){cons
+// ACCESO — modal para pedir ID de clínica
+function abrirAcceso() {
+  document.getElementById('modalAcceso').style.display = 'flex';
+  setTimeout(() => document.getElementById('inputClinicaId')?.focus(), 100);
+}
+function cerrarAcceso() {
+  document.getElementById('modalAcceso').style.display = 'none';
+}
+function irClinica() {
+  const id = (document.getElementById('inputClinicaId')?.value || '').trim().toLowerCase();
+  if (!id) { document.getElementById('inputClinicaId').focus(); return; }
+  window.location.href = '/app.html?clinica=' + encodeURIComponent(id);
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') cerrarAcceso();
+  if (e.key === 'Enter' && document.getElementById('modalAcceso')?.style.display === 'flex') irClinica();
+});
+</script>
+
+<!-- Modal acceso clínica -->
+<div id="modalAcceso" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(61,56,48,.35);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)cerrarAcceso()">
+  <div style="background:var(--sand-lt);border-radius:24px;padding:36px 32px;max-width:400px;width:100%;box-shadow:var(--neu-raised-lg)">
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--piedra);margin-bottom:8px">Acceder a tu clínica</div>
+    <div style="font-size:22px;font-weight:300;color:var(--topo);margin-bottom:6px;letter-spacing:-0.5px">¿Cuál es tu ID?</div>
+    <div style="font-size:13px;color:var(--piedra);margin-bottom:24px;line-height:1.5">Tu ID es el que te enviamos al registrarte. Ej: <strong>clinica-gabo</strong></div>
+    <input id="inputClinicaId" type="text" placeholder="mi-clinica" autocomplete="off" autocorrect="off" autocapitalize="off"
+      style="width:100%;padding:14px 18px;border:none;border-radius:14px;font-size:15px;font-family:inherit;color:var(--topo);background:var(--sand);box-shadow:var(--neu-inset);outline:none;margin-bottom:16px;letter-spacing:.5px">
+    <button onclick="irClinica()" style="width:100%;padding:14px;background:linear-gradient(145deg,#8c9db0,var(--pizarra));color:white;border:none;border-radius:14px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;cursor:pointer;box-shadow:var(--neu-pizarra);margin-bottom:10px">
+      Entrar →
+    </button>
+    <button onclick="cerrarAcceso()" style="width:100%;padding:11px;background:transparent;color:var(--piedra);border:1.5px solid rgba(30,28,26,0.1);border-radius:14px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-family:inherit;cursor:pointer">
+      Cancelar
+    </button>
+  </div>
+</div>
+
+</body>
+</html>
