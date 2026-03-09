@@ -56,6 +56,8 @@
   .nav-pills-group{display:flex;align-items:center;gap:6px}
   .nav-pill-acceder{background:var(--sand);border:none;color:var(--topo);font-family:inherit;font-size:12px;font-weight:400;cursor:none;padding:8px 18px;border-radius:100px;transition:all .25s;box-shadow:var(--neu-flat);white-space:nowrap}
   .nav-pill-acceder:hover{box-shadow:var(--neu-raised);color:var(--pizarra)}
+  .nav-pill-admin{background:var(--sand);border:none;color:var(--muted);font-size:11px;width:34px;height:34px;border-radius:100px;cursor:none;display:flex;align-items:center;justify-content:center;transition:all .25s;box-shadow:var(--neu-flat);flex-shrink:0;font-weight:400;letter-spacing:1px}
+  .nav-pill-admin:hover{box-shadow:var(--neu-raised);color:var(--topo)}
   .nav-cta{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:white;background:linear-gradient(145deg,#8c9db0,var(--pizarra));border:none;padding:11px 24px;border-radius:100px;cursor:none;font-family:inherit;transition:all .25s;box-shadow:var(--neu-pizarra)}
   .nav-cta:hover{background:linear-gradient(145deg,#d09882,var(--terra));box-shadow:var(--neu-terra)}
 
@@ -154,8 +156,8 @@
 
   /* SCREENSHOTS */
   .screenshots-section{padding:80px 60px;max-width:1100px;margin:0 auto}
-  .ss-spotlight{display:grid;grid-template-columns:1.3fr 1fr;gap:52px;align-items:center;margin-bottom:72px}
-  .ss-spotlight.reverse{grid-template-columns:1fr 1.3fr}
+  .ss-spotlight{display:grid;grid-template-columns:1.5fr 1fr;gap:52px;align-items:center;margin-bottom:72px}
+  .ss-spotlight.reverse{grid-template-columns:1fr 1.5fr}
   .ss-spotlight.reverse .ss-shot{order:2}
   .ss-spotlight.reverse .ss-text{order:1}
   .ss-shot{border-radius:20px;overflow:hidden;box-shadow:var(--neu-raised-lg);background:var(--sand-lt)}
@@ -163,13 +165,13 @@
   .ss-chrome-dots{display:flex;gap:5px}
   .ss-chrome-dots span{width:9px;height:9px;border-radius:50%;background:var(--muted);opacity:.5}
   .ss-chrome-bar{flex:1;text-align:center;font-size:10px;color:var(--muted);letter-spacing:.5px}
-  .ss-shot img{width:100%;display:block;min-height:200px;background:var(--sand-lt)}
+  .ss-shot img{width:100%;display:block;min-height:260px;background:var(--sand-lt)}
   .ss-tag{font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--pizarra);margin-bottom:14px}
   .ss-text-title{font-size:30px;font-weight:200;color:var(--topo);letter-spacing:-1px;line-height:1.1;margin-bottom:14px}
   .ss-text-desc{font-size:14px;color:var(--piedra);line-height:1.72}
   .ss-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   .ss-strip-card{border-radius:18px;overflow:hidden;box-shadow:var(--neu-raised);background:var(--sand-lt)}
-  .ss-strip-card img{width:100%;display:block;min-height:120px;background:var(--sand)}
+  .ss-strip-card img{width:100%;display:block;min-height:150px;background:var(--sand)}
   .ss-strip-label{padding:16px 18px}
   .ss-strip-label-title{font-size:13px;font-weight:400;color:var(--topo);margin-bottom:3px}
   .ss-strip-label-sub{font-size:11px;color:var(--piedra);line-height:1.5}
@@ -352,7 +354,7 @@
     </ul>
     <div class="nav-pills-group">
       <button class="nav-pill-acceder" onclick="abrirAcceso()">Acceder</button>
-      <button class="nav-pill-admin" onclick="window.location.href='admin.html'" title="Admin SMILE">⚙</button>
+      <button class="nav-pill-admin" onclick="window.location.href='admin.html'" title="Admin SMILE">✦</button>
       <button class="nav-cta magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Empezar gratis →</button>
     </div>
     <button class="nav-hamburger" id="navHamburger" onclick="toggleMobileMenu()" aria-label="Menú">
@@ -392,7 +394,7 @@
 
     <h1 class="hero-title">Tu clínica,<br><em>como merece</em><br>estar.</h1>
 
-    <p class="hero-sub">Nuestra familia lleva más de 70 años en el mundo de la salud bucal. Vimos de cerca lo que faltaba. Por eso creamos SMILE — simple, moderno y hecho para que el dentista se enfoque en sus pacientes, no en la tecnología.</p>
+    <p class="hero-sub">Nuestra familia lleva más de 60 años en el mundo de la salud bucal. Vimos de cerca lo que faltaba. Por eso creamos SMILE — simple, moderno y hecho para que el dentista se enfoque en sus pacientes, no en la tecnología.</p>
 
     <div class="hero-bottom">
       <div class="hero-actions">
@@ -481,7 +483,7 @@
       </div>
       <div class="bfaft-item">
         <div class="bfaft-bullet">✓</div>
-        <div class="bfaft-text">Software genérico, anticuado y difícil de usar — que promete mucho y cumple poco</div>
+        <div class="bfaft-text">Expediente clínico digital — historial, imágenes y consentimientos en un solo lugar</div>
       </div>
     </div>
   </div>
@@ -652,7 +654,7 @@
 <div class="sec-wrap">
 <section class="section">
   <div class="eyebrow reveal" style="text-align:center">Nuestra historia</div>
-  <div class="sec-title reveal rd1" style="text-align:center;margin-bottom:16px">70 años en salud bucal.<br><em>SMILE</em> es el siguiente paso.</div>
+  <div class="sec-title reveal rd1" style="text-align:center;margin-bottom:16px">60 años en salud bucal.<br><em>SMILE</em> es el siguiente paso.</div>
   <p style="font-size:15px;color:var(--piedra);font-weight:300;margin-bottom:44px;max-width:560px;line-height:1.72;text-align:center;margin-left:auto;margin-right:auto" class="reveal rd2">Nuestra familia lleva tres generaciones trabajando en el mundo dental. Hemos usado los softwares. Sabemos lo que falta. Por eso decidimos construir el que siempre quisimos tener — vanguardista, estético, simple y honesto.</p>
   <div class="support-grid">
 
