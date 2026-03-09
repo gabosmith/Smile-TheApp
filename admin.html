@@ -13,20 +13,20 @@
      SMILE ADMIN — Brand v3 Neumorphic Warm
   ══════════════════════════════════════════════ */
   :root {
-    /* ── Paleta base ── */
+    /* ── Paleta base — contraste corregido ── */
     --sand:     #EEEAE4;
     --sand-lt:  #F7F4EF;
     --white:    #FDFCFB;
-    --topo:     var(--muted);
-    --piedra:   #A89F96;
-    --muted:    #C8C2BB;
-    --carbon:   #3A3532;
-    --terra:    #C4856A;
-    --salvia:   #6B8F71;
-    --pizarra:  #7D8EA0;
+    --topo:     #3D3830;
+    --piedra:   #6B635C;
+    --muted:    #9A9189;
+    --carbon:   #2A2520;
+    --terra:    #B5704F;
+    --salvia:   #4d7053;
+    --pizarra:  #5e7080;
     --rosa:     #EAC0B2;
-    --red:      #C47070;
-    --green:    #6B8F71;
+    --red:      #A84848;
+    --green:    #4d7053;
 
     /* ── Sombras neumórficas ── */
     --neu-raised:    8px 8px 20px rgba(168,159,150,.30), -6px -6px 16px rgba(255,255,255,.80);
@@ -2319,152 +2319,6 @@ function formatErrorTime(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString('es-DO', { day: 'numeric', month: 'short', year: 'numeric' }) +
          ' · ' + d.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
-}
-
-let _errFiltro = 'todos';
-let _errLogs   = [];  // cache local de los logs cargados
-
-async function cargarErrorLogs() {
-  const errores = [];
-
-  // 1. Leer auditLogs de cada clínica (los errores están embebidos ahí)
-  for (const clinica of clinicas) {
-    try {
-      const doc = await db.collection('clinicas').doc(clinica.id).get();
-      if (!doc.exists) continue;
-      const logs = doc.data().auditLogs || [];
-      logs.filter(l => l.tipo === 'error' || l.error || l.codigo).forEach(l => {
-        errores.push({
-          ...l,
-          _docId: null, // embebido — no tiene docId en smile_errors
-          clinicaId:    clinica.id,
-          clinicaNombre: clinica.nombre || clinica.id,
-        });
-      });
-    } catch(e) { console.warn('[ErrorLog] Skipping', clinica.id, e.message); }
-  }
-
-  // 2. Leer colección global smile_errors (si existe)
-  try {
-    const errSnap = await db.collection('smile_errors')
-      .orderBy('fecha', 'desc').limit(200).get();
-    errSnap.docs.forEach(d => {
-      const data = d.data();
-      // Avoid duplicates: skip if same clinica+fecha+codigo already in list
-      const dup = errores.find(e =>
-        e.clinicaId === data.clinicaId &&
-        e.fecha     === data.fecha &&
-        e.codigo    === data.codigo);
-      if (!dup) errores.push({ ...data, _docId: d.id });
-    });
-  } catch(e) {
-    // colección smile_errors no existe aún — normal en instalaciones nuevas
-    console.info('[ErrorLog] smile_errors no existe aún, mostrando solo auditLogs embebidos');
-  }
-
-  errores.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
-  _errLogs = errores;
-  return errores;
-}
-
-function toggleErrorCard(id) {
-  const detail = document.getElementById('detail-' + id);
-  const card   = document.getElementById('card-' + id);
-  if (!detail) return;
-  detail.classList.toggle('open');
-  card.classList.toggle('expanded');
-}
-
-function marcarResuelto(id, activo, event) {
-  event.stopPropagation();
-  const btn = document.getElementById('resolve-' + id);
-  const idx = _errLogs.findIndex(e => e._docId === id || e.id === id);
-  if (idx < 0) return;
-  _errLogs[idx]._resuelto = activo;
-  if (activo) {
-    btn.textContent = '✓ Resuelto';
-    btn.className = 'resolve-btn resolved';
-    btn.onclick = (ev) => marcarResuelto(id, false, ev);
-    // Guardar en Firestore si tiene docId
-    if (_errLogs[idx]._docId) {
-      db.collection('smile_errors').doc(_errLogs[idx]._docId).update({ resuelto: true, resueltoEn: new Date().toISOString() }).catch(() => {});
-    }
-  } else {
-    btn.textContent = '↩ Reabrir';
-    btn.className = 'resolve-btn unresolved';
-    btn.onclick = (ev) => marcarResuelto(id, true, ev);
-    if (_errLogs[idx]._docId) {
-      db.collection('smile_errors').doc(_errLogs[idx]._docId).update({ resuelto: false }).catch(() => {});
-    }
-  }
-}
-
-function filtrarYRenderErrorList(container) {
-  let lista = _errLogs;
-  if (_errFiltro === 'abiertos')       lista = lista.filter(e => !e._resuelto && !e.resuelto);
-  else if (_errFiltro === 'resueltos') lista = lista.filter(e => e._resuelto || e.resuelto);
-  else if (_errFiltro !== 'todos')     lista = lista.filter(e => e.severidad === _errFiltro);
-
-  if (lista.length === 0) {
-    container.innerHTML = `
-      <div class="error-log-empty">
-        <div class="empty-icon">${_errFiltro === 'resueltos' ? '✅' : '🎉'}</div>
-        <div class="empty-title">${_errFiltro === 'resueltos' ? 'No hay errores resueltos aún' : '¡Sin errores registrados!'}</div>
-        <div class="empty-sub">Cuando algo falle en cualquier clínica, aparecerá aquí con instrucciones para resolverlo.</div>
-      </div>`;
-    return;
-  }
-
-  container.innerHTML = lista.map((err, i) => {
-    const uid = err._docId || err.id || ('err-' + i);
-    const kb  = ERROR_KB[err.codigoError] || ERROR_KB[err.codigo] || ERROR_KB['DEFAULT'];
-    const sev = err.severidad || kb.severidad || 'error';
-    const titulo = err.titulo || kb.titulo || 'Error sin clasificar';
-    const resuelto = err._resuelto || err.resuelto;
-
-    return `
-    <div class="error-card ${resuelto ? 'opacity: 0.6' : ''}" id="card-${uid}" onclick="toggleErrorCard('${uid}')"
-         style="${resuelto ? 'opacity:0.55' : ''}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-        <div style="flex:1;min-width:0">
-          <div class="error-card-severity sev-${sev}">${getSeveridadLabel(sev)}</div>
-          <div class="error-title">${titulo}</div>
-          <div class="error-meta">
-            🏥 ${err.clinicaNombre || err.clinicaId || 'Sin clínica'} &nbsp;·&nbsp;
-            🕐 ${formatErrorTime(err.fecha)} &nbsp;·&nbsp;
-            👤 ${err.usuario || 'Sistema'}
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <button id="resolve-${uid}"
-            class="resolve-btn ${resuelto ? 'resolved' : 'unresolved'}"
-            onclick="${resuelto ? `marcarResuelto('${uid}',false,event)` : `marcarResuelto('${uid}',true,event)`}">
-            ${resuelto ? '✓ Resuelto' : '↩ Marcar resuelto'}
-          </button>
-          <span style="font-size:18px;color:var(--piedra);transform:rotate(${0}deg);transition:transform 0.2s" id="chevron-${uid}">›</span>
-        </div>
-      </div>
-
-      <div class="error-detail" id="detail-${uid}">
-        <div class="error-section-title">¿Qué pasó?</div>
-        <div class="error-explanation">${kb.explicacion || err.mensaje || 'Sin descripción disponible.'}</div>
-
-        <div class="error-section-title">Cómo resolverlo</div>
-        <div class="fix-steps">
-          ${(kb.pasos || []).map((p, n) => `
-            <div class="fix-step">
-              <div class="fix-step-num">${n + 1}</div>
-              <div class="fix-step-text"><b>${p.accion}</b> — ${p.detalle}</div>
-            </div>`).join('')}
-        </div>
-
-        ${(err.detalle || err.rawError) ? `
-          <div class="error-section-title">Detalle técnico (para desarrolladores)</div>
-          <div class="error-raw">${(err.detalle || err.rawError || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-        ` : ''}
-      </div>
-    </div>`;
-  }).join('');
 }
 
 // ════════════════════════════════════════════════════════════
