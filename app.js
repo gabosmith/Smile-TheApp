@@ -113,28 +113,12 @@ function _stopHeartbeat() {
     _heartbeatInterval = null;
 }
 
-// Pulso inmediato cuando el usuario vuelve a la pestaña / app
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && _firebaseAuthUid && CLINIC_PATH) {
-        _sentinelPulse('activo');
-    }
-});
-
 function _sentinelPulse(estado = 'activo') {
     if (!CLINIC_PATH) return;
     try {
         const db_ = (typeof db !== 'undefined') ? db : null;
-        if (!db_) return;
-
-        // Usar _firebaseAuthUid (ya resuelto async) en lugar de firebase.auth().currentUser
-        // que puede ser null en el primer tick aunque ensureFirebaseAuth() haya terminado
-        const authOk = _firebaseAuthUid ||
-            ((typeof firebase !== 'undefined') && firebase.auth().currentUser);
-        if (!authOk) {
-            // Reintentar en 3 segundos — auth puede estar llegando
-            setTimeout(() => _sentinelPulse(estado), 3000);
-            return;
-        }
+        const user = (typeof firebase !== 'undefined') ? firebase.auth().currentUser : null;
+        if (!db_ || !user) return;
 
         const hora = new Date().toISOString();
         db_.collection('smile_health').doc(CLINIC_PATH).set({
@@ -146,11 +130,9 @@ function _sentinelPulse(estado = 'activo') {
             version:      SMILE_VERSION,
             url:          window.location.href.slice(0, 200),
             userAgent:    navigator.userAgent.slice(0, 100),
+            // Métricas ligeras de rendimiento
             memoria:      (performance?.memory?.usedJSHeapSize / 1048576)?.toFixed(1) + 'MB' || '—',
-        }, { merge: true }).catch(e => {
-            // Si falla por permisos, no bloquear — lo reintenta en el próximo ciclo
-            console.warn('[Sentinel] pulse failed:', e.code || e.message);
-        });
+        }, { merge: true }).catch(() => {});
     } catch(e) {}
 }
 
@@ -1296,6 +1278,36 @@ function getDefaultPersonal() {
 // Real-time synchronization
 // Real-time listener se inicializa en login() via initRealtimeListener()
 let unsubscribeSnapshot = null;
+let unsubscribePacientesSnapshot = null;
+
+// Listener separado para subcollection de pacientes
+// Garantiza que procedimientos y cambios de ficha se reflejan en tiempo real
+function initPacientesRealtimeListener() {
+    if (unsubscribePacientesSnapshot) unsubscribePacientesSnapshot();
+    unsubscribePacientesSnapshot = db.collection('clinicas').doc(CLINIC_PATH)
+        .collection('pacientes').onSnapshot(
+        (snapshot) => {
+            if (!appData.currentUser) return;
+            // Solo actualizar si hay cambios externos (no nuestras propias escrituras)
+            if (snapshot.metadata.hasPendingWrites) return;
+            const pacientes = [];
+            snapshot.forEach(doc => pacientes.push({ id: doc.id, ...doc.data() }));
+            if (pacientes.length > 0) {
+                appData.pacientes = pacientes;
+                updateLocalCache();
+                // Refrescar tab activa si es relevante
+                const activeTab = document.querySelector('.tab-content.active');
+                if (!activeTab) return;
+                const tabId = activeTab.id.replace('tab-', '');
+                if (tabId === 'pacientes') updatePacientesTab();
+                if (tabId === 'dashboard') updateDashboardTab();
+            }
+        },
+        (error) => {
+            console.warn('[PacientesSnapshot] Error:', error.code);
+        }
+    );
+}
 
 function initRealtimeListener() {
     if (unsubscribeSnapshot) unsubscribeSnapshot();
@@ -1342,6 +1354,7 @@ function initRealtimeListener() {
             const activeTab = document.querySelector('.tab-content.active');
             if (!activeTab) return;
             const tabId = activeTab.id.replace('tab-', '');
+            if (tabId === 'dashboard')   updateDashboardTab();
             if (tabId === 'ingresos')    updateIngresosTab();
             if (tabId === 'cobrar')      updateCobrarTab();
             if (tabId === 'gastos')      updateGastosTab();
@@ -1838,6 +1851,7 @@ async function login() {
     registrarAuditoria('seguridad', 'login', `Inicio de sesión: ${username} (${role})`);
 
     initRealtimeListener();
+    initPacientesRealtimeListener();
     await showApp();
 }
 
@@ -1860,6 +1874,7 @@ function logout() {
         try { firebase.auth().signOut(); } catch(e) {}
 
         if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+        if (unsubscribePacientesSnapshot) { unsubscribePacientesSnapshot(); unsubscribePacientesSnapshot = null; }
         appData.currentUser = null;
         appData.currentRole = null;
 
@@ -6397,9 +6412,11 @@ async function _cotizAgregarAFactura(paciente, procedimientos, ordenesLab) {
         }
 
         invalidateBalanceCache();
+        // Cerrar modal ANTES de guardar — evita que el usuario toque "Agregar" de nuevo
+        // mientras Firebase procesa, lo que causaba duplicados
+        closeModal('modalCotizItem');
         await saveFacturas();
         await savePaciente(paciente);
-        closeModal('modalCotizItem');
         cambiarTabPaciente('tratamientos');
         showToast('✓ Agregado a la cotización del paciente');
     } catch(e) {
