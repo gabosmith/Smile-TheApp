@@ -1952,6 +1952,7 @@ async function activateClinic() {
           recepcionistas: counts.recep,
           asistentes: counts.asist,
         },
+        usuariosExtra: Math.max(0, (counts.dentistas || 1) + (counts.recep || 0) + (counts.asist || 0) - 1),
         contactoWA: {
           nombre: state.waName || state.adminName || '',
           cargo:  state.waCargo || '',

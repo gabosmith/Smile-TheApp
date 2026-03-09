@@ -3426,6 +3426,17 @@ async function agregarPersonal() {
     updateProfessionalPicker();
     closeModal('modalAddPersonal');
     showToast('✓ Personal agregado exitosamente');
+
+    // Aviso de costo por usuario adicional
+    const esAcceso = (person.tipo !== 'empleado') || person.canAccessReception;
+    if (esAcceso) {
+        const extrasNuevo = contarUsuariosExtra();
+        const costoExtra  = costoUsuariosExtra();
+        const msg = clinicConfig.subscripcionActiva && !clinicConfig.enTrial
+            ? `💳 Este usuario suma USD $2.50 a tu plan. Total usuarios extra: ${extrasNuevo}. Aplica desde el próximo ciclo de pago.`
+            : `👤 Usuario agregado. Cuando actives tu plan, pagará USD $2.50/mes adicional (${extrasNuevo} usuario${extrasNuevo !== 1 ? 's' : ''} extra en total).`;
+        setTimeout(() => showToast(msg, 6000, '#5e7080'), 800);
+    }
 }
 
 function updatePersonalTab() {
@@ -11690,9 +11701,30 @@ const MODULOS_DISPONIBLES = [
     { key: 'inventario',    nombre: 'Inventario',         precio: 5,   soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
     { key: 'reportes',      nombre: 'Reportes avanzados', precio: 5,   soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
     { key: 'multisucursal', nombre: 'Sucursal adicional', precio: 15,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
-    { key: 'usuario',       nombre: 'Usuario adicional',  precio: 2.5, soloPlans: ['clinica','solo'], desc: 'Dentista, recepcionista o asistente con su acceso.' },
 ];
 const BASE_PRECIOS = { clinica: 23, solo: 19 };
+
+// ── Usuarios extra facturables ─────────────────────────────────────────────
+// El admin está incluido. Cada usuario adicional con acceso a la app = $2.50/mes.
+const PRECIO_USUARIO_EXTRA = 2.5;
+
+function contarUsuariosExtra() {
+    // Admin = 1 usuario incluido. Todos los demás con acceso = extra.
+    // Usamos el máximo entre:
+    //   (a) personal real en la app (usuarios ya creados)
+    //   (b) usuariosExtra guardado desde onboarding (los que prometió tener aunque aún no los haya creado)
+    const personal = (typeof appData !== 'undefined' && appData.personal) ? appData.personal : [];
+    const conAcceso = personal.filter(p => !p.isAdmin && (p.canAccessReception || p.tipo === 'regular' || p.tipo === 'especialista'));
+    const desdePersonal   = conAcceso.length;
+    const desdeOnboarding = (clinicConfig && clinicConfig.usuariosExtra) ? clinicConfig.usuariosExtra : 0;
+    return Math.max(desdePersonal, desdeOnboarding);
+}
+
+function costoUsuariosExtra() {
+    return contarUsuariosExtra() * PRECIO_USUARIO_EXTRA;
+}
+
+
 
 // ─── Helpers Stripe ──────────────────────────────────────────────────────────
 
@@ -11815,10 +11847,11 @@ function renderMiPlanTab() {
     let pendientes = [...(clinicConfig.modulos || [])];
 
     function calcTotal() {
-        return basePrice + pendientes.reduce((s, k) => {
+        const modulosCost = pendientes.reduce((s, k) => {
             const m = MODULOS_DISPONIBLES.find(x => x.key === k);
             return s + (m ? m.precio : 0);
         }, 0);
+        return basePrice + modulosCost + costoUsuariosExtra();
     }
 
     function renderToggle(modulo) {
@@ -11954,13 +11987,66 @@ function renderMiPlanTab() {
         </div>
         <div id="miplan-modulos">
             ${MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(plan)).map(renderToggle).join('')}
+
+            <!-- Usuarios adicionales — contador automático sincronizado con Personal -->
+            ${(() => {
+                const extrasCount = contarUsuariosExtra();
+                const extrasCost  = costoUsuariosExtra();
+                return `
+                <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:16px 20px;background:var(--white);border-radius:var(--radius-md);
+                    margin-bottom:10px;border:1.5px solid ${extrasCount > 0 ? 'var(--clinic-color)' : 'rgba(30,28,26,0.07)'};">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:14px;font-weight:400;color:var(--dark);margin-bottom:2px">Usuarios adicionales</div>
+                        <div style="font-size:12px;color:var(--light)">Se cuentan automáticamente desde tu módulo de Personal</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
+                        <div style="text-align:right">
+                            <div style="font-size:13px;color:var(--mid)">
+                                ${extrasCount > 0
+                                    ? `USD $${extrasCost % 1 === 0 ? extrasCost : extrasCost.toFixed(2)}<span style="font-size:10px;color:var(--light)">/mes</span>`
+                                    : '<span style="font-size:12px;color:var(--light)">Incluido</span>'}
+                            </div>
+                            <div style="font-size:11px;color:var(--light);margin-top:2px">
+                                ${extrasCount > 0
+                                    ? `${extrasCount} usuario${extrasCount !== 1 ? 's' : ''} × USD $2.50`
+                                    : '1 admin incluido'}
+                            </div>
+                        </div>
+                        <div style="background:rgba(30,28,26,0.06);border-radius:10px;padding:6px 14px;
+                            font-size:18px;font-weight:300;color:${extrasCount > 0 ? 'var(--clinic-color)' : 'var(--mid)'};
+                            min-width:36px;text-align:center;letter-spacing:-0.5px">
+                            ${extrasCount}
+                        </div>
+                    </div>
+                </div>`;
+            })()}
         </div>
 
-        <!-- Total + acción -->
+        <!-- Desglose + Total + acción -->
         <div class="card" style="margin-top:20px;background:var(--surface);border:1.5px solid rgba(30,28,26,0.07)">
+            <!-- Desglose -->
+            <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid rgba(30,28,26,0.07)">
+                <div style="font-size:10px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Desglose</div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mid);margin-bottom:6px">
+                    <span>Plan ${plan === 'solo' ? 'Solo' : 'Clínica'}</span>
+                    <span>USD $${basePrice}</span>
+                </div>
+                ${pendientes.map(k => {
+                    const m = MODULOS_DISPONIBLES.find(x => x.key === k);
+                    return m ? `<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mid);margin-bottom:6px">
+                        <span>${m.nombre}</span><span>USD $${m.precio}</span>
+                    </div>` : '';
+                }).join('')}
+                ${contarUsuariosExtra() > 0 ? `
+                <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mid);margin-bottom:6px">
+                    <span>${contarUsuariosExtra()} usuario${contarUsuariosExtra()!==1?'s':''} adicional${contarUsuariosExtra()!==1?'es':''}</span>
+                    <span>USD $${costoUsuariosExtra() % 1 === 0 ? costoUsuariosExtra() : costoUsuariosExtra().toFixed(2)}</span>
+                </div>` : ''}
+            </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                 <div style="font-size:11px;color:var(--light);letter-spacing:1.5px;text-transform:uppercase">Total mensual</div>
-                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${moneda}${calcTotal().toLocaleString()}</div>
+                <div style="font-size:28px;font-weight:200;color:var(--dark);letter-spacing:-1px" id="miplan-total">${moneda}${calcTotal() % 1 === 0 ? calcTotal() : calcTotal().toFixed(2)}</div>
             </div>
             ${accion}
         </div>
@@ -11979,10 +12065,8 @@ function togglePlanModulo(key) {
     const idx = tab._pendientes.indexOf(key);
     if (idx >= 0) tab._pendientes.splice(idx, 1);
     else          tab._pendientes.push(key);
-    document.getElementById('miplan-modulos').innerHTML =
-        MODULOS_DISPONIBLES.filter(m => m.soloPlans.includes(tab._plan || 'clinica')).map(m => tab._renderToggle(m)).join('');
-    document.getElementById('miplan-total').textContent =
-        (tab._moneda || 'RD$') + tab._calcTotal().toLocaleString();
+    // Re-render full Mi Plan to keep user counter in sync
+    renderMiPlanTab();
 }
 
 async function guardarCambiosPlan() {
