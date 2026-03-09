@@ -271,7 +271,9 @@ async function loadClinicBranding() {
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
-        clinicConfig.moneda              = cfg.moneda              || 'RD$';
+        // Normalize legacy USD variants to standard 'US$'
+        const _rawMoneda = cfg.moneda || 'RD$';
+        clinicConfig.moneda = (_rawMoneda === 'USD $' || _rawMoneda === 'USD') ? 'US$' : _rawMoneda;
         clinicConfig.locale              = cfg.locale              || getLocale();
         clinicConfig.pais                = cfg.pais                || '';
         clinicConfig.defaultRemuneracion   = cfg.defaultRemuneracion   || 'comision';
@@ -4441,10 +4443,12 @@ async function guardarIdentidadClinica() {
     try {
         const monedaVal = document.getElementById('configMoneda')?.value || clinicConfig.moneda || 'RD$';
         const LOCALES_MONEDA = {
-            '$': 'es-MX', 'RD$': 'es-DO', 'R$': 'pt-BR', 'S/': 'es-PE',
-            'Q': 'es-GT', 'L': 'es-HN', 'C$': 'es-NI', 'B/.': 'es-PA',
-            '₡': 'es-CR', 'Bs': 'es-BO', '₲': 'es-PY', 'Bs.': 'es-VE',
-            '€': 'es-ES', '£': 'en-GB',
+            'RD$':  'es-DO', 'US$':  'en-US', 'USD $': 'en-US', 'USD': 'en-US',
+            'MX$':  'es-MX', 'COP$': 'es-CO', 'CLP$':  'es-CL', 'ARS$': 'es-AR',
+            'UYU$': 'es-UY', 'S/':   'es-PE', 'R$':    'pt-BR', 'Q':    'es-GT',
+            'L':    'es-HN', 'C$':   'es-NI', 'B/.':   'es-PA', '₡':    'es-CR',
+            'Bs':   'es-BO', '₲':    'es-PY', 'Bs.':   'es-VE', '€':    'es-ES',
+            '£':    'en-GB', '$':    'es-419',
         };
         const localeVal = LOCALES_MONEDA[monedaVal] || 'es-419';
 
