@@ -1,6 +1,144 @@
-// ========================================
+// ════════════════════════════════════════════════════════════
+// SMILE SENTINEL — Interceptor global de errores + Heartbeat
+// Captura TODO lo que ocurre, incluidos errores JS silenciosos
+// ════════════════════════════════════════════════════════════
+
+const SMILE_VERSION = '2.4.0';
+let _sentinelReady = false;
+let _heartbeatInterval = null;
+
+// ── 1. Captura errores JS sincrónicos (crashes de funciones) ────────────────
+window.onerror = function(message, source, lineno, colno, error) {
+    // Ignorar errores de extensiones del browser (no son nuestros)
+    if (source && (source.includes('extension') || source.includes('chrome-extension'))) return false;
+    _sentinelLog({
+        codigoError: 'js-runtime-error',
+        titulo:      'Error JavaScript inesperado',
+        detalle:     `${message} | ${source}:${lineno}:${colno}`,
+        stack:       error?.stack?.slice(0, 800) || '',
+        contexto:    'window.onerror',
+        severidad:   'critico',
+    });
+    return false; // No suprimir el error — que siga visible en consola
+};
+
+// ── 2. Captura promesas fallidas silenciosas (Firebase timeouts, etc.) ────────
+window.addEventListener('unhandledrejection', function(event) {
+    const reason = event.reason;
+    const msg    = reason?.message || String(reason) || 'Promise rechazada sin mensaje';
+    const code   = reason?.code?.replace('firestore/', '') || 'promise-rejected';
+    // Ignorar rechazos esperados / controlados
+    if (msg.includes('AbortError') || msg.includes('user closed')) return;
+    _sentinelLog({
+        codigoError: code,
+        titulo:      'Operación asíncrona falló silenciosamente',
+        detalle:     msg.slice(0, 500),
+        stack:       reason?.stack?.slice(0, 600) || '',
+        contexto:    'unhandledrejection',
+        severidad:   _mapSeveridad(code),
+    });
+});
+
+// ── 3. Detecta cuando la página se cae / cierra (para calcular uptime) ───────
+window.addEventListener('beforeunload', function() {
+    _sentinelPulse('cierre');
+});
+
+// ── Helper: mapear códigos Firebase a severidad ───────────────────────────────
+function _mapSeveridad(code) {
+    const mapa = {
+        'permission-denied':  'critico',
+        'snapshot-not-found': 'critico',
+        'unavailable':        'error',
+        'not-found':          'error',
+        'js-runtime-error':   'critico',
+        'deadline-exceeded':  'aviso',
+        'already-exists':     'aviso',
+        'cache-corrupto':     'info',
+        'canWriteToFirebase': 'aviso',
+        'promise-rejected':   'error',
+    };
+    return mapa[code] || 'error';
+}
+
+// ── Helper: encolar y persistir al Sentinel (espeja logErrorToFirestore) ──────
+function _sentinelLog(entrada) {
+    // No loguear si no hay clínica identificada (antes del login)
+    const clinica = (typeof CLINIC_PATH !== 'undefined' && CLINIC_PATH) || null;
+
+    const doc = {
+        fecha:       new Date().toISOString(),
+        clinicaId:   clinica || 'desconocido',
+        codigoError: entrada.codigoError || 'DEFAULT',
+        titulo:      entrada.titulo || 'Error sin título',
+        detalle:     (entrada.detalle || '').slice(0, 500),
+        stack:       (entrada.stack || '').slice(0, 800),
+        contexto:    entrada.contexto || '',
+        severidad:   entrada.severidad || _mapSeveridad(entrada.codigoError),
+        usuario:     (typeof appData !== 'undefined' && appData?.currentUser) || 'Sistema',
+        version:     SMILE_VERSION,
+        userAgent:   navigator.userAgent.slice(0, 150),
+        url:         window.location.href.slice(0, 200),
+        resuelto:    false,
+    };
+
+    // Escribir en Firestore si Firebase está lista
+    try {
+        const db_ = (typeof db !== 'undefined') ? db : null;
+        const user = (typeof firebase !== 'undefined') ? firebase.auth().currentUser : null;
+        if (db_ && user) {
+            db_.collection('smile_errors').add(doc).catch(() => {
+                // Silenciar — si falla el log del error no queremos loop infinito
+            });
+            return;
+        }
+    } catch(e) { /* Firebase no disponible aún */ }
+
+    // Sin Firebase: encolar para cuando esté lista
+    if (typeof _errorQueue !== 'undefined') {
+        _errorQueue.push(doc);
+    }
+}
+
+// ── 4. Heartbeat: pulso cada 5 min por clínica ────────────────────────────────
+// Escribe en smile_health/{clinicaId} — el admin lo lee para saber si está viva
+function _startHeartbeat() {
+    if (_heartbeatInterval) clearInterval(_heartbeatInterval);
+    _sentinelPulse('activo'); // Pulso inmediato al iniciar
+    _heartbeatInterval = setInterval(() => _sentinelPulse('activo'), 5 * 60 * 1000);
+}
+
+function _stopHeartbeat() {
+    if (_heartbeatInterval) clearInterval(_heartbeatInterval);
+    _heartbeatInterval = null;
+}
+
+function _sentinelPulse(estado = 'activo') {
+    if (!CLINIC_PATH) return;
+    try {
+        const db_ = (typeof db !== 'undefined') ? db : null;
+        const user = (typeof firebase !== 'undefined') ? firebase.auth().currentUser : null;
+        if (!db_ || !user) return;
+
+        const hora = new Date().toISOString();
+        db_.collection('smile_health').doc(CLINIC_PATH).set({
+            clinicaId:    CLINIC_PATH,
+            estado,
+            lastSeen:     hora,
+            usuario:      (typeof appData !== 'undefined' && appData?.currentUser) || 'desconocido',
+            rol:          (typeof appData !== 'undefined' && appData?.currentRole) || '—',
+            version:      SMILE_VERSION,
+            url:          window.location.href.slice(0, 200),
+            userAgent:    navigator.userAgent.slice(0, 100),
+            // Métricas ligeras de rendimiento
+            memoria:      (performance?.memory?.usedJSHeapSize / 1048576)?.toFixed(1) + 'MB' || '—',
+        }, { merge: true }).catch(() => {});
+    } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════════════
 // MULTI-TENANT CONFIG
-// ========================================
+// ════════════════════════════════════════════════════════════
 
 let CLINIC_PATH = null;
 
@@ -1669,6 +1807,10 @@ async function login() {
     // Vaciar cola de errores que no pudieron enviarse antes del login
     _flushErrorQueue().catch(e => console.warn('[ErrorLog] flush failed:', e));
 
+    // Iniciar heartbeat del Sentinel — pulso de vida cada 5 min
+    _sentinelReady = true;
+    _startHeartbeat();
+
     // Start session + inactivity tracking
     startSession(username);
 
@@ -1686,6 +1828,10 @@ function logout() {
         // Stop session timers
         clearTimeout(_inactivityTimer);
         clearInterval(_sessionCheckInterval);
+        // Detener heartbeat y enviar pulso de cierre
+        _sentinelPulse('cerrado');
+        _stopHeartbeat();
+        _sentinelReady = false;
         sessionStorage.removeItem('smile_session');
         localStorage.removeItem('clinicaData_cache_' + (CLINIC_PATH || 'default'));
         localStorage.removeItem('clinicaData_cacheTime_' + (CLINIC_PATH || 'default'));

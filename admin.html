@@ -518,7 +518,7 @@
         <span class="nav-icon">💬</span> Contactos
       </div>
       <div class="nav-item" data-section="errores" onclick="showSection('errores')" id="navErrores">
-        <span class="nav-icon">🔴</span> Errores
+        <span class="nav-icon" id="sentinelNavIcon">⚪</span> Sentinel
         <span id="errorBadge" style="display:none;margin-left:auto;background:#C47070;color:white;
           font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;min-width:18px;text-align:center"></span>
       </div>
@@ -2467,96 +2467,433 @@ function filtrarYRenderErrorList(container) {
   }).join('');
 }
 
+// ════════════════════════════════════════════════════════════
+// SMILE SENTINEL — Torre de control
+// ════════════════════════════════════════════════════════════
+
+let _sentinelData   = { health: {}, errors: [], lastRefresh: null };
+let _sentinelTab    = 'pulso';
+let _errLogs        = [];
+let _currentFeedList= [];
+let _currentErrTipo = 'todos';
+
+// ── Cargar datos de salud (smile_health) ────────────────────
+async function _loadHealth() {
+  const health = {};
+  try {
+    const snap = await db.collection('smile_health').get();
+    snap.docs.forEach(d => { health[d.id] = d.data(); });
+  } catch(e) { /* colección vacía — clínicas sin telemetría */ }
+  _sentinelData.health = health;
+  return health;
+}
+
+// ── Cargar errores (smile_errors + auditLogs legacy) ────────
+async function cargarErrorLogs() {
+  const errores = [];
+  try {
+    const snap = await db.collection('smile_errors')
+      .orderBy('fecha', 'desc').limit(300).get();
+    snap.docs.forEach(d => errores.push({ ...d.data(), _docId: d.id }));
+  } catch(e) {}
+
+  for (const clinica of clinicas) {
+    try {
+      const doc = await db.collection('clinicas').doc(clinica.id).get();
+      if (!doc.exists) continue;
+      const logs = doc.data().auditLogs || [];
+      logs.filter(l => l.tipo === 'error' || l.error || l.codigo).forEach(l => {
+        const dup = errores.find(e =>
+          e.clinicaId === clinica.id && e.fecha === l.fecha && (e.codigoError || e.codigo) === (l.codigo || l.codigoError));
+        if (!dup) errores.push({ ...l, _docId: null,
+          clinicaId: clinica.id, clinicaNombre: clinica.nombre || clinica.id,
+          codigoError: l.codigo || l.codigoError || 'DEFAULT' });
+      });
+    } catch(e) {}
+  }
+
+  errores.forEach(e => {
+    if (!e.clinicaNombre) {
+      const c = clinicas.find(x => x.id === e.clinicaId);
+      e.clinicaNombre = c?.nombre || e.clinicaId || 'Sin clínica';
+    }
+  });
+  errores.sort((a, b) => new Date(b.fecha||0) - new Date(a.fecha||0));
+  _errLogs = errores;
+  _sentinelData.errors = errores;
+  _sentinelData.lastRefresh = new Date();
+  return errores;
+}
+
+// ── Estado de salud por clínica ─────────────────────────────
+function _clinicaEstado(clinica) {
+  const h      = _sentinelData.health[clinica.id];
+  const errs   = _errLogs.filter(e => e.clinicaId === clinica.id && !e.resuelto && !e._resuelto);
+  const criticos = errs.filter(e => e.severidad === 'critico').length;
+  if (!clinica.activa && !clinica.trial)  return { sem: 'gris',    label: 'Inactiva',            desc: 'Suscripción pausada' };
+  if (criticos > 0)                        return { sem: 'rojo',    label: 'Errores críticos',    desc: `${criticos} sin resolver` };
+  if (!h)                                  return { sem: 'gris',    label: 'Sin telemetría',      desc: 'No ha enviado señal aún' };
+  const min = h.lastSeen ? Math.floor((Date.now()-new Date(h.lastSeen))/60000) : 999;
+  if (min > 60*24) return { sem: 'gris',    label: 'Sin actividad',       desc: `Última señal hace ${Math.floor(min/1440)}d` };
+  if (min > 30)    return { sem: 'amarillo', label: 'Inactiva',            desc: `Sin actividad hace ${min}m` };
+  if (errs.length) return { sem: 'amarillo', label: 'Con avisos',          desc: `${errs.length} evento${errs.length>1?'s':''} pendiente${errs.length>1?'s':''}` };
+  return               { sem: 'verde',    label: 'Saludable',           desc: `Activa · hace ${min < 2 ? 'ahora' : min+'m'}` };
+}
+
+// ── RENDER: Torre de control ────────────────────────────────
 async function renderErrorLog(main) {
   main.innerHTML = `
     <div class="section">
       <div class="page-header">
         <div>
-          <div class="page-title">Log de Errores</div>
-          <div class="page-sub">Errores de todas las clínicas · con explicación y pasos para resolver</div>
+          <div class="page-title">🛰️ SMILE Sentinel</div>
+          <div class="page-sub">Torre de control · errores, salud y pulso en tiempo real</div>
         </div>
-        <button class="header-btn" onclick="recargarErrorLog()" style="background:none;box-shadow:var(--neu-flat);border:none;color:var(--piedra)">
-          ↻ Actualizar
-        </button>
+        <button class="header-btn" onclick="recargarSentinel()"
+          style="background:none;box-shadow:var(--neu-flat);border:none;color:var(--piedra)">↻ Actualizar</button>
       </div>
-
-      <div class="error-filters">
-        <button class="filter-pill active" onclick="setErrFiltro('todos', this)">Todos</button>
-        <button class="filter-pill" onclick="setErrFiltro('abiertos', this)">Sin resolver</button>
-        <button class="filter-pill" onclick="setErrFiltro('resueltos', this)">Resueltos</button>
-        <button class="filter-pill" onclick="setErrFiltro('critico', this)">🔴 Crítico</button>
-        <button class="filter-pill" onclick="setErrFiltro('error', this)">🟠 Error</button>
-        <button class="filter-pill" onclick="setErrFiltro('aviso', this)">🟡 Aviso</button>
-        <button class="filter-pill" onclick="setErrFiltro('info', this)">🔵 Info</button>
-      </div>
-
-      <div id="errorLogContainer">
-        <div style="text-align:center;padding:60px 20px;color:var(--piedra)">
-          <div style="font-size:24px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block">⏳</div>
-          <div>Cargando errores de todas las clínicas...</div>
+      <div id="sentinelStatusBar" style="margin-bottom:24px">
+        <div style="text-align:center;padding:40px;color:var(--piedra)">
+          <div style="font-size:28px;margin-bottom:8px">🛰️</div><div>Conectando al Sentinel...</div>
         </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap" id="sentinelTabs">
+        <button class="filter-pill active" onclick="setSentinelTab('pulso',this)">💓 Pulso</button>
+        <button class="filter-pill" onclick="setSentinelTab('errores',this)">⚠️ Errores abiertos</button>
+        <button class="filter-pill" onclick="setSentinelTab('resueltos',this)">✅ Resueltos</button>
+      </div>
+      <div id="sentinelBody"></div>
+    </div>`;
+
+  await Promise.all([cargarErrorLogs(), _loadHealth()]).catch(e => console.error('[Sentinel]', e));
+  _renderStatusBar();
+  _renderPulso();
+  _actualizarIconoNav();
+}
+
+// ── Barra de estado global ──────────────────────────────────
+function _renderStatusBar() {
+  const bar = document.getElementById('sentinelStatusBar');
+  if (!bar) return;
+  const estados   = clinicas.map(c => _clinicaEstado(c));
+  const verdes    = estados.filter(e => e.sem==='verde').length;
+  const amarillos = estados.filter(e => e.sem==='amarillo').length;
+  const rojos     = estados.filter(e => e.sem==='rojo').length;
+  const grises    = estados.filter(e => e.sem==='gris').length;
+  const abiertos  = _errLogs.filter(e => !e.resuelto && !e._resuelto).length;
+  const criticos  = _errLogs.filter(e => !e.resuelto && !e._resuelto && e.severidad==='critico').length;
+  const jsOcultos = _errLogs.filter(e => !e.resuelto && !e._resuelto && (e.codigoError==='js-runtime-error'||e.codigoError==='promise-rejected')).length;
+  const ok        = rojos === 0 && criticos === 0;
+  const semG      = ok ? (amarillos ? '🟡' : '🟢') : '🔴';
+  const labelG    = ok ? (amarillos ? 'Algunos avisos' : 'Todo en orden') : 'Atención requerida';
+  const now       = _sentinelData.lastRefresh ? _sentinelData.lastRefresh.toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'}) : '—';
+
+  bar.innerHTML = `
+    <div style="background:${ok?'rgba(107,143,113,.07)':'rgba(196,112,112,.07)'};
+                border:1.5px solid ${ok?'rgba(107,143,113,.18)':'rgba(196,112,112,.22)'};
+                border-radius:20px;padding:20px 24px;margin-bottom:14px;
+                display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="font-size:38px;line-height:1">${semG}</div>
+        <div>
+          <div style="font-size:16px;font-weight:500;color:var(--topo)">${labelG}</div>
+          <div style="font-size:12px;color:var(--piedra);margin-top:2px">${clinicas.length} clínica${clinicas.length!==1?'s':''} · Actualizado ${now}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        ${[['OK',verdes,'var(--salvia)'],['Avisos',amarillos,'#8a6f00'],['Críticos',rojos,'var(--red)'],['Sin señal',grises,'var(--muted)']].map(([l,v,c])=>`
+        <div style="text-align:center">
+          <div style="font-size:24px;font-weight:200;color:${c}">${v}</div>
+          <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--piedra)">${l}</div>
+        </div>`).join('')}
       </div>
     </div>
-  `;
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+      ${[
+        ['Errores abiertos', abiertos, abiertos>0?'var(--red)':'var(--salvia)', abiertos>0?'⚠️':'✅'],
+        ['Críticos', criticos, criticos>0?'var(--red)':'var(--salvia)', criticos>0?'🔥':'✅'],
+        ['JS ocultos', jsOcultos, jsOcultos>0?'var(--terra)':'var(--salvia)', jsOcultos>0?'🐛':'✅'],
+        ['Total histórico', _errLogs.length, 'var(--pizarra)', '📋'],
+      ].map(([l,v,c,i])=>`
+        <div style="background:var(--sand);border-radius:14px;padding:14px 16px;box-shadow:var(--neu-raised)">
+          <div style="font-size:10px;color:var(--piedra);margin-bottom:6px">${i} ${l}</div>
+          <div style="font-size:26px;font-weight:200;color:${c}">${v}</div>
+        </div>`).join('')}
+    </div>`;
+}
 
-  try {
-    await cargarErrorLogs();
-  } catch(e) {
-    console.error('[Admin] Error cargando error logs:', e);
+// ── Tab: Pulso ──────────────────────────────────────────────
+function _renderPulso() {
+  const body = document.getElementById('sentinelBody');
+  if (!body) return;
+  const COLS = { verde:'rgba(107,143,113,.07)', amarillo:'rgba(196,181,106,.08)', rojo:'rgba(196,112,112,.08)', gris:'rgba(168,159,150,.04)' };
+  const BORD = { verde:'rgba(107,143,113,.18)', amarillo:'rgba(196,181,106,.22)', rojo:'rgba(196,112,112,.22)', gris:'rgba(168,159,150,.12)' };
+  const DOTS = { verde:'#6B8F71', amarillo:'#8a6f00', rojo:'#C47070', gris:'#C8C2BB' };
+
+  const sorted = [...clinicas].sort((a,b)=>{
+    const o={rojo:0,amarillo:1,gris:2,verde:3};
+    return (o[_clinicaEstado(a).sem]||9)-(o[_clinicaEstado(b).sem]||9);
+  });
+
+  body.innerHTML = sorted.map(c => {
+    const est   = _clinicaEstado(c);
+    const h     = _sentinelData.health[c.id] || null;
+    const errs  = _errLogs.filter(e => e.clinicaId===c.id && !e.resuelto && !e._resuelto);
+    const crit  = errs.filter(e => e.severidad==='critico');
+    const jsErr = errs.filter(e => e.codigoError==='js-runtime-error'||e.codigoError==='promise-rejected');
+    const min   = h?.lastSeen ? Math.floor((Date.now()-new Date(h.lastSeen))/60000) : null;
+    const minStr= min===null?'—': min<2?'ahora': min<60?min+'m': Math.floor(min/60)+'h';
+
+    return `
+    <div style="background:${COLS[est.sem]};border:1.5px solid ${BORD[est.sem]};
+                border-radius:18px;padding:18px 20px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+          <div style="width:10px;height:10px;border-radius:50%;background:${DOTS[est.sem]};flex-shrink:0;
+            ${est.sem==='verde'?'box-shadow:0 0 0 4px rgba(107,143,113,.15)':''}
+            ${est.sem==='rojo'?'box-shadow:0 0 0 4px rgba(196,112,112,.15)':''}"></div>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--topo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${c.nombre}
+              ${c.trial?'<span style="margin-left:6px;font-size:9px;background:rgba(196,181,106,.2);color:#8a6f00;padding:2px 7px;border-radius:100px">TRIAL</span>':''}
+            </div>
+            <div style="font-size:11px;color:var(--piedra);margin-top:2px">${est.label} — ${est.desc}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:1px">${c.id} · ${fmtMRR(c)}/mes</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+          ${h ? `
+            <div style="text-align:right">
+              <div style="font-size:12px;font-weight:500;color:var(--topo)">${h.usuario||'—'}</div>
+              <div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">usuario</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px;font-weight:500;color:var(--topo)">${minStr}</div>
+              <div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">señal</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px;font-weight:500;color:var(--topo)">v${h.version||'?'}</div>
+              <div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">versión</div>
+            </div>` : `<div style="font-size:11px;color:var(--muted);font-style:italic">Sin telemetría</div>`}
+          ${errs.length?`<div style="background:rgba(196,112,112,.12);border-radius:100px;padding:4px 10px;
+            font-size:11px;font-weight:600;color:var(--red)">${errs.length} error${errs.length>1?'es':''}</div>`:''}
+        </div>
+      </div>
+      ${crit.length?`
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(196,112,112,.12)">
+          ${crit.slice(0,3).map(e=>`
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--red);margin-bottom:3px">
+              <span>🔥 ${e.titulo||e.codigoError}</span><span style="color:var(--muted)">${_formatRelTime(e.fecha)}</span>
+            </div>`).join('')}
+          ${crit.length>3?`<div style="font-size:11px;color:var(--muted)">+ ${crit.length-3} más</div>`:''}
+        </div>`:''}
+      ${jsErr.length?`
+        <div style="margin-top:8px;padding:8px 12px;background:rgba(196,133,106,.08);border-radius:10px;
+                    font-size:11px;color:var(--terra)">
+          🐛 ${jsErr.length} error${jsErr.length>1?'es':''} JavaScript oculto${jsErr.length>1?'s':''} detectado${jsErr.length>1?'s':''}
+        </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── Tab: Feed de errores ─────────────────────────────────────
+function _renderFeed(soloResueltos) {
+  const body = document.getElementById('sentinelBody');
+  if (!body) return;
+  let lista = _errLogs.filter(e => soloResueltos ? (e.resuelto||e._resuelto) : !(e.resuelto||e._resuelto));
+
+  if (!lista.length) {
+    body.innerHTML = `<div style="text-align:center;padding:60px 20px">
+      <div style="font-size:36px;margin-bottom:12px">${soloResueltos?'📭':'🎉'}</div>
+      <div style="font-size:15px;font-weight:300;color:var(--topo)">${soloResueltos?'Sin errores resueltos aún':'¡Todo limpio! Sin errores abiertos'}</div>
+    </div>`;
+    return;
   }
-  // Verificar que el container sigue en el DOM (el usuario pudo navegar a otro tab)
-  const container = document.getElementById('errorLogContainer');
-  if (container) filtrarYRenderErrorList(container);
+
+  const counts = t => t==='js' ? lista.filter(e=>e.codigoError==='js-runtime-error'||e.codigoError==='promise-rejected').length
+    : t==='critico' ? lista.filter(e=>e.severidad==='critico').length
+    : t==='error'   ? lista.filter(e=>e.severidad==='error').length
+    : t==='aviso'   ? lista.filter(e=>e.severidad==='aviso').length : lista.length;
+
+  body.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap" id="errSubFiltros">
+      <button class="filter-pill active" onclick="_setErrTipo('todos',this)">Todos (${counts('todos')})</button>
+      <button class="filter-pill" onclick="_setErrTipo('critico',this)">🔴 Crítico (${counts('critico')})</button>
+      <button class="filter-pill" onclick="_setErrTipo('js',this)">🐛 JS oculto (${counts('js')})</button>
+      <button class="filter-pill" onclick="_setErrTipo('error',this)">🟠 Error (${counts('error')})</button>
+      <button class="filter-pill" onclick="_setErrTipo('aviso',this)">🟡 Aviso (${counts('aviso')})</button>
+    </div>
+    <div id="errFeedList">${_buildFeedCards(lista)}</div>`;
+  _currentFeedList = lista;
 }
 
-function setErrFiltro(filtro, btn) {
-  _errFiltro = filtro;
-  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+function _setErrTipo(tipo, btn) {
+  document.querySelectorAll('#errSubFiltros .filter-pill').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  const container = document.getElementById('errorLogContainer');
-  if (container) filtrarYRenderErrorList(container);
+  let lista = _currentFeedList;
+  if (tipo==='critico') lista=lista.filter(e=>e.severidad==='critico');
+  else if (tipo==='js') lista=lista.filter(e=>e.codigoError==='js-runtime-error'||e.codigoError==='promise-rejected');
+  else if (tipo!=='todos') lista=lista.filter(e=>e.severidad===tipo);
+  document.getElementById('errFeedList').innerHTML=_buildFeedCards(lista);
 }
 
-async function recargarErrorLog() {
-  const container = document.getElementById('errorLogContainer');
-  if (!container) return;
-  container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--piedra)">↻ Actualizando...</div>';
-  await cargarErrorLogs();
-  filtrarYRenderErrorList(container);
+function _buildFeedCards(lista) {
+  const SEV_COL = {critico:'var(--red)',error:'var(--terra)',aviso:'#8a6f00',info:'var(--pizarra)'};
+  const SEV_BG  = {critico:'rgba(196,112,112,.1)',error:'rgba(196,133,106,.1)',aviso:'rgba(196,181,106,.08)',info:'rgba(125,142,160,.08)'};
+  const SEV_ICO = {critico:'🔴',error:'🟠',aviso:'🟡',info:'🔵'};
+
+  return lista.slice(0,100).map((err,i) => {
+    const uid   = err._docId||('err-'+i);
+    const sev   = err.severidad||'error';
+    const isJS  = err.codigoError==='js-runtime-error'||err.codigoError==='promise-rejected';
+    const kb    = ERROR_KB[err.codigoError]||ERROR_KB[err.codigo]||ERROR_KB['DEFAULT'];
+    const titulo= err.titulo||kb?.titulo||err.codigoError||'Error sin clasificar';
+    const res   = err.resuelto||err._resuelto;
+
+    return `
+    <div id="ecard-${uid}" onclick="_toggleEC('${uid}')" style="cursor:pointer;
+         background:var(--sand);border:1.5px solid rgba(168,159,150,.12);border-radius:16px;
+         padding:16px 18px;margin-bottom:8px;${res?'opacity:0.5':''}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <span style="background:${SEV_BG[sev]};color:${SEV_COL[sev]};border-radius:100px;
+                         padding:2px 9px;font-size:10px;font-weight:600">${SEV_ICO[sev]} ${sev.toUpperCase()}</span>
+            ${isJS?'<span style="background:rgba(196,133,106,.15);color:var(--terra);border-radius:100px;padding:2px 9px;font-size:10px;font-weight:600">🐛 JS OCULTO</span>':''}
+            <span style="background:rgba(168,159,150,.1);color:var(--piedra);border-radius:100px;
+                         padding:2px 9px;font-size:10px;font-family:monospace">${err.codigoError||'—'}</span>
+          </div>
+          <div style="font-size:13px;font-weight:500;color:var(--topo);margin-bottom:4px">${titulo}</div>
+          <div style="font-size:11px;color:var(--piedra);display:flex;gap:10px;flex-wrap:wrap">
+            <span>🏥 ${err.clinicaNombre||err.clinicaId||'—'}</span>
+            <span>🕐 ${_formatRelTime(err.fecha)}</span>
+            <span>👤 ${err.usuario||'Sistema'}</span>
+            ${err.version?`<span>📦 v${err.version}</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <button id="rbtn-${uid}" onclick="_toggleRes('${uid}',event)"
+            style="padding:6px 12px;border-radius:100px;border:1.5px solid;font-size:11px;font-family:inherit;
+                   cursor:pointer;transition:all .15s;
+                   ${res?'background:rgba(107,143,113,.1);border-color:rgba(107,143,113,.3);color:var(--salvia)'
+                        :'background:transparent;border-color:rgba(168,159,150,.3);color:var(--piedra)'}">
+            ${res?'✓ Resuelto':'Resolver'}
+          </button>
+          <span id="chev-${uid}" style="color:var(--muted);font-size:16px;transition:transform .2s">›</span>
+        </div>
+      </div>
+      <div id="edet-${uid}" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid rgba(168,159,150,.12)">
+        ${err.detalle?`<div style="background:rgba(0,0,0,.03);border-radius:10px;padding:10px 12px;
+          font-size:12px;color:var(--topo);margin-bottom:10px;word-break:break-word">${err.detalle}</div>`:''}
+        ${err.stack?`<div style="background:rgba(30,30,30,.04);border-radius:10px;padding:10px 12px;
+          font-family:monospace;font-size:11px;color:var(--carbon);white-space:pre-wrap;word-break:break-word;
+          margin-bottom:10px;overflow-x:auto">${(err.stack||'').replace(/</g,'&lt;')}</div>`:''}
+        ${err.url?`<div style="font-size:11px;color:var(--muted);margin-bottom:10px">🔗 <code>${err.url}</code></div>`:''}
+        ${(kb?.pasos||[]).length?`
+          <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);
+                      margin-bottom:8px;font-weight:600">Cómo resolverlo</div>
+          ${(kb?.pasos||[]).map((p,n)=>`
+            <div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">
+              <div style="width:18px;height:18px;border-radius:50%;background:var(--terra);color:white;
+                          font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;
+                          flex-shrink:0">${n+1}</div>
+              <div style="font-size:12px;color:var(--topo)"><b>${p.accion}</b> — ${p.detalle}</div>
+            </div>`).join('')}`:''}
+      </div>
+    </div>`;
+  }).join('') + (lista.length>100?`<div style="text-align:center;padding:20px;font-size:12px;color:var(--muted)">Mostrando 100 de ${lista.length}</div>`:'');
 }
 
-// Actualizar el badge de errores en el nav cuando carga el admin
+function _toggleEC(uid) {
+  const d=document.getElementById('edet-'+uid), ch=document.getElementById('chev-'+uid);
+  if(!d) return;
+  const open=d.style.display==='block';
+  d.style.display=open?'none':'block';
+  if(ch) ch.style.transform=open?'':'rotate(90deg)';
+}
+
+function _toggleRes(uid, event) {
+  event.stopPropagation();
+  const btn=document.getElementById('rbtn-'+uid);
+  const idx=_errLogs.findIndex(e=>e._docId===uid||('err-'+_errLogs.indexOf(e))===uid);
+  if(idx<0) return;
+  const res=!(_errLogs[idx].resuelto||_errLogs[idx]._resuelto);
+  _errLogs[idx]._resuelto=res;
+  if(btn){
+    btn.textContent=res?'✓ Resuelto':'Resolver';
+    btn.style.background=res?'rgba(107,143,113,.1)':'transparent';
+    btn.style.borderColor=res?'rgba(107,143,113,.3)':'rgba(168,159,150,.3)';
+    btn.style.color=res?'var(--salvia)':'var(--piedra)';
+  }
+  const card=document.getElementById('ecard-'+uid);
+  if(card) card.style.opacity=res?'0.5':'1';
+  if(_errLogs[idx]._docId)
+    db.collection('smile_errors').doc(_errLogs[idx]._docId)
+      .update({resuelto:res, resueltoEn:res?new Date().toISOString():null}).catch(()=>{});
+  _actualizarIconoNav();
+}
+
+// ── Tab switcher ─────────────────────────────────────────────
+function setSentinelTab(tab, btn) {
+  _sentinelTab=tab;
+  document.querySelectorAll('#sentinelTabs .filter-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(tab==='pulso')     _renderPulso();
+  if(tab==='errores')   _renderFeed(false);
+  if(tab==='resueltos') _renderFeed(true);
+}
+
+// ── Reload completo ──────────────────────────────────────────
+async function recargarSentinel() {
+  const bar=document.getElementById('sentinelStatusBar');
+  const body=document.getElementById('sentinelBody');
+  if(bar)  bar.innerHTML='<div style="text-align:center;padding:20px;color:var(--piedra)">↻ Actualizando...</div>';
+  if(body) body.innerHTML='';
+  await Promise.all([cargarErrorLogs(),_loadHealth()]).catch(()=>{});
+  _renderStatusBar();
+  if(_sentinelTab==='pulso')     _renderPulso();
+  if(_sentinelTab==='errores')   _renderFeed(false);
+  if(_sentinelTab==='resueltos') _renderFeed(true);
+  _actualizarIconoNav();
+}
+
+// ── Badge e ícono del nav ────────────────────────────────────
+function _actualizarIconoNav() {
+  const abiertos=_errLogs.filter(e=>!e.resuelto&&!e._resuelto).length;
+  const criticos=_errLogs.filter(e=>!e.resuelto&&!e._resuelto&&e.severidad==='critico').length;
+  const icon=document.getElementById('sentinelNavIcon');
+  const badge=document.getElementById('errorBadge');
+  if(icon) icon.textContent=criticos>0?'🔴':abiertos>0?'🟡':'🟢';
+  if(badge){
+    if(abiertos>0){badge.textContent=abiertos>9?'9+':abiertos;badge.style.display='inline-block';}
+    else badge.style.display='none';
+  }
+}
+
 async function actualizarErrorBadge() {
   try {
-    // Count errors from smile_errors collection
-    let count = 0;
-    try {
-      const snap = await db.collection('smile_errors')
-        .where('resuelto', '==', false).limit(99).get();
-      count += snap.size;
-    } catch(e) { /* colección no existe — normal */ }
-
-    // Also count unresolved auditLog errors from all clinics
-    for (const cl of clinicas) {
-      try {
-        const doc = await db.collection('clinicas').doc(cl.id).get();
-        if (!doc.exists) continue;
-        const logs = doc.data().auditLogs || [];
-        count += logs.filter(l => (l.tipo==='error'||l.error||l.codigo) && !l.resuelto).length;
-      } catch(e) {}
-      if (count >= 99) break;
-    }
-
-    const badge = document.getElementById('errorBadge');
-    if (!badge) return;
-    if (count > 0) {
-      badge.textContent = count > 9 ? '9+' : count;
-      badge.style.display = 'inline-block';
-    } else {
-      badge.style.display = 'none';
-    }
-  } catch(e) { console.warn('[Badge]', e.message); }
+    let count=0;
+    try{const s=await db.collection('smile_errors').where('resuelto','==',false).limit(99).get();count=s.size;}catch(e){}
+    const badge=document.getElementById('errorBadge');
+    const icon=document.getElementById('sentinelNavIcon');
+    if(badge){if(count>0){badge.textContent=count>9?'9+':count;badge.style.display='inline-block';}else badge.style.display='none';}
+    if(icon) icon.textContent=count>0?'🟡':'🟢';
+  } catch(e){console.warn('[Sentinel]',e.message);}
 }
+
+function _formatRelTime(iso) {
+  if(!iso) return '—';
+  const min=Math.floor((Date.now()-new Date(iso))/60000);
+  if(min<2)   return 'ahora';
+  if(min<60)  return `hace ${min}m`;
+  const h=Math.floor(min/60);
+  if(h<24)    return `hace ${h}h`;
+  return `hace ${Math.floor(h/24)}d`;
+}
+
+// Legacy aliases
+function recargarErrorLog(){recargarSentinel();}
+function setErrFiltro(f,btn){setSentinelTab(f==='resueltos'?'resueltos':'errores',btn);}
 
 </script>
 
