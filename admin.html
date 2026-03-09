@@ -674,7 +674,7 @@ async function loadClinicas() {
         citas: (data.citas || []).length,
         personalCount: (data.personal || []).length,
         // Calculate MRR from plan + modules
-        mrr: calcMRR(config.plan, config.modulos),
+        mrr: calcMRR(config.plan, config.modulos, config.usuariosExtra || 0),
         waName:  config.contactoWA?.nombre || config.waName  || data.waName  || '',
         waCargo: config.contactoWA?.cargo  || config.waCargo || data.waCargo || '',
         waPhone: config.contactoWA?.phone  || config.waPhone || data.waPhone || '',
@@ -702,12 +702,13 @@ async function loadClinicas() {
   }
 }
 
-function calcMRR(plan, modulos = []) {
-  const BASE = { clinica: 49, solo: 29 };
-  const MODULE_PRICES = { laboratorio: 9, nomina: 9, inventario: 9, reportes: 9, multisucursal: 19 };
-  const base = BASE[plan] || 49;
-  const extra = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
-  return base + extra;
+function calcMRR(plan, modulos = [], usuariosExtra = 0) {
+  const BASE = { clinica: 23, solo: 19 };
+  const MODULE_PRICES = { laboratorio: 5, nomina: 5, inventario: 5, reportes: 5, multisucursal: 15 };
+  const base       = BASE[plan] || 23;
+  const modCost    = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
+  const usersCost  = Math.max(0, usuariosExtra || 0) * 2.5;
+  return base + modCost + usersCost;
 }
 
 function fmtMRR(c) {
