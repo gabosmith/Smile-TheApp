@@ -9698,6 +9698,7 @@ function aplicarFiltrosFacturas() {
                                 ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
                             </div>
                             <div style="font-size: 13px; color:var(--piedra); margin-top: 4px;">Total: ${formatCurrency(f.total)}</div>
+                            ${f.profesional ? `<div style="font-size: 12px; color:var(--muted); margin-top: 3px;">👨‍⚕️ ${f.profesional}</div>` : ''}
                             ${hasComprobante ? '<div style="font-size: 12px; color: #007aff; margin-top: 4px;">📎 Tiene comprobante</div>' : ''}
                         </div>
                     </div>
