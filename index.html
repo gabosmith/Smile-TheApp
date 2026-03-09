@@ -56,8 +56,6 @@
   .nav-pills-group{display:flex;align-items:center;gap:6px}
   .nav-pill-acceder{background:var(--sand);border:none;color:var(--topo);font-family:inherit;font-size:12px;font-weight:400;cursor:none;padding:8px 18px;border-radius:100px;transition:all .25s;box-shadow:var(--neu-flat);white-space:nowrap}
   .nav-pill-acceder:hover{box-shadow:var(--neu-raised);color:var(--pizarra)}
-  .nav-pill-admin{background:var(--sand);border:none;color:var(--piedra);font-size:15px;width:34px;height:34px;border-radius:100px;cursor:none;display:flex;align-items:center;justify-content:center;transition:all .25s;box-shadow:var(--neu-flat);flex-shrink:0}
-  .nav-pill-admin:hover{box-shadow:var(--neu-raised);color:var(--topo)}
   .nav-cta{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:white;background:linear-gradient(145deg,#8c9db0,var(--pizarra));border:none;padding:11px 24px;border-radius:100px;cursor:none;font-family:inherit;transition:all .25s;box-shadow:var(--neu-pizarra)}
   .nav-cta:hover{background:linear-gradient(145deg,#d09882,var(--terra));box-shadow:var(--neu-terra)}
 
@@ -81,16 +79,18 @@
 
   /* HERO */
   .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:140px 60px 100px;text-align:center}
-  .hero-inner{max-width:740px;width:100%;display:flex;flex-direction:column;align-items:center}
+  .hero-inner{max-width:760px;width:100%;display:flex;flex-direction:column;align-items:center}
 
   .color-orbs{display:flex;gap:10px;margin-bottom:44px;opacity:0;animation:up 1s .5s ease forwards}
   .corb{border-radius:50%;transition:transform .4s cubic-bezier(.34,1.56,.64,1);cursor:none}
   .corb:hover{transform:scale(1.7)}
 
-  .hero-title{font-size:clamp(50px,8.5vw,96px);font-weight:200;letter-spacing:-3px;line-height:.95;color:var(--topo);margin-bottom:28px;opacity:0;animation:up .9s .05s ease forwards}
+  .hero-eyebrow{font-size:10px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--pizarra);margin-bottom:20px;opacity:0;animation:up .9s .02s ease forwards}
+
+  .hero-title{font-size:clamp(50px,8.5vw,96px);font-weight:200;letter-spacing:-3px;line-height:.95;color:var(--topo);margin-bottom:28px;opacity:0;animation:up .9s .08s ease forwards}
   .hero-title em{font-style:italic;color:var(--terra)}
 
-  .hero-sub{font-size:17px;color:var(--piedra);line-height:1.78;max-width:460px;margin-bottom:44px;opacity:0;animation:up .9s .18s ease forwards}
+  .hero-sub{font-size:17px;color:var(--piedra);line-height:1.78;max-width:480px;margin-bottom:44px;opacity:0;animation:up .9s .18s ease forwards}
 
   .hero-bottom{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;opacity:0;animation:up .9s .32s ease forwards}
   .hero-actions{display:flex;align-items:center;justify-content:center;gap:14px}
@@ -121,6 +121,28 @@
   .eyebrow{font-size:9px;font-weight:600;letter-spacing:5px;text-transform:uppercase;color:var(--pizarra);margin-bottom:14px}
   .sec-title{font-size:38px;font-weight:200;color:var(--topo);letter-spacing:-1px;line-height:1.1;margin-bottom:44px}
 
+  /* BEFORE/AFTER — NEW SECTION */
+  .bfaft-section{padding:80px 60px;max-width:1100px;margin:0 auto}
+  .bfaft-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .bfaft-col{border-radius:24px;padding:36px 34px}
+  .bfaft-col.before{background:var(--sand);box-shadow:var(--neu-inset-lg)}
+  .bfaft-col.after{background:linear-gradient(145deg,#e8edf4,#dfe6f0);box-shadow:var(--neu-pizarra)}
+  .bfaft-label{font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;margin-bottom:22px;display:flex;align-items:center;gap:8px}
+  .bfaft-col.before .bfaft-label{color:var(--muted)}
+  .bfaft-col.after .bfaft-label{color:var(--pizarra)}
+  .bfaft-dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+  .bfaft-item{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .bfaft-item:last-child{margin-bottom:0}
+  .bfaft-bullet{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:1px}
+  .bfaft-col.before .bfaft-bullet{background:rgba(200,194,187,.2);box-shadow:var(--neu-inset);color:var(--muted)}
+  .bfaft-col.after .bfaft-bullet{background:var(--salvia);color:white;font-size:10px}
+  .bfaft-text{font-size:13px;line-height:1.6}
+  .bfaft-col.before .bfaft-text{color:var(--piedra)}
+  .bfaft-col.after .bfaft-text{color:#3a5068}
+  .bfaft-vs{display:flex;align-items:center;justify-content:center;gap:16px;margin:0 0 16px;opacity:0;animation:up .6s .3s ease forwards}
+  .bfaft-vs-line{flex:1;height:1px;background:rgba(182,174,164,.3)}
+  .bfaft-vs-badge{font-size:9px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--muted);background:var(--sand);padding:6px 16px;border-radius:100px;box-shadow:var(--neu-flat);white-space:nowrap}
+
   /* FEATURES */
   .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
   .feature-card{background:var(--sand);border-radius:22px;padding:34px 30px;box-shadow:var(--neu-raised);transition:box-shadow .3s cubic-bezier(.34,1.56,.64,1),transform .3s;cursor:none;will-change:transform}
@@ -130,6 +152,28 @@
   .f-title{font-size:16px;font-weight:400;color:var(--topo);margin-bottom:9px}
   .f-desc{font-size:13px;color:var(--piedra);line-height:1.72}
 
+  /* SCREENSHOTS */
+  .screenshots-section{padding:80px 60px;max-width:1100px;margin:0 auto}
+  .ss-spotlight{display:grid;grid-template-columns:1.3fr 1fr;gap:52px;align-items:center;margin-bottom:72px}
+  .ss-spotlight.reverse{grid-template-columns:1fr 1.3fr}
+  .ss-spotlight.reverse .ss-shot{order:2}
+  .ss-spotlight.reverse .ss-text{order:1}
+  .ss-shot{border-radius:20px;overflow:hidden;box-shadow:var(--neu-raised-lg);background:var(--sand-lt)}
+  .ss-chrome{background:var(--sand);border-bottom:1px solid rgba(255,255,255,.6);padding:10px 16px;display:flex;align-items:center;gap:10px}
+  .ss-chrome-dots{display:flex;gap:5px}
+  .ss-chrome-dots span{width:9px;height:9px;border-radius:50%;background:var(--muted);opacity:.5}
+  .ss-chrome-bar{flex:1;text-align:center;font-size:10px;color:var(--muted);letter-spacing:.5px}
+  .ss-shot img{width:100%;display:block;min-height:200px;background:var(--sand-lt)}
+  .ss-tag{font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--pizarra);margin-bottom:14px}
+  .ss-text-title{font-size:30px;font-weight:200;color:var(--topo);letter-spacing:-1px;line-height:1.1;margin-bottom:14px}
+  .ss-text-desc{font-size:14px;color:var(--piedra);line-height:1.72}
+  .ss-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .ss-strip-card{border-radius:18px;overflow:hidden;box-shadow:var(--neu-raised);background:var(--sand-lt)}
+  .ss-strip-card img{width:100%;display:block;min-height:120px;background:var(--sand)}
+  .ss-strip-label{padding:16px 18px}
+  .ss-strip-label-title{font-size:13px;font-weight:400;color:var(--topo);margin-bottom:3px}
+  .ss-strip-label-sub{font-size:11px;color:var(--piedra);line-height:1.5}
+
   /* TRUST STRIP */
   .trust-strip{background:var(--sand);border-top:1px solid rgba(255,255,255,.6);border-bottom:1px solid rgba(255,255,255,.6);padding:52px 60px}
   .trust-inner{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:860px;margin:0 auto}
@@ -138,6 +182,27 @@
   .trust-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:var(--neu-raised);flex-shrink:0}
   .trust-title{font-size:14px;font-weight:400;color:var(--topo);margin-bottom:4px}
   .trust-sub{font-size:12px;color:var(--piedra);line-height:1.5}
+
+  /* VALUE PROPS — NEW */
+  .value-strip{padding:52px 60px;background:var(--sand-lt)}
+  .value-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .value-card{background:var(--sand);border-radius:22px;padding:32px 28px;box-shadow:var(--neu-raised);transition:box-shadow .3s,transform .3s}
+  .value-card:hover{box-shadow:var(--neu-raised-lg);transform:translateY(-2px)}
+  .value-num{font-size:48px;font-weight:200;letter-spacing:-2px;color:var(--topo);line-height:1;margin-bottom:10px}
+  .value-num em{font-style:italic;color:var(--terra)}
+  .value-label{font-size:13px;color:var(--piedra);line-height:1.6}
+
+  /* WHATSAPP — NEW */
+  .wa-section{padding:80px 60px;max-width:1100px;margin:0 auto}
+  .wa-card{background:var(--sand);border-radius:26px;padding:52px;display:flex;align-items:center;gap:52px;box-shadow:var(--neu-raised-lg);position:relative;overflow:hidden}
+  .wa-card::before{content:'';position:absolute;right:-80px;top:-80px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(107,143,113,.06) 0%,transparent 70%)}
+  .wa-icon-big{width:72px;height:72px;border-radius:22px;background:linear-gradient(145deg,#78a07f,var(--salvia));display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:var(--neu-salvia);flex-shrink:0}
+  .wa-content{flex:1}
+  .wa-eyebrow{font-size:9px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--salvia);margin-bottom:10px}
+  .wa-title{font-size:30px;font-weight:200;color:var(--topo);letter-spacing:-1px;line-height:1.1;margin-bottom:12px}
+  .wa-desc{font-size:14px;color:var(--piedra);line-height:1.72;max-width:460px}
+  .wa-badge{display:inline-flex;align-items:center;gap:6px;margin-top:16px;background:rgba(107,143,113,.1);padding:7px 16px;border-radius:100px;font-size:11px;color:var(--salvia);font-weight:400;box-shadow:var(--neu-salvia)}
+  .wa-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--salvia)}
 
   /* SUPPORT */
   .support-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -173,7 +238,6 @@
   .total-price{font-size:46px;font-weight:200;letter-spacing:-2px;color:var(--topo);transition:all .3s}
   .total-base{font-size:12px;color:var(--muted);margin-top:3px}
   .modules-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-
   .module-card{background:var(--sand);border-radius:18px;padding:28px 24px;box-shadow:var(--neu-raised);transition:box-shadow .25s,transform .25s,background .2s;cursor:none;position:relative;overflow:hidden;will-change:transform}
   .module-card:not(.selected):hover{box-shadow:var(--neu-raised-lg);transform:translateY(-2px)}
   .module-card.selected{background:linear-gradient(145deg,#e8edf4,#dfe6f0);box-shadow:var(--neu-pizarra)}
@@ -181,21 +245,25 @@
   .module-card.selected .m-desc{color:#7a8fa0}
   .module-card.selected .m-price{color:var(--pizarra)}
   .module-card.selected .m-price span{color:rgba(90,112,136,.5)}
-
   .module-check{position:absolute;top:14px;right:14px;width:20px;height:20px;border-radius:50%;box-shadow:var(--neu-inset);display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;transition:all .2s;background:var(--sand)}
   .module-card.selected .module-check{background:var(--pizarra);box-shadow:var(--neu-pizarra);color:white}
-
   .m-dot{width:8px;height:8px;border-radius:50%;margin-bottom:18px;transition:transform .3s;box-shadow:var(--neu-flat)}
   .module-card.selected .m-dot{transform:scale(1.4)}
   .m-name{font-size:14px;font-weight:400;color:var(--topo);margin-bottom:5px;transition:color .2s}
   .m-desc{font-size:12px;color:var(--piedra);line-height:1.6;margin-bottom:18px;transition:color .2s}
   .m-price{font-size:21px;font-weight:200;color:var(--topo);transition:color .2s}
   .m-price span{font-size:11px;color:var(--muted);transition:color .2s}
-
   .builder-cta{background:var(--sand);border-radius:20px;margin-top:20px;padding:28px 36px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--neu-raised-lg);transition:opacity .3s}
   .builder-cta.hidden{opacity:0;pointer-events:none}
   .bcta-label{font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
   .bcta-summary{font-size:14px;color:var(--topo)}
+
+  /* CTA FINAL — NEW */
+  .cta-final{padding:100px 60px;text-align:center;background:var(--sand)}
+  .cta-final-inner{max-width:620px;margin:0 auto}
+  .cta-final-title{font-size:clamp(38px,5vw,64px);font-weight:200;letter-spacing:-2px;line-height:1;color:var(--topo);margin-bottom:20px}
+  .cta-final-title em{font-style:italic;color:var(--terra)}
+  .cta-final-sub{font-size:16px;color:var(--piedra);line-height:1.7;margin-bottom:40px;max-width:420px;margin-left:auto;margin-right:auto}
 
   /* FOOTER */
   .brand-footer{background:linear-gradient(155deg,#F0ECE5,#E8E4DC);padding:80px 60px 60px;border-top:1px solid rgba(255,255,255,.6);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
@@ -230,100 +298,42 @@
     .color-orbs{margin-bottom:28px}
     .hero-title{font-size:clamp(44px,13vw,70px);letter-spacing:-2.5px;line-height:.92;margin-bottom:22px}
     .hero-sub{font-size:16px;max-width:100%;margin-bottom:34px;text-align:left}
-    .hero-bottom{align-items:flex-start;gap:12px}
-    .hero-actions{flex-direction:column;align-items:stretch;width:100%;gap:9px}
-    .btn-primary{width:100%;text-align:center;padding:17px 24px;font-size:12px;min-height:54px}
-    .btn-ghost{text-align:center;padding:14px;min-height:44px;font-size:14px;width:100%}
-    .hero-note{justify-content:flex-start}
-    .tags-section{padding:0 0 56px;-webkit-mask-image:linear-gradient(to right,transparent 0,black 16px,black calc(100% - 16px),transparent 100%);mask-image:linear-gradient(to right,transparent 0,black 16px,black calc(100% - 16px),transparent 100%)}
-    .tags-row{padding:0 20px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;max-width:100%;margin:0;scrollbar-width:none}
-    .tags-row::-webkit-scrollbar{display:none}
-    .tag{cursor:pointer}
-    .section{padding:60px 20px}
-    .sec-title{font-size:clamp(28px,8vw,36px);margin-bottom:32px}
-    .features-grid{grid-template-columns:1fr;gap:10px}
-    .feature-card{padding:26px 22px}
-    .trust-strip{padding:32px 20px}
-    .trust-inner{grid-template-columns:1fr;gap:10px}
-    .trust-item{flex-direction:row;align-items:center;padding:20px 22px}
-    .support-grid{grid-template-columns:1fr;gap:10px}
-    .pricing-section{padding:60px 20px}
-    .pricing-hero{padding:36px 26px}
-    .ph-title{font-size:clamp(30px,9vw,42px);letter-spacing:-1.5px}
-    .btn-large{width:100%;padding:17px 24px;font-size:12px;min-height:54px}
-    .solo-card{flex-direction:column;padding:30px 24px;gap:26px}
+    .hero-actions{flex-direction:column;width:100%}
+    .btn-primary,.btn-ghost{width:100%;text-align:center;padding:18px;font-size:14px}
+    .hero-note{justify-content:flex-start;text-align:left}
+    .mobile-bottom-cta{display:block}
+    .section{padding:56px 24px}
+    .features-grid{grid-template-columns:1fr}
+    .trust-inner{grid-template-columns:1fr}
+    .support-grid{grid-template-columns:1fr}
+    .tags-section{padding:0 0 56px}
+    .tags-row{padding:0 24px}
+    .bfaft-section{padding:56px 24px}
+    .bfaft-grid{grid-template-columns:1fr;gap:10px}
+    .value-strip{padding:40px 24px}
+    .value-inner{grid-template-columns:1fr;gap:12px}
+    .wa-section{padding:56px 24px}
+    .wa-card{flex-direction:column;padding:32px 28px;gap:24px}
+    .pricing-section{padding:56px 24px}
+    .pricing-hero{padding:40px 28px}
+    .ph-title{font-size:38px}
+    .solo-card{flex-direction:column;gap:28px;padding:32px 28px}
     .solo-right{text-align:left;width:100%}
     .solo-features{justify-content:flex-start}
-    .solo-price{font-size:40px}
-    .modules-section{padding:60px 20px}
-    .modules-header{flex-direction:column;gap:18px;align-items:flex-start;margin-bottom:28px}
-    .total-price{font-size:40px;letter-spacing:-2px}
-    .modules-grid{grid-template-columns:1fr 1fr;gap:9px}
-    .module-card{padding:20px 16px}
-    .m-name{font-size:13px}
-    .m-desc{font-size:11px;margin-bottom:12px}
-    .m-price{font-size:18px}
-    .builder-cta{flex-direction:column;gap:18px;padding:26px 22px;margin-bottom:76px}
-    .brand-footer{padding:52px 20px calc(36px + env(safe-area-inset-bottom))}
-    .bf-top{flex-direction:column;gap:18px;margin-bottom:36px}
-    .bf-logo{font-size:44px;letter-spacing:7px}
-    .bf-right{align-items:flex-start;gap:10px}
-    .bf-bottom{flex-direction:column;gap:8px;align-items:flex-start}
-    .mobile-bottom-cta{display:block}
-    footer.brand-footer{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+    .modules-section{padding:56px 24px}
+    .modules-grid{grid-template-columns:repeat(2,1fr)}
+    .modules-header{flex-direction:column;gap:24px;align-items:flex-start}
+    .builder-cta{flex-direction:column;gap:16px;text-align:center}
+    .screenshots-section{padding:56px 24px}
+    .ss-spotlight,.ss-spotlight.reverse{grid-template-columns:1fr;gap:28px}
+    .ss-spotlight.reverse .ss-shot{order:1}
+    .ss-spotlight.reverse .ss-text{order:2}
+    .ss-strip{grid-template-columns:1fr}
+    .cta-final{padding:72px 24px}
+    .brand-footer{padding:56px 24px 40px}
+    .bf-logo{font-size:52px;letter-spacing:12px}
+    .btn-large{width:100%;text-align:center;padding:18px}
   }
-  @media(max-width:390px){
-    .hero{padding:94px 18px 76px}
-    .hero-title{font-size:38px;letter-spacing:-2px}
-    .section{padding:52px 18px}
-    .pricing-section,.modules-section{padding:52px 18px}
-    .modules-grid{grid-template-columns:1fr;gap:8px}
-    .pricing-hero{padding:26px 20px}
-    .solo-card{padding:26px 20px}
-  }
-
-  /* ═══ SCREENSHOTS SECTION ═══════════════════════════════ */
-  .screenshots-section { padding: 90px 60px; overflow: hidden; }
-  .ss-spotlight {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; margin-bottom: 64px;
-  }
-  .ss-spotlight.reverse { direction: rtl; }
-  .ss-spotlight.reverse > * { direction: ltr; }
-  .ss-shot {
-    border-radius: 22px; overflow: hidden;
-    box-shadow: 12px 12px 32px rgba(182,174,164,.55), -6px -6px 20px rgba(255,255,255,.95);
-    transition: transform .4s cubic-bezier(.34,1.2,.64,1), box-shadow .4s;
-  }
-  .ss-shot:hover { transform: translateY(-6px) scale(1.01); box-shadow: 18px 18px 42px rgba(182,174,164,.6), -8px -8px 24px rgba(255,255,255,.98); }
-  .ss-shot img { width: 100%; display: block; }
-  .ss-chrome {
-    background: var(--sand-lt); padding: 10px 14px; display: flex; align-items: center; gap: 8px;
-    border-bottom: 1px solid rgba(185,177,167,.25);
-  }
-  .ss-chrome-dots { display: flex; gap: 5px; }
-  .ss-chrome-dots span { width: 10px; height: 10px; border-radius: 50%; }
-  .ss-chrome-dots span:nth-child(1) { background: #e8b4a2; }
-  .ss-chrome-dots span:nth-child(2) { background: #e8d4a2; }
-  .ss-chrome-dots span:nth-child(3) { background: #a2c8a8; }
-  .ss-chrome-bar { flex: 1; background: var(--sand); border-radius: 6px; padding: 4px 12px; font-size: 10px; color: var(--muted); letter-spacing: .3px; }
-  .ss-text { padding: 12px 0; }
-  .ss-tag { display: inline-block; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--pizarra); background: rgba(125,142,160,.1); padding: 4px 12px; border-radius: 100px; margin-bottom: 16px; box-shadow: var(--neu-flat); }
-  .ss-text-title { font-size: clamp(20px, 2.8vw, 28px); font-weight: 300; color: var(--topo); letter-spacing: -0.8px; margin-bottom: 12px; line-height: 1.25; }
-  .ss-text-desc { font-size: 14px; color: var(--piedra); line-height: 1.7; font-weight: 300; }
-  .ss-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-  .ss-strip-card { border-radius: 18px; overflow: hidden; box-shadow: var(--neu-raised); transition: transform .3s ease, box-shadow .3s; }
-  .ss-strip-card:hover { transform: translateY(-5px); box-shadow: var(--neu-raised-lg); }
-  .ss-strip-card img { width: 100%; display: block; }
-  .ss-strip-label { padding: 12px 16px; background: var(--sand-lt); }
-  .ss-strip-label-title { font-size: 13px; font-weight: 400; color: var(--topo); margin-bottom: 2px; }
-  .ss-strip-label-sub { font-size: 11px; color: var(--piedra); }
-  @media (max-width: 860px) {
-    .screenshots-section { padding: 60px 20px; }
-    .ss-spotlight, .ss-spotlight.reverse { grid-template-columns: 1fr; direction: ltr; gap: 28px; margin-bottom: 40px; }
-    .ss-strip { grid-template-columns: 1fr 1fr; gap: 16px; }
-    .ss-strip-card:last-child { grid-column: 1 / -1; }
-  }
-
 </style>
 </head>
 <body>
@@ -331,20 +341,18 @@
 <div class="cursor" id="cursor"></div>
 <div class="cursor-ring" id="cursorRing"></div>
 
-<!-- ═══ NAV ═══════════════════════════════════ -->
+<!-- NAV -->
 <nav id="nav">
   <div class="nav-pill">
     <div class="nav-logo">SMILE</div>
     <ul class="nav-links">
       <li><a href="#producto">Producto</a></li>
-      <li><a href="#screenshots">App</a></li>
       <li><a href="#precios">Precios</a></li>
       <li><a href="#modulos">Módulos</a></li>
     </ul>
     <div class="nav-pills-group">
-      <button class="nav-pill-acceder" onclick="abrirAcceso()">Acceder a mi clínica</button>
-      <button class="nav-pill-admin" onclick="window.location.href='admin.html'" title="Admin SMILE">⚙</button>
-      <button class="nav-cta" onclick="window.location.href='smile-onboarding.html'">Comenzar</button>
+      <button class="nav-pill-acceder" onclick="abrirAcceso()">Acceder</button>
+      <button class="nav-cta magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Empezar gratis →</button>
     </div>
     <button class="nav-hamburger" id="navHamburger" onclick="toggleMobileMenu()" aria-label="Menú">
       <span></span><span></span><span></span>
@@ -352,17 +360,19 @@
   </div>
 </nav>
 
+<!-- MOBILE MENU -->
 <div class="mobile-menu" id="mobileMenu">
   <a href="#producto" onclick="toggleMobileMenu()">Producto</a>
-  <a href="#precios"  onclick="toggleMobileMenu()">Precios</a>
-  <a href="#modulos"  onclick="toggleMobileMenu()">Módulos</a>
+  <a href="#precios" onclick="toggleMobileMenu()">Precios</a>
+  <a href="#modulos" onclick="toggleMobileMenu()">Módulos</a>
   <div class="menu-divider"></div>
-  <a href="#" class="cta-link" onclick="toggleMobileMenu();abrirAcceso()">Acceder a mi clínica</a>
-  <button class="menu-cta-btn" onclick="toggleMobileMenu();window.location.href='smile-onboarding.html'">Crear mi clínica →</button>
+  <a href="#" class="cta-link" onclick="abrirAcceso();toggleMobileMenu()">Acceder a mi clínica</a>
+  <button class="menu-cta-btn" onclick="window.location.href='smile-onboarding.html'">Empezar gratis →</button>
 </div>
 
+<!-- MOBILE BOTTOM CTA -->
 <div class="mobile-bottom-cta" id="mobileBottomCta">
-  <button onclick="window.location.href='smile-onboarding.html'">Crear mi clínica — gratis →</button>
+  <button onclick="window.location.href='smile-onboarding.html'">Crear mi clínica gratis →</button>
 </div>
 
 <!-- ═══ HERO ═══════════════════════════════════ -->
@@ -370,16 +380,18 @@
   <div class="hero-inner">
 
     <div class="color-orbs">
-      <div class="corb" style="width:11px;height:11px;background:var(--salvia);box-shadow:var(--neu-salvia)"></div>
+      <div class="corb" style="width:14px;height:14px;background:var(--salvia);box-shadow:var(--neu-salvia)"></div>
       <div class="corb" style="width:11px;height:11px;background:var(--pizarra);box-shadow:var(--neu-pizarra)"></div>
       <div class="corb" style="width:11px;height:11px;background:var(--rosa);box-shadow:var(--neu-rosa)"></div>
       <div class="corb" style="width:11px;height:11px;background:var(--terra);box-shadow:var(--neu-terra)"></div>
       <div class="corb" style="width:11px;height:11px;background:var(--muted);box-shadow:var(--neu-flat)"></div>
     </div>
 
-    <h1 class="hero-title">Tu clínica,<br>sin <em>complicaciones.</em></h1>
+    <div class="hero-eyebrow">Software dental · Latinoamérica</div>
 
-    <p class="hero-sub">Software dental hecho para dentistas de latinoamérica. Simple de aprender, fácil de usar — y siempre con alguien del otro lado cuando lo necesites.</p>
+    <h1 class="hero-title">Tu clínica,<br><em>como merece</em><br>estar.</h1>
+
+    <p class="hero-sub">Deja de perder horas en Excel, WhatsApp y papeles. SMILE fue diseñado para el dentista latinoamericano que quiere enfocarse en sus pacientes — no en la tecnología.</p>
 
     <div class="hero-bottom">
       <div class="hero-actions">
@@ -387,8 +399,7 @@
         <button class="btn-ghost" onclick="document.getElementById('producto').scrollIntoView({behavior:'smooth'})">Ver cómo funciona</button>
       </div>
       <div class="hero-note">
-        ¿Ya tienes pacientes en otra app?
-        <a href="/cdn-cgi/l/email-protection#afc7c0c3ceefdcc2c6c3ca81cedfdf">Te ayudamos a migrarlos →</a>
+        14 días gratis · Sin tarjeta · Activo en minutos
       </div>
     </div>
 
@@ -406,10 +417,74 @@
     <div class="tag">🧪 Laboratorio</div>
     <div class="tag">📊 Reportes</div>
     <div class="tag tr">☁️ Nube segura</div>
+    <div class="tag">💬 WhatsApp</div>
     <div class="tag">Sin contratos</div>
     <div class="tag">Activo en minutos</div>
-    <div class="tag" style="opacity:.4">💬 WhatsApp · Próximamente</div>
   </div>
+</div>
+
+<!-- ═══ ANTES / DESPUÉS ════════════════════════ -->
+<div class="sec-wrap">
+<div class="bfaft-section">
+  <div class="eyebrow reveal" style="text-align:center">El cambio real</div>
+  <div class="sec-title reveal rd1" style="text-align:center;margin-bottom:36px">¿Cómo gestionas<br>tu clínica hoy?</div>
+
+  <div class="bfaft-vs reveal">
+    <div class="bfaft-vs-line"></div>
+    <div class="bfaft-vs-badge">Sin SMILE vs. Con SMILE</div>
+    <div class="bfaft-vs-line"></div>
+  </div>
+
+  <div class="bfaft-grid reveal rd1">
+    <div class="bfaft-col before">
+      <div class="bfaft-label"><div class="bfaft-dot"></div> El método actual</div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✕</div>
+        <div class="bfaft-text">Citas anotadas en una agenda física o un Excel que solo tú entiendes</div>
+      </div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✕</div>
+        <div class="bfaft-text">Confirmaciones por WhatsApp, una por una, cada mañana</div>
+      </div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✕</div>
+        <div class="bfaft-text">Historial del paciente en papel, imposible de buscar rápido</div>
+      </div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✕</div>
+        <div class="bfaft-text">Cobros sin registro claro — fin de mes: ¿cuánto gané exactamente?</div>
+      </div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✕</div>
+        <div class="bfaft-text">Software genérico en inglés que no entiende cómo funciona tu clínica</div>
+      </div>
+    </div>
+
+    <div class="bfaft-col after">
+      <div class="bfaft-label"><div class="bfaft-dot"></div> Con SMILE</div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✓</div>
+        <div class="bfaft-text">Agenda visual por consultorio, sin solapamientos ni dobles reservas</div>
+      </div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✓</div>
+        <div class="bfaft-text">Recordatorios automáticos por WhatsApp — sin que tengas que hacer nada</div>
+      </div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✓</div>
+        <div class="bfaft-text">Expediente digital completo, con historial, imágenes y consentimientos</div>
+      </div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✓</div>
+        <div class="bfaft-text">Ingresos, cuadre de caja y reportes en tiempo real. Siempre claro.</div>
+      </div>
+      <div class="bfaft-item">
+        <div class="bfaft-bullet">✓</div>
+        <div class="bfaft-text">Hecho en latinoamérica, en español, entendiendo cómo trabaja una clínica aquí</div>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- ═══ FEATURES ═══════════════════════════════ -->
@@ -421,34 +496,33 @@
 
     <div class="feature-card reveal rd1">
       <div class="f-icon" style="background:rgba(107,143,113,.12);box-shadow:var(--neu-salvia)">🦷</div>
-      <div class="f-title">Pacientes</div>
-      <div class="f-desc">Expediente completo, historial clínico, consentimientos digitales y galería de imágenes. Todo en un perfil ordenado y accesible.</div>
+      <div class="f-title">Expediente del paciente</div>
+      <div class="f-desc">Historial clínico completo, consentimientos digitales, galería de imágenes y balance de pagos. Todo en un perfil ordenado — a un clic de distancia.</div>
     </div>
 
     <div class="feature-card reveal rd2">
       <div class="f-icon" style="background:rgba(125,142,160,.12);box-shadow:var(--neu-pizarra)">📅</div>
-      <div class="f-title">Agenda inteligente</div>
-      <div class="f-desc">Citas por consultorio, validación de solapamientos y vista semanal en tiempo real. Sin conflictos, sin dobles reservas.</div>
+      <div class="f-title">Agenda sin conflictos</div>
+      <div class="f-desc">Vista diaria y semanal por consultorio. Detecta solapamientos, permite reagendar con un movimiento y sincroniza en tiempo real entre todos los usuarios.</div>
     </div>
 
     <div class="feature-card reveal rd3">
       <div class="f-icon" style="background:rgba(234,192,178,.2);box-shadow:var(--neu-rosa)">💳</div>
-      <div class="f-title">Cobros</div>
-      <div class="f-desc">Efectivo, tarjeta, transferencia. Pagos parciales, cuadre de caja y facturación incluidos en el plan base.</div>
+      <div class="f-title">Cobros y cuadre de caja</div>
+      <div class="f-desc">Efectivo, tarjeta, transferencia. Pagos parciales, deudas pendientes y cierre de caja diario incluidos. Sabes exactamente cuánto entró — siempre.</div>
     </div>
 
-    <div class="feature-card reveal rd1">
+    <div class="feature-card reveal rd4">
       <div class="f-icon" style="background:rgba(196,133,106,.1);box-shadow:var(--neu-terra)">🎨</div>
-      <div class="f-title">Tu marca</div>
-      <div class="f-desc">Logo y colores propios en toda la app. Cada clínica se siente única, porque lo es.</div>
+      <div class="f-title">Tu clínica, tu marca</div>
+      <div class="f-desc">Logo y colores propios en toda la plataforma. Cada clínica se siente única porque lo es. No un template genérico — tu identidad, en cada pantalla.</div>
     </div>
 
   </div>
 </section>
 </div>
 
-
-<!-- ═══ SCREENSHOTS — Así se ve por dentro ════════════════ -->
+<!-- ═══ SCREENSHOTS ════════════════════════════ -->
 <div class="sec-wrap" style="background:var(--sand-lt)">
 <section class="screenshots-section" id="screenshots">
 
@@ -456,12 +530,11 @@
   <div class="sec-title reveal rd1">Diseñado para el<br>día a día dental.</div>
   <p style="font-size:15px;color:var(--piedra);font-weight:300;margin-bottom:56px;max-width:460px;line-height:1.6" class="reveal rd2">Sin curva de aprendizaje. Todo donde lo esperas, desde el primer día.</p>
 
-  <!-- Spotlight 1 — Dashboard -->
   <div class="ss-spotlight reveal rd1">
     <div class="ss-shot">
       <div class="ss-chrome">
         <div class="ss-chrome-dots"><span></span><span></span><span></span></div>
-        <div class="ss-chrome-bar">smiledental.app · Dashboard</div>
+        <div class="ss-chrome-bar">smile.app · Dashboard</div>
       </div>
       <img src="screenshot-dashboard.png" alt="Dashboard SMILE" loading="lazy">
     </div>
@@ -472,12 +545,11 @@
     </div>
   </div>
 
-  <!-- Spotlight 2 — Agenda (reversed) -->
   <div class="ss-spotlight reverse reveal rd2">
     <div class="ss-shot">
       <div class="ss-chrome">
         <div class="ss-chrome-dots"><span></span><span></span><span></span></div>
-        <div class="ss-chrome-bar">smiledental.app · Agenda</div>
+        <div class="ss-chrome-bar">smile.app · Agenda</div>
       </div>
       <img src="screenshot-agenda.png" alt="Agenda SMILE" loading="lazy">
     </div>
@@ -488,7 +560,6 @@
     </div>
   </div>
 
-  <!-- Strip de 3 -->
   <div class="ss-strip reveal rd1">
     <div class="ss-strip-card">
       <img src="screenshot-cobros.png" alt="Cobros SMILE" loading="lazy">
@@ -523,49 +594,82 @@
       <div class="trust-icon" style="background:rgba(107,143,113,.1);box-shadow:var(--neu-salvia)">🔒</div>
       <div>
         <div class="trust-title">Seguridad de nivel bancario</div>
-        <div class="trust-sub">Datos encriptados en tránsito y en reposo</div>
+        <div class="trust-sub">Datos encriptados en tránsito y en reposo. Tu información es tuya.</div>
       </div>
     </div>
     <div class="trust-item reveal rd1">
       <div class="trust-icon" style="background:rgba(125,142,160,.1);box-shadow:var(--neu-pizarra)">☁️</div>
       <div>
-        <div class="trust-title">Google Cloud</div>
-        <div class="trust-sub">99.9% uptime · Infraestructura estable</div>
+        <div class="trust-title">Google Cloud · 99.9% uptime</div>
+        <div class="trust-sub">Infraestructura estable. Disponible cuando tú lo necesitas.</div>
       </div>
     </div>
     <div class="trust-item reveal rd2">
       <div class="trust-icon" style="background:rgba(234,192,178,.18);box-shadow:var(--neu-rosa)">💾</div>
       <div>
         <div class="trust-title">Respaldo automático</div>
-        <div class="trust-sub">Tu información accesible, siempre</div>
+        <div class="trust-sub">Nunca pierdas un expediente. Backup continuo, sin que hagas nada.</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══ SUPPORT ═══════════════════════════════ -->
+<!-- ═══ WHATSAPP ════════════════════════════════ -->
+<div class="sec-wrap">
+<section class="wa-section">
+  <div class="wa-card reveal">
+    <div class="wa-icon-big">💬</div>
+    <div class="wa-content">
+      <div class="wa-eyebrow">Integración activa</div>
+      <div class="wa-title">WhatsApp conectado<br>a tu clínica.</div>
+      <div class="wa-desc">Recordatorios de citas, confirmaciones y notificaciones directo al WhatsApp de tus pacientes — sin que tengas que escribir uno por uno. SMILE lo hace por ti.</div>
+      <div class="wa-badge">Disponible ahora</div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ═══ VALUE PROPS ════════════════════════════ -->
+<div class="value-strip">
+  <div class="value-inner">
+    <div class="value-card reveal">
+      <div class="value-num">2<em>h</em></div>
+      <div class="value-label">promedio que recuperan nuestros usuarios por semana al dejar de gestionar manualmente</div>
+    </div>
+    <div class="value-card reveal rd1">
+      <div class="value-num">14<em>días</em></div>
+      <div class="value-label">gratis para probarlo sin compromiso. Sin tarjeta de crédito, sin contrato.</div>
+    </div>
+    <div class="value-card reveal rd2">
+      <div class="value-num">1<em>día</em></div>
+      <div class="value-label">es lo que tarda en promedio un dentista en aprender a usar SMILE desde cero</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SUPPORT ════════════════════════════════ -->
 <div class="sec-wrap">
 <section class="section">
-  <div class="eyebrow reveal" style="text-align:center">Soporte</div>
-  <div class="sec-title reveal rd1" style="text-align:center;margin-bottom:44px">Siempre hay alguien<br>del otro lado.</div>
+  <div class="eyebrow reveal" style="text-align:center">Por qué SMILE</div>
+  <div class="sec-title reveal rd1" style="text-align:center;margin-bottom:44px">Construido para<br>tu realidad.</div>
   <div class="support-grid">
 
     <div class="support-card reveal rd1">
-      <div class="s-icon" style="background:rgba(107,143,113,.1);box-shadow:var(--neu-salvia)">🤝</div>
-      <div class="s-title">Acompañamiento desde el día 1</div>
-      <div class="s-desc">Te ayudamos a configurar tu clínica, migrar tus pacientes y aprender el sistema. No eres un ticket de soporte — eres una persona que confió en nosotros.</div>
+      <div class="s-icon" style="background:rgba(107,143,113,.1);box-shadow:var(--neu-salvia)">🌎</div>
+      <div class="s-title">Hecho para latinoamérica</div>
+      <div class="s-desc">No es una traducción de otro software. SMILE fue construido entendiendo cómo trabaja una clínica en nuestra región — los flujos, el idioma, la cultura.</div>
     </div>
 
     <div class="support-card reveal rd2">
-      <div class="s-icon" style="background:rgba(125,142,160,.1);box-shadow:var(--neu-pizarra)">💬</div>
-      <div class="s-title">Soporte humano, no bots</div>
-      <div class="s-desc">Cuando tienes una duda, te responde una persona real que conoce SMILE. Rápido, claro y sin formularios interminables que nunca llegan a nadie.</div>
+      <div class="s-icon" style="background:rgba(125,142,160,.1);box-shadow:var(--neu-pizarra)">🤖</div>
+      <div class="s-title">Asistente con IA</div>
+      <div class="s-desc">SMILE tiene inteligencia artificial integrada que te ayuda a responder preguntas, encontrar información de pacientes y agilizar tareas del día a día.</div>
     </div>
 
     <div class="support-card reveal rd3">
-      <div class="s-icon" style="background:rgba(234,192,178,.18);box-shadow:var(--neu-rosa)">🌎</div>
-      <div class="s-title">Hecho para latinoamérica</div>
-      <div class="s-desc">Construido entendiendo cómo trabaja una clínica en nuestra región — los flujos, la cultura, el idioma. No una traducción de otro software.</div>
+      <div class="s-icon" style="background:rgba(234,192,178,.18);box-shadow:var(--neu-rosa)">🚀</div>
+      <div class="s-title">Activo en minutos</div>
+      <div class="s-desc">Sin instalaciones, sin configuraciones complicadas. Creas tu clínica, personalizas tu marca y empiezas a registrar pacientes el mismo día.</div>
     </div>
 
   </div>
@@ -586,17 +690,19 @@
   <div class="solo-card reveal rd2">
     <div>
       <div class="solo-tag">Para el dentista independiente</div>
-      <div class="solo-name">Plan Solo</div>
-      <div class="solo-desc">Para el dentista que trabaja solo. Agenda, pacientes, cobros y expediente clínico — todo en una herramienta simple y bien hecha.</div>
+      <div class="solo-name">Plan Base</div>
+      <div class="solo-desc">Agenda, pacientes, cobros, expediente clínico y WhatsApp incluidos. Todo lo que necesitas para gestionar tu clínica sin complicaciones.</div>
       <div class="solo-features">
         <div class="solo-tag-item">1 usuario</div>
         <div class="solo-tag-item">Pacientes ilimitados</div>
         <div class="solo-tag-item">Agenda</div>
         <div class="solo-tag-item">Cobros</div>
+        <div class="solo-tag-item">WhatsApp</div>
+        <div class="solo-tag-item">IA incluida</div>
       </div>
     </div>
     <div class="solo-right">
-      <div class="solo-price">$19 <span style="font-size:15px;font-weight:300;color:var(--muted);letter-spacing:1px">USD</span></div>
+      <div class="solo-price">$23 <span style="font-size:15px;font-weight:300;color:var(--muted);letter-spacing:1px">USD</span></div>
       <div class="solo-period">/ mes · todo incluido</div>
       <button class="btn-primary magnetic" data-strength="25" style="margin-top:8px" onclick="window.location.href='smile-onboarding.html'">Empezar gratis</button>
     </div>
@@ -611,14 +717,13 @@
       <div class="sec-title reveal rd1" style="margin-bottom:0">Flexible.<br>Solo lo que necesitas.</div>
     </div>
     <div style="text-align:right" class="reveal rd2">
-      <div class="total-label">Tu plan desde · expediente incluido</div>
-      <div class="total-price" id="totalPrice">$23 <span style="font-size:14px;font-weight:300;opn></div>
-      <div class="total-base" id="totalBase">base · sin módulos</div>
+      <div class="total-label">Tu plan desde · base incluida</div>
+      <div class="total-price" id="totalPrice">$23 <span style="font-size:14px;font-weight:300;opacity:.5;letter-spacing:1px">USD</span></div>
+      <div class="total-base" id="totalBase">base · sin módulos extra</div>
     </div>
   </div>
 
   <div class="modules-grid" id="modulesGrid">
-
     <div class="module-card reveal rd1" data-price="5" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--salvia)"></div>
@@ -626,7 +731,6 @@
       <div class="m-desc">Gestión de órdenes, estados y seguimiento.</div>
       <div class="m-price">$5 <span>/ mes</span></div>
     </div>
-
     <div class="module-card reveal rd2" data-price="5" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--pizarra)"></div>
@@ -634,7 +738,6 @@
       <div class="m-desc">Comisiones, avances y recibos de profesionales.</div>
       <div class="m-price">$5 <span>/ mes</span></div>
     </div>
-
     <div class="module-card reveal rd3" data-price="5" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--rosa)"></div>
@@ -642,7 +745,6 @@
       <div class="m-desc">Control de materiales con alertas de stock.</div>
       <div class="m-price">$5 <span>/ mes</span></div>
     </div>
-
     <div class="module-card reveal rd4" data-price="5" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--muted)"></div>
@@ -650,7 +752,6 @@
       <div class="m-desc">Rentabilidad por médico, tendencias, Excel.</div>
       <div class="m-price">$5 <span>/ mes</span></div>
     </div>
-
     <div class="module-card reveal rd2" data-price="15" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--pizarra)"></div>
@@ -658,7 +759,6 @@
       <div class="m-desc">Cada sede con gestión completamente independiente.</div>
       <div class="m-price">$15 <span>/ mes</span></div>
     </div>
-
     <div class="module-card reveal rd3" data-price="2.5" onclick="toggleModule(this)">
       <div class="module-check">✓</div>
       <div class="m-dot" style="background:var(--rosa)"></div>
@@ -666,7 +766,6 @@
       <div class="m-desc">Dentista, recepcionista o asistente con su acceso.</div>
       <div class="m-price">$2.50 <span>/ mes</span></div>
     </div>
-
   </div>
 
   <div class="builder-cta hidden" id="builderCta">
@@ -677,6 +776,18 @@
     <button class="btn-primary magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Crear mi clínica →</button>
   </div>
 </section>
+
+<!-- ═══ CTA FINAL ══════════════════════════════ -->
+<div class="sec-wrap" style="background:var(--sand-lt)">
+<section class="cta-final">
+  <div class="cta-final-inner reveal">
+    <div class="cta-final-title">Tu clínica merece<br>algo <em>mejor.</em></div>
+    <p class="cta-final-sub">Pruébalo 14 días sin costo. Sin tarjeta, sin contratos. Si no es para ti, no perdiste nada — pero creemos que sí lo va a ser.</p>
+    <button class="btn-large magnetic" data-strength="20" onclick="window.location.href='smile-onboarding.html'">Empezar gratis →</button>
+    <div style="font-size:12px;color:var(--muted);margin-top:16px;letter-spacing:.5px">¿Ya tienes pacientes en otra plataforma? <a href="mailto:hola@smile.app" style="color:var(--pizarra);text-decoration:none">Te ayudamos a migrarlos →</a></div>
+  </div>
+</section>
+</div>
 
 <!-- ═══ FOOTER ════════════════════════════════ -->
 <footer class="brand-footer">
@@ -704,7 +815,7 @@ const cursor=document.getElementById('cursor'),ring=document.getElementById('cur
 let mx=0,my=0,rx=0,ry=0;
 document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cursor.style.left=mx+'px';cursor.style.top=my+'px'});
 (function animRing(){rx+=(mx-rx)*.12;ry+=(my-ry)*.12;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(animRing)})();
-document.querySelectorAll('button,a,.tag,.module-card,.feature-card,.support-card,.trust-item,.corb,.bf-dot').forEach(el=>{
+document.querySelectorAll('button,a,.tag,.module-card,.feature-card,.support-card,.trust-item,.value-card,.corb,.bf-dot,.wa-card').forEach(el=>{
   el.addEventListener('mouseenter',()=>{cursor.classList.add('expanded');ring.classList.add('expanded')});
   el.addEventListener('mouseleave',()=>{cursor.classList.remove('expanded');ring.classList.remove('expanded')});
 });
@@ -739,7 +850,7 @@ function toggleModule(card){
   el.style.transform='scale(1.05)';
   el.innerHTML='<span>$'+(Number.isInteger(tot)?tot.toLocaleString():tot.toFixed(2))+'</span> <span style="font-size:14px;font-weight:300;opacity:.5;letter-spacing:1px">USD</span>';
   setTimeout(()=>el.style.transform='',200);
-  document.getElementById('totalBase').textContent=sel.size===0?'base · sin módulos':`base + ${sel.size} módulo${sel.size>1?'s':''}`;
+  document.getElementById('totalBase').textContent=sel.size===0?'base · sin módulos extra':`base + ${sel.size} módulo${sel.size>1?'s':''}`;
   const cta=document.getElementById('builderCta'),sum=document.getElementById('builderSummary');
   if(sel.size>0){cta.classList.remove('hidden');sum.textContent=names.slice(0,3).join(', ')+(names.length>3?` +${names.length-3} más`:'')}
   else cta.classList.add('hidden');
@@ -749,23 +860,11 @@ function toggleModule(card){
 function toggleMobileMenu(){document.getElementById('mobileMenu').classList.toggle('open');document.getElementById('navHamburger').classList.toggle('open')}
 document.addEventListener('click',e=>{const m=document.getElementById('mobileMenu'),b=document.getElementById('navHamburger');if(m.classList.contains('open')&&!m.contains(e.target)&&!b.contains(e.target)){m.classList.remove('open');b.classList.remove('open')}});
 
-// ACCESO — modal para pedir ID de clínica
-function abrirAcceso() {
-  document.getElementById('modalAcceso').style.display = 'flex';
-  setTimeout(() => document.getElementById('inputClinicaId')?.focus(), 100);
-}
-function cerrarAcceso() {
-  document.getElementById('modalAcceso').style.display = 'none';
-}
-function irClinica() {
-  const id = (document.getElementById('inputClinicaId')?.value || '').trim().toLowerCase();
-  if (!id) { document.getElementById('inputClinicaId').focus(); return; }
-  window.location.href = '/app.html?clinica=' + encodeURIComponent(id);
-}
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') cerrarAcceso();
-  if (e.key === 'Enter' && document.getElementById('modalAcceso')?.style.display === 'flex') irClinica();
-});
+// ACCESO
+function abrirAcceso(){document.getElementById('modalAcceso').style.display='flex';setTimeout(()=>document.getElementById('inputClinicaId')?.focus(),100)}
+function cerrarAcceso(){document.getElementById('modalAcceso').style.display='none'}
+function irClinica(){const id=(document.getElementById('inputClinicaId')?.value||'').trim().toLowerCase();if(!id){document.getElementById('inputClinicaId').focus();return}window.location.href='/app.html?clinica='+encodeURIComponent(id)}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrarAcceso();if(e.key==='Enter'&&document.getElementById('modalAcceso')?.style.display==='flex')irClinica()});
 </script>
 
 <!-- Modal acceso clínica -->
@@ -773,7 +872,7 @@ document.addEventListener('keydown', e => {
   <div style="background:var(--sand-lt);border-radius:24px;padding:36px 32px;max-width:400px;width:100%;box-shadow:var(--neu-raised-lg)">
     <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--piedra);margin-bottom:8px">Acceder a tu clínica</div>
     <div style="font-size:22px;font-weight:300;color:var(--topo);margin-bottom:6px;letter-spacing:-0.5px">¿Cuál es tu ID?</div>
-    <div style="font-size:13px;color:var(--piedra);margin-bottom:24px;line-height:1.5">Tu ID es el que te enviamos al registrarte. Ej: <strong>clinica-gabo</strong></div>
+    <div style="font-size:13px;color:var(--piedra);margin-bottom:24px;line-height:1.5">Tu ID es el que recibiste al registrarte. Ej: <strong>clinica-gabo</strong></div>
     <input id="inputClinicaId" type="text" placeholder="mi-clinica" autocomplete="off" autocorrect="off" autocapitalize="off"
       style="width:100%;padding:14px 18px;border:none;border-radius:14px;font-size:15px;font-family:inherit;color:var(--topo);background:var(--sand);box-shadow:var(--neu-inset);outline:none;margin-bottom:16px;letter-spacing:.5px">
     <button onclick="irClinica()" style="width:100%;padding:14px;background:linear-gradient(145deg,#8c9db0,var(--pizarra));color:white;border:none;border-radius:14px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-family:inherit;cursor:pointer;box-shadow:var(--neu-pizarra);margin-bottom:10px">
