@@ -703,15 +703,15 @@ async function loadClinicas() {
 }
 
 function calcMRR(plan, modulos = []) {
-  const BASE = { clinica: 1200, solo: 990 };
-  const MODULE_PRICES = { laboratorio: 300, nomina: 300, inventario: 300, reportes: 300, multisucursal: 800 };
-  const base = BASE[plan] || 1200;
+  const BASE = { clinica: 49, solo: 29 };
+  const MODULE_PRICES = { laboratorio: 9, nomina: 9, inventario: 9, reportes: 9, multisucursal: 19 };
+  const base = BASE[plan] || 49;
   const extra = (modulos || []).reduce((s, m) => s + (MODULE_PRICES[m] || 0), 0);
   return base + extra;
 }
 
 function fmtMRR(c) {
-  return 'RD$' + (c.mrr || 0).toLocaleString();
+  return '$' + (c.mrr || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' USD';
 }
 
 // ── SECTIONS ──────────────────────────────────────────
@@ -1331,11 +1331,11 @@ function openEditModal(id) {
   if (!c) return;
 
   const allModulos = [
-    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
-    { key: 'nomina',        label: 'Nómina',              price: 300 },
-    { key: 'inventario',    label: 'Inventario',          price: 300 },
-    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
-    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 9 },
+    { key: 'nomina',        label: 'Nómina',              price: 9 },
+    { key: 'inventario',    label: 'Inventario',          price: 9 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 9 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 19 },
   ];
 
   document.getElementById('modalTitle').textContent = 'Editar — ' + c.nombre;
@@ -1352,8 +1352,8 @@ function openEditModal(id) {
       <div class="modal-field">
         <label>Plan</label>
         <select id="edit-plan">
-          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — RD$990/mes</option>
-          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — RD$1,200/mes</option>
+          <option value="solo" ${c.plan==='solo'?'selected':''}>Solo — $29 USD/mes</option>
+          <option value="clinica" ${c.plan==='clinica'?'selected':''}>Clínica — $49 USD/mes</option>
         </select>
       </div>
     </div>
@@ -1518,11 +1518,11 @@ async function cargarNotifsOnboarding() {
 
 function renderNuevaClinica(main) {
   const allModulos = [
-    { key: 'laboratorio',   label: 'Laboratorio',         price: 300 },
-    { key: 'nomina',        label: 'Nómina',              price: 300 },
-    { key: 'inventario',    label: 'Inventario',          price: 300 },
-    { key: 'reportes',      label: 'Reportes avanzados',  price: 300 },
-    { key: 'multisucursal', label: 'Sucursal adicional',  price: 800 },
+    { key: 'laboratorio',   label: 'Laboratorio',         price: 9 },
+    { key: 'nomina',        label: 'Nómina',              price: 9 },
+    { key: 'inventario',    label: 'Inventario',          price: 9 },
+    { key: 'reportes',      label: 'Reportes avanzados',  price: 9 },
+    { key: 'multisucursal', label: 'Sucursal adicional',  price: 19 },
   ];
 
   main.innerHTML = `
@@ -1557,9 +1557,38 @@ function renderNuevaClinica(main) {
           <div class="modal-field">
             <label>Plan</label>
             <select id="new-plan">
-              <option value="clinica">Clínica — RD$1,200/mes</option>
-              <option value="solo">Solo — RD$990/mes</option>
+              <option value="clinica">Clínica — $49 USD/mes</option>
+              <option value="solo">Solo — $29 USD/mes</option>
             </select>
+          </div>
+        </div>
+
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label>País</label>
+            <select id="new-pais">
+              <option value="República Dominicana">🇩🇴 República Dominicana (+1)</option>
+              <option value="Colombia">🇨🇴 Colombia (+57)</option>
+              <option value="México">🇲🇽 México (+52)</option>
+              <option value="Panamá">🇵🇦 Panamá (+507)</option>
+              <option value="Costa Rica">🇨🇷 Costa Rica (+506)</option>
+              <option value="Guatemala">🇬🇹 Guatemala (+502)</option>
+              <option value="Honduras">🇭🇳 Honduras (+504)</option>
+              <option value="El Salvador">🇸🇻 El Salvador (+503)</option>
+              <option value="Venezuela">🇻🇪 Venezuela (+58)</option>
+              <option value="Ecuador">🇪🇨 Ecuador (+593)</option>
+              <option value="Perú">🇵🇪 Perú (+51)</option>
+              <option value="Chile">🇨🇱 Chile (+56)</option>
+              <option value="Argentina">🇦🇷 Argentina (+54)</option>
+              <option value="USA">🇺🇸 USA (+1)</option>
+              <option value="España">🇪🇸 España (+34)</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label>WhatsApp del admin</label>
+            <input type="tel" id="new-waphone" placeholder="809 000 0000"
+              style="font-family:monospace">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Para enviarle las credenciales</div>
           </div>
         </div>
 
@@ -1586,7 +1615,7 @@ function renderNuevaClinica(main) {
               <label class="module-check-item">
                 <input type="checkbox" value="${m.key}"
                   onchange="this.closest('.module-check-item').classList.toggle('checked', this.checked)">
-                ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--muted)">+$${m.price}</span>
+                ${m.label} <span style="margin-left:auto;font-size:11px;color:var(--muted)">+$${m.price} USD</span>
               </label>
             `).join('')}
           </div>
@@ -1594,7 +1623,7 @@ function renderNuevaClinica(main) {
 
         <div style="background:var(--sand);border-radius:16px;padding:20px 24px;margin-bottom:24px;box-shadow:var(--neu-raised)">
           <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--piedra);margin-bottom:8px">MRR estimado</div>
-          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">RD$1,200</div>
+          <div style="font-size:32px;font-weight:200;letter-spacing:-1px;color:var(--terra)" id="new-mrr-preview">$49 USD</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px">/ mes</div>
         </div>
 
@@ -1616,7 +1645,7 @@ function updateMRRPreview() {
   const modulos = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
   const mrr = calcMRR(plan, modulos);
   const el = document.getElementById('new-mrr-preview');
-  if (el) el.textContent = 'RD$' + mrr.toLocaleString();
+  if (el) el.textContent = '$' + mrr.toLocaleString('en-US') + ' USD';
 }
 
 function autoSlug(val) {
@@ -1638,6 +1667,15 @@ async function crearClinica() {
   const adminNombre = document.getElementById('new-admin-nombre').value.trim() || 'Administrador';
   const color       = document.getElementById('new-color').value;
   const modulos     = [...document.querySelectorAll('.modules-check-grid input:checked')].map(i => i.value);
+  const pais        = document.getElementById('new-pais')?.value || 'República Dominicana';
+  const waPhone     = document.getElementById('new-waphone')?.value.replace(/[^0-9]/g,'') || '';
+  // Map country to dial code for WhatsApp
+  const DIAL = { 'República Dominicana':'+1','USA':'+1','Colombia':'+57','México':'+52',
+    'Panamá':'+507','Costa Rica':'+506','Guatemala':'+502','Honduras':'+504',
+    'El Salvador':'+503','Venezuela':'+58','Ecuador':'+593','Perú':'+51',
+    'Chile':'+56','Argentina':'+54','España':'+34' };
+  const dialCode  = DIAL[pais] || '+1';
+  const waFull    = waPhone ? dialCode + waPhone : '';
 
   if (!nombre || !id || !email) {
     showToast('⚠️ Nombre, ID y email son requeridos');
@@ -1700,93 +1738,115 @@ async function crearClinica() {
       adminEmail: email,
       mrr: calcMRR(plan, modulos),
       pin: pinPlain,
-      pais: document.getElementById('new-pais')?.value || '',
-      moneda: document.getElementById('new-moneda')?.value || 'USD',
+      pais,
+      waPhone: waFull,
+      moneda: 'USD',
       fecha: new Date().toISOString(),
       origenRegistro: 'admin',
       leida: false,
     }).catch(() => {}); // non-blocking
 
-    // Show success with the PIN so admin can share it
-    showToast('✅ Clínica creada — PIN admin: ' + pinPlain, 8000);
+    // Show success modal with PIN + credential sharing buttons
+    showToast('✅ Clínica creada — PIN: ' + pinPlain, 6000);
     setTimeout(() => {
-      document.getElementById('modalTitle').textContent = '✅ Clínica creada';
-      document.getElementById('modalBody').innerHTML = `
-        <div style="text-align:center;padding:16px 0 8px">
-          <div style="font-size:13px;color:var(--piedra);margin-bottom:24px;line-height:1.7">
-            <strong style="color:var(--topo)">${nombre}</strong> está lista.<br>
-
-            Comparte este PIN con el administrador:
-          </div>
-          <div style="background:rgba(255,255,255,.4);border-radius:16px;padding:28px;
-                      margin-bottom:20px;box-shadow:var(--neu-raised)">
-            <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
-                        color:var(--muted);margin-bottom:12px;font-weight:600">PIN de acceso</div>
-            <div style="font-family:monospace;font-size:40px;letter-spacing:10px;
-                        color:var(--pizarra);font-weight:300">${pinPlain}</div>
-            <div style="font-size:12px;color:var(--piedra);margin-top:10px">
-              Usuario: <strong>${adminNombre}</strong>
-            </div>
-          </div>
-          <div style="font-size:11px;color:var(--muted)">
-            El cliente puede cambiarlo desde Ajustes → Personal
-          </div>
-        </div>
-        <div style="margin-top:24px">
-          <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
-                      color:var(--piedra);margin-bottom:14px;font-weight:600">
-            Enviar credenciales al cliente
-          </div>
-          <button onclick="enviarCredencialesWA('${nombre}','${adminNombre}','${id}','${pinPlain}')"
-            style="width:100%;display:flex;align-items:center;gap:14px;padding:16px 20px;margin-bottom:10px;
-                   background:linear-gradient(135deg,#25d366,#1da851);border:none;border-radius:14px;
-                   cursor:pointer;color:white;font-family:inherit;text-align:left;
-                   box-shadow:0 4px 14px rgba(37,211,102,.3);transition:transform .15s,box-shadow .15s"
-            onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(37,211,102,.4)'"
-            onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(37,211,102,.3)'">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            <div>
-              <div style="font-size:13px;font-weight:600;letter-spacing:.3px">Enviar por WhatsApp</div>
-              <div style="font-size:11px;opacity:.85;margin-top:2px">Abre WhatsApp con el mensaje listo</div>
-            </div>
-          </button>
-          <button onclick="enviarCredencialesEmail('${nombre}','${adminNombre}','${id}','${pinPlain}','${email}')"
-            style="width:100%;display:flex;align-items:center;gap:14px;padding:16px 20px;margin-bottom:10px;
-                   background:linear-gradient(135deg,#4285f4,#1a73e8);border:none;border-radius:14px;
-                   cursor:pointer;color:white;font-family:inherit;text-align:left;
-                   box-shadow:0 4px 14px rgba(66,133,244,.3);transition:transform .15s,box-shadow .15s"
-            onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(66,133,244,.4)'"
-            onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(66,133,244,.3)'">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-            <div>
-              <div style="font-size:13px;font-weight:600;letter-spacing:.3px">Enviar por Email</div>
-              <div style="font-size:11px;opacity:.85;margin-top:2px">${email || 'Sin email registrado'}</div>
-            </div>
-          </button>
-          <button onclick="copiarCredenciales('${nombre}','${adminNombre}','${id}','${pinPlain}')"
-            style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 20px;margin-bottom:18px;
-                   background:transparent;border:1.5px solid rgba(168,159,150,.25);border-radius:14px;
-                   cursor:pointer;color:var(--piedra);font-family:inherit;text-align:left;transition:all .15s"
-            onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
-            onmouseout="this.style.borderColor='rgba(168,159,150,.25)';this.style.color='var(--piedra)'">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-            <div>
-              <div style="font-size:13px;font-weight:500">Copiar credenciales</div>
-              <div style="font-size:11px;opacity:.7;margin-top:2px">Texto listo para pegar donde quieras</div>
-            </div>
-          </button>
-          <button class="btn-cancel" onclick="closeModal()" style="width:100%;text-align:center">Cerrar</button>
-        </div>`;
-      document.getElementById('modalOverlay').classList.add('open');
+      mostrarModalCredenciales(nombre, adminNombre, id, pinPlain, email, waFull);
     }, 400);
 
     await loadClinicas();
-    showSection('clinicas');
+    // Stay on nueva section so admin can see the onboarding panel refresh
+    await cargarNotifsOnboarding();
   } catch(e) {
     showToast('❌ Error: ' + e.message);
     console.error(e);
     if (btn) { btn.disabled = false; btn.textContent = '🏥 Crear clínica'; }
   }
+}
+
+// ── Modal centralizado de credenciales — reutilizado por crearClinica() y onboarding notifs
+function mostrarModalCredenciales(nombre, adminNombre, clinicId, pin, email, waFull) {
+  const appUrl = `https://smiledental.app/app.html?clinica=${clinicId}`;
+  document.getElementById('modalTitle').textContent = '✅ Clínica creada';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="text-align:center;padding:12px 0 6px">
+      <div style="font-size:13px;color:var(--piedra);margin-bottom:20px;line-height:1.7">
+        <strong style="color:var(--topo)">${nombre}</strong> está lista.<br>
+        Comparte estas credenciales con el administrador:
+      </div>
+
+      <!-- PIN card -->
+      <div style="background:linear-gradient(135deg,var(--terra),#b07060);border-radius:20px;padding:28px;
+                  margin-bottom:16px;box-shadow:0 8px 24px rgba(196,133,106,.35)">
+        <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;
+                    color:rgba(255,255,255,.7);margin-bottom:10px;font-weight:600">PIN de acceso</div>
+        <div style="font-family:monospace;font-size:46px;letter-spacing:12px;
+                    color:white;font-weight:300;text-shadow:0 2px 8px rgba(0,0,0,.2)">${pin}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:10px">
+          👤 Usuario: <strong>${adminNombre}</strong>
+        </div>
+      </div>
+
+      <!-- URL -->
+      <div style="background:var(--sand);border-radius:12px;padding:12px 16px;margin-bottom:20px;
+                  font-family:monospace;font-size:12px;color:var(--pizarra);word-break:break-all">
+        🔗 ${appUrl}
+      </div>
+
+      <div style="font-size:11px;color:var(--muted);margin-bottom:20px">
+        El cliente puede cambiar su PIN desde Ajustes → Personal
+      </div>
+    </div>
+
+    <!-- Send buttons -->
+    <div>
+      <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
+                  color:var(--piedra);margin-bottom:14px;font-weight:600">Enviar al cliente</div>
+
+      <!-- WhatsApp -->
+      <button onclick="enviarCredencialesWA('${nombre.replace(/'/g,"\\'")}','${adminNombre.replace(/'/g,"\\'")}','${clinicId}','${pin}','${waFull}')"
+        style="width:100%;display:flex;align-items:center;gap:14px;padding:15px 20px;margin-bottom:10px;
+               background:linear-gradient(135deg,#25d366,#1da851);border:none;border-radius:14px;
+               cursor:pointer;color:white;font-family:inherit;text-align:left;
+               box-shadow:0 4px 14px rgba(37,211,102,.3);transition:transform .15s"
+        onmouseover="this.style.transform='translateY(-2px)'"
+        onmouseout="this.style.transform=''">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        <div>
+          <div style="font-size:13px;font-weight:600">Enviar por WhatsApp</div>
+          <div style="font-size:11px;opacity:.85;margin-top:1px">${waFull || 'Sin número — abre WhatsApp vacío'}</div>
+        </div>
+      </button>
+
+      <!-- Email -->
+      <button onclick="enviarCredencialesEmail('${nombre.replace(/'/g,"\\'")}','${adminNombre.replace(/'/g,"\\'")}','${clinicId}','${pin}','${email}')"
+        style="width:100%;display:flex;align-items:center;gap:14px;padding:15px 20px;margin-bottom:10px;
+               background:linear-gradient(135deg,#4285f4,#1a73e8);border:none;border-radius:14px;
+               cursor:pointer;color:white;font-family:inherit;text-align:left;
+               box-shadow:0 4px 14px rgba(66,133,244,.3);transition:transform .15s"
+        onmouseover="this.style.transform='translateY(-2px)'"
+        onmouseout="this.style.transform=''">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        <div>
+          <div style="font-size:13px;font-weight:600">Enviar por Email</div>
+          <div style="font-size:11px;opacity:.85;margin-top:1px">${email || 'Sin email registrado'}</div>
+        </div>
+      </button>
+
+      <!-- Copy -->
+      <button onclick="copiarCredenciales('${nombre.replace(/'/g,"\\'")}','${adminNombre.replace(/'/g,"\\'")}','${clinicId}','${pin}')"
+        style="width:100%;display:flex;align-items:center;gap:14px;padding:13px 20px;margin-bottom:18px;
+               background:transparent;border:1.5px solid rgba(168,159,150,.25);border-radius:14px;
+               cursor:pointer;color:var(--piedra);font-family:inherit;text-align:left;transition:all .15s"
+        onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
+        onmouseout="this.style.borderColor='rgba(168,159,150,.25)';this.style.color='var(--piedra)'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        <div>
+          <div style="font-size:13px;font-weight:500">Copiar credenciales</div>
+          <div style="font-size:11px;opacity:.7;margin-top:1px">Texto listo para pegar donde quieras</div>
+        </div>
+      </button>
+      <button class="btn-cancel" onclick="closeModal()" style="width:100%;text-align:center">Cerrar</button>
+    </div>`;
+  document.getElementById('modalOverlay').classList.add('open');
 }
 
 // SHA-256 hash matching app.js verifyPassword logic
@@ -1865,9 +1925,10 @@ function _buildTextoCredenciales(nombre, adminNombre, clinicId, pin) {
 
 // ── Al crear clínica (tiene PIN disponible) ────────────
 
-function enviarCredencialesWA(nombre, adminNombre, clinicId, pin) {
+function enviarCredencialesWA(nombre, adminNombre, clinicId, pin, waFull) {
   const msg = _buildMsgWA(nombre, adminNombre, clinicId, pin);
-  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  const tel = (waFull || '').replace(/\D/g,'');
+  window.open('https://wa.me/' + (tel ? tel + '?text=' : '?text=') + encodeURIComponent(msg), '_blank');
 }
 
 function enviarCredencialesEmail(nombre, adminNombre, clinicId, pin, email) {

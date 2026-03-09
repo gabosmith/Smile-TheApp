@@ -1956,23 +1956,37 @@ function openAddProcedimiento() {
     document.getElementById('procDesc').value = '';
     document.getElementById('procCant').value = '1';
     document.getElementById('procPrecio').value = '';
+    const ds = document.getElementById('procDescuentoSlider');
+    if (ds) { ds.value = '0'; document.getElementById('procDescuentoLabel').textContent = '0%'; }
     openModal('modalAddProcedimiento');
 }
 
-function agregarProcedimiento() {
-    const desc   = sanitize.str(document.getElementById('procDesc')?.value, 300);
-    const cant   = sanitize.int(document.getElementById('procCant')?.value, 1, 999);
-    const precio = sanitize.num(document.getElementById('procPrecio')?.value, 0);
+function setProcDescuento(val) {
+    const ds = document.getElementById('procDescuentoSlider');
+    const dl = document.getElementById('procDescuentoLabel');
+    if (ds) { ds.value = val; dl.textContent = val + '%'; }
+}
 
-    if (!desc)      { showToast('⚠️ Escribe la descripción del procedimiento'); return; }
-    if (cant < 1)   { showToast('⚠️ La cantidad debe ser al menos 1'); return; }
-    if (precio <= 0){ showToast('⚠️ El precio debe ser mayor a cero'); return; }
+function agregarProcedimiento() {
+    const desc    = sanitize.str(document.getElementById('procDesc')?.value, 300);
+    const cant    = sanitize.int(document.getElementById('procCant')?.value, 1, 999);
+    const precio  = sanitize.num(document.getElementById('procPrecio')?.value, 0);
+    const descPct = sanitize.pct(document.getElementById('procDescuentoSlider')?.value || '0');
+    const diente  = sanitize.str(document.getElementById('procDiente')?.value, 20);
+
+    if (!desc)       { showToast('⚠️ Escribe la descripción del procedimiento'); return; }
+    if (cant < 1)    { showToast('⚠️ La cantidad debe ser al menos 1'); return; }
+    if (precio <= 0) { showToast('⚠️ El precio debe ser mayor a cero'); return; }
+
+    const precioFinal = precio * (1 - descPct / 100);
 
     tempProcedimientos.push({
-        id: generateId(),
-        descripcion: desc,
-        cantidad: cant,
-        precioUnitario: precio
+        id:             generateId(),
+        descripcion:    desc,
+        cantidad:       cant,
+        precioUnitario: precioFinal,
+        ...(descPct > 0 && { precioOriginal: precio, descuentoPct: descPct }),
+        ...(diente     && { dientes: diente }),
     });
 
     updateProcedimientosList();
@@ -1987,8 +2001,12 @@ function updateProcedimientosList() {
         list.innerHTML = tempProcedimientos.map(p => `
             <div class="procedimiento-item">
                 <div>
-                    <div style="font-weight: 600;">${p.descripcion}</div>
-                    <div style="font-size: 13px; color:var(--piedra);">${p.cantidad}x ${formatCurrency(p.precioUnitario)}</div>
+                    <div style="font-weight: 600;">${p.descripcion}${p.dientes ? ` <span style="font-size:11px;color:var(--piedra);">🦷 ${p.dientes}</span>` : ''}</div>
+                    <div style="font-size: 13px; color:var(--piedra);">
+                        ${p.cantidad}x ${formatCurrency(p.precioUnitario)}
+                        ${p.descuentoPct ? `<span style="margin-left:6px;background:rgba(107,143,113,.15);color:var(--salvia,#6B8F71);
+                            border-radius:100px;padding:1px 7px;font-size:10px;font-weight:600">🏷️ -${p.descuentoPct}%</span>` : ''}
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <strong style="color: var(--clinic-color, #C4856A);">${formatCurrency(p.cantidad * p.precioUnitario)}</strong>
@@ -2006,49 +2024,47 @@ function removeProcedimiento(id) {
 }
 
 function updateDescuento() {
-    const val = getFacturaEl('descuentoSlider').value;
-    const valEl = getFacturaEl('descuentoValue');
-    if (valEl) valEl.textContent = val;
+    // Legacy — no-op now that discount is per-item in the procedure modal
     updateTotal();
 }
 
 function setDescuento(val) {
-    const slider = getFacturaEl('descuentoSlider');
-    if (slider) slider.value = val;
-    updateDescuento();
+    // Legacy — no-op
 }
 
 function updateTotal() {
     const subtotal = tempProcedimientos.reduce((sum, p) => sum + (p.cantidad * p.precioUnitario), 0);
 
-    // Agregar precio de órdenes de laboratorio
+    // Add lab orders
     const totalLab = tempOrdenesLab.reduce((sum, o) => sum + o.precio, 0);
-    const subtotalConLab = subtotal + totalLab;
-
-    const slider = getFacturaEl('descuentoSlider');
-    const descuentoPct = parseFloat(slider ? slider.value : 0);
-    const descuento = descuentoPct / 100;
-    const total = subtotalConLab * (1 - descuento);
+    const total = subtotal + totalLab;
     const totalEl = getFacturaEl('totalFactura');
     if (totalEl) totalEl.textContent = formatCurrency(total);
 
-    // Fix 7: Prominent discount badge
+    // Show savings summary if any item has a discount
+    const itemsConDescuento = tempProcedimientos.filter(p => p.descuentoPct > 0);
     const badgeEl = getFacturaEl('descuentoBadge');
     if (badgeEl) {
-        if (descuentoPct > 0) {
-            const ahorro = subtotalConLab - total;
+        if (itemsConDescuento.length > 0) {
+            const ahorro = tempProcedimientos.reduce((s, p) => {
+                if (!p.descuentoPct) return s;
+                const orig = (p.precioOriginal || p.precioUnitario) * p.cantidad;
+                const final = p.precioUnitario * p.cantidad;
+                return s + (orig - final);
+            }, 0);
             badgeEl.innerHTML = `
                 <div style="display:flex;align-items:center;justify-content:space-between;
-                            background:rgba(52,199,89,.1);border:1.5px solid rgba(52,199,89,.3);
+                            background:rgba(107,143,113,.1);border:1.5px solid rgba(107,143,113,.25);
                             border-radius:10px;padding:10px 14px;">
                     <div>
-                        <div style="font-size:13px;font-weight:600;color:#2a7a3a;">🏷️ Descuento ${descuentoPct}% aplicado</div>
-                        <div style="font-size:11px;color:#3a8a4a;margin-top:1px;">Ahorro: ${formatCurrency(ahorro)}</div>
+                        <div style="font-size:13px;font-weight:600;color:var(--salvia,#6B8F71);">
+                            🏷️ ${itemsConDescuento.length} procedimiento${itemsConDescuento.length>1?'s':''} con descuento
+                        </div>
+                        <div style="font-size:11px;color:var(--salvia,#6B8F71);margin-top:1px;">
+                            Ahorro total: ${formatCurrency(ahorro)}
+                        </div>
                     </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:11px;color:#aaa;text-decoration:line-through;">${formatCurrency(subtotalConLab)}</div>
-                        <div style="font-size:16px;font-weight:700;color:#2a7a3a;">${formatCurrency(total)}</div>
-                    </div>
+                    <div style="font-size:15px;font-weight:700;color:var(--salvia,#6B8F71);">${formatCurrency(total)}</div>
                 </div>`;
             badgeEl.style.display = 'block';
         } else {
@@ -2090,12 +2106,13 @@ async function generarFactura() {
 
     const subtotal = tempProcedimientos.reduce((sum, p) => sum + (p.cantidad * p.precioUnitario), 0);
 
-    // Agregar precio de órdenes de laboratorio al subtotal
+    // Add lab orders to subtotal
     const totalLab = tempOrdenesLab.reduce((sum, o) => sum + o.precio, 0);
     const subtotalConLab = subtotal + totalLab;
 
-    const descuento = parseFloat((contenedor.querySelector('#descuentoSlider') || document.getElementById('descuentoSlider')).value);
-    const total = subtotalConLab * (1 - descuento / 100);
+    // Discount is now per-item (applied at procedure level), global discount = 0
+    const descuento = 0;
+    const total = subtotalConLab;
 
     // ========================================
     // DETERMINAR PROFESIONAL QUE ATENDIÓ
@@ -2210,9 +2227,6 @@ async function generarFactura() {
     if (pnEl) { pnEl.value = ''; pnEl.dataset.pacienteSeleccionado = 'false'; }
     const notasEl2 = getFacturaEl('notasFactura');
     if (notasEl2) notasEl2.value = '';
-    const sliderEl = getFacturaEl('descuentoSlider');
-    if (sliderEl) sliderEl.value = '0';
-    updateDescuento();
     tempProcedimientos = [];
     tempOrdenesLab = [];
     updateProcedimientosList();
@@ -12079,23 +12093,6 @@ function renderCobrosContent(key) {
                     </div>
                     <div id="listaOrdenesLabTemp"></div>
                 </div>` : ''}
-
-                <!-- Descuento -->
-                <div class="form-group">
-                    <label>Descuento (%)</label>
-                    <input type="range" id="descuentoSlider" min="0" max="100" value="0"
-                        oninput="updateDescuento()"
-                        style="width:100%;margin-bottom:8px;">
-                    <div style="text-align:center;font-weight:400;color:var(--clinic-color);">
-                        <span id="descuentoValue">0</span>%
-                    </div>
-                    <div class="discount-buttons" style="display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap;">
-                        <button class="discount-btn" onclick="setDescuento(5)">5%</button>
-                        <button class="discount-btn" onclick="setDescuento(10)">10%</button>
-                        <button class="discount-btn" onclick="setDescuento(15)">15%</button>
-                        <button class="discount-btn" onclick="setDescuento(20)">20%</button>
-                    </div>
-                </div>
 
                 <!-- Total -->
                 <div class="card" style="background:var(--sand,#EEEAE4);box-shadow:var(--neu-raised);margin-bottom:8px;">

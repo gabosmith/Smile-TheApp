@@ -2409,6 +2409,34 @@
                 </div>
             </div>
 
+            <!-- Descuento por procedimiento -->
+            <div class="form-group" style="margin-top:14px">
+                <label style="display:flex;justify-content:space-between;align-items:center">
+                    <span>Descuento</span>
+                    <span id="procDescuentoLabel" style="color:var(--clinic-color,#C4856A);font-weight:500">0%</span>
+                </label>
+                <input type="range" id="procDescuentoSlider" min="0" max="100" value="0"
+                    oninput="document.getElementById('procDescuentoLabel').textContent=this.value+'%'"
+                    style="width:100%;margin-bottom:8px;">
+                <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+                    <button type="button" onclick="setProcDescuento(0)"
+                        style="padding:5px 11px;border:1px solid rgba(168,159,150,.3);border-radius:100px;
+                               background:none;cursor:pointer;font-size:12px;font-family:inherit;color:var(--piedra)">0%</button>
+                    <button type="button" onclick="setProcDescuento(5)"
+                        style="padding:5px 11px;border:1px solid rgba(168,159,150,.3);border-radius:100px;
+                               background:none;cursor:pointer;font-size:12px;font-family:inherit;color:var(--piedra)">5%</button>
+                    <button type="button" onclick="setProcDescuento(10)"
+                        style="padding:5px 11px;border:1px solid rgba(168,159,150,.3);border-radius:100px;
+                               background:none;cursor:pointer;font-size:12px;font-family:inherit;color:var(--piedra)">10%</button>
+                    <button type="button" onclick="setProcDescuento(15)"
+                        style="padding:5px 11px;border:1px solid rgba(168,159,150,.3);border-radius:100px;
+                               background:none;cursor:pointer;font-size:12px;font-family:inherit;color:var(--piedra)">15%</button>
+                    <button type="button" onclick="setProcDescuento(20)"
+                        style="padding:5px 11px;border:1px solid rgba(168,159,150,.3);border-radius:100px;
+                               background:none;cursor:pointer;font-size:12px;font-family:inherit;color:var(--piedra)">20%</button>
+                </div>
+            </div>
+
             <button class="btn btn-submit" style="margin-top:8px" onclick="withGuard(this, agregarProcedimiento)">Agregar</button>
         </div>
     </div>
@@ -2423,17 +2451,6 @@
                 <div style="margin-bottom: 10px;"><strong>Atendido por:</strong> <span id="pagoProfesional"></span></div>
                 <div style="margin-bottom: 10px;"><strong>Total:</strong> <span style="font-weight: 400;" id="pagoTotal"></span></div>
                 <div><strong>Balance Pendiente:</strong> <span style="color: #ff3b30; font-weight: 400;" id="pagoBalance"></span></div>
-            </div>
-                        <div class="form-group">
-                <label style="display:flex;justify-content:space-between"><span>Descuento</span><span id="pagoDescuentoLabel" style="color:var(--clinic-color)">0%</span></label>
-                <input type="range" id="pagoDescuentoSlider" min="0" max="100" value="0" oninput="actualizarDescuentoPago(this.value)" style="width:100%">
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button onclick="fijarDescuentoPago(0)"  style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">0%</button>
-                    <button onclick="fijarDescuentoPago(5)"  style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">5%</button>
-                    <button onclick="fijarDescuentoPago(10)" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">10%</button>
-                    <button onclick="fijarDescuentoPago(15)" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">15%</button>
-                    <button onclick="fijarDescuentoPago(20)" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:8px;background:none;cursor:pointer">20%</button>
-                </div>
             </div>
             <div class="form-group">
                 <label>Tipo de Pago</label>
