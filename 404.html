@@ -2,76 +2,74 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>SMILE — Redirigiendo...</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMILE — Página no encontrada</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400&display=swap" rel="stylesheet">
   <style>
     body {
       background: #EEEAE4;
-      font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 300;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; margin: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
       color: #6B635C;
     }
-    .msg {
+    .wrap {
       text-align: center;
-      font-size: 14px;
-      font-weight: 300;
+      padding: 40px 24px;
+    }
+    .logo {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 7px;
       color: #A89F96;
+      margin-bottom: 48px;
+      text-transform: uppercase;
     }
-    .dot {
-      width: 8px; height: 8px;
-      background: #7D8EA0;
-      border-radius: 50%;
+    .code {
+      font-size: 72px;
+      font-weight: 200;
+      letter-spacing: -3px;
+      color: #6B635C;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    .msg {
+      font-size: 16px;
+      color: #A89F96;
+      margin-bottom: 36px;
+    }
+    .btn {
       display: inline-block;
-      animation: pulse 1.2s ease-in-out infinite;
-      margin: 0 3px;
+      background: #EEEAE4;
+      color: #6B635C;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 100px;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 5px 5px 12px rgba(185,177,167,.55), -4px -4px 10px rgba(255,255,255,.95);
+      transition: all .25s;
     }
-    .dot:nth-child(2) { animation-delay: 0.2s; }
-    .dot:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.3; transform: scale(0.8); }
-      50% { opacity: 1; transform: scale(1); }
+    .btn:hover {
+      box-shadow: 8px 8px 20px rgba(182,174,164,.60), -6px -6px 16px rgba(255,255,255,.98);
+      color: #7D8EA0;
     }
   </style>
 </head>
 <body>
-  <div class="msg">
-    <div style="font-size:24px;margin-bottom:16px">SMILE</div>
-    <div><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-    <div style="margin-top:12px">Cargando tu clínica...</div>
+  <div class="wrap">
+    <div class="logo">SMILE</div>
+    <div class="code">404</div>
+    <div class="msg">Esta página no existe.</div>
+    <a class="btn" href="/">Volver al inicio →</a>
   </div>
-
-  <script>
-    // GitHub Pages 404 redirect trick
-    // Captures the full URL including query params and redirects properly
-    (function() {
-      const path = window.location.pathname;
-      const search = window.location.search;
-      const hash = window.location.hash;
-
-      // Get the base repo path (/smile-app/)
-      const segments = path.split('/');
-      // segments = ['', 'smile-app', 'app.html'] for example
-      // Rebuild correctly
-      const base = '/' + segments[1]; // /smile-app
-
-      // Build the redirect target
-      // Store original destination in sessionStorage for the main page to read
-      sessionStorage.setItem('smile_redirect', path + search + hash);
-
-      // Redirect to root of the repo
-      const redirectTo = base + '/app.html' + search + hash;
-
-      // Only redirect if we have a valid target
-      if (search && search.includes('clinica=')) {
-        window.location.replace(redirectTo);
-      } else if (path.includes('app.html') || path.includes('admin.html') || path.includes('smile-onboarding.html')) {
-        // Try to serve the correct page
-        window.location.replace(base + '/' + segments[segments.length - 1] + search + hash);
-      } else {
-        // Unknown route — go home
-        window.location.replace(base + '/index.html');
-      }
-    })();
-  </script>
 </body>
 </html>
