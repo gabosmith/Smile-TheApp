@@ -11685,13 +11685,14 @@ const CHECKOUT_URL  = 'https://createcheckoutsession-dvpa6bf75q-uc.a.run.app';
 const PORTAL_URL    = 'https://createportalsession-dvpa6bf75q-uc.a.run.app';
 
 const MODULOS_DISPONIBLES = [
-    { key: 'laboratorio',   nombre: 'Laboratorio',        precio: 300,  soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
-    { key: 'nomina',        nombre: 'Nómina',             precio: 300,  soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
-    { key: 'inventario',    nombre: 'Inventario',         precio: 300,  soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
-    { key: 'reportes',      nombre: 'Reportes avanzados', precio: 300,  soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
-    { key: 'multisucursal', nombre: 'Sucursal adicional', precio: 800,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'laboratorio',   nombre: 'Laboratorio',        precio: 5,   soloPlans: ['clinica','solo'], desc: 'Gestión de órdenes y seguimiento de lab.' },
+    { key: 'nomina',        nombre: 'Nómina',             precio: 5,   soloPlans: ['clinica'],        desc: 'Comisiones y avances de profesionales.' },
+    { key: 'inventario',    nombre: 'Inventario',         precio: 5,   soloPlans: ['clinica','solo'], desc: 'Control de materiales con alertas de stock.' },
+    { key: 'reportes',      nombre: 'Reportes avanzados', precio: 5,   soloPlans: ['clinica','solo'], desc: 'Rentabilidad, tendencias, exportación a Excel.' },
+    { key: 'multisucursal', nombre: 'Sucursal adicional', precio: 15,  soloPlans: ['clinica'],        desc: 'Gestión independiente por sede.' },
+    { key: 'usuario',       nombre: 'Usuario adicional',  precio: 2.5, soloPlans: ['clinica','solo'], desc: 'Dentista, recepcionista o asistente con su acceso.' },
 ];
-const BASE_PRECIOS = { clinica: 1200, solo: 990 };
+const BASE_PRECIOS = { clinica: 23, solo: 19 };
 
 // ─── Helpers Stripe ──────────────────────────────────────────────────────────
 
@@ -11801,8 +11802,8 @@ function renderMiPlanTab() {
     });
 
     const plan       = clinicConfig.plan || 'clinica';
-    const basePrice  = BASE_PRECIOS[plan] || 1200;
-    const moneda     = clinicConfig.moneda || 'RD$';
+    const basePrice  = BASE_PRECIOS[plan] || 23;
+    const moneda     = 'USD $';  // Precios siempre en USD
     const enTrial    = clinicConfig.enTrial;
     const suspendida = clinicConfig.suspendida;
     const pagoPend   = clinicConfig.pagoPendiente;
@@ -11990,7 +11991,7 @@ async function guardarCambiosPlan() {
     try {
         const nuevosModulos = [...tab._pendientes];
         const plan          = clinicConfig.plan || 'clinica';
-        const nuevoMRR      = (BASE_PRECIOS[plan] || 1200) + nuevosModulos.reduce((s, k) => {
+        const nuevoMRR      = (BASE_PRECIOS[plan] || 23) + nuevosModulos.reduce((s, k) => {
             const m = MODULOS_DISPONIBLES.find(x => x.key === k);
             return s + (m ? m.precio : 0);
         }, 0);
