@@ -1832,11 +1832,11 @@
                     <!-- Toggle vista -->
                     <div style="display:flex;background:var(--surface,#F5F2EE);border-radius:100px;padding:3px;gap:2px;box-shadow:var(--neu-inset);flex-shrink:0;">
                         <button id="btnVistaDia" onclick="setAgendaVista('dia')"
-                            style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;transition:all .15s;background:var(--clinic-color,#C4856A);color:white;">
+                            style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;transition:all .15s;background:transparent;color:var(--piedra);">
                             Día
                         </button>
                         <button id="btnVistaSemana" onclick="setAgendaVista('semana')"
-                            style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;transition:all .15s;background:transparent;color:var(--piedra);">
+                            style="padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;transition:all .15s;background:var(--clinic-color,#C4856A);color:white;box-shadow:0 2px 8px rgba(196,133,106,.35);">
                             Semana
                         </button>
                     </div>
@@ -3494,6 +3494,7 @@
 
         if (!ok) {
             recordFailedAttempt(person.nombre);
+            _lsPin = '';
             // Shake dots
             const dotsEl = document.getElementById('lsPinDots');
             document.querySelectorAll('.ls-pin-dot').forEach(d => {
@@ -3505,9 +3506,9 @@
                 dotsEl.style.animation = '';
                 document.querySelectorAll('.ls-pin-dot')
                     .forEach(d => d.classList.remove('ls-pin-error'));
+                _lsRefreshDots();
             }, 380);
             _errElV.textContent = 'PIN incorrecto';
-            _lsPin = '';
             return;
         }
 

@@ -1372,6 +1372,7 @@ function initRealtimeListener() {
             if (tabId === 'dashboard')   updateDashboardTab();
             if (tabId === 'ingresos')    updateIngresosTab();
             if (tabId === 'cobrar')      updateCobrarTab();
+            if (tabId === 'cobros')      { const t = document.getElementById('tab-cobros'); if (t && t._activeSubtab === 'cobrar') updateCobrarTab(); else if (t) renderCobrosContent(t._activeSubtab || 'cobrar'); }
             if (tabId === 'gastos')      updateGastosTab();
             if (tabId === 'personal')    updatePersonalTab();
             if (tabId === 'laboratorio') updateLaboratorioTab();
@@ -6833,10 +6834,11 @@ function setAgendaVista(v) {
     const bD = document.getElementById('btnVistaDia');
     const bS = document.getElementById('btnVistaSemana');
     if (bD && bS) {
-        const on  = 'background:var(--clinic-color,#C4856A);color:white;box-shadow:0 2px 8px rgba(196,133,106,.35);';
-        const off = 'background:transparent;color:var(--piedra);box-shadow:none;';
-        bD.style.cssText += v === 'dia' ? on : off;
-        bS.style.cssText += v === 'semana' ? on : off;
+        const base = 'padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;transition:all .15s;';
+        const on   = base + 'background:var(--clinic-color,#C4856A);color:white;box-shadow:0 2px 8px rgba(196,133,106,.35);';
+        const off  = base + 'background:transparent;color:var(--piedra);box-shadow:none;';
+        bD.style.cssText = v === 'dia'    ? on : off;
+        bS.style.cssText = v === 'semana' ? on : off;
     }
     updateAgendaTab();
 }
@@ -12425,8 +12427,15 @@ function renderCobrosContent(key) {
     }
 
     if (key === 'cobrar') {
+        // Move tab-cobrar into cobros-content so IDs are unique and live in the visible DOM
         const src = document.getElementById('tab-cobrar');
-        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (src) {
+            el.innerHTML = '';
+            src.style.display = 'block';
+            el.appendChild(src);
+        } else {
+            el.innerHTML = '<p>Cargando...</p>';
+        }
         if (typeof updateCobrarTab === 'function') updateCobrarTab();
     } else if (key === 'nueva') {
         // Fix B2: Build factura form directly (tab-factura element never existed in DOM)
