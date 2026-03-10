@@ -4,7 +4,7 @@
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5l8pl4jzcJAvPahEu4w0Ay1PyFwvCgnk",
-  authDomain: "smile-theapp.firebaseapp.com",
+  authDomain: "smiledental.app",
   projectId: "smile-theapp",
   storageBucket: "smile-theapp.firebasestorage.app",
   messagingSenderId: "723824118344",
