@@ -1219,10 +1219,25 @@ async function savePersonal() {
 async function saveLaboratorios() {
     if (!canWriteToFirebase('saveLaboratorios')) return;
     const labActual = appData.laboratorios || [];
-    if (labActual.length === 0 && window._labCargadoConDatos) {
-        console.warn('[Lab] saveLaboratorios bloqueado — array vacío pero había datos.');
-        return;
+
+    // Safety guard: never overwrite with an empty array unless Firebase also has zero orders.
+    // This prevents accidental data loss on reload or partial sync issues.
+    if (labActual.length === 0) {
+        try {
+            const snap = await db.collection('clinicas').doc(CLINIC_PATH).get();
+            const remoteLabs = (snap.exists && snap.data().laboratorios) || [];
+            if (remoteLabs.length > 0) {
+                console.warn('[Lab] saveLaboratorios bloqueado — local vacío pero Firebase tiene', remoteLabs.length, 'órdenes. Restaurando desde Firebase.');
+                appData.laboratorios = remoteLabs;
+                window._labCargadoConDatos = true;
+                return;
+            }
+        } catch(checkErr) {
+            console.warn('[Lab] No se pudo verificar Firebase antes de guardar vacío. Abortando por seguridad.', checkErr);
+            return;
+        }
     }
+
     try {
         setConnectionState('saving');
         await db.collection('clinicas').doc(CLINIC_PATH).update({
@@ -8044,7 +8059,8 @@ function verDetalleOrdenLab(ordenId) {
 }
 
 function renderizarBotonesAvance(orden) {
-    const estadoActual = orden.estadoActual;
+    const estadoActual = orden.estadoActual || 'Pendiente';
+    const esRecepcion = appData.currentRole === 'reception';
 
     if (estadoActual === 'Entregado') {
         return `<div style="text-align:center;padding:16px;background:rgba(107,143,113,.1);border-radius:12px;border:1.5px solid #6B8F71;">
@@ -8074,7 +8090,34 @@ function renderizarBotonesAvance(orden) {
     };
 
     const botones = transiciones[estadoActual] || [];
-    if (!botones.length) return '';
+
+    // Unknown / unmapped state — show diagnostic message so it's never invisible
+    if (!botones.length) {
+        return `<div style="text-align:center;padding:14px;background:rgba(60,50,40,.05);border-radius:12px;border:1.5px dashed rgba(60,50,40,.2);">
+                    <div style="font-size:13px;color:var(--piedra,#7A7068);">Estado desconocido: <strong>${estadoActual}</strong>. Contacta soporte.</div>
+                </div>`;
+    }
+
+    // Reception users see the buttons but disabled with a note
+    if (esRecepcion) {
+        return `<div style="padding:12px 14px;background:rgba(196,133,106,.08);border-radius:12px;border:1.5px solid rgba(196,133,106,.3);margin-bottom:8px;">
+                    <div style="font-size:12px;color:#C4856A;font-weight:600;">⛔ Solo el profesional o admin puede avanzar el estado de laboratorio.</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;opacity:0.4;pointer-events:none;">
+                ${botones.map(btn => `
+                    <button disabled style="width:100%;padding:13px 18px;background:${btn.bgColor};
+                           color:${btn.color};border:1.5px solid ${btn.color}55;
+                           border-radius:12px;font-family:inherit;cursor:not-allowed;
+                           display:flex;align-items:center;justify-content:space-between;">
+                        <div style="text-align:left;">
+                            <div style="font-size:14px;font-weight:600;">${btn.text}</div>
+                            <div style="font-size:11px;opacity:.8;margin-top:1px;">${btn.sub}</div>
+                        </div>
+                        <span style="font-size:18px;opacity:.7;">→</span>
+                    </button>
+                `).join('')}
+                </div>`;
+    }
 
     return `<div style="display:flex;flex-direction:column;gap:8px;">
         ${botones.map(btn => `
