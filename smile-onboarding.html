@@ -1310,9 +1310,11 @@ function startOnboarding() {
   document.getElementById('step0Screen').style.display = 'none';
   const shell = document.getElementById('onboardingShell');
   shell.classList.remove('at-step-0');
-  // Show mobile header
-  document.getElementById('mobileHeader').style.display = 'flex';
-  document.querySelector('.mobile-progress').style.display = 'block';
+  // Show mobile header only on mobile
+  if (window.innerWidth <= 680) {
+    document.getElementById('mobileHeader').style.display = 'flex';
+    document.querySelector('.mobile-progress').style.display = 'block';
+  }
   // Update left panel indicators
   updateIndicators();
   setStep(1);
