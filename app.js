@@ -243,9 +243,8 @@ let clinicConfig = {
     nombre: '',
     color: '',
     activa: true,
-    procMode: 'lista',   // legacy — always 'lista' now
-    priceMode: 'libre',  // 'fijo' | 'libre'  — fijo=prices locked from catalog, libre=doctor can edit
-    procItems: [],       // [{nombre, precio}] — always used (catalog is mandatory)
+    procMode: 'libre',   // 'libre' | 'lista'
+    procItems: [],       // [{nombre, precio}] when procMode=lista
     moneda:   'RD$',     // símbolo de moneda — configurable por país
     locale:   'es-419',      // locale para fechas y números (getLocale() se llama después de init)
     pais:     'República Dominicana',
@@ -282,8 +281,7 @@ async function loadClinicBranding() {
         clinicConfig.activa     = cfg.activa !== false;
         clinicConfig.trial      = cfg.trial !== false;
         clinicConfig.trialHasta = cfg.trialHasta || null;
-        clinicConfig.procMode      = 'lista';  // always catalog now
-        clinicConfig.priceMode     = cfg.priceMode || (cfg.procMode === 'lista' ? 'fijo' : 'libre'); // migrate legacy
+        clinicConfig.procMode      = cfg.procMode || 'libre';
         clinicConfig.procItems     = cfg.procItems || [];
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
@@ -2154,53 +2152,104 @@ function openAddProcedimiento() {
     document.getElementById('procDesc').value = '';
     document.getElementById('procCant').value = '1';
     document.getElementById('procPrecio').value = '';
+    const sug = document.getElementById('procSuggestions');
+    if (sug) { sug.style.display = 'none'; sug.innerHTML = ''; }
     const ds = document.getElementById('procDescuentoSlider');
     if (ds) { ds.value = '0'; document.getElementById('procDescuentoLabel').textContent = '0%'; }
 
-    // Always show catalog selector
-    const wrap = document.getElementById('procCatalogWrap');
-    const sel  = document.getElementById('procCatalogSelect');
-    if (wrap && sel) {
-        const items = clinicConfig.procItems || [];
-        sel.innerHTML = '<option value="">— Selecciona un procedimiento —</option>' +
-            items.map((it, i) => `<option value="${i}">${it.nombre}</option>`).join('');
-        wrap.style.display = 'block';
-    }
-
-    // Price field: editable if priceMode=libre, readonly if priceMode=fijo
+    // Price field: lock if priceMode=fijo
     const precioEl = document.getElementById('procPrecio');
-    const precioWrap = document.getElementById('procPrecioWrap');
     if (precioEl) {
         const esFijo = clinicConfig.priceMode === 'fijo';
         precioEl.readOnly = esFijo;
         precioEl.style.opacity = esFijo ? '0.6' : '1';
-        precioEl.style.cursor = esFijo ? 'default' : '';
-        precioEl.title = esFijo ? 'Precio definido por el catálogo. Edita el catálogo desde Administración.' : '';
+        precioEl.title = esFijo ? 'Precio definido por el catálogo. Edítalo desde Administración → Catálogo.' : '';
     }
-    if (precioWrap) {
-        const badge = document.getElementById('procPrecioBadge');
-        if (badge) badge.style.display = clinicConfig.priceMode === 'fijo' ? 'inline' : 'none';
-    }
+    const badge = document.getElementById('procPrecioBadge');
+    if (badge) badge.style.display = 'none'; // reset — shown after selection
 
     openModal('modalAddProcedimiento');
+    setTimeout(() => document.getElementById('procDesc')?.focus(), 120);
 }
 
-// Called when user picks from catalog dropdown in modalAddProcedimiento
-function onCatalogSelect(sel) {
-    const idx = sel.value;
-    if (idx === '' || !clinicConfig.procItems) return;
-    const item = clinicConfig.procItems[parseInt(idx)];
-    if (!item) return;
-    const d = document.getElementById('procDesc');
-    const p = document.getElementById('procPrecio');
-    if (d) d.value = item.nombre;
-    if (p) {
-        p.value = item.precio || '';
-        // If priceMode=fijo, keep readonly. If libre, unlock for editing.
-        const esFijo = clinicConfig.priceMode === 'fijo';
-        p.readOnly = esFijo;
-        p.style.opacity = esFijo ? '0.6' : '1';
+// ─── CATALOG SEARCHBAR — shared by modalAddProcedimiento & modalCotizItem ───
+function onProcSearch(inputEl, suggestionsId, precioId) {
+    const q = (inputEl.value || '').toLowerCase().trim();
+    const sug = document.getElementById(suggestionsId);
+    if (!sug) return;
+    const items = clinicConfig.procItems || [];
+    const matches = q === ''
+        ? items.slice(0, 10)
+        : items.filter(it => (it.nombre || '').toLowerCase().includes(q)).slice(0, 10);
+    if (matches.length === 0) { sug.style.display = 'none'; return; }
+    sug.innerHTML = matches.map((it, i) => {
+        const bold = q
+            ? (it.nombre || '').replace(new RegExp(`(${q})`, 'gi'), '<strong>$1</strong>')
+            : (it.nombre || '');
+        const precioLabel = it.precio
+            ? `<span style="font-size:12px;color:var(--piedra,#9C9189);font-weight:500;flex-shrink:0;">${formatCurrency(it.precio)}</span>`
+            : `<span style="font-size:11px;color:#e0a020;flex-shrink:0;">Sin precio</span>`;
+        return `<div data-idx="${i}"
+            onmousedown="onProcSelect(event,'${suggestionsId}','${inputEl.id}','${precioId}')"
+            style="padding:11px 16px;cursor:pointer;display:flex;justify-content:space-between;
+                   align-items:center;gap:12px;border-bottom:1px solid rgba(30,28,26,0.05);"
+            onmouseover="this.style.background='var(--surface,#F5F2EE)'"
+            onmouseout="this.style.background='white'">
+            <span style="font-size:13px;color:var(--topo,#3D3835);">${bold}</span>
+            ${precioLabel}
+        </div>`;
+    }).join('');
+    sug.style.display = 'block';
+}
+
+function onProcSearchKey(event, suggestionsId, precioId) {
+    const sug = document.getElementById(suggestionsId);
+    if (!sug || sug.style.display === 'none') return;
+    const items = sug.querySelectorAll('[data-idx]');
+    let active = sug.querySelector('[data-active]');
+    const activeIdx = active ? parseInt(active.dataset.active) : -1;
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        const next = activeIdx < items.length - 1 ? activeIdx + 1 : 0;
+        items.forEach(el => delete el.dataset.active);
+        items[next].dataset.active = next;
+        items[next].style.background = 'var(--surface,#F5F2EE)';
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        const prev = activeIdx > 0 ? activeIdx - 1 : items.length - 1;
+        items.forEach(el => delete el.dataset.active);
+        items[prev].dataset.active = prev;
+        items[prev].style.background = 'var(--surface,#F5F2EE)';
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (active) active.dispatchEvent(new MouseEvent('mousedown'));
+        else if (items.length === 1) items[0].dispatchEvent(new MouseEvent('mousedown'));
+    } else if (event.key === 'Escape') {
+        sug.style.display = 'none';
     }
+}
+
+function onProcSelect(event, suggestionsId, inputId, precioId) {
+    event.preventDefault();
+    const el = event.currentTarget;
+    const idx = parseInt(el.dataset.idx);
+    const item = (clinicConfig.procItems || [])[idx];
+    if (!item) return;
+    const inp = document.getElementById(inputId);
+    const pEl = document.getElementById(precioId);
+    const sug = document.getElementById(suggestionsId);
+    if (inp) inp.value = item.nombre;
+    if (pEl) {
+        if (item.precio) pEl.value = item.precio;
+        const esFijo = clinicConfig.priceMode === 'fijo';
+        pEl.readOnly = esFijo;
+        pEl.style.opacity = esFijo ? '0.6' : '1';
+        pEl.title = esFijo ? 'Precio definido por el catálogo.' : '';
+        if (!esFijo && item.precio) setTimeout(() => pEl.focus(), 50);
+    }
+    if (sug) sug.style.display = 'none';
+    const badge = document.getElementById('procPrecioBadge');
+    if (badge && item.precio) badge.style.display = 'inline';
 }
 
 function setProcDescuento(val) {
@@ -6321,18 +6370,14 @@ function abrirModalAgregarItem() {
     const labTipoEl = document.getElementById('cotizLabTipo');
     if (labTipoEl) labTipoEl.value = 'Corona';
 
-    // Always show catalog selector in cotiz modal
     const wrap = document.getElementById('cotizCatalogWrap');
-    const sel  = document.getElementById('cotizCatalogSelect');
-    if (wrap && sel) {
-        sel.innerHTML = '<option value="">— Selecciona un procedimiento —</option>' +
-            (clinicConfig.procItems || []).map((it, i) =>
-                `<option value="${i}">${it.nombre}</option>`
-            ).join('');
-        wrap.style.display = 'block';
-    } else if (wrap) {
-        wrap.style.display = 'none';
-    }
+    if (wrap) wrap.style.display = 'block'; // always visible
+
+    // Reset searchbar
+    const cotizDesc = document.getElementById('cotizProcDesc');
+    if (cotizDesc) cotizDesc.value = '';
+    const cotizSug = document.getElementById('cotizSuggestions');
+    if (cotizSug) { cotizSug.style.display = 'none'; cotizSug.innerHTML = ''; }
 
     // Price field: lock if priceMode=fijo
     const precioEl = document.getElementById('cotizProcPrecio');
@@ -6364,22 +6409,8 @@ function _cotizSetTipo(tipo) {
     if (fLab)  fLab.style.display  = tipo === 'lab'           ? 'block' : 'none';
 }
 
-function _cotizOnCatalogSelect(sel) {
-    const idx = sel.value;
-    if (idx === '' || !clinicConfig.procItems) return;
-    const item = clinicConfig.procItems[parseInt(idx)];
-    if (!item) return;
-    const d = document.getElementById('cotizProcDesc');
-    const p = document.getElementById('cotizProcPrecio');
-    if (d) d.value = item.nombre;
-    if (p) {
-        p.value = item.precio || '';
-        const esFijo = clinicConfig.priceMode === 'fijo';
-        p.readOnly = esFijo;
-        p.style.opacity = esFijo ? '0.6' : '1';
-        p.title = esFijo ? 'Precio definido por el catálogo.' : '';
-    }
-}
+// _cotizOnCatalogSelect: replaced by shared onProcSearch/onProcSelect engine
+function _cotizOnCatalogSelect(sel) { /* legacy stub — no longer called */ }
 
 let _guardandoCotiz = false;
 
@@ -12401,7 +12432,7 @@ function renderCobrosContent(key) {
         // Fix B2: Build factura form directly (tab-factura element never existed in DOM)
         const esAdmin = appData.currentRole === 'admin';
         const profesionales = appData.personal.filter(p => p.tipo !== 'empleado' && !p.isAdmin);
-        const usaCatalogo = (clinicConfig.procItems||[]).length > 0;
+        const usaCatalogo = clinicConfig.procMode === 'lista' && (clinicConfig.procItems||[]).length > 0;
 
         el.innerHTML = `
             <div style="padding-bottom:24px;">
@@ -12547,7 +12578,7 @@ function abrirMas() {
     if (hasModule('reportes') && role === 'admin') {
         items.push({ icon: '📊', label: 'Reportes',    action: `cerrarMas();irTab('reportes')` });
     }
-    if (role === 'admin') {
+    if (clinicConfig.procMode === 'lista' && role === 'admin') {
         items.push({ icon: '📋', label: 'Catálogo',    action: `cerrarMas();showTab('catalogo')` });
     }
     if (role === 'admin') {
@@ -12626,32 +12657,10 @@ function renderCatalogoTab() {
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
                 <div>
                     <h2 style="margin:0 0 4px 0">Catálogo de procedimientos</h2>
-                    <div style="font-size:13px;color:var(--piedra)">Lista de procedimientos de tu clínica. Todos los usuarios seleccionan de este catálogo al facturar.</div>
+                    <div style="font-size:13px;color:var(--piedra)">Precios base que aparecen al crear una factura</div>
                 </div>
                 <button class="btn-primary" onclick="abrirModalProcedimiento(null)">+ Agregar</button>
             </div>
-
-            <!-- Price mode selector -->
-            <div style="background:var(--surface,#F5F2EE);border-radius:14px;padding:16px;margin-bottom:24px;">
-                <div style="font-size:12px;font-weight:600;color:var(--piedra);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Modo de precios al facturar</div>
-                <div style="display:flex;flex-direction:column;gap:8px;">
-                    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px;border-radius:10px;border:2px solid ${clinicConfig.priceMode === 'fijo' ? 'var(--clinic-color,#C4856A)' : 'transparent'};background:${clinicConfig.priceMode === 'fijo' ? 'rgba(196,133,106,.07)' : 'white'};">
-                        <input type="radio" name="priceMode" value="fijo" ${clinicConfig.priceMode === 'fijo' ? 'checked' : ''} onchange="cambiarPriceMode('fijo')" style="margin-top:2px;accent-color:var(--clinic-color,#C4856A)">
-                        <div>
-                            <div style="font-size:14px;font-weight:500;color:var(--topo)">Precios del catálogo (fijos)</div>
-                            <div style="font-size:12px;color:var(--piedra);margin-top:2px;line-height:1.5">El precio se rellena automáticamente del catálogo y el doctor no puede modificarlo. Máximo control.</div>
-                        </div>
-                    </label>
-                    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px;border-radius:10px;border:2px solid ${clinicConfig.priceMode === 'libre' ? 'var(--clinic-color,#C4856A)' : 'transparent'};background:${clinicConfig.priceMode === 'libre' ? 'rgba(196,133,106,.07)' : 'white'};">
-                        <input type="radio" name="priceMode" value="libre" ${clinicConfig.priceMode === 'libre' ? 'checked' : ''} onchange="cambiarPriceMode('libre')" style="margin-top:2px;accent-color:var(--clinic-color,#C4856A)">
-                        <div>
-                            <div style="font-size:14px;font-weight:500;color:var(--topo)">Precio editable por el doctor</div>
-                            <div style="font-size:12px;color:var(--piedra);margin-top:2px;line-height:1.5">El catálogo sugiere el precio pero el doctor puede cambiarlo al facturar. Más flexibilidad.</div>
-                        </div>
-                    </label>
-                </div>
-            </div>
-
             <div id="catalogo-list">
                 ${items.length === 0 ? `
                     <div style="text-align:center;padding:48px 24px;color:var(--muted)">
@@ -12659,49 +12668,22 @@ function renderCatalogoTab() {
                         <div style="font-size:15px;margin-bottom:8px">Sin procedimientos aún</div>
                         <div style="font-size:13px">Agrega los procedimientos que ofrece tu clínica</div>
                     </div>
-                ` : (() => {
-                    const sinPrecio = items.filter(it => !it.precio || it.precio === 0).length;
-                    const banner = sinPrecio > 0 ? `
-                        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;
-                                    background:rgba(232,168,56,.1);border:1.5px solid rgba(232,168,56,.4);
-                                    border-radius:12px;margin-bottom:16px;">
-                            <span style="font-size:18px;flex-shrink:0;">⚠️</span>
-                            <div style="font-size:13px;color:var(--topo);line-height:1.5;">
-                                <strong>${sinPrecio} procedimiento${sinPrecio > 1 ? 's' : ''} sin precio.</strong>
-                                Haz clic en <em>Editar</em> en cada uno para asignar el precio en tu moneda local.
-                            </div>
-                        </div>` : '';
-                    return banner + items.map((item, i) => `
-                        <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
-                            <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
-                            <div style="font-size:15px;font-weight:500;color:${item.precio ? 'var(--clinic-color)' : '#e0a020'};">
-                                ${item.precio ? formatCurrency(item.precio) : '— Sin precio'}
-                            </div>
-                            <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
-                            <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
-                        </div>
-                    `).join('');
-                })()}
+                ` : items.map((item, i) => `
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
+                        <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
+                        <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">${formatCurrency(item.precio||0)}</div>
+                        <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
+                        <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        <div class="card" style="margin-top:16px;background:rgba(0,0,0,0.02)">
+            <div style="font-size:12px;color:var(--muted);line-height:1.7">
+                💡 Estos precios son la referencia al crear facturas. El médico puede ajustar el precio en cada factura si lo necesita.
             </div>
         </div>
     `;
-}
-
-async function cambiarPriceMode(mode) {
-    if (clinicConfig.priceMode === mode) return;
-    clinicConfig.priceMode = mode;
-    try {
-        if (canWriteToFirebase('cambiarPriceMode')) {
-            await db.collection('clinicas').doc(CLINIC_PATH)
-                .collection('config').doc('settings')
-                .set({ priceMode: mode }, { merge: true });
-            showToast('✓ Modo de precios actualizado');
-        }
-    } catch(e) {
-        showError('Error al guardar el modo de precios.', e);
-    }
-    // Re-render to update radio button styles
-    renderCatalogoTab();
 }
 
 function abrirModalProcedimiento(idx) {
@@ -14876,16 +14858,10 @@ function _quickProcSelect(nombre, precio) {
     const inp = document.getElementById('quickProcNombre');
     const pEl = document.getElementById('quickProcPrecio');
     if (inp) inp.value = nombre;
-    if (pEl && precio > 0) {
-        pEl.value = precio;
-        const esFijo = clinicConfig.priceMode === 'fijo';
-        pEl.readOnly = esFijo;
-        pEl.style.opacity = esFijo ? '0.6' : '1';
-        pEl.title = esFijo ? 'Precio definido por el catálogo.' : '';
-    }
+    if (pEl && precio > 0) pEl.value = precio;
     const sug = document.getElementById('quickProcSuggestions');
     if (sug) sug.style.display = 'none';
-    if (clinicConfig.priceMode !== 'fijo') document.getElementById('quickProcPrecio')?.focus();
+    document.getElementById('quickProcPrecio')?.focus();
 }
 
 async function _quickProcConfirm() {

@@ -2372,20 +2372,20 @@
                 <button class="close-modal" onclick="closeModal('modalAddProcedimiento')">×</button>
             </div>
 
-            <!-- Catalog selector — always shown -->
-            <div id="procCatalogWrap" class="form-group">
-                <label>Seleccionar del catálogo</label>
-                <select id="procCatalogSelect" onchange="onCatalogSelect(this)"
+            <!-- Catalog searchbar — always shown -->
+            <div id="procCatalogWrap" class="form-group" style="position:relative;">
+                <label>Procedimiento</label>
+                <input type="text" id="procDesc" autocomplete="off"
+                    placeholder="Buscar: Resina, Limpieza, Extracción..."
+                    oninput="onProcSearch(this,'procSuggestions','procPrecio')"
+                    onkeydown="onProcSearchKey(event,'procSuggestions','procPrecio')"
                     style="width:100%;padding:11px 14px;border:none;border-radius:12px;
                            font-family:inherit;font-size:14px;background:var(--sand);
-                           color:var(--topo);box-shadow:var(--neu-inset);appearance:none;">
-                    <option value="">— Selecciona un procedimiento —</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Descripción</label>
-                <input type="text" id="procDesc" placeholder="Ej: Resina, Limpieza...">
+                           color:var(--topo);box-shadow:var(--neu-inset);box-sizing:border-box;">
+                <div id="procSuggestions"
+                    style="display:none;position:absolute;top:100%;left:0;right:0;
+                           background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.14);
+                           z-index:200;max-height:220px;overflow-y:auto;margin-top:4px;"></div>
             </div>
 
             <!-- Diente (FDI number) -->
@@ -2403,11 +2403,8 @@
                     <label>Cantidad</label>
                     <input type="number" id="procCant" value="1" min="1">
                 </div>
-                <div id="procPrecioWrap" class="form-group" style="margin:0">
-                    <label style="display:flex;align-items:center;gap:6px;">
-                        Precio Unitario
-                        <span id="procPrecioBadge" style="display:none;font-size:10px;background:var(--clinic-color,#C4856A);color:white;padding:2px 7px;border-radius:100px;font-weight:500;">del catálogo</span>
-                    </label>
+                <div class="form-group" style="margin:0">
+                    <label>Precio Unitario</label>
                     <input type="number" id="procPrecio" placeholder="0.00" step="0.01">
                 </div>
             </div>
@@ -2679,20 +2676,20 @@
 
             <!-- FORM PROCEDIMIENTO -->
             <div id="cotizFormProc">
-                <!-- Catálogo (solo si procMode=lista) -->
-                <div id="cotizCatalogWrap" class="form-group" style="display:none;">
-                    <label>Seleccionar del catálogo</label>
-                    <select id="cotizCatalogSelect" onchange="_cotizOnCatalogSelect(this)"
+                <!-- Catalog searchbar -->
+                <div id="cotizCatalogWrap" class="form-group" style="position:relative;">
+                    <label>Procedimiento</label>
+                    <input type="text" id="cotizProcDesc" autocomplete="off"
+                        placeholder="Buscar: Resina, Limpieza, Extracción..."
+                        oninput="onProcSearch(this,'cotizSuggestions','cotizProcPrecio')"
+                        onkeydown="onProcSearchKey(event,'cotizSuggestions','cotizProcPrecio')"
                         style="width:100%;padding:11px 14px;border:none;border-radius:12px;
                                font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
-                               color:var(--topo,#6B635C);box-shadow:var(--neu-inset);appearance:none;">
-                        <option value="">— Elige un procedimiento —</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Descripción</label>
-                    <input type="text" id="cotizProcDesc" placeholder="Ej: Resina, Limpieza, Extracción...">
+                               color:var(--topo,#6B635C);box-shadow:var(--neu-inset);box-sizing:border-box;">
+                    <div id="cotizSuggestions"
+                        style="display:none;position:absolute;top:100%;left:0;right:0;
+                               background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.14);
+                               z-index:200;max-height:220px;overflow-y:auto;margin-top:4px;"></div>
                 </div>
 
                 <div class="form-group">
