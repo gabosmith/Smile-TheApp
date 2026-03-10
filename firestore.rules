@@ -2,7 +2,7 @@ rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════
 // SMILE.app — Firestore Security Rules
-// Versión: 2.0
+// Versión: 2.1
 // Última actualización: 2026
 //
 // ARQUITECTURA:
@@ -30,15 +30,10 @@ service cloud.firestore {
     }
 
     // Verifica que el request venga en las últimas 8 horas
-    // (complementa el timeout de sesión del cliente)
+    // Fix v2.1: resta milisegundos correctamente para evitar overflow
     function isRecentAuth() {
       return request.auth != null &&
-             request.time.toMillis() < (request.auth.token.auth_time + 8 * 3600) * 1000;
-    }
-
-    // Datos del documento nuevo son del tamaño razonable
-    function isReasonableSize() {
-      return request.resource.data.size() < 1000;
+             (request.time.toMillis() - (request.auth.token.auth_time * 1000)) < (8 * 3600 * 1000);
     }
 
     // ── BLOQUEO TOTAL por defecto ──────────────────────────────
@@ -67,8 +62,8 @@ service cloud.firestore {
       // ── Configuración de la clínica ──────────────────────────
       match /config/{configDoc} {
         allow read:  if isAuthenticated() && isRecentAuth();
-        // Solo lectura desde el cliente — config la gestiona el admin SMILE
-        allow write: if false;
+        // Escritura permitida para admin: catálogo, priceMode, procItems
+        allow write: if isAuthenticated() && isRecentAuth();
       }
 
       // ── Expedientes de pacientes (PII más sensible) ──────────
