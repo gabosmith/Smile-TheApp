@@ -1008,25 +1008,81 @@
         #dashLabActivo { font-size: 22px !important; }
     }
 
-    /* ── AGENDA FILTERS: stack on mobile ── */
+    /* ════════════════════════════════════════════════════════
+       AGENDA — RESPONSIVE
+       ════════════════════════════════════════════════════════ */
+
+    /* ── Prevent overflow in agenda header flex children ── */
+    #agendaHeader { min-width: 0; }
+    #agendaHeader > * { min-width: 0; }
+    #filtroProfesionalCita { min-width: 0; max-width: 140px; }
+    #agendaFechaTitulo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── TABLET (≤ 700px) ── */
+    @media (max-width: 700px) {
+        /* Header: keep on one row, shrink select */
+        #agendaHeader { flex-wrap: nowrap !important; gap: 6px !important; }
+        #agendaHeader > div:last-child { gap: 6px !important; }
+        #filtroProfesionalCita {
+            max-width: 100px !important;
+            font-size: 11px !important;
+            padding: 6px 8px !important;
+        }
+        /* Date nav bar */
+        #tab-agenda button[onclick*="cambiarFechaAgenda"] {
+            width: 40px !important; height: 40px !important;
+        }
+        #agendaFechaTitulo { font-size: 14px !important; }
+        #agendaSemanaTexto { font-size: 11px !important; }
+        /* Day selector chips: touch-friendly */
+        #agendaDiasSelector { gap: 4px !important; padding-bottom: 6px !important; }
+        #agendaDiasSelector button {
+            min-width: 40px !important;
+            padding: 8px 4px !important;
+            min-height: 56px !important;
+        }
+        /* Appointment blocks: tappable height */
+        #calendarioAgenda [data-cita-id] { min-height: 40px !important; }
+    }
+
+    /* ── MOBILE (≤ 540px) ── */
     @media (max-width: 540px) {
-        #tab-agenda > div:first-child {
-            flex-direction: column !important;
-            align-items: flex-start !important;
+        /* View toggle + filter on same row */
+        #agendaHeader { gap: 6px !important; align-items: center !important; }
+        /* Show only toggle + mini filter, hide week-nav text */
+        #filtroProfesionalCita { display: none !important; }
+        /* Date nav: larger touch targets */
+        #tab-agenda button[onclick*="cambiarFechaAgenda"] {
+            width: 44px !important; height: 44px !important; font-size: 18px !important;
         }
-        #tab-agenda > div:first-child > div:last-child {
-            flex-wrap: wrap;
-            gap: 8px;
+        #agendaFechaTitulo { font-size: 13px !important; }
+        #agendaSemanaTexto { font-size: 10px !important; }
+        /* Day chips: compact */
+        #agendaDiasSelector { gap: 3px !important; margin-bottom: 10px !important; }
+        #agendaDiasSelector button {
+            min-width: 38px !important; padding: 6px 3px !important;
+            font-size: 10px !important; min-height: 52px !important;
         }
-        .week-nav {
-            padding: 12px 14px;
-            gap: 10px;
-        }
-        #agendaSemanaTexto {
-            font-size: 13px !important;
-            min-width: 0 !important;
+        /* Calendar smaller font to fit columns */
+        #calendarioAgenda { font-size: 11px; }
+    }
+
+    /* ── VERY SMALL (≤ 380px) ── */
+    @media (max-width: 380px) {
+        #agendaDiasSelector button { min-width: 34px !important; font-size: 9px !important; min-height: 48px !important; }
+        #calendarioAgenda { font-size: 10px; }
+        #agendaFechaTitulo { font-size: 12px !important; }
+    }
+
+    /* ── FAB nueva cita: above bottom nav ── */
+    @media (max-width: 700px) {
+        #tab-agenda > button[onclick="abrirModalNuevaCita()"] {
+            bottom: 72px !important;
+            right: 16px !important;
+            width: 52px !important; height: 52px !important;
         }
     }
+
 
     /* ── REPORTES DATE RANGE: stack ── */
     @media (max-width: 540px) {
@@ -1040,122 +1096,134 @@
         }
     }
 
-    /* ── PATIENT MODAL: full-screen on mobile ── */
-    /* ── Responsive: ficha paciente ───────────────────── */
-    @media (max-width: 700px) {
-        /* Modal ocupa toda la pantalla */
+    /* ════════════════════════════════════════════════════════
+       FICHA PACIENTE — RESPONSIVE
+       ════════════════════════════════════════════════════════ */
+
+    /* ── TABLET (≤ 900px): slightly tighter header ── */
+    @media (max-width: 900px) {
         #modalVerPaciente .modal-content {
             max-width: 100% !important;
-            width: 100% !important;
-            height: 100% !important;
-            max-height: 100% !important;
-            border-radius: 0 !important;
-            margin: 0 !important;
+            margin: 0 12px !important;
         }
-        /* Header más compacto */
+    }
+
+    /* ── MOBILE (≤ 700px): full-screen modal ── */
+    @media (max-width: 700px) {
+        /* Modal full-screen */
+        #modalVerPaciente { padding: 0 !important; align-items: stretch !important; }
+        #modalVerPaciente .modal-content {
+            max-width: 100% !important; width: 100% !important;
+            height: 100dvh !important; max-height: 100dvh !important;
+            border-radius: 0 !important; margin: 0 !important;
+            display: flex; flex-direction: column;
+        }
+
+        /* Header: compact, no overflow */
         #modalVerPaciente .modal-header {
-            padding: 16px !important;
+            padding: 12px 14px !important;
+            flex-shrink: 0;
         }
-        #verPacienteNombre { font-size: 18px !important; }
-        #verPacienteSubtitulo { font-size: 12px !important; }
-        /* Tabs: scroll horizontal, más compactos */
+        /* Header inner layout: name left, actions right */
+        #modalVerPaciente .modal-header > div {
+            align-items: flex-start !important;
+            gap: 10px !important;
+        }
+        #verPacienteNombre {
+            font-size: 16px !important;
+            line-height: 1.2 !important;
+            word-break: break-word;
+        }
+        #verPacienteSubtitulo { font-size: 11px !important; }
+
+        /* Action buttons: tighter gap, no labels */
+        #modalVerPaciente .modal-header > div > div:last-child {
+            gap: 6px !important;
+            flex-shrink: 0;
+            flex-wrap: nowrap !important;
+        }
+        /* Reduce all icon buttons to 32px on small screens */
+        #modalVerPaciente .modal-header > div > div:last-child > button {
+            width: 32px !important; height: 32px !important;
+            font-size: 14px !important;
+            padding: 0 !important;
+        }
+        /* Quick proc button: icon only */
+        #modalVerPaciente .modal-header button[onclick*="abrirQuickProc"] {
+            padding: 0 10px !important;
+            font-size: 12px !important;
+        }
+        #btnQuickProcLabel { display: none !important; }
+
+        /* Tab bar: horizontal scroll, no bar visible */
         #modalVerPaciente .modal-content > div:nth-child(2) {
-            padding: 0 12px !important;
-            gap: 0 !important;
-            overflow-x: auto;
+            overflow-x: auto !important;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
+            flex-shrink: 0;
+            padding: 0 8px !important;
+            gap: 0 !important;
+            display: flex !important;
+            background: white;
+            border-bottom: 2px solid #e5e5e7;
         }
         #modalVerPaciente .modal-content > div:nth-child(2)::-webkit-scrollbar { display: none; }
         .paciente-tab {
-            padding: 12px 12px !important;
+            padding: 11px 10px !important;
             font-size: 11px !important;
             white-space: nowrap;
             flex-shrink: 0;
         }
-        /* Contenido de tabs con padding reducido */
+
+        /* Content area: scrollable, flex-grow */
         #modalVerPaciente .modal-content > div:last-child {
-            padding: 16px !important;
+            padding: 14px 12px !important;
+            overflow-y: auto;
+            flex: 1;
+            -webkit-overflow-scrolling: touch;
         }
-        /* Stats grid: 2 columnas en móvil */
+
+        /* Stats resumen: 2x2 grid */
         #tabResumen > div:first-child {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 8px !important;
         }
-        /* Info del paciente: 1 columna */
+        /* Info section: 1 column */
+        #tabResumen .pac-info-grid,
         #tabResumen div[style*="grid-template-columns: 1fr 1fr"],
         #tabResumen div[style*="grid-template-columns:1fr 1fr"] {
             grid-template-columns: 1fr !important;
         }
-    @media (max-width: 700px) {
-        #modalVerPaciente .modal-content {
-            max-width: 100% !important;
-            width: 100% !important;
-            max-height: 100dvh !important;
-            border-radius: 0 !important;
-            margin: 0 !important;
-        }
-        /* Header actions: wrap on mobile */
-        #modalVerPaciente .modal-header > div > div:last-child {
-            gap: 6px !important;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-        #btnContactarPaciente,
-        #btnEliminarPaciente {
-            padding: 7px 10px !important;
-            font-size: 12px !important;
-        }
-        #modalVerPaciente [onclick*="editarPacienteActual"] {
-            padding: 7px 10px !important;
-            font-size: 12px !important;
-        }
-        /* Patient tabs: horizontal scroll */
-        #modalVerPaciente > div > div:nth-child(2) {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-            gap: 0 !important;
-            padding: 0 8px !important;
-        }
-        #modalVerPaciente > div > div:nth-child(2)::-webkit-scrollbar { display: none; }
-        .paciente-tab {
-            padding: 14px 12px !important;
-            font-size: 12px !important;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        #modalVerPaciente > div > div:nth-child(3) {
-            padding: 16px 14px !important;
-        }
-        /* Patient name in header */
-        #verPacienteNombre { font-size: 18px !important; }
     }
 
-    /* ── EDIT PATIENT MODAL: 2-col grids → 1-col on mobile ── */
+    /* ── VERY SMALL (≤ 380px): further reductions ── */
+    @media (max-width: 380px) {
+        #verPacienteNombre { font-size: 14px !important; }
+        .paciente-tab { padding: 10px 8px !important; font-size: 10px !important; }
+        /* Hide less-used tab labels, keep emoji */
+        .paciente-tab[data-tab="documentos"] { font-size: 0 !important; }
+        .paciente-tab[data-tab="documentos"]::before { content: "📄"; font-size: 16px; }
+    }
+
+    /* ── EDIT/NEW PATIENT MODAL: 2-col grids → 1-col on mobile ── */
     @media (max-width: 540px) {
-        /* Teléfono + cédula */
         #modalEditarPaciente div[style*="1fr 1fr"][style*="gap: 15px"],
         #modalEditarPaciente div[style*="1fr 1fr"][style*="gap:15px"] {
             grid-template-columns: 1fr !important;
         }
-        /* FechaNac + Sexo + GrupoSanguineo */
         #modalEditarPaciente div[style*="1fr 1fr 1fr"] {
             grid-template-columns: 1fr 1fr !important;
         }
-        /* Contacto emergencia */
         #modalEditarPaciente div[style*="grid-template-columns: 1fr 1fr"][style*="15px"] {
             grid-template-columns: 1fr !important;
         }
     }
 
-    /* ── NEW PATIENT MODAL: same ── */
     @media (max-width: 540px) {
         #modalNuevoPaciente div[style*="1fr 1fr"][style*="gap: 16px"],
         #modalNuevoPaciente div[style*="1fr 1fr"][style*="gap:12px"] {
             grid-template-columns: 1fr !important;
         }
-        /* Emergency contact */
         #modalNuevoPaciente div[style*="2fr 1fr"] {
             grid-template-columns: 1fr !important;
         }
@@ -1166,6 +1234,13 @@
         #exportarCard div[style*="1fr 1fr"] {
             grid-template-columns: 1fr !important;
         }
+    }
+
+    /* ── FICHA stats/info cards ── */
+    @media (max-width: 600px) {
+        .pac-stats-grid { grid-template-columns: repeat(2,1fr) !important; gap: 8px !important; }
+        .pac-info-card { padding: 14px !important; }
+        .pac-info-card div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
     }
 
     /* ── GALERIA PLACAS: reduce min size ── */
@@ -3723,65 +3798,10 @@
     #spotlightResults .spot-item .spot-title { font-size:14px;font-weight:500;color:var(--topo);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
     #spotlightResults .spot-item .spot-sub { font-size:11px;color:var(--piedra);margin-top:1px; }
     #spotlightResults .spot-group { padding:6px 18px 2px;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px; }
-    
+
         /* ════════════════════════════════════════════════════
            RESPONSIVE GLOBAL — mobile-first, fully functional
            ════════════════════════════════════════════════════ */
-
-        /* ── FICHA PACIENTE: full-screen en móvil ─────────── */
-        @media (max-width: 700px) {
-            /* Modal ocupa toda la pantalla */
-            #modalVerPaciente { padding: 0 !important; align-items: stretch !important; }
-            #modalVerPaciente .modal-content {
-                max-width: 100% !important; width: 100% !important;
-                height: 100dvh !important; max-height: 100dvh !important;
-                border-radius: 0 !important; margin: 0 !important;
-                display: flex; flex-direction: column;
-            }
-            /* Header compacto */
-            #modalVerPaciente .modal-header { padding: 12px 14px !important; }
-            #verPacienteNombre { font-size: 16px !important; line-height: 1.2 !important; }
-            #verPacienteSubtitulo { font-size: 11px !important; }
-            /* Ocultar cobrar pill label en móvil, solo icono */
-            #headerCobrarPill { font-size: 11px !important; padding: 5px 10px !important; }
-            /* Tabs: scroll lateral sin scrollbar */
-            #modalVerPaciente .modal-content > div:nth-child(2) {
-                overflow-x: auto; -webkit-overflow-scrolling: touch;
-                scrollbar-width: none; flex-shrink: 0; padding: 0 10px !important;
-                display: flex !important;
-            }
-            #modalVerPaciente .modal-content > div:nth-child(2)::-webkit-scrollbar { display: none; }
-            .paciente-tab { padding: 11px 10px !important; font-size: 11px !important; white-space: nowrap; flex-shrink: 0; }
-            /* Área de contenido: scroll con padding reducido */
-            #modalVerPaciente .modal-content > div:last-child { padding: 14px 12px !important; overflow-y: auto; flex: 1; }
-            /* Stats resumen: 2x2 */
-            #tabResumen > div:first-child { grid-template-columns: repeat(2,1fr) !important; gap: 8px !important; }
-            /* Ficha info: 1 columna */
-            #tabResumen .pac-info-grid { grid-template-columns: 1fr !important; }
-        }
-
-        /* ── AGENDA: optimizada para touch ───────────────── */
-        @media (max-width: 700px) {
-            /* Selector de días: más grandes para touch */
-            #agendaDiasSelector button {
-                min-width: 40px !important; padding: 8px 4px !important;
-                min-height: 56px !important;
-            }
-            /* Citas en timeline: más altas para ser tappeables */
-            #calendarioAgenda [data-cita-id] { min-height: 40px !important; }
-            /* Navegación de fecha: botones más grandes */
-            #tab-agenda button[onclick*="cambiarFechaAgenda"] {
-                width: 44px !important; height: 44px !important;
-            }
-            /* Header de agenda: wrap cuando no cabe */
-            #agendaHeader { flex-wrap: wrap !important; }
-            /* Ocultar select profesional en móvil muy pequeño, solo toggle */
-            #filtroProfesionalCita { display: none !important; }
-        }
-        @media (max-width: 400px) {
-            /* Vista día: columnas menos anchas */
-            #calendarioAgenda { font-size: 10px; }
-        }
 
         /* ── MODALES GENÉRICOS: bottom sheet ─────────────── */
         @media (max-width: 600px) {
@@ -3848,15 +3868,6 @@
         @media (max-width: 380px) {
             .modal-footer { flex-direction: column !important; gap: 8px !important; }
             .modal-footer button { width: 100% !important; margin: 0 !important; }
-        }
-
-        /* ── FAB agenda: posición correcta sobre nav ─────── */
-        @media (max-width: 700px) {
-            #tab-agenda > button[onclick="abrirModalNuevaCita()"] {
-                bottom: 72px !important;
-                right: 16px !important;
-                width: 52px !important; height: 52px !important;
-            }
         }
 
         </style>
