@@ -1059,30 +1059,30 @@ body {
     <div class="step" id="step-6">
       <div class="step-eyebrow" id="eyebrow-6">Paso 6</div>
       <div class="step-title">Precios de<br>procedimientos.</div>
-      <div class="step-sub">¿Cómo quieres manejar los precios en las facturas?</div>
+      <div class="step-sub">Tu clínica tiene un catálogo de procedimientos con 56 procedimientos preconfigurados. Puedes editarlo en cualquier momento desde tu panel de administración.<br><br>¿Cómo quieres que funcionen los precios al facturar?</div>
 
-      <div class="proc-option" id="proc-opt-libre" onclick="selectProcMode('libre')" style="border-radius:16px;padding:20px 24px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;background:rgba(125,142,160,.07);box-shadow:var(--neu-pizarra)">
+      <div class="proc-option" id="proc-opt-fijo" onclick="selectProcMode('fijo')" style="border-radius:16px;padding:20px 24px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;background:rgba(125,142,160,.07);box-shadow:var(--neu-pizarra)">
         <div style="display:flex;align-items:flex-start;gap:14px">
-          <div style="width:22px;height:22px;border-radius:50%;border:none;background:var(--pizarra);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center" id="proc-radio-libre"><div style="width:8px;height:8px;border-radius:50%;background:white"></div></div>
+          <div style="width:22px;height:22px;border-radius:50%;border:none;background:var(--pizarra);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center" id="proc-radio-fijo"><div style="width:8px;height:8px;border-radius:50%;background:white"></div></div>
           <div>
-            <div style="font-size:15px;font-weight:400;color:var(--topo);margin-bottom:4px">A criterio del médico</div>
-            <div style="font-size:13px;color:var(--mid);line-height:1.6">El médico escribe el procedimiento y el precio al momento de crear cada factura. Máxima flexibilidad. Así funciona actualmente la app.</div>
+            <div style="font-size:15px;font-weight:400;color:var(--topo);margin-bottom:4px">Precios del catálogo (fijos)</div>
+            <div style="font-size:13px;color:var(--mid);line-height:1.6">El precio se completa automáticamente del catálogo y el doctor no puede modificarlo. <strong>Máximo control y estandarización.</strong></div>
           </div>
         </div>
       </div>
 
-      <div class="proc-option" id="proc-opt-lista" onclick="selectProcMode('lista')" style="border-radius:16px;padding:20px 24px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;box-shadow:var(--neu-raised)">
+      <div class="proc-option" id="proc-opt-libre" onclick="selectProcMode('libre')" style="border-radius:16px;padding:20px 24px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;box-shadow:var(--neu-raised)">
         <div style="display:flex;align-items:flex-start;gap:14px">
-          <div style="width:22px;height:22px;border-radius:50%;border:none;box-shadow:var(--neu-raised);flex-shrink:0;margin-top:2px" id="proc-radio-lista"></div>
+          <div style="width:22px;height:22px;border-radius:50%;border:none;box-shadow:var(--neu-raised);flex-shrink:0;margin-top:2px" id="proc-radio-libre"></div>
           <div>
-            <div style="font-size:15px;font-weight:400;color:var(--topo);margin-bottom:4px">Lista predeterminada</div>
-            <div style="font-size:13px;color:var(--mid);line-height:1.6">La clínica define un catálogo de procedimientos con precios base. El médico selecciona de la lista al facturar. <strong>Podrás editar el catálogo desde el panel de administración de la app.</strong></div>
+            <div style="font-size:15px;font-weight:400;color:var(--topo);margin-bottom:4px">Precio editable por el doctor</div>
+            <div style="font-size:13px;color:var(--mid);line-height:1.6">El catálogo sugiere el precio base pero el doctor puede ajustarlo al momento de facturar. <strong>Más flexibilidad.</strong></div>
           </div>
         </div>
       </div>
 
       <div style="margin-top:8px;padding:14px 18px;background:var(--surface);border-radius:12px;font-size:12px;color:var(--mid);line-height:1.7">
-        💡 Esto se puede cambiar desde el panel de administración en cualquier momento.
+        💡 Esto se puede cambiar desde el catálogo de procedimientos en tu panel de administración en cualquier momento.
       </div>
 
       <div class="step-nav">
@@ -1281,16 +1281,65 @@ const state = {
   waName: '',
   waCargo: '',
   waPhone: '',
-  procMode: 'libre',      // 'libre' | 'lista'
-  procItems: [            // default list if mode=lista
-    { nombre: 'Consulta / Revisión', precio: 500 },
-    { nombre: 'Limpieza dental', precio: 1500 },
-    { nombre: 'Extracción simple', precio: 2000 },
-    { nombre: 'Resina anterior', precio: 2500 },
-    { nombre: 'Resina posterior', precio: 3000 },
-    { nombre: 'Endodoncia anterior', precio: 6000 },
-    { nombre: 'Corona porcelana', precio: 12000 },
-    { nombre: 'Blanqueamiento', precio: 5000 },
+  procMode: 'lista',      // always 'lista' — catalog is mandatory
+  priceMode: 'fijo',      // 'fijo' | 'libre'
+  procItems: [
+    { nombre: 'Consulta / Revisión', precio: 0 },
+    { nombre: 'Radiografía periapical', precio: 0 },
+    { nombre: 'Radiografía panorámica', precio: 0 },
+    { nombre: 'Radiografía bitewing', precio: 0 },
+    { nombre: 'Limpieza dental (profilaxis)', precio: 0 },
+    { nombre: 'Profilaxis + fluoruro', precio: 0 },
+    { nombre: 'Aplicación de fluoruro', precio: 0 },
+    { nombre: 'Sellantes (por diente)', precio: 0 },
+    { nombre: 'Extracción simple', precio: 0 },
+    { nombre: 'Extracción compleja', precio: 0 },
+    { nombre: 'Extracción cordal erupcionada', precio: 0 },
+    { nombre: 'Extracción cordal impactada', precio: 0 },
+    { nombre: 'Resina anterior', precio: 0 },
+    { nombre: 'Resina posterior', precio: 0 },
+    { nombre: 'Resina clase IV', precio: 0 },
+    { nombre: 'Incrustación (inlay/onlay)', precio: 0 },
+    { nombre: 'Endodoncia anterior', precio: 0 },
+    { nombre: 'Endodoncia premolar', precio: 0 },
+    { nombre: 'Endodoncia molar', precio: 0 },
+    { nombre: 'Corona porcelana metal', precio: 0 },
+    { nombre: 'Corona zirconio', precio: 0 },
+    { nombre: 'Corona temporal', precio: 0 },
+    { nombre: 'Puente 3 piezas porcelana', precio: 0 },
+    { nombre: 'Puente 3 piezas zirconio', precio: 0 },
+    { nombre: 'Prótesis parcial removible', precio: 0 },
+    { nombre: 'Prótesis total', precio: 0 },
+    { nombre: 'Prótesis sobre implante', precio: 0 },
+    { nombre: 'Implante dental', precio: 0 },
+    { nombre: 'Blanqueamiento en consultorio', precio: 0 },
+    { nombre: 'Blanqueamiento en casa (kit)', precio: 0 },
+    { nombre: 'Ortodoncia (mensualidad)', precio: 0 },
+    { nombre: 'Ortodoncia brackets metálicos (total)', precio: 0 },
+    { nombre: 'Ortodoncia brackets estéticos (total)', precio: 0 },
+    { nombre: 'Ortodoncia invisible (total)', precio: 0 },
+    { nombre: 'Retenedor', precio: 0 },
+    { nombre: 'Placa miorrelajante', precio: 0 },
+    { nombre: 'Placa de bruxismo', precio: 0 },
+    { nombre: 'Curetaje (por cuadrante)', precio: 0 },
+    { nombre: 'Cirugía periodontal (por cuadrante)', precio: 0 },
+    { nombre: 'Gingivectomía (por sector)', precio: 0 },
+    { nombre: 'Frenectomía', precio: 0 },
+    { nombre: 'Biopsia', precio: 0 },
+    { nombre: 'Apicectomía', precio: 0 },
+    { nombre: 'Alveoloplastia', precio: 0 },
+    { nombre: 'Elevación de seno maxilar', precio: 0 },
+    { nombre: 'Injerto óseo', precio: 0 },
+    { nombre: 'Tratamiento conducto retreatment', precio: 0 },
+    { nombre: 'Restauración amalgama', precio: 0 },
+    { nombre: 'Base de vidrio ionómero', precio: 0 },
+    { nombre: 'Carilla de porcelana', precio: 0 },
+    { nombre: 'Carilla de resina directa', precio: 0 },
+    { nombre: 'Splint (ferulización)', precio: 0 },
+    { nombre: 'Emergencia / Dolor agudo', precio: 0 },
+    { nombre: 'Medicación intraconducto', precio: 0 },
+    { nombre: 'Drenaje de absceso', precio: 0 },
+    { nombre: 'Sutura (por zona)', precio: 0 },
   ],
 };
 
@@ -1595,34 +1644,36 @@ function onLogoUpload(input, tipo) {
 
 // ─── STEP 5: PROCEDIMIENTOS ───────────────────────
 function selectProcMode(mode) {
-  state.procMode = mode;
-  const libre = document.getElementById('proc-opt-libre');
-  const lista = document.getElementById('proc-opt-lista');
-  const radioLibre = document.getElementById('proc-radio-libre');
-  const radioLista = document.getElementById('proc-radio-lista');
+  state.priceMode = mode;
+  state.procMode = 'lista'; // always lista
 
-  if (mode === 'libre') {
-    libre.style.boxShadow = 'var(--neu-pizarra)';
-    libre.style.background = 'rgba(125,142,160,0.06)';
-    lista.style.boxShadow = 'var(--neu-raised)';
-    lista.style.background = 'transparent';
-    radioLibre.style.background = 'var(--pizarra)';
-    radioLibre.style.boxShadow = 'none';
-    radioLibre.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:white"></div>';
-    radioLista.innerHTML = '';
-    radioLista.style.background = 'transparent';
-    radioLista.style.boxShadow = 'var(--neu-raised)';
-  } else {
-    lista.style.boxShadow = 'var(--neu-pizarra)';
-    lista.style.background = 'rgba(125,142,160,0.06)';
-    libre.style.boxShadow = 'var(--neu-raised)';
-    libre.style.background = 'transparent';
-    radioLista.style.background = 'var(--pizarra)';
-    radioLista.style.boxShadow = 'none';
-    radioLista.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:white"></div>';
+  const optFijo  = document.getElementById('proc-opt-fijo');
+  const optLibre = document.getElementById('proc-opt-libre');
+  const radioFijo  = document.getElementById('proc-radio-fijo');
+  const radioLibre = document.getElementById('proc-radio-libre');
+
+  if (mode === 'fijo') {
+    optFijo.style.boxShadow  = 'var(--neu-pizarra)';
+    optFijo.style.background = 'rgba(125,142,160,0.06)';
+    optLibre.style.boxShadow  = 'var(--neu-raised)';
+    optLibre.style.background = 'transparent';
+    radioFijo.style.background  = 'var(--pizarra)';
+    radioFijo.style.boxShadow   = 'none';
+    radioFijo.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:white"></div>';
     radioLibre.innerHTML = '';
     radioLibre.style.background = 'transparent';
-    radioLibre.style.boxShadow = 'var(--neu-raised)';
+    radioLibre.style.boxShadow  = 'var(--neu-raised)';
+  } else {
+    optLibre.style.boxShadow  = 'var(--neu-pizarra)';
+    optLibre.style.background = 'rgba(125,142,160,0.06)';
+    optFijo.style.boxShadow   = 'var(--neu-raised)';
+    optFijo.style.background  = 'transparent';
+    radioLibre.style.background = 'var(--pizarra)';
+    radioLibre.style.boxShadow  = 'none';
+    radioLibre.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:white"></div>';
+    radioFijo.innerHTML = '';
+    radioFijo.style.background = 'transparent';
+    radioFijo.style.boxShadow  = 'var(--neu-raised)';
   }
 }
 
@@ -1741,7 +1792,7 @@ function buildFinalSummary() {
     </div>
     <div class="summary-row">
       <span>💊 Precios</span>
-      <span>${state.procMode === 'lista' ? 'Lista predeterminada (' + state.procItems.length + ' proc.)' : 'A criterio del médico'}</span>
+      <span>${state.priceMode === 'fijo' ? 'Precios del catálogo (fijos)' : 'Precio editable por el doctor'}</span>
     </div>
     <div style="font-size:12px;color:var(--light);margin-top:12px;text-align:center">
       14 días gratis · Sin tarjeta · Cancela cuando quieras
@@ -1777,7 +1828,7 @@ function buildSoloSummary() {
     </div>
     <div class="summary-row">
       <span>💊 Precios</span>
-      <span>${state.procMode === 'lista' ? 'Lista predeterminada' : 'A criterio del médico'}</span>
+      <span>${state.priceMode === 'fijo' ? 'Precios del catálogo (fijos)' : 'Precio editable por el doctor'}</span>
     </div>
   `;
 }
@@ -1939,8 +1990,9 @@ async function activateClinic() {
         color: state.color || '#C4856A',
         logoPositivo: state.logoPositivo || null,
         logoNegativo: state.logoNegativo || null,
-        procMode: state.procMode || 'libre',
-        procItems: state.procMode === 'lista' ? state.procItems : [],
+        procMode: 'lista',
+        priceMode: state.priceMode || 'fijo',
+        procItems: state.procItems,
         plan: planKey,
         modulos: modulosActivos,
         adminEmail: state.adminEmail,

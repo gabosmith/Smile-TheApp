@@ -243,8 +243,9 @@ let clinicConfig = {
     nombre: '',
     color: '',
     activa: true,
-    procMode: 'libre',   // 'libre' | 'lista'
-    procItems: [],       // [{nombre, precio}] when procMode=lista
+    procMode: 'lista',   // legacy — always 'lista' now
+    priceMode: 'libre',  // 'fijo' | 'libre'  — fijo=prices locked from catalog, libre=doctor can edit
+    procItems: [],       // [{nombre, precio}] — always used (catalog is mandatory)
     moneda:   'RD$',     // símbolo de moneda — configurable por país
     locale:   'es-419',      // locale para fechas y números (getLocale() se llama después de init)
     pais:     'República Dominicana',
@@ -281,7 +282,8 @@ async function loadClinicBranding() {
         clinicConfig.activa     = cfg.activa !== false;
         clinicConfig.trial      = cfg.trial !== false;
         clinicConfig.trialHasta = cfg.trialHasta || null;
-        clinicConfig.procMode      = cfg.procMode || 'libre';
+        clinicConfig.procMode      = 'lista';  // always catalog now
+        clinicConfig.priceMode     = cfg.priceMode || (cfg.procMode === 'lista' ? 'fijo' : 'libre'); // migrate legacy
         clinicConfig.procItems     = cfg.procItems || [];
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
         clinicConfig.esSede        = !!cfg.clinicaPadre;
@@ -1219,25 +1221,10 @@ async function savePersonal() {
 async function saveLaboratorios() {
     if (!canWriteToFirebase('saveLaboratorios')) return;
     const labActual = appData.laboratorios || [];
-
-    // Safety guard: never overwrite with an empty array unless Firebase also has zero orders.
-    // This prevents accidental data loss on reload or partial sync issues.
-    if (labActual.length === 0) {
-        try {
-            const snap = await db.collection('clinicas').doc(CLINIC_PATH).get();
-            const remoteLabs = (snap.exists && snap.data().laboratorios) || [];
-            if (remoteLabs.length > 0) {
-                console.warn('[Lab] saveLaboratorios bloqueado — local vacío pero Firebase tiene', remoteLabs.length, 'órdenes. Restaurando desde Firebase.');
-                appData.laboratorios = remoteLabs;
-                window._labCargadoConDatos = true;
-                return;
-            }
-        } catch(checkErr) {
-            console.warn('[Lab] No se pudo verificar Firebase antes de guardar vacío. Abortando por seguridad.', checkErr);
-            return;
-        }
+    if (labActual.length === 0 && window._labCargadoConDatos) {
+        console.warn('[Lab] saveLaboratorios bloqueado — array vacío pero había datos.');
+        return;
     }
-
     try {
         setConnectionState('saving');
         await db.collection('clinicas').doc(CLINIC_PATH).update({
@@ -2169,7 +2156,51 @@ function openAddProcedimiento() {
     document.getElementById('procPrecio').value = '';
     const ds = document.getElementById('procDescuentoSlider');
     if (ds) { ds.value = '0'; document.getElementById('procDescuentoLabel').textContent = '0%'; }
+
+    // Always show catalog selector
+    const wrap = document.getElementById('procCatalogWrap');
+    const sel  = document.getElementById('procCatalogSelect');
+    if (wrap && sel) {
+        const items = clinicConfig.procItems || [];
+        sel.innerHTML = '<option value="">— Selecciona un procedimiento —</option>' +
+            items.map((it, i) => `<option value="${i}">${it.nombre}</option>`).join('');
+        wrap.style.display = 'block';
+    }
+
+    // Price field: editable if priceMode=libre, readonly if priceMode=fijo
+    const precioEl = document.getElementById('procPrecio');
+    const precioWrap = document.getElementById('procPrecioWrap');
+    if (precioEl) {
+        const esFijo = clinicConfig.priceMode === 'fijo';
+        precioEl.readOnly = esFijo;
+        precioEl.style.opacity = esFijo ? '0.6' : '1';
+        precioEl.style.cursor = esFijo ? 'default' : '';
+        precioEl.title = esFijo ? 'Precio definido por el catálogo. Edita el catálogo desde Administración.' : '';
+    }
+    if (precioWrap) {
+        const badge = document.getElementById('procPrecioBadge');
+        if (badge) badge.style.display = clinicConfig.priceMode === 'fijo' ? 'inline' : 'none';
+    }
+
     openModal('modalAddProcedimiento');
+}
+
+// Called when user picks from catalog dropdown in modalAddProcedimiento
+function onCatalogSelect(sel) {
+    const idx = sel.value;
+    if (idx === '' || !clinicConfig.procItems) return;
+    const item = clinicConfig.procItems[parseInt(idx)];
+    if (!item) return;
+    const d = document.getElementById('procDesc');
+    const p = document.getElementById('procPrecio');
+    if (d) d.value = item.nombre;
+    if (p) {
+        p.value = item.precio || '';
+        // If priceMode=fijo, keep readonly. If libre, unlock for editing.
+        const esFijo = clinicConfig.priceMode === 'fijo';
+        p.readOnly = esFijo;
+        p.style.opacity = esFijo ? '0.6' : '1';
+    }
 }
 
 function setProcDescuento(val) {
@@ -6290,16 +6321,26 @@ function abrirModalAgregarItem() {
     const labTipoEl = document.getElementById('cotizLabTipo');
     if (labTipoEl) labTipoEl.value = 'Corona';
 
+    // Always show catalog selector in cotiz modal
     const wrap = document.getElementById('cotizCatalogWrap');
     const sel  = document.getElementById('cotizCatalogSelect');
-    if (wrap && sel && clinicConfig.procMode === 'lista' && (clinicConfig.procItems || []).length > 0) {
-        sel.innerHTML = '<option value="">— Elige del catálogo —</option>' +
+    if (wrap && sel) {
+        sel.innerHTML = '<option value="">— Selecciona un procedimiento —</option>' +
             (clinicConfig.procItems || []).map((it, i) =>
-                `<option value="${i}">${it.nombre} — ${formatCurrency(it.precio)}</option>`
+                `<option value="${i}">${it.nombre}</option>`
             ).join('');
         wrap.style.display = 'block';
     } else if (wrap) {
         wrap.style.display = 'none';
+    }
+
+    // Price field: lock if priceMode=fijo
+    const precioEl = document.getElementById('cotizProcPrecio');
+    if (precioEl) {
+        const esFijo = clinicConfig.priceMode === 'fijo';
+        precioEl.readOnly = esFijo;
+        precioEl.style.opacity = esFijo ? '0.6' : '1';
+        precioEl.title = esFijo ? 'Precio definido por el catálogo.' : '';
     }
 
     openModal('modalCotizItem');
@@ -6331,7 +6372,13 @@ function _cotizOnCatalogSelect(sel) {
     const d = document.getElementById('cotizProcDesc');
     const p = document.getElementById('cotizProcPrecio');
     if (d) d.value = item.nombre;
-    if (p) p.value = item.precio;
+    if (p) {
+        p.value = item.precio || '';
+        const esFijo = clinicConfig.priceMode === 'fijo';
+        p.readOnly = esFijo;
+        p.style.opacity = esFijo ? '0.6' : '1';
+        p.title = esFijo ? 'Precio definido por el catálogo.' : '';
+    }
 }
 
 let _guardandoCotiz = false;
@@ -8059,8 +8106,7 @@ function verDetalleOrdenLab(ordenId) {
 }
 
 function renderizarBotonesAvance(orden) {
-    const estadoActual = orden.estadoActual || 'Pendiente';
-    const esRecepcion = appData.currentRole === 'reception';
+    const estadoActual = orden.estadoActual;
 
     if (estadoActual === 'Entregado') {
         return `<div style="text-align:center;padding:16px;background:rgba(107,143,113,.1);border-radius:12px;border:1.5px solid #6B8F71;">
@@ -8090,34 +8136,7 @@ function renderizarBotonesAvance(orden) {
     };
 
     const botones = transiciones[estadoActual] || [];
-
-    // Unknown / unmapped state — show diagnostic message so it's never invisible
-    if (!botones.length) {
-        return `<div style="text-align:center;padding:14px;background:rgba(60,50,40,.05);border-radius:12px;border:1.5px dashed rgba(60,50,40,.2);">
-                    <div style="font-size:13px;color:var(--piedra,#7A7068);">Estado desconocido: <strong>${estadoActual}</strong>. Contacta soporte.</div>
-                </div>`;
-    }
-
-    // Reception users see the buttons but disabled with a note
-    if (esRecepcion) {
-        return `<div style="padding:12px 14px;background:rgba(196,133,106,.08);border-radius:12px;border:1.5px solid rgba(196,133,106,.3);margin-bottom:8px;">
-                    <div style="font-size:12px;color:#C4856A;font-weight:600;">⛔ Solo el profesional o admin puede avanzar el estado de laboratorio.</div>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:8px;opacity:0.4;pointer-events:none;">
-                ${botones.map(btn => `
-                    <button disabled style="width:100%;padding:13px 18px;background:${btn.bgColor};
-                           color:${btn.color};border:1.5px solid ${btn.color}55;
-                           border-radius:12px;font-family:inherit;cursor:not-allowed;
-                           display:flex;align-items:center;justify-content:space-between;">
-                        <div style="text-align:left;">
-                            <div style="font-size:14px;font-weight:600;">${btn.text}</div>
-                            <div style="font-size:11px;opacity:.8;margin-top:1px;">${btn.sub}</div>
-                        </div>
-                        <span style="font-size:18px;opacity:.7;">→</span>
-                    </button>
-                `).join('')}
-                </div>`;
-    }
+    if (!botones.length) return '';
 
     return `<div style="display:flex;flex-direction:column;gap:8px;">
         ${botones.map(btn => `
@@ -12382,7 +12401,7 @@ function renderCobrosContent(key) {
         // Fix B2: Build factura form directly (tab-factura element never existed in DOM)
         const esAdmin = appData.currentRole === 'admin';
         const profesionales = appData.personal.filter(p => p.tipo !== 'empleado' && !p.isAdmin);
-        const usaCatalogo = clinicConfig.procMode === 'lista' && (clinicConfig.procItems||[]).length > 0;
+        const usaCatalogo = (clinicConfig.procItems||[]).length > 0;
 
         el.innerHTML = `
             <div style="padding-bottom:24px;">
@@ -12528,7 +12547,7 @@ function abrirMas() {
     if (hasModule('reportes') && role === 'admin') {
         items.push({ icon: '📊', label: 'Reportes',    action: `cerrarMas();irTab('reportes')` });
     }
-    if (clinicConfig.procMode === 'lista' && role === 'admin') {
+    if (role === 'admin') {
         items.push({ icon: '📋', label: 'Catálogo',    action: `cerrarMas();showTab('catalogo')` });
     }
     if (role === 'admin') {
@@ -12607,10 +12626,32 @@ function renderCatalogoTab() {
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
                 <div>
                     <h2 style="margin:0 0 4px 0">Catálogo de procedimientos</h2>
-                    <div style="font-size:13px;color:var(--piedra)">Precios base que aparecen al crear una factura</div>
+                    <div style="font-size:13px;color:var(--piedra)">Lista de procedimientos de tu clínica. Todos los usuarios seleccionan de este catálogo al facturar.</div>
                 </div>
                 <button class="btn-primary" onclick="abrirModalProcedimiento(null)">+ Agregar</button>
             </div>
+
+            <!-- Price mode selector -->
+            <div style="background:var(--surface,#F5F2EE);border-radius:14px;padding:16px;margin-bottom:24px;">
+                <div style="font-size:12px;font-weight:600;color:var(--piedra);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Modo de precios al facturar</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px;border-radius:10px;border:2px solid ${clinicConfig.priceMode === 'fijo' ? 'var(--clinic-color,#C4856A)' : 'transparent'};background:${clinicConfig.priceMode === 'fijo' ? 'rgba(196,133,106,.07)' : 'white'};">
+                        <input type="radio" name="priceMode" value="fijo" ${clinicConfig.priceMode === 'fijo' ? 'checked' : ''} onchange="cambiarPriceMode('fijo')" style="margin-top:2px;accent-color:var(--clinic-color,#C4856A)">
+                        <div>
+                            <div style="font-size:14px;font-weight:500;color:var(--topo)">Precios del catálogo (fijos)</div>
+                            <div style="font-size:12px;color:var(--piedra);margin-top:2px;line-height:1.5">El precio se rellena automáticamente del catálogo y el doctor no puede modificarlo. Máximo control.</div>
+                        </div>
+                    </label>
+                    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px;border-radius:10px;border:2px solid ${clinicConfig.priceMode === 'libre' ? 'var(--clinic-color,#C4856A)' : 'transparent'};background:${clinicConfig.priceMode === 'libre' ? 'rgba(196,133,106,.07)' : 'white'};">
+                        <input type="radio" name="priceMode" value="libre" ${clinicConfig.priceMode === 'libre' ? 'checked' : ''} onchange="cambiarPriceMode('libre')" style="margin-top:2px;accent-color:var(--clinic-color,#C4856A)">
+                        <div>
+                            <div style="font-size:14px;font-weight:500;color:var(--topo)">Precio editable por el doctor</div>
+                            <div style="font-size:12px;color:var(--piedra);margin-top:2px;line-height:1.5">El catálogo sugiere el precio pero el doctor puede cambiarlo al facturar. Más flexibilidad.</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
             <div id="catalogo-list">
                 ${items.length === 0 ? `
                     <div style="text-align:center;padding:48px 24px;color:var(--muted)">
@@ -12618,22 +12659,49 @@ function renderCatalogoTab() {
                         <div style="font-size:15px;margin-bottom:8px">Sin procedimientos aún</div>
                         <div style="font-size:13px">Agrega los procedimientos que ofrece tu clínica</div>
                     </div>
-                ` : items.map((item, i) => `
-                    <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
-                        <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
-                        <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">${formatCurrency(item.precio||0)}</div>
-                        <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
-                        <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-        <div class="card" style="margin-top:16px;background:rgba(0,0,0,0.02)">
-            <div style="font-size:12px;color:var(--muted);line-height:1.7">
-                💡 Estos precios son la referencia al crear facturas. El médico puede ajustar el precio en cada factura si lo necesita.
+                ` : (() => {
+                    const sinPrecio = items.filter(it => !it.precio || it.precio === 0).length;
+                    const banner = sinPrecio > 0 ? `
+                        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;
+                                    background:rgba(232,168,56,.1);border:1.5px solid rgba(232,168,56,.4);
+                                    border-radius:12px;margin-bottom:16px;">
+                            <span style="font-size:18px;flex-shrink:0;">⚠️</span>
+                            <div style="font-size:13px;color:var(--topo);line-height:1.5;">
+                                <strong>${sinPrecio} procedimiento${sinPrecio > 1 ? 's' : ''} sin precio.</strong>
+                                Haz clic en <em>Editar</em> en cada uno para asignar el precio en tu moneda local.
+                            </div>
+                        </div>` : '';
+                    return banner + items.map((item, i) => `
+                        <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
+                            <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
+                            <div style="font-size:15px;font-weight:500;color:${item.precio ? 'var(--clinic-color)' : '#e0a020'};">
+                                ${item.precio ? formatCurrency(item.precio) : '— Sin precio'}
+                            </div>
+                            <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
+                            <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
+                        </div>
+                    `).join('');
+                })()}
             </div>
         </div>
     `;
+}
+
+async function cambiarPriceMode(mode) {
+    if (clinicConfig.priceMode === mode) return;
+    clinicConfig.priceMode = mode;
+    try {
+        if (canWriteToFirebase('cambiarPriceMode')) {
+            await db.collection('clinicas').doc(CLINIC_PATH)
+                .collection('config').doc('settings')
+                .set({ priceMode: mode }, { merge: true });
+            showToast('✓ Modo de precios actualizado');
+        }
+    } catch(e) {
+        showError('Error al guardar el modo de precios.', e);
+    }
+    // Re-render to update radio button styles
+    renderCatalogoTab();
 }
 
 function abrirModalProcedimiento(idx) {
@@ -14808,10 +14876,16 @@ function _quickProcSelect(nombre, precio) {
     const inp = document.getElementById('quickProcNombre');
     const pEl = document.getElementById('quickProcPrecio');
     if (inp) inp.value = nombre;
-    if (pEl && precio > 0) pEl.value = precio;
+    if (pEl && precio > 0) {
+        pEl.value = precio;
+        const esFijo = clinicConfig.priceMode === 'fijo';
+        pEl.readOnly = esFijo;
+        pEl.style.opacity = esFijo ? '0.6' : '1';
+        pEl.title = esFijo ? 'Precio definido por el catálogo.' : '';
+    }
     const sug = document.getElementById('quickProcSuggestions');
     if (sug) sug.style.display = 'none';
-    document.getElementById('quickProcPrecio')?.focus();
+    if (clinicConfig.priceMode !== 'fijo') document.getElementById('quickProcPrecio')?.focus();
 }
 
 async function _quickProcConfirm() {
