@@ -1731,7 +1731,7 @@ function buildFinalSummary() {
     </div>
     <div class="summary-row">
       <span>Plan base</span>
-      <span>USD $1,200</span>
+      <span>${fmt(BASE)}</span>
     </div>
     ${moduleRows}
     ${extraUsers > 0 ? `<div class="summary-row"><span>Usuarios adicionales (${extraUsers})</span><span>USD $${extraUsersCost.toLocaleString()}</span></div>` : ''}
