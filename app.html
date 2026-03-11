@@ -2368,7 +2368,7 @@
     <div id="modalAddProcedimiento" class="modal" style="z-index:10010;">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-title">Agregar Procedimiento</div>
+                <div class="modal-title" id="modalAddProcTitle">Agregar Procedimiento</div>
                 <button class="close-modal" onclick="closeModal('modalAddProcedimiento')">×</button>
             </div>
 
@@ -2437,7 +2437,7 @@
                 </div>
             </div>
 
-            <button class="btn btn-submit" style="margin-top:8px" onclick="withGuard(this, agregarProcedimiento)">Agregar</button>
+            <button class="btn btn-submit" id="btnConfirmProc" style="margin-top:8px" onclick="withGuard(this, agregarProcedimiento)">Agregar</button>
         </div>
     </div>
 

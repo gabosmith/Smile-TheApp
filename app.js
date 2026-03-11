@@ -284,7 +284,7 @@ async function loadClinicBranding() {
         clinicConfig.procMode      = cfg.procMode || 'libre';
         clinicConfig.procItems     = cfg.procItems || [];
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
-        clinicConfig.esSoloPractica = cfg.esSoloPractica || cfg.plan === 'solo';
+        clinicConfig.esSede        = !!cfg.clinicaPadre;
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
         // Normalize legacy USD variants to standard 'US$'
         const _rawMoneda = cfg.moneda || 'RD$';
@@ -2149,6 +2149,11 @@ function getFacturaEl(id) {
 let tempProcedimientos = [];
 
 function openAddProcedimiento() {
+    window._editingProcId = null; // ensure we're in add mode, not edit
+    const titleEl = document.getElementById('modalAddProcTitle');
+    if (titleEl) titleEl.textContent = 'Agregar Procedimiento';
+    const btnEl = document.getElementById('btnConfirmProc');
+    if (btnEl) btnEl.textContent = 'Agregar';
     document.getElementById('procDesc').value = '';
     document.getElementById('procCant').value = '1';
     document.getElementById('procPrecio').value = '';
@@ -2189,7 +2194,9 @@ function onProcSearch(inputEl, suggestionsId, precioId) {
         const precioLabel = it.precio
             ? `<span style="font-size:12px;color:var(--piedra,#9C9189);font-weight:500;flex-shrink:0;">${formatCurrency(it.precio)}</span>`
             : `<span style="font-size:11px;color:#e0a020;flex-shrink:0;">Sin precio</span>`;
-        return `<div data-idx="${i}"
+        // Store item name (not filtered index) so onProcSelect finds correct item in full catalog
+        const safeName = encodeURIComponent(it.nombre || '');
+        return `<div data-idx="${i}" data-item-name="${safeName}"
             onmousedown="onProcSelect(event,'${suggestionsId}','${inputEl.id}','${precioId}')"
             style="padding:11px 16px;cursor:pointer;display:flex;justify-content:space-between;
                    align-items:center;gap:12px;border-bottom:1px solid rgba(30,28,26,0.05);"
@@ -2232,8 +2239,11 @@ function onProcSearchKey(event, suggestionsId, precioId) {
 function onProcSelect(event, suggestionsId, inputId, precioId) {
     event.preventDefault();
     const el = event.currentTarget;
-    const idx = parseInt(el.dataset.idx);
-    const item = (clinicConfig.procItems || [])[idx];
+    // Use stored item name to find correct item in full catalog (fixes filtered-index bug)
+    const itemName = el.dataset.itemName ? decodeURIComponent(el.dataset.itemName) : null;
+    const item = itemName
+        ? (clinicConfig.procItems || []).find(it => it.nombre === itemName)
+        : (clinicConfig.procItems || [])[parseInt(el.dataset.idx)];
     if (!item) return;
     const inp = document.getElementById(inputId);
     const pEl = document.getElementById(precioId);
@@ -2271,14 +2281,32 @@ function agregarProcedimiento() {
 
     const precioFinal = precio * (1 - descPct / 100);
 
-    tempProcedimientos.push({
-        id:             generateId(),
-        descripcion:    desc,
-        cantidad:       cant,
-        precioUnitario: precioFinal,
-        ...(descPct > 0 && { precioOriginal: precio, descuentoPct: descPct }),
-        ...(diente     && { dientes: diente }),
-    });
+    const editId = window._editingProcId;
+    if (editId) {
+        // Edit mode: replace existing item in place
+        const idx = tempProcedimientos.findIndex(x => x.id === editId);
+        if (idx !== -1) {
+            tempProcedimientos[idx] = {
+                id:             editId,
+                descripcion:    desc,
+                cantidad:       cant,
+                precioUnitario: precioFinal,
+                ...(descPct > 0 && { precioOriginal: precio, descuentoPct: descPct }),
+                ...(diente     && { dientes: diente }),
+            };
+        }
+        window._editingProcId = null;
+    } else {
+        // Add mode: push new item
+        tempProcedimientos.push({
+            id:             generateId(),
+            descripcion:    desc,
+            cantidad:       cant,
+            precioUnitario: precioFinal,
+            ...(descPct > 0 && { precioOriginal: precio, descuentoPct: descPct }),
+            ...(diente     && { dientes: diente }),
+        });
+    }
 
     updateProcedimientosList();
     closeModal('modalAddProcedimiento');
@@ -2299,8 +2327,12 @@ function updateProcedimientosList() {
                             border-radius:100px;padding:1px 7px;font-size:10px;font-weight:600">🏷️ -${p.descuentoPct}%</span>` : ''}
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
                     <strong style="color: var(--clinic-color, #C4856A);">${formatCurrency(p.cantidad * p.precioUnitario)}</strong>
+                    <button onclick="editarProcedimiento('${p.id}')"
+                        style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(107,143,113,.12);
+                               color:var(--salvia,#6B8F71);cursor:pointer;font-size:13px;display:flex;align-items:center;
+                               justify-content:center;" title="Editar">✏️</button>
                     <button class="procedimiento-delete" onclick="removeProcedimiento('${p.id}')">×</button>
                 </div>
             </div>
@@ -2312,6 +2344,37 @@ function updateProcedimientosList() {
 function removeProcedimiento(id) {
     tempProcedimientos = tempProcedimientos.filter(p => p.id !== id);
     updateProcedimientosList();
+}
+
+function editarProcedimiento(id) {
+    const p = tempProcedimientos.find(x => x.id === id);
+    if (!p) return;
+    // Store which item we're editing so agregarProcedimiento knows to replace, not push
+    window._editingProcId = id;
+    // Open the modal pre-filled with existing values
+    const titleEl = document.getElementById('modalAddProcTitle');
+    if (titleEl) titleEl.textContent = 'Editar Procedimiento';
+    const btnEl = document.getElementById('btnConfirmProc');
+    if (btnEl) btnEl.textContent = 'Guardar cambios';
+    openModal('modalAddProcedimiento');
+    setTimeout(() => {
+        const descEl  = document.getElementById('procDesc');
+        const cantEl  = document.getElementById('procCant');
+        const precEl  = document.getElementById('procPrecio');
+        const dntEl   = document.getElementById('procDiente');
+        const slEl    = document.getElementById('procDescuentoSlider');
+        const lblEl   = document.getElementById('procDescuentoLabel');
+        if (descEl) descEl.value = p.descripcion;
+        if (cantEl) cantEl.value = p.cantidad;
+        if (precEl) precEl.value = p.precioOriginal || p.precioUnitario;
+        if (dntEl)  dntEl.value  = p.dientes || '';
+        const pct = p.descuentoPct || 0;
+        if (slEl)  slEl.value    = pct;
+        if (lblEl) lblEl.textContent = pct + '%';
+        // Show the badge if there's a price
+        const badge = document.getElementById('procPrecioBadge');
+        if (badge && p.precioUnitario) badge.style.display = 'inline';
+    }, 80);
 }
 
 function updateDescuento() {
@@ -2527,7 +2590,58 @@ async function generarFactura() {
     }
 }
 
-// Ingresos Tab
+// ── PRESUPUESTO PREVIEW ────────────────────────────────────
+// Genera una vista previa del presupuesto SIN crear la factura.
+// Reutiliza el modal de modalFacturaCliente en modo "cotización".
+function verPresupuestoPreview() {
+    if (tempProcedimientos.length === 0 && tempOrdenesLab.length === 0) {
+        showToast('⚠️ Agrega al menos un procedimiento primero');
+        return;
+    }
+    const pacienteEl = document.getElementById('pacienteNombre');
+    const paciente   = pacienteEl?.value?.trim() || 'Paciente';
+    const profesional = appData.currentRole === 'admin'
+        ? (document.getElementById('profesionalQueAtendio')?.value || appData.currentUser)
+        : appData.currentUser;
+
+    const subtotal = tempProcedimientos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
+    const totalLab = tempOrdenesLab.reduce((s, o) => s + o.precio, 0);
+    const total    = subtotal + totalLab;
+
+    // Build a fake factura — no id, no numero, no pagos — purely for preview
+    const fakeFact = {
+        numero:         'PRESUPUESTO',
+        fecha:          new Date().toISOString(),
+        paciente,
+        profesional,
+        procedimientos: [...tempProcedimientos],
+        ordenesLab:     [...tempOrdenesLab],
+        subtotal:       total,
+        descuento:      0,
+        total,
+        pagos:          [],
+        estado:         'presupuesto',
+        notas:          document.getElementById('notasFactura')?.value || '',
+    };
+
+    // Reuse generarFacturaCliente but patch the title to say PRESUPUESTO
+    generarFacturaCliente(fakeFact, 0, '');
+
+    // After modal opens, change header text to Presupuesto
+    setTimeout(() => {
+        const modalTitle = document.querySelector('#modalFacturaCliente .modal-title');
+        if (modalTitle) modalTitle.textContent = 'Presupuesto — Vista previa';
+        // Replace "RECIBO DE PAGO" text inside the content with "PRESUPUESTO"
+        const content = document.getElementById('facturaClienteContent');
+        if (content) {
+            content.innerHTML = content.innerHTML
+                .replace(/RECIBO DE PAGO/g, 'PRESUPUESTO')
+                .replace(/COMPROBANTE DE ABONO/g, 'PRESUPUESTO');
+        }
+    }, 60);
+}
+
+
 function updateIngresosTab() {
     const todayKey = getTodayKey();
     const esAdmin = appData.currentRole === 'admin';
@@ -2705,7 +2819,7 @@ function enviarCotizacion(facturaId) {
     const telLimpio = telefono.replace(/\D/g, '');
 
     // Construir mensaje de cotización
-    const clinica   = getNombreClinica();
+    const clinica   = clinicConfig.nombre || 'Clínica Dental';
     const moneda    = clinicConfig.moneda || 'RD$';
     const fecha     = new Date(factura.fecha).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
     const balance   = factura.total - (factura.pagos || []).reduce((s, p) => s + p.monto, 0);
@@ -2879,7 +2993,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     let facturaHTML = `
         <div style="text-align: center; margin-bottom: 25px;">
             ${clinicConfig.logoPositivo ? `<img src="${clinicConfig.logoPositivo}" alt="Logo" style="max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">` : ''}
-            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 6px;">${getNombreClinica()}</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 6px;">${clinicConfig.nombre || 'Clínica Dental'}</div>
         </div>
 
         <div style="border-top: 3px solid var(--clinic-color, #C4856A); border-bottom: 3px solid var(--clinic-color, #C4856A); padding: 15px 0; margin: 20px 0;">
@@ -5336,7 +5450,7 @@ function contactarPaciente(pacienteId, tipo) {
         return;
     }
 
-    const clinica = getNombreClinica();
+    const clinica = clinicConfig.nombre || 'la clínica';
     let mensaje = '';
     if (tipo === 'saludo') {
         mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, ¿en qué podemos ayudarte?`;
@@ -7190,7 +7304,7 @@ function _citaWA(citaId) {
     if (!cita) return;
     const pac = (appData.pacientes||[]).find(p => p.nombre === cita.paciente);
     if (!pac?.telefono) { showToast('Sin número de teléfono', 2000, '#e74c3c'); return; }
-    const clinica = getNombreClinica();
+    const clinica = appData.settings?.nombre || 'la clínica';
     const tel = pac.telefono.replace(/\D/g,'');
     const msg = encodeURIComponent(
         `¡Hola! Te escribimos de *${clinica}* 🦷\n` +
@@ -8281,7 +8395,7 @@ function avisarPacienteLab(ordenId) {
     const telefono = pac?.telefono || '';
     const telLimpio = telefono.replace(/\D/g, '');
 
-    const clinica  = getNombreClinica();
+    const clinica  = clinicConfig.nombre || 'Clínica Dental';
     const estado   = orden.estadoActual || '';
     const tipo     = orden.descripcion || orden.tipo || 'Trabajo de laboratorio';
     const dientes  = orden.dientes ? `\n🦷 Dientes: ${orden.dientes}` : '';
@@ -10146,11 +10260,8 @@ function getTimezone() {
 }
 
 function getNombreClinica() {
-    const nombre = clinicConfig.nombre || (appData.settings && appData.settings.nombreClinica) || '';
-    if (!nombre) {
-        return (clinicConfig.plan === 'solo') ? 'Dr./Dra.' : 'Clínica Dental';
-    }
-    return nombre;
+    // clinicConfig.nombre is set by onboarding and loadClinicBranding — the authoritative source
+    return clinicConfig.nombre || (appData.settings && appData.settings.nombreClinica) || 'Clínica Dental';
 }
 
 function getNombreAdmin() {
@@ -12505,11 +12616,17 @@ function renderCobrosContent(key) {
                     <textarea id="notasFactura" style="min-height:70px;" placeholder="Observaciones del tratamiento..."></textarea>
                 </div>
 
-                <!-- Botón generar -->
-                <button class="btn btn-submit" onclick="withGuard(this, generarFactura)"
-                    style="width:100%;padding:14px;font-size:15px;margin-top:8px;">
-                    Generar Factura →
-                </button>
+                <!-- Acciones: ver presupuesto + generar -->
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                    <button class="btn btn-secondary" onclick="verPresupuestoPreview()"
+                        style="flex:1;padding:14px;font-size:14px;border-radius:12px;">
+                        👁️ Ver presupuesto
+                    </button>
+                    <button class="btn btn-submit" onclick="withGuard(this, generarFactura)"
+                        style="flex:2;padding:14px;font-size:15px;">
+                        Generar Factura →
+                    </button>
+                </div>
             </div>
         `;
 
