@@ -6549,14 +6549,13 @@ function verPresupuestoCotiz(facturaId) {
 
 function _aprobarPresupuesto() {
     const wrap = document.getElementById('presupuestoAprobarWrap');
-    const facturaId = wrap?.dataset?.facturaId;
-    // Hide Aprobar button for next time
     if (wrap) { wrap.style.display = 'none'; delete wrap.dataset.facturaId; }
     closeModal('modalFacturaCliente');
-    if (facturaId) {
-        // Small delay so ficha modal re-focuses before opening cobro
-        setTimeout(() => openPagarFactura(facturaId), 150);
-    }
+    // El presupuesto fue aprobado por el paciente.
+    // La factura ya existe como "pendiente" — recepción la verá en el tab Cobros.
+    // No abrimos cobro aquí: el doctor puede no tener permiso para cobrar,
+    // y el cobro lo procesa recepción de forma independiente.
+    showToast('✅ Presupuesto aprobado — pendiente de cobro en recepción', 4000);
 }
 
 function _tratSwitch(panel) {
