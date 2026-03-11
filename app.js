@@ -1245,6 +1245,13 @@ async function _migrarLaboratoriosPendientes() {
     const aReparar = appData.laboratorios.filter(o => o.estadoActual === ESTADO_INVALIDO);
     if (aReparar.length === 0) return; // nada que reparar
 
+    // Si no hay usuario logueado aún, esperar y reintentar en 3 segundos
+    if (!appData.currentUser) {
+        console.log('[Lab] Migración pendiente — esperando usuario logueado...');
+        setTimeout(() => _migrarLaboratoriosPendientes(), 3000);
+        return;
+    }
+
     console.log(`[Lab] Migrando ${aReparar.length} orden(es) con estado '${ESTADO_INVALIDO}' → '${ESTADO_CORRECTO}'`);
     aReparar.forEach(o => {
         o.estadoActual = ESTADO_CORRECTO;
@@ -1396,11 +1403,13 @@ function initRealtimeListener() {
 
             updateLocalCache();
 
-            // Auto-migrar órdenes de lab con estado inválido 'Pendiente'
-            _migrarLaboratoriosPendientes();
-
             // Refrescar la tab activa si el usuario ya esta logueado
             if (!appData.currentUser) return;
+
+            // Auto-migrar órdenes de lab con estado inválido 'Pendiente'
+            // IMPORTANTE: debe ir DESPUÉS del check de currentUser —
+            // saveLaboratorios() requiere usuario logueado para poder escribir a Firebase.
+            _migrarLaboratoriosPendientes();
             const activeTab = document.querySelector('.tab-content.active');
             if (!activeTab) return;
             const tabId = activeTab.id.replace('tab-', '');
