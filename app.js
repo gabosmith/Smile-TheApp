@@ -2149,11 +2149,6 @@ function getFacturaEl(id) {
 let tempProcedimientos = [];
 
 function openAddProcedimiento() {
-    window._editingProcId = null; // ensure we're in add mode, not edit
-    const titleEl = document.getElementById('modalAddProcTitle');
-    if (titleEl) titleEl.textContent = 'Agregar Procedimiento';
-    const btnEl = document.getElementById('btnConfirmProc');
-    if (btnEl) btnEl.textContent = 'Agregar';
     document.getElementById('procDesc').value = '';
     document.getElementById('procCant').value = '1';
     document.getElementById('procPrecio').value = '';
@@ -2194,9 +2189,7 @@ function onProcSearch(inputEl, suggestionsId, precioId) {
         const precioLabel = it.precio
             ? `<span style="font-size:12px;color:var(--piedra,#9C9189);font-weight:500;flex-shrink:0;">${formatCurrency(it.precio)}</span>`
             : `<span style="font-size:11px;color:#e0a020;flex-shrink:0;">Sin precio</span>`;
-        // Store item name (not filtered index) so onProcSelect finds correct item in full catalog
-        const safeName = encodeURIComponent(it.nombre || '');
-        return `<div data-idx="${i}" data-item-name="${safeName}"
+        return `<div data-idx="${i}"
             onmousedown="onProcSelect(event,'${suggestionsId}','${inputEl.id}','${precioId}')"
             style="padding:11px 16px;cursor:pointer;display:flex;justify-content:space-between;
                    align-items:center;gap:12px;border-bottom:1px solid rgba(30,28,26,0.05);"
@@ -2239,11 +2232,8 @@ function onProcSearchKey(event, suggestionsId, precioId) {
 function onProcSelect(event, suggestionsId, inputId, precioId) {
     event.preventDefault();
     const el = event.currentTarget;
-    // Use stored item name to find correct item in full catalog (fixes filtered-index bug)
-    const itemName = el.dataset.itemName ? decodeURIComponent(el.dataset.itemName) : null;
-    const item = itemName
-        ? (clinicConfig.procItems || []).find(it => it.nombre === itemName)
-        : (clinicConfig.procItems || [])[parseInt(el.dataset.idx)];
+    const idx = parseInt(el.dataset.idx);
+    const item = (clinicConfig.procItems || [])[idx];
     if (!item) return;
     const inp = document.getElementById(inputId);
     const pEl = document.getElementById(precioId);
@@ -2281,32 +2271,14 @@ function agregarProcedimiento() {
 
     const precioFinal = precio * (1 - descPct / 100);
 
-    const editId = window._editingProcId;
-    if (editId) {
-        // Edit mode: replace existing item in place
-        const idx = tempProcedimientos.findIndex(x => x.id === editId);
-        if (idx !== -1) {
-            tempProcedimientos[idx] = {
-                id:             editId,
-                descripcion:    desc,
-                cantidad:       cant,
-                precioUnitario: precioFinal,
-                ...(descPct > 0 && { precioOriginal: precio, descuentoPct: descPct }),
-                ...(diente     && { dientes: diente }),
-            };
-        }
-        window._editingProcId = null;
-    } else {
-        // Add mode: push new item
-        tempProcedimientos.push({
-            id:             generateId(),
-            descripcion:    desc,
-            cantidad:       cant,
-            precioUnitario: precioFinal,
-            ...(descPct > 0 && { precioOriginal: precio, descuentoPct: descPct }),
-            ...(diente     && { dientes: diente }),
-        });
-    }
+    tempProcedimientos.push({
+        id:             generateId(),
+        descripcion:    desc,
+        cantidad:       cant,
+        precioUnitario: precioFinal,
+        ...(descPct > 0 && { precioOriginal: precio, descuentoPct: descPct }),
+        ...(diente     && { dientes: diente }),
+    });
 
     updateProcedimientosList();
     closeModal('modalAddProcedimiento');
@@ -2327,12 +2299,8 @@ function updateProcedimientosList() {
                             border-radius:100px;padding:1px 7px;font-size:10px;font-weight:600">🏷️ -${p.descuentoPct}%</span>` : ''}
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
                     <strong style="color: var(--clinic-color, #C4856A);">${formatCurrency(p.cantidad * p.precioUnitario)}</strong>
-                    <button onclick="editarProcedimiento('${p.id}')"
-                        style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(107,143,113,.12);
-                               color:var(--salvia,#6B8F71);cursor:pointer;font-size:13px;display:flex;align-items:center;
-                               justify-content:center;" title="Editar">✏️</button>
                     <button class="procedimiento-delete" onclick="removeProcedimiento('${p.id}')">×</button>
                 </div>
             </div>
@@ -2344,37 +2312,6 @@ function updateProcedimientosList() {
 function removeProcedimiento(id) {
     tempProcedimientos = tempProcedimientos.filter(p => p.id !== id);
     updateProcedimientosList();
-}
-
-function editarProcedimiento(id) {
-    const p = tempProcedimientos.find(x => x.id === id);
-    if (!p) return;
-    // Store which item we're editing so agregarProcedimiento knows to replace, not push
-    window._editingProcId = id;
-    // Open the modal pre-filled with existing values
-    const titleEl = document.getElementById('modalAddProcTitle');
-    if (titleEl) titleEl.textContent = 'Editar Procedimiento';
-    const btnEl = document.getElementById('btnConfirmProc');
-    if (btnEl) btnEl.textContent = 'Guardar cambios';
-    openModal('modalAddProcedimiento');
-    setTimeout(() => {
-        const descEl  = document.getElementById('procDesc');
-        const cantEl  = document.getElementById('procCant');
-        const precEl  = document.getElementById('procPrecio');
-        const dntEl   = document.getElementById('procDiente');
-        const slEl    = document.getElementById('procDescuentoSlider');
-        const lblEl   = document.getElementById('procDescuentoLabel');
-        if (descEl) descEl.value = p.descripcion;
-        if (cantEl) cantEl.value = p.cantidad;
-        if (precEl) precEl.value = p.precioOriginal || p.precioUnitario;
-        if (dntEl)  dntEl.value  = p.dientes || '';
-        const pct = p.descuentoPct || 0;
-        if (slEl)  slEl.value    = pct;
-        if (lblEl) lblEl.textContent = pct + '%';
-        // Show the badge if there's a price
-        const badge = document.getElementById('procPrecioBadge');
-        if (badge && p.precioUnitario) badge.style.display = 'inline';
-    }, 80);
 }
 
 function updateDescuento() {
@@ -2590,58 +2527,7 @@ async function generarFactura() {
     }
 }
 
-// ── PRESUPUESTO PREVIEW ────────────────────────────────────
-// Genera una vista previa del presupuesto SIN crear la factura.
-// Reutiliza el modal de modalFacturaCliente en modo "cotización".
-function verPresupuestoPreview() {
-    if (tempProcedimientos.length === 0 && tempOrdenesLab.length === 0) {
-        showToast('⚠️ Agrega al menos un procedimiento primero');
-        return;
-    }
-    const pacienteEl = document.getElementById('pacienteNombre');
-    const paciente   = pacienteEl?.value?.trim() || 'Paciente';
-    const profesional = appData.currentRole === 'admin'
-        ? (document.getElementById('profesionalQueAtendio')?.value || appData.currentUser)
-        : appData.currentUser;
-
-    const subtotal = tempProcedimientos.reduce((s, p) => s + p.cantidad * p.precioUnitario, 0);
-    const totalLab = tempOrdenesLab.reduce((s, o) => s + o.precio, 0);
-    const total    = subtotal + totalLab;
-
-    // Build a fake factura — no id, no numero, no pagos — purely for preview
-    const fakeFact = {
-        numero:         'PRESUPUESTO',
-        fecha:          new Date().toISOString(),
-        paciente,
-        profesional,
-        procedimientos: [...tempProcedimientos],
-        ordenesLab:     [...tempOrdenesLab],
-        subtotal:       total,
-        descuento:      0,
-        total,
-        pagos:          [],
-        estado:         'presupuesto',
-        notas:          document.getElementById('notasFactura')?.value || '',
-    };
-
-    // Reuse generarFacturaCliente but patch the title to say PRESUPUESTO
-    generarFacturaCliente(fakeFact, 0, '');
-
-    // After modal opens, change header text to Presupuesto
-    setTimeout(() => {
-        const modalTitle = document.querySelector('#modalFacturaCliente .modal-title');
-        if (modalTitle) modalTitle.textContent = 'Presupuesto — Vista previa';
-        // Replace "RECIBO DE PAGO" text inside the content with "PRESUPUESTO"
-        const content = document.getElementById('facturaClienteContent');
-        if (content) {
-            content.innerHTML = content.innerHTML
-                .replace(/RECIBO DE PAGO/g, 'PRESUPUESTO')
-                .replace(/COMPROBANTE DE ABONO/g, 'PRESUPUESTO');
-        }
-    }, 60);
-}
-
-
+// Ingresos Tab
 function updateIngresosTab() {
     const todayKey = getTodayKey();
     const esAdmin = appData.currentRole === 'admin';
@@ -6197,6 +6083,8 @@ function renderTabHistorial(paciente) {
         const pagadoF    = (facturaAbierta.pagos||[]).reduce((s,p)=>s+p.monto,0);
         const pendienteF = facturaAbierta.total - pagadoF;
 
+        const canEditCotiz = appData.currentRole === 'admin' ||
+            (facturaAbierta && facturaAbierta.profesional === appData.currentUser);
         const procsHTML = (facturaAbierta.procedimientos||[]).length === 0 ? '' :
             (facturaAbierta.procedimientos||[]).map(p => {
                 const eCol = 'var(--clinic-color,#C4856A)';
@@ -6205,9 +6093,23 @@ function renderTabHistorial(paciente) {
                     p.cantidad > 1 ? `${p.cantidad} unidades` : null,
                     p.dientes ? `Diente${p.dientes.includes(',')?' s':''} ${p.dientes}` : null,
                     p.precioUnitario && p.cantidad > 1 ? `${formatCurrency(p.precioUnitario)} c/u` : null,
+                    p.descuentoPct > 0 ? `-${p.descuentoPct}%` : null,
                 ].filter(Boolean).join(' · ');
+                const editBtns = canEditCotiz ? `
+                    <div style="display:flex;gap:4px;margin-left:10px;flex-shrink:0;">
+                        <button onclick="editarProcCotiz('${facturaAbierta.id}','${p.id}')"
+                            style="width:26px;height:26px;border-radius:50%;border:none;
+                                   background:rgba(107,143,113,.12);color:var(--salvia,#6B8F71);
+                                   cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;"
+                            title="Editar">✏️</button>
+                        <button onclick="eliminarProcCotiz('${facturaAbierta.id}','${p.id}')"
+                            style="width:26px;height:26px;border-radius:50%;border:none;
+                                   background:rgba(220,50,50,.08);color:#c0392b;
+                                   cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;"
+                            title="Eliminar">×</button>
+                    </div>` : '';
                 return `
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;
+                <div style="display:flex;justify-content:space-between;align-items:center;
                             padding:10px 0;border-bottom:1px solid rgba(30,28,26,.06);">
                     <div style="flex:1;min-width:0;">
                         <div style="font-size:13px;font-weight:500;color:var(--topo);
@@ -6216,8 +6118,10 @@ function renderTabHistorial(paciente) {
                         </div>
                         ${subtitulo ? `<div style="font-size:11px;color:var(--piedra);margin-top:2px;">${subtitulo}</div>` : ''}
                     </div>
-                    <span style="font-size:13px;font-weight:600;color:${eCol};
-                                 flex-shrink:0;margin-left:14px;">${formatCurrency(totalProc)}</span>
+                    <div style="display:flex;align-items:center;flex-shrink:0;margin-left:14px;">
+                        <span style="font-size:13px;font-weight:600;color:${eCol};">${formatCurrency(totalProc)}</span>
+                        ${editBtns}
+                    </div>
                 </div>`;
             }).join('');
 
@@ -6283,16 +6187,26 @@ function renderTabHistorial(paciente) {
             </div>`;
     }
 
-    // Botón agregar siempre visible en cotización
+    // Botones de acción en cotización
+    const verPresupuestoBtnHTML = facturaAbierta ? `
+        <button onclick="verPresupuestoCotiz('${facturaAbierta.id}')"
+            style="width:100%;padding:10px;margin-bottom:8px;
+                   background:transparent;color:var(--clinic-color,#C4856A);border:1.5px solid var(--clinic-color,#C4856A);
+                   border-radius:12px;font-size:13px;font-weight:500;font-family:inherit;
+                   cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+            👁️ Ver presupuesto
+        </button>` : '';
+
     panelCotiz = `
         <button onclick="abrirModalAgregarItem()"
-            style="width:100%;padding:13px;margin-bottom:14px;
+            style="width:100%;padding:13px;margin-bottom:8px;
                    background:var(--clinic-color,#C4856A);color:white;border:none;
                    border-radius:12px;font-size:13px;font-weight:500;font-family:inherit;
                    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
                    box-shadow:0 2px 10px rgba(196,133,106,0.3);">
             <span style="font-size:18px;line-height:1;">+</span> Agregar procedimiento / lab
         </button>
+        ${verPresupuestoBtnHTML}
         ${panelCotiz}`;
 
     // ════════════════════════════════════════════════════════
@@ -6317,28 +6231,47 @@ function renderTabHistorial(paciente) {
             ? (f.ordenesLab||[]).map(o => `🔬 ${o.descripcion||o.tipo||'Lab'}`).join(' · ')
             : null;
         const detalleCompleto = [procsDetalle, labsDetalle].filter(Boolean).join('  ·  ');
+        const metodosUsados = [...new Set((f.pagos||[]).map(p =>
+            ({efectivo:'💵 Efectivo',tarjeta:'💳 Tarjeta',transferencia:'🔄 Transferencia'})[p.metodo]||p.metodo||'Efectivo'
+        ))].join(' · ');
         eventos.push({
-            fecha:  f.fecha,
-            tipo:   'factura',
-            icon:   pagada ? '✅' : '⏳',
-            titulo: `${f.numero}${pagada?' · Pagada':' · Abono parcial'}`,
-            sub:    f.profesional,
+            fecha:   f.fecha,
+            tipo:    'factura',
+            icon:    pagada ? '✅' : '⏳',
+            titulo:  `${f.numero}${pagada?' · Pagada':' · Abono parcial'}`,
+            sub:     `Dr./a ${f.profesional}`,
             detalle: detalleCompleto || null,
-            monto:  pagada ? formatCurrency(f.total) : `${formatCurrency(pagadoF)} / ${formatCurrency(f.total)}`,
-            color:  pagada ? '#34c759' : '#ff9500',
-            data:   f,
+            extra:   pagada && metodosUsados ? `Pagado con: ${metodosUsados}` : (!pagada && pagadoF > 0 ? `Abonado: ${formatCurrency(pagadoF)} · Pendiente: ${formatCurrency(Math.max(0,f.total-pagadoF))}` : null),
+            extraColor: pagada ? '#34c759' : '#ff9500',
+            monto:   pagada ? formatCurrency(f.total) : `${formatCurrency(pagadoF)} / ${formatCurrency(f.total)}`,
+            color:   pagada ? '#34c759' : '#ff9500',
+            data:    f,
         });
-        // Cada pago recibido como sub-evento
+        // Cada pago recibido como sub-evento con detalle completo
         (f.pagos||[]).forEach(p => {
+            const metodoLabel = {
+                efectivo: '💵 Efectivo', tarjeta: '💳 Tarjeta', transferencia: '🔄 Transferencia'
+            }[p.metodo] || (p.metodo || 'Efectivo');
+            const totalProcsPago = (f.procedimientos||[]).map(pr =>
+                `${pr.descripcion}${pr.cantidad>1?' ×'+pr.cantidad:''}${pr.dientes?' 🦷'+pr.dientes:''}`
+            ).join(' · ');
+            const totalAbonado = (f.pagos||[]).reduce((s,pp)=>s+pp.monto,0);
+            const quedaPendiente = Math.max(0, f.total - totalAbonado);
             eventos.push({
-                fecha:  p.fecha || f.fecha,
-                tipo:   'pago',
-                icon:   '💳',
-                titulo: `Pago — ${p.metodo||'Efectivo'}`,
-                sub:    `Factura ${f.numero}`,
-                monto:  `+${formatCurrency(p.monto)}`,
-                color:  '#34c759',
-                data:   p,
+                fecha:   p.fecha || f.fecha,
+                tipo:    'pago',
+                icon:    '💳',
+                titulo:  `${metodoLabel}`,
+                sub:     `${f.numero} · Dr./a ${f.profesional}`,
+                detalle: totalProcsPago || null,
+                extra:   quedaPendiente > 0
+                    ? `Pendiente: ${formatCurrency(quedaPendiente)}`
+                    : `Saldo saldado ✓`,
+                extraColor: quedaPendiente > 0 ? '#ff6b35' : '#34c759',
+                monto:   `+${formatCurrency(p.monto)}`,
+                color:   '#34c759',
+                data:    p,
+                facturaRef: f,
             });
         });
     });
@@ -6416,6 +6349,7 @@ function renderTabHistorial(paciente) {
                                         </div>
                                         <div style="font-size:11px;color:#aaa;">${ev.sub}</div>
                                         ${ev.detalle ? `<div style="font-size:11px;color:#888;margin-top:4px;line-height:1.5;white-space:normal;">${ev.detalle}</div>` : ''}
+                                        ${ev.extra ? `<div style="font-size:11px;font-weight:500;margin-top:4px;color:${ev.extraColor||'#888'};">${ev.extra}</div>` : ''}
                                         ${ev.badge?`
                                         <span style="display:inline-block;margin-top:5px;font-size:10px;font-weight:600;
                                                      padding:2px 8px;border-radius:100px;
@@ -6447,7 +6381,149 @@ function renderTabHistorial(paciente) {
         </div>`;
 }
 
-// Cambia entre sub-paneles Cotización / Historial
+// ── EDITAR / ELIMINAR PROCEDIMIENTO EN COTIZACIÓN ACTIVA ──────────────
+// Pre-rellena el modal de agregar item (modalCotizItem) con los datos del procedimiento
+function editarProcCotiz(facturaId, procId) {
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) return;
+    const proc = (factura.procedimientos || []).find(p => p.id === procId);
+    if (!proc) return;
+
+    // Guardar referencia para el guardado
+    window._editCotizFacturaId = facturaId;
+    window._editCotizProcId    = procId;
+
+    // Abrir modal cotizItem pre-rellenado
+    _cotizSetTipo('procedimiento');
+    openModal('modalCotizItem');
+
+    setTimeout(() => {
+        const descEl  = document.getElementById('cotizProcDesc');
+        const cantEl  = document.getElementById('cotizProcCant');
+        const precEl  = document.getElementById('cotizProcPrecio');
+        const dntEl   = document.getElementById('cotizProcDiente');
+        if (descEl) descEl.value = proc.descripcion || '';
+        if (cantEl) cantEl.value = proc.cantidad || 1;
+        if (precEl) precEl.value = proc.precioOriginal || proc.precioUnitario || '';
+        if (dntEl)  dntEl.value  = proc.dientes || '';
+
+        // Cambiar título y botón del modal
+        const titleEl = document.querySelector('#modalCotizItem .modal-title');
+        if (titleEl) titleEl.textContent = '✏️ Editar procedimiento';
+        const btnEl = document.querySelector('#modalCotizItem .btn-submit');
+        if (btnEl) {
+            btnEl.textContent = 'Guardar cambios';
+            btnEl.onclick = () => withGuard(btnEl, guardarEdicionProcCotiz);
+        }
+    }, 80);
+}
+
+async function guardarEdicionProcCotiz() {
+    const facturaId = window._editCotizFacturaId;
+    const procId    = window._editCotizProcId;
+    if (!facturaId || !procId) return;
+
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) return;
+    const idx = (factura.procedimientos || []).findIndex(p => p.id === procId);
+    if (idx === -1) return;
+
+    const desc   = (document.getElementById('cotizProcDesc')?.value || '').trim();
+    const cant   = parseInt(document.getElementById('cotizProcCant')?.value) || 1;
+    const precio = parseFloat(document.getElementById('cotizProcPrecio')?.value) || 0;
+    const diente = (document.getElementById('cotizProcDiente')?.value || '').trim();
+
+    if (!desc)       { showToast('⚠️ Escribe la descripción'); return; }
+    if (precio <= 0) { showToast('⚠️ El precio debe ser mayor a cero'); return; }
+
+    // Replace in place
+    factura.procedimientos[idx] = {
+        ...factura.procedimientos[idx],
+        descripcion:    desc,
+        cantidad:       cant,
+        precioUnitario: precio,
+        dientes:        diente || null,
+    };
+
+    // Recalculate totals
+    const subtotalProcs = (factura.procedimientos || []).reduce((s, p) => s + (p.precioUnitario * (p.cantidad || 1)), 0);
+    const subtotalLab   = (factura.ordenesLab || []).reduce((s, o) => s + (o.precio || 0), 0);
+    factura.subtotal = subtotalProcs + subtotalLab;
+    factura.total    = factura.subtotal * (1 - (factura.descuento || 0) / 100);
+
+    // Reset modal state
+    window._editCotizFacturaId = null;
+    window._editCotizProcId    = null;
+    const btnEl = document.querySelector('#modalCotizItem .btn-submit');
+    if (btnEl) { btnEl.textContent = 'Agregar a cotización'; btnEl.onclick = () => withGuard(btnEl, guardarItemCotizacion); }
+    const titleEl = document.querySelector('#modalCotizItem .modal-title');
+    if (titleEl) titleEl.textContent = 'Agregar procedimiento';
+
+    closeModal('modalCotizItem');
+    try {
+        invalidateBalanceCache();
+        await saveFacturas();
+        const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+        cambiarTabPaciente('tratamientos');
+        showToast('✓ Procedimiento actualizado');
+    } catch(e) {
+        showError('Error al guardar cambios.', e);
+    }
+}
+
+async function eliminarProcCotiz(facturaId, procId) {
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) return;
+
+    factura.procedimientos = (factura.procedimientos || []).filter(p => p.id !== procId);
+
+    // Recalculate totals
+    const subtotalProcs = (factura.procedimientos || []).reduce((s, p) => s + (p.precioUnitario * (p.cantidad || 1)), 0);
+    const subtotalLab   = (factura.ordenesLab || []).reduce((s, o) => s + (o.precio || 0), 0);
+    factura.subtotal = subtotalProcs + subtotalLab;
+    factura.total    = factura.subtotal;
+
+    try {
+        invalidateBalanceCache();
+        await saveFacturas();
+        cambiarTabPaciente('tratamientos');
+        showToast('🗑️ Procedimiento eliminado');
+    } catch(e) {
+        showError('Error al eliminar.', e);
+    }
+}
+
+// ── VER PRESUPUESTO DESDE FICHA ─────────────────────────────────────────
+function verPresupuestoCotiz(facturaId) {
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) { showToast('⚠️ No se encontró la cotización'); return; }
+
+    // Reutilizar generarFacturaCliente con la factura real (sin pagos = presupuesto)
+    // Temporalmente eliminar pagos para el preview
+    const pagosBackup = factura.pagos;
+    const numeroBackup = factura.numero;
+    factura.pagos  = [];
+    factura.numero = 'PRESUPUESTO';
+
+    generarFacturaCliente(factura, 0, '');
+
+    // Restore after render
+    factura.pagos  = pagosBackup;
+    factura.numero = numeroBackup;
+
+    // Patch the modal title and content text
+    setTimeout(() => {
+        const modalTitle = document.querySelector('#modalFacturaCliente .modal-title');
+        if (modalTitle) modalTitle.textContent = '📋 Presupuesto';
+        const content = document.getElementById('facturaClienteContent');
+        if (content) {
+            content.innerHTML = content.innerHTML
+                .replace(/RECIBO DE PAGO/g, 'PRESUPUESTO')
+                .replace(/COMPROBANTE DE ABONO/g, 'PRESUPUESTO');
+        }
+    }, 60);
+}
+
 function _tratSwitch(panel) {
     const btnC = document.getElementById('tratBtnCotiz');
     const btnH = document.getElementById('tratBtnHist');
@@ -6474,6 +6550,16 @@ function _tratSwitch(panel) {
 // ═══════════════════════════════════════════════════════════════
 
 let _cotizTipo = 'procedimiento';
+
+
+function _resetCotizItemModal() {
+    window._editCotizFacturaId = null;
+    window._editCotizProcId    = null;
+    const titleEl = document.querySelector('#modalCotizItem .modal-title');
+    if (titleEl) titleEl.textContent = 'Agregar procedimiento';
+    const btnEl = document.querySelector('#modalCotizItem .btn-submit');
+    if (btnEl) { btnEl.textContent = 'Agregar a cotización'; btnEl.onclick = () => withGuard(btnEl, guardarItemCotizacion); }
+}
 
 function abrirModalAgregarItem() {
     if (!currentPacienteId) return;
@@ -10894,7 +10980,7 @@ function updateDashboardTab() {
         let buttons = [];
         if (dashRole === 'admin') {
             buttons = [
-                { label:'+ Nueva factura', primary:true,  click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
+                { label:'👤 Ver paciente', primary:true,  click:`showTab('pacientes')` },
                 { label:'💳 Cobrar',        primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)` },
                 { label:'📅 Agendar',       primary:false, click:`showTab('agenda')` },
                 { label:'📊 Reportes',      primary:false, click:`showTab('reportes')` },
@@ -10902,13 +10988,13 @@ function updateDashboardTab() {
         } else if (dashRole === 'reception') {
             buttons = [
                 { label:'📅 Nueva cita',    primary:true,  click:`showTab('agenda')` },
-                { label:'+ Nueva factura', primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
+                { label:'👤 Ir a paciente', primary:false, click:`showTab('pacientes')` },
                 { label:'💳 Cobrar',        primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('cobrar'),50)` },
             ];
         } else if (dashRole === 'professional') {
             buttons = [
                 { label:'👤 Mi agenda',     primary:true,  click:`showTab('agenda');setTimeout(()=>{verAgendaPropia=true;updateAgendaTab();},50)` },
-                { label:'+ Nueva factura', primary:false, click:`showTab('cobros');setTimeout(()=>setCobrosSubtab('nueva'),50)` },
+                { label:'👤 Ir a paciente', primary:false, click:`showTab('pacientes')` },
             ];
         }
         qaEl.innerHTML = buttons.length > 0 ? `
@@ -12408,7 +12494,6 @@ function renderCobrosTab(subtab) {
     if (role === 'admin') {
         subtabs = [
             { key: 'cobrar',        label: '💳 Cobrar'   },
-            { key: 'nueva',         label: '+ Nueva'     },
             { key: 'ingresos',      label: 'Ingresos'    },
             { key: 'cuadre',        label: 'Cuadre'      },
             { key: 'gastos',        label: 'Gastos'      },
@@ -12616,17 +12701,11 @@ function renderCobrosContent(key) {
                     <textarea id="notasFactura" style="min-height:70px;" placeholder="Observaciones del tratamiento..."></textarea>
                 </div>
 
-                <!-- Acciones: ver presupuesto + generar -->
-                <div style="display:flex;gap:10px;margin-top:8px;">
-                    <button class="btn btn-secondary" onclick="verPresupuestoPreview()"
-                        style="flex:1;padding:14px;font-size:14px;border-radius:12px;">
-                        👁️ Ver presupuesto
-                    </button>
-                    <button class="btn btn-submit" onclick="withGuard(this, generarFactura)"
-                        style="flex:2;padding:14px;font-size:15px;">
-                        Generar Factura →
-                    </button>
-                </div>
+                <!-- Botón generar -->
+                <button class="btn btn-submit" onclick="withGuard(this, generarFactura)"
+                    style="width:100%;padding:14px;font-size:15px;margin-top:8px;">
+                    Generar Factura →
+                </button>
             </div>
         `;
 

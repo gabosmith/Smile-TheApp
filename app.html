@@ -2653,7 +2653,7 @@
         <div class="modal-content" style="max-width:480px;">
             <div class="modal-header">
                 <div class="modal-title">Agregar a cotización</div>
-                <button class="close-modal" onclick="closeModal('modalCotizItem')">×</button>
+                <button class="close-modal" onclick="_resetCotizItemModal();closeModal('modalCotizItem')">×</button>
             </div>
 
             <!-- Selector tipo: Procedimiento / Lab -->
@@ -2762,7 +2762,7 @@
             </div>
 
             <div class="modal-footer" style="margin-top:20px;">
-                <button class="btn btn-cancel" onclick="closeModal('modalCotizItem')">Cancelar</button>
+                <button class="btn btn-cancel" onclick="_resetCotizItemModal();closeModal('modalCotizItem')">Cancelar</button>
                 <button class="btn btn-submit" onclick="withGuard(this, guardarItemCotizacion)">Agregar a cotización</button>
             </div>
         </div>
@@ -2840,14 +2840,7 @@
                             style="background:rgba(220,50,50,0.25);border:1px solid rgba(220,50,50,0.45);
                                    color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;
                                    font-size:16px;display:none;align-items:center;justify-content:center;">🗑️</button>
-                        <button onclick="abrirQuickProc()"
-                            title="Agregar procedimiento rápido"
-                            style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.35);
-                                   color:white;padding:0 14px;height:36px;border-radius:100px;cursor:pointer;
-                                   font-size:12px;font-weight:600;font-family:inherit;
-                                   display:flex;align-items:center;gap:5px;white-space:nowrap;">
-                            🦷 <span style="display:none" id="btnQuickProcLabel">+ Proc</span>+
-                        </button>
+
                         <button onclick="closeModal('modalVerPaciente')"
                             style="background:rgba(255,255,255,0.22);border:none;color:white;
                                    width:36px;height:36px;border-radius:50%;cursor:pointer;
