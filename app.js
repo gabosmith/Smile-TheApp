@@ -5997,6 +5997,21 @@ function renderTabResumen(paciente) {
     `;
 }
 
+
+// Devuelve el prefijo correcto (Dr./a, Lic., o nada) según el tipo de personal
+function getPrefijoProfesional(nombreUsuario) {
+    if (!nombreUsuario) return '';
+    const persona = (appData.personal || []).find(p =>
+        p.nombre === nombreUsuario || p.nombre?.toLowerCase() === nombreUsuario?.toLowerCase()
+    );
+    if (!persona) return ''; // desconocido, sin prefijo
+    if (persona.isAdmin) return '';          // admin no lleva título
+    if (persona.tipo === 'empleado') return '';  // recepcionistas/empleados sin título
+    if (persona.tipo === 'especialista') return 'Dr./a ';
+    if (persona.tipo === 'regular') return 'Dr./a ';
+    return '';
+}
+
 function renderTabHistorial(paciente) {
     const canCobrar = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
     const tieneModuloLab = hasModule('laboratorio');
@@ -6242,7 +6257,7 @@ function renderTabHistorial(paciente) {
             tipo:    'factura',
             icon:    pagada ? '✅' : '⏳',
             titulo:  `${f.numero}${pagada?' · Pagada':' · Abono parcial'}`,
-            sub:     `Dr./a ${f.profesional}`,
+            sub:     `${getPrefijoProfesional(f.profesional)}${f.profesional}`,
             detalle: detalleCompleto || null,
             extra:   pagada && metodosUsados ? `Pagado con: ${metodosUsados}` : (!pagada && pagadoF > 0 ? `Abonado: ${formatCurrency(pagadoF)} · Pendiente: ${formatCurrency(Math.max(0,f.total-pagadoF))}` : null),
             extraColor: pagada ? '#34c759' : '#ff9500',
@@ -6265,7 +6280,7 @@ function renderTabHistorial(paciente) {
                 tipo:    'pago',
                 icon:    '💳',
                 titulo:  `${metodoLabel}`,
-                sub:     `${f.numero} · Dr./a ${f.profesional}`,
+                sub:     `${f.numero} · ${getPrefijoProfesional(f.profesional)}${f.profesional}`,
                 detalle: totalProcsPago || null,
                 extra:   quedaPendiente > 0
                     ? `Pendiente: ${formatCurrency(quedaPendiente)}`
