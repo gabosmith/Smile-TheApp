@@ -2189,7 +2189,9 @@ function onProcSearch(inputEl, suggestionsId, precioId) {
         const precioLabel = it.precio
             ? `<span style="font-size:12px;color:var(--piedra,#9C9189);font-weight:500;flex-shrink:0;">${formatCurrency(it.precio)}</span>`
             : `<span style="font-size:11px;color:#e0a020;flex-shrink:0;">Sin precio</span>`;
-        return `<div data-idx="${i}"
+        // Store item name (not filtered index) so onProcSelect finds correct item in full catalog
+        const safeName = encodeURIComponent(it.nombre || '');
+        return `<div data-idx="${i}" data-item-name="${safeName}"
             onmousedown="onProcSelect(event,'${suggestionsId}','${inputEl.id}','${precioId}')"
             style="padding:11px 16px;cursor:pointer;display:flex;justify-content:space-between;
                    align-items:center;gap:12px;border-bottom:1px solid rgba(30,28,26,0.05);"
@@ -2232,8 +2234,11 @@ function onProcSearchKey(event, suggestionsId, precioId) {
 function onProcSelect(event, suggestionsId, inputId, precioId) {
     event.preventDefault();
     const el = event.currentTarget;
-    const idx = parseInt(el.dataset.idx);
-    const item = (clinicConfig.procItems || [])[idx];
+    // Use stored item name to find correct item in full catalog (fixes filtered-index bug)
+    const itemName = el.dataset.itemName ? decodeURIComponent(el.dataset.itemName) : null;
+    const item = itemName
+        ? (clinicConfig.procItems || []).find(it => it.nombre === itemName)
+        : (clinicConfig.procItems || [])[parseInt(el.dataset.idx)]; // fallback
     if (!item) return;
     const inp = document.getElementById(inputId);
     const pEl = document.getElementById(precioId);
