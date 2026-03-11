@@ -6,10 +6,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Bloqueo total por defecto
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // ── Clínicas ──────────────────────────────────────────────
     match /clinicas/{clinicId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated()
@@ -31,6 +33,25 @@ service cloud.firestore {
       }
     }
 
+    // ── Sentinel: pulso de vida por clínica ───────────────────
+    // La app escribe su heartbeat aquí cada 5 min
+    // El admin lo lee para ver el estado en tiempo real
+    match /smile_health/{clinicId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ── Sentinel: errores de la app ───────────────────────────
+    // La app escribe errores aquí vía logErrorToFirestore()
+    // El admin los lee y puede marcarlos como resueltos
+    match /smile_errors/{errorId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated(); // para marcar como resuelto
+      allow delete: if false;
+    }
+
+    // ── Admin panel ───────────────────────────────────────────
     match /admin/{document=**} {
       allow read, write: if false;
     }
