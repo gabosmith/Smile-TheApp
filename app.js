@@ -4949,6 +4949,25 @@ async function eliminarFactura(facturaId) {
                 `Factura ${factura.numero} - Paciente: ${factura.paciente} - Total: ${formatCurrency(factura.total)}`
             );
 
+            // Si el presupuesto estaba aprobado, guardar evento en el paciente
+            if (factura.presupuestoAprobado) {
+                const paciente = appData.pacientes.find(p =>
+                    p.id === factura.pacienteId || p.nombre === factura.paciente
+                );
+                if (paciente) {
+                    if (!paciente.historialCambios) paciente.historialCambios = [];
+                    paciente.historialCambios.push({
+                        tipo: 'cancelacion_presupuesto',
+                        fecha: new Date().toISOString(),
+                        usuario: appData.currentUser,
+                        detalle: `Presupuesto aprobado ${factura.numero} eliminado por ${appData.currentUser} — Total era: ${formatCurrency(factura.total)}`,
+                        facturaId: factura.id,
+                        facturaNumero: factura.numero,
+                    });
+                    try { await savePaciente(paciente); } catch(e) { /* non-critical */ }
+                }
+            }
+
             const backupFacturas = [...appData.facturas];
             appData.facturas = appData.facturas.filter(f => f.id !== facturaId);
             try {
@@ -6141,8 +6160,11 @@ function renderTabHistorial(paciente) {
         const pagadoF    = (facturaAbierta.pagos||[]).reduce((s,p)=>s+p.monto,0);
         const pendienteF = facturaAbierta.total - pagadoF;
 
-        const canEditCotiz = appData.currentRole === 'admin' ||
-            (facturaAbierta && facturaAbierta.profesional === appData.currentUser);
+        // No permitir editar/eliminar si el presupuesto ya fue aprobado
+        const canEditCotiz = !facturaAbierta?.presupuestoAprobado && (
+            appData.currentRole === 'admin' ||
+            (facturaAbierta && facturaAbierta.profesional === appData.currentUser)
+        );
         const procsHTML = (facturaAbierta.procedimientos||[]).length === 0 ? '' :
             (facturaAbierta.procedimientos||[]).map(p => {
                 const eCol = 'var(--clinic-color,#C4856A)';
@@ -6398,6 +6420,49 @@ function renderTabHistorial(paciente) {
         });
     });
 
+    // Cambios de presupuesto (aprobaciones, eliminaciones, ediciones)
+    // Estos vienen del historialCambios de cada factura del paciente
+    facturasDelPaciente.forEach(f => {
+        (f.historialCambios || []).forEach(c => {
+            const iconMap = {
+                aprobacion:              '✅',
+                eliminacion_proc:        '🗑️',
+                cancelacion_presupuesto: '❌',
+            };
+            const colorMap = {
+                aprobacion:              '#34c759',
+                eliminacion_proc:        '#ff6b35',
+                cancelacion_presupuesto: '#c0392b',
+            };
+            eventos.push({
+                fecha:  c.fecha,
+                tipo:   'cambio',
+                icon:   iconMap[c.tipo] || '📝',
+                titulo: c.detalle || 'Cambio en presupuesto',
+                sub:    `Por: ${c.usuario}`,
+                monto:  null,
+                color:  colorMap[c.tipo] || '#888',
+                data:   c,
+            });
+        });
+    });
+    // También los del paciente directamente (cancelaciones de presupuestos aprobados)
+    (paciente.historialCambios || []).forEach(c => {
+        const iconMap = {
+            cancelacion_presupuesto: '❌',
+        };
+        eventos.push({
+            fecha:  c.fecha,
+            tipo:   'cambio',
+            icon:   iconMap[c.tipo] || '📝',
+            titulo: c.detalle || 'Cambio en presupuesto',
+            sub:    `Por: ${c.usuario}`,
+            monto:  null,
+            color:  '#c0392b',
+            data:   c,
+        });
+    });
+
     // Ordenar por fecha descendente
     eventos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
@@ -6517,6 +6582,15 @@ async function guardarEdicionProcCotiz() {
 
     const factura = appData.facturas.find(f => f.id === facturaId);
     if (!factura) return;
+
+    // No permitir editar un presupuesto ya aprobado
+    if (factura.presupuestoAprobado) {
+        showToast('⚠️ Este presupuesto ya fue aprobado y no se puede editar. Agrega los nuevos procedimientos como un nuevo presupuesto.', 4000, '#e65100');
+        closeModal('modalCotizItem');
+        _resetCotizItemModal();
+        return;
+    }
+
     const idx = (factura.procedimientos || []).findIndex(p => p.id === procId);
     if (idx === -1) return;
 
@@ -6567,6 +6641,13 @@ async function eliminarProcCotiz(facturaId, procId) {
     const factura = appData.facturas.find(f => f.id === facturaId);
     if (!factura) return;
 
+    // No permitir eliminar procedimientos de un presupuesto ya aprobado
+    if (factura.presupuestoAprobado) {
+        showToast('⚠️ Este presupuesto ya fue aprobado — no se puede modificar. Si necesitas cancelarlo, usa la opción de cancelar factura.', 5000, '#e65100');
+        return;
+    }
+
+    const proc = (factura.procedimientos || []).find(p => p.id === procId);
     factura.procedimientos = (factura.procedimientos || []).filter(p => p.id !== procId);
 
     // Recalculate totals
@@ -6574,6 +6655,15 @@ async function eliminarProcCotiz(facturaId, procId) {
     const subtotalLab   = (factura.ordenesLab || []).reduce((s, o) => s + (o.precio || 0), 0);
     factura.subtotal = subtotalProcs + subtotalLab;
     factura.total    = factura.subtotal;
+
+    // Registrar en historial de la factura
+    if (!factura.historialCambios) factura.historialCambios = [];
+    factura.historialCambios.push({
+        tipo: 'eliminacion_proc',
+        fecha: new Date().toISOString(),
+        usuario: appData.currentUser,
+        detalle: proc ? `Procedimiento eliminado: ${proc.descripcion} — ${formatCurrency(proc.precioUnitario * (proc.cantidad || 1))}` : `Procedimiento eliminado`,
+    });
 
     try {
         invalidateBalanceCache();
@@ -6634,6 +6724,14 @@ async function _aprobarPresupuesto() {
             factura.presupuestoAprobado  = true;
             factura.fechaAprobacion      = new Date().toISOString();
             factura.aprobadoPor          = appData.currentUser;
+            // Registrar en historial de la factura
+            if (!factura.historialCambios) factura.historialCambios = [];
+            factura.historialCambios.push({
+                tipo: 'aprobacion',
+                fecha: new Date().toISOString(),
+                usuario: appData.currentUser,
+                detalle: `Presupuesto aprobado por ${appData.currentUser} — Total: ${formatCurrency(factura.total)}`,
+            });
             try {
                 await saveFacturas();
                 // Refrescar la ficha del paciente para que el badge se actualice
@@ -6817,7 +6915,8 @@ async function _cotizAgregarAFactura(paciente, procedimientos, ordenesLab) {
             (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)) > 0
         );
 
-        if (facturaAbierta) {
+        if (facturaAbierta && !facturaAbierta.presupuestoAprobado) {
+            // Presupuesto abierto NO aprobado → agregar a la factura existente
             procedimientos.forEach(p => facturaAbierta.procedimientos.push(p));
             const nuevasOrdenesLab = _cotizRegistrarOrdenesLab(ordenesLab, facturaAbierta, paciente);
             if (!facturaAbierta.ordenesLab) facturaAbierta.ordenesLab = [];
@@ -6827,6 +6926,8 @@ async function _cotizAgregarAFactura(paciente, procedimientos, ordenesLab) {
             facturaAbierta.subtotal = subtotalProcs + subtotalLab;
             facturaAbierta.total    = facturaAbierta.subtotal * (1 - (facturaAbierta.descuento || 0) / 100);
         } else {
+            // Si llega aquí porque facturaAbierta está APROBADA → caer en el bloque de nueva factura
+            // (facturaAbierta === null también llega aquí — comportamiento normal)
             const ultimoNumero = appData.facturas.map(f => parseInt((f.numero || '').replace('F-','')) || 0).reduce((max, n) => Math.max(max, n), 0);
             const sufijo = Date.now().toString().slice(-3);
             const subtotal = procedimientos.reduce((s, p) => s + (p.precioUnitario * (p.cantidad || 1)), 0)
