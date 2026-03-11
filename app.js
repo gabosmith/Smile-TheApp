@@ -284,7 +284,7 @@ async function loadClinicBranding() {
         clinicConfig.procMode      = cfg.procMode || 'libre';
         clinicConfig.procItems     = cfg.procItems || [];
         clinicConfig.clinicaPadre  = cfg.clinicaPadre || null;
-        clinicConfig.esSede        = !!cfg.clinicaPadre;
+        clinicConfig.esSoloPractica = cfg.esSoloPractica || cfg.plan === 'solo';
         clinicConfig.nombreSede    = cfg.nombreSede || cfg.nombre || '';
         // Normalize legacy USD variants to standard 'US$'
         const _rawMoneda = cfg.moneda || 'RD$';
@@ -1372,7 +1372,6 @@ function initRealtimeListener() {
             if (tabId === 'dashboard')   updateDashboardTab();
             if (tabId === 'ingresos')    updateIngresosTab();
             if (tabId === 'cobrar')      updateCobrarTab();
-            if (tabId === 'cobros')      { const t = document.getElementById('tab-cobros'); if (t && t._activeSubtab === 'cobrar') updateCobrarTab(); else if (t) renderCobrosContent(t._activeSubtab || 'cobrar'); }
             if (tabId === 'gastos')      updateGastosTab();
             if (tabId === 'personal')    updatePersonalTab();
             if (tabId === 'laboratorio') updateLaboratorioTab();
@@ -2706,7 +2705,7 @@ function enviarCotizacion(facturaId) {
     const telLimpio = telefono.replace(/\D/g, '');
 
     // Construir mensaje de cotización
-    const clinica   = clinicConfig.nombre || 'Clínica Dental';
+    const clinica   = getNombreClinica();
     const moneda    = clinicConfig.moneda || 'RD$';
     const fecha     = new Date(factura.fecha).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
     const balance   = factura.total - (factura.pagos || []).reduce((s, p) => s + p.monto, 0);
@@ -2880,7 +2879,7 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     let facturaHTML = `
         <div style="text-align: center; margin-bottom: 25px;">
             ${clinicConfig.logoPositivo ? `<img src="${clinicConfig.logoPositivo}" alt="Logo" style="max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">` : ''}
-            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 6px;">${clinicConfig.nombre || 'Clínica Dental'}</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--clinic-color, #C4856A); margin-bottom: 6px;">${getNombreClinica()}</div>
         </div>
 
         <div style="border-top: 3px solid var(--clinic-color, #C4856A); border-bottom: 3px solid var(--clinic-color, #C4856A); padding: 15px 0; margin: 20px 0;">
@@ -5337,7 +5336,7 @@ function contactarPaciente(pacienteId, tipo) {
         return;
     }
 
-    const clinica = clinicConfig.nombre || 'la clínica';
+    const clinica = getNombreClinica();
     let mensaje = '';
     if (tipo === 'saludo') {
         mensaje = `¡Hola! Te escribimos de *${clinica}*. ${paciente.nombre}, ¿en qué podemos ayudarte?`;
@@ -6834,11 +6833,10 @@ function setAgendaVista(v) {
     const bD = document.getElementById('btnVistaDia');
     const bS = document.getElementById('btnVistaSemana');
     if (bD && bS) {
-        const base = 'padding:7px 14px;border:none;border-radius:100px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;transition:all .15s;';
-        const on   = base + 'background:var(--clinic-color,#C4856A);color:white;box-shadow:0 2px 8px rgba(196,133,106,.35);';
-        const off  = base + 'background:transparent;color:var(--piedra);box-shadow:none;';
-        bD.style.cssText = v === 'dia'    ? on : off;
-        bS.style.cssText = v === 'semana' ? on : off;
+        const on  = 'background:var(--clinic-color,#C4856A);color:white;box-shadow:0 2px 8px rgba(196,133,106,.35);';
+        const off = 'background:transparent;color:var(--piedra);box-shadow:none;';
+        bD.style.cssText += v === 'dia' ? on : off;
+        bS.style.cssText += v === 'semana' ? on : off;
     }
     updateAgendaTab();
 }
@@ -7192,7 +7190,7 @@ function _citaWA(citaId) {
     if (!cita) return;
     const pac = (appData.pacientes||[]).find(p => p.nombre === cita.paciente);
     if (!pac?.telefono) { showToast('Sin número de teléfono', 2000, '#e74c3c'); return; }
-    const clinica = appData.settings?.nombre || 'la clínica';
+    const clinica = getNombreClinica();
     const tel = pac.telefono.replace(/\D/g,'');
     const msg = encodeURIComponent(
         `¡Hola! Te escribimos de *${clinica}* 🦷\n` +
@@ -8283,7 +8281,7 @@ function avisarPacienteLab(ordenId) {
     const telefono = pac?.telefono || '';
     const telLimpio = telefono.replace(/\D/g, '');
 
-    const clinica  = clinicConfig.nombre || 'Clínica Dental';
+    const clinica  = getNombreClinica();
     const estado   = orden.estadoActual || '';
     const tipo     = orden.descripcion || orden.tipo || 'Trabajo de laboratorio';
     const dientes  = orden.dientes ? `\n🦷 Dientes: ${orden.dientes}` : '';
@@ -10148,8 +10146,11 @@ function getTimezone() {
 }
 
 function getNombreClinica() {
-    // clinicConfig.nombre is set by onboarding and loadClinicBranding — the authoritative source
-    return clinicConfig.nombre || (appData.settings && appData.settings.nombreClinica) || 'Clínica Dental';
+    const nombre = clinicConfig.nombre || (appData.settings && appData.settings.nombreClinica) || '';
+    if (!nombre) {
+        return (clinicConfig.plan === 'solo') ? 'Dr./Dra.' : 'Clínica Dental';
+    }
+    return nombre;
 }
 
 function getNombreAdmin() {
@@ -12427,15 +12428,8 @@ function renderCobrosContent(key) {
     }
 
     if (key === 'cobrar') {
-        // Move tab-cobrar into cobros-content so IDs are unique and live in the visible DOM
         const src = document.getElementById('tab-cobrar');
-        if (src) {
-            el.innerHTML = '';
-            src.style.display = 'block';
-            el.appendChild(src);
-        } else {
-            el.innerHTML = '<p>Cargando...</p>';
-        }
+        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
         if (typeof updateCobrarTab === 'function') updateCobrarTab();
     } else if (key === 'nueva') {
         // Fix B2: Build factura form directly (tab-factura element never existed in DOM)

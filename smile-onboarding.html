@@ -624,7 +624,7 @@ body {
 <div id="step0Screen" class="step-0-wrap">
   <div class="step-0-logo">SMILE</div>
 
-  <div class="step-0-title">¿Cómo trabajas<br>en tu clínica?</div>
+  <div class="step-0-title">¿Cómo describes<br>tu práctica?</div>
   <p class="step-0-sub">Cuéntanos un poco para mostrarte solo lo que necesitas. Puedes cambiar tu plan en cualquier momento.</p>
 
   <div class="plan-cards">
@@ -779,16 +779,16 @@ body {
       <div class="progress-bar-fill" id="progressFill" style="width: 20%"></div>
     </div>
 
-    <!-- ── STEP 1: CLÍNICA ── -->
+    <!-- ── STEP 1: CLÍNICA / DOCTOR ── -->
     <div class="step active" id="step-1">
       <div class="step-eyebrow" id="eyebrow-1">Paso 1</div>
-      <div class="step-title">Cuéntanos sobre<br>tu clínica.</div>
-      <div class="step-sub">Esta información aparecerá en tu app y en los documentos de tus pacientes.</div>
+      <div class="step-title" id="step1-title">Cuéntanos sobre<br>tu clínica.</div>
+      <div class="step-sub" id="step1-sub">Esta información aparecerá en tu app y en los documentos de tus pacientes.</div>
 
       <div class="field">
-        <label>Nombre de la clínica *</label>
-        <input type="text" id="clinicName" placeholder="Ej: Clínica Dental García" oninput="onClinicNameInput(this.value)">
-        <div class="error-msg" id="err-clinicName">Por favor ingresa el nombre de tu clínica</div>
+        <label id="label-clinicName">Nombre de la clínica *</label>
+        <input type="text" id="clinicName" placeholder="Ej: Clínica Dental García" id="input-clinicName" oninput="onClinicNameInput(this.value)">
+        <div class="error-msg" id="err-clinicName">Por favor ingresa este campo</div>
       </div>
 
       <div class="field">
@@ -867,7 +867,7 @@ body {
       </div>
 
       <div class="field">
-        <label>Nombre del administrador *</label>
+        <label id="label-adminName">Nombre del administrador *</label>
         <input type="text" id="adminName" placeholder="Dr. García" oninput="validateStep1()">
         <div class="error-msg" id="err-adminName">Por favor ingresa tu nombre</div>
       </div>
@@ -1353,6 +1353,32 @@ function selectPlan(plan) {
   document.getElementById('btnStartPlan').classList.add('ready');
 }
 
+function _updateStep1Labels() {
+  const isSolo = state.plan === 'solo';
+  const title    = document.getElementById('step1-title');
+  const sub      = document.getElementById('step1-sub');
+  const label    = document.getElementById('label-clinicName');
+  const input    = document.getElementById('clinicName');
+  const labelAdm = document.getElementById('label-adminName');
+  const mockup   = document.getElementById('mockupClinicName');
+
+  if (isSolo) {
+    if (title)    title.innerHTML    = 'Cuéntanos sobre<br>ti, doctor.';
+    if (sub)      sub.textContent    = 'Tu nombre y datos aparecerán en la app y en los documentos de tus pacientes.';
+    if (label)    label.textContent  = 'Tu nombre completo *';
+    if (input)    input.placeholder  = 'Ej: Dr. García Martínez';
+    if (labelAdm) labelAdm.textContent = 'Confirma tu nombre *';
+    if (mockup && !state.clinicName) mockup.textContent = 'Dr. García';
+  } else {
+    if (title)    title.innerHTML    = 'Cuéntanos sobre<br>tu clínica.';
+    if (sub)      sub.textContent    = 'Esta información aparecerá en tu app y en los documentos de tus pacientes.';
+    if (label)    label.textContent  = 'Nombre de la clínica *';
+    if (input)    input.placeholder  = 'Ej: Clínica Dental García';
+    if (labelAdm) labelAdm.textContent = 'Nombre del administrador *';
+    if (mockup && !state.clinicName) mockup.textContent = 'Tu Clínica';
+  }
+}
+
 function startOnboarding() {
   if (!state.plan) return;
   // Hide step-0, show onboarding shell
@@ -1366,6 +1392,7 @@ function startOnboarding() {
   }
   // Update left panel indicators
   updateIndicators();
+  _updateStep1Labels();
   setStep(1);
 }
 
@@ -1466,7 +1493,7 @@ function setStep(n) {
 function updateIndicators() {
   if (state.plan === 'solo') {
     // Update left panel for Solo: 4 steps
-    const soloLabels = ['Tu clínica', 'Identidad visual', 'Precios', 'Resumen'];
+    const soloLabels = [state.plan === 'solo' ? 'Tu nombre' : 'Tu clínica', 'Identidad visual', 'Precios', 'Resumen'];
     const soloIds = [1, 2, 6, 'solo-summary'];
     for (let i = 1; i <= 7; i++) {
       const ind = document.getElementById('ind-' + i);
@@ -1761,7 +1788,7 @@ function buildFinalSummary() {
 
   document.getElementById('final-summary').innerHTML = `
     <div class="summary-row">
-      <span>🏥 Clínica</span>
+      <span>${state.plan === "solo" ? "🩺 Doctor" : "🏥 Clínica"}</span>
       <span style="color:var(--topo);font-weight:400">${state.clinicName}</span>
     </div>
     <div class="summary-row">
@@ -1811,7 +1838,7 @@ function buildSoloSummary() {
 
   document.getElementById('solo-final-summary').innerHTML = `
     <div class="summary-row">
-      <span>🏥 Clínica</span>
+      <span>${state.plan === "solo" ? "🩺 Doctor" : "🏥 Clínica"}</span>
       <span style="color:var(--topo);font-weight:400">${state.clinicName}</span>
     </div>
     <div class="summary-row">
@@ -1983,6 +2010,7 @@ async function activateClinic() {
     await db.collection('clinicas').doc(clinicId)
       .collection('config').doc('settings').set({
         nombre: state.clinicName,
+        esSoloPractica: state.plan === 'solo',
         ciudad: state.ciudad || '',
         pais: state.pais || '',
         moneda: state.moneda || 'RD$',
