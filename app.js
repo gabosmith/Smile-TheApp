@@ -1234,6 +1234,38 @@ async function saveLaboratorios() {
     } catch(e) { showError('Error al guardar laboratorios.', e); }
 }
 
+
+// ── Migración: corregir órdenes de lab con estado 'Pendiente' inválido ────────
+// Estas órdenes fueron creadas desde cotizaciones antes del fix del 11-mar-2026.
+// Las actualizamos a 'Toma de impresión' que es el primer estado válido del flujo.
+async function _migrarLaboratoriosPendientes() {
+    if (!appData.laboratorios || appData.laboratorios.length === 0) return;
+    const ESTADO_INVALIDO = 'Pendiente';
+    const ESTADO_CORRECTO = 'Toma de impresión';
+    const aReparar = appData.laboratorios.filter(o => o.estadoActual === ESTADO_INVALIDO);
+    if (aReparar.length === 0) return; // nada que reparar
+
+    console.log(`[Lab] Migrando ${aReparar.length} orden(es) con estado '${ESTADO_INVALIDO}' → '${ESTADO_CORRECTO}'`);
+    aReparar.forEach(o => {
+        o.estadoActual = ESTADO_CORRECTO;
+        // Corregir también el primer evento del timeline si está en 'Pendiente'
+        if (o.timeline && o.timeline.length > 0 && o.timeline[0].estado === ESTADO_INVALIDO) {
+            o.timeline[0].estado = ESTADO_CORRECTO;
+            if (!o.timeline[0].notas) o.timeline[0].notas = 'Migrada desde cotización';
+        } else if (!o.timeline || o.timeline.length === 0) {
+            o.timeline = [{ estado: ESTADO_CORRECTO, fecha: o.fechaCreacion || new Date().toISOString(), usuario: o.creadoPor || 'Sistema', notas: 'Migrada desde cotización' }];
+        }
+    });
+
+    try {
+        await saveLaboratorios();
+        console.log(`[Lab] Migración completada — ${aReparar.length} orden(es) reparadas.`);
+        updateLaboratorioTab();
+    } catch(e) {
+        console.error('[Lab] Error en migración:', e);
+    }
+}
+
 async function saveInventario() {
     if (!canWriteToFirebase('saveInventario')) return;
     try {
@@ -1363,6 +1395,9 @@ function initRealtimeListener() {
             }
 
             updateLocalCache();
+
+            // Auto-migrar órdenes de lab con estado inválido 'Pendiente'
+            _migrarLaboratoriosPendientes();
 
             // Refrescar la tab activa si el usuario ya esta logueado
             if (!appData.currentUser) return;
@@ -6831,8 +6866,8 @@ function _cotizRegistrarOrdenesLab(ordenesLab, factura, paciente) {
             paciente: paciente.nombre, pacienteId: paciente.id, profesional: appData.currentUser,
             tipo: temp.tipo || 'Otro', dientes: temp.dientes || null, descripcion: temp.descripcion,
             laboratorio: temp.laboratorio, precio: temp.precio, costo: 0, margen: temp.precio,
-            estadoActual: 'Pendiente', fechaCreacion: new Date().toISOString(),
-            timeline: [{ estado: 'Pendiente', fecha: new Date().toISOString(), usuario: appData.currentUser, notas: '' }],
+            estadoActual: 'Toma de impresión', fechaCreacion: new Date().toISOString(),
+            timeline: [{ estado: 'Toma de impresión', fecha: new Date().toISOString(), usuario: appData.currentUser, notas: 'Orden creada desde cotización' }],
             abonos: [],
         };
         appData.laboratorios.push(orden);
@@ -8094,7 +8129,8 @@ function updateLaboratorioTab() {
     ordenesFiltradas.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
 
     const porEstado = {
-        'Toma de impresión': appData.laboratorios.filter(o => o.estadoActual === 'Toma de impresión').length,
+        // 'Pendiente' es estado legacy (antes del fix) — lo contamos junto a 'Toma de impresión'
+        'Toma de impresión': appData.laboratorios.filter(o => o.estadoActual === 'Toma de impresión' || o.estadoActual === 'Pendiente').length,
         'Enviado a laboratorio': appData.laboratorios.filter(o => o.estadoActual === 'Enviado a laboratorio').length,
         'Listo para prueba': appData.laboratorios.filter(o => o.estadoActual === 'Listo para prueba').length,
         'Entregado': appData.laboratorios.filter(o => o.estadoActual === 'Entregado').length
@@ -8228,7 +8264,8 @@ function getColorEstado(estado) {
         'Enviado a laboratorio':  'var(--azul, #7B8FA1)',
         'Listo para prueba':      '#E8A838',
         'Reenviado a laboratorio':'var(--red, #C47070)',
-        'Entregado':              'var(--green, #6B8F71)'
+        'Entregado':              'var(--green, #6B8F71)',
+        'Pendiente':              'var(--terracota, #C4856A)', // legacy - migrado a "Toma de impresión"
     };
     return colores[estado] || 'var(--mid, #9C9189)';
 }
