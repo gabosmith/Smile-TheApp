@@ -6181,8 +6181,12 @@ function renderTabHistorial(paciente) {
                         <div style="font-size:11px;color:#aaa;margin-bottom:1px;">${facturaAbierta.numero} · ${formatDate(facturaAbierta.fecha)}</div>
                         <div style="font-size:12px;color:#888;">${facturaAbierta.profesional}</div>
                     </div>
-                    <span style="font-size:11px;font-weight:600;color:#ff6b35;background:#ff6b3515;
-                                 padding:3px 10px;border-radius:100px;">🔴 Pendiente</span>
+                    ${facturaAbierta.presupuestoAprobado
+                        ? `<span style="font-size:11px;font-weight:600;color:#34c759;background:#34c75915;
+                                       padding:3px 10px;border-radius:100px;">✅ Aprobado</span>`
+                        : `<span style="font-size:11px;font-weight:600;color:#ff6b35;background:#ff6b3515;
+                                       padding:3px 10px;border-radius:100px;">🔴 Pendiente de aprobación</span>`
+                    }
                 </div>
                 <div style="padding:12px 16px;">
                     ${procsHTML}${labsHTML}
@@ -6209,10 +6213,12 @@ function renderTabHistorial(paciente) {
     const verPresupuestoBtnHTML = facturaAbierta ? `
         <button onclick="verPresupuestoCotiz('${facturaAbierta.id}')"
             style="width:100%;padding:10px;margin-bottom:8px;
-                   background:transparent;color:var(--clinic-color,#C4856A);border:1.5px solid var(--clinic-color,#C4856A);
+                   background:transparent;
+                   color:${facturaAbierta.presupuestoAprobado ? '#34c759' : 'var(--clinic-color,#C4856A)'};
+                   border:1.5px solid ${facturaAbierta.presupuestoAprobado ? '#34c759' : 'var(--clinic-color,#C4856A)'};
                    border-radius:12px;font-size:13px;font-weight:500;font-family:inherit;
                    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-            👁️ Ver presupuesto
+            ${facturaAbierta.presupuestoAprobado ? '✅ Presupuesto aprobado' : '👁️ Ver presupuesto'}
         </button>` : '';
 
     panelCotiz = `
@@ -6252,18 +6258,46 @@ function renderTabHistorial(paciente) {
         const metodosUsados = [...new Set((f.pagos||[]).map(p =>
             ({efectivo:'💵 Efectivo',tarjeta:'💳 Tarjeta',transferencia:'🔄 Transferencia'})[p.metodo]||p.metodo||'Efectivo'
         ))].join(' · ');
+
+        // Build estado label: pagada > aprobado > parcial > pendiente
+        const esAprobado = f.presupuestoAprobado && !pagada;
+        const factIcono  = pagada ? '✅' : esAprobado ? '🟢' : pagadoF > 0 ? '◑' : '⏳';
+        const factTitulo = pagada
+            ? `${f.numero} · Pagada`
+            : esAprobado
+                ? `${f.numero} · Aprobado`
+                : pagadoF > 0
+                    ? `${f.numero} · Abono parcial`
+                    : `${f.numero} · Pendiente`;
+        const factColor  = pagada ? '#34c759' : esAprobado ? '#34c759' : pagadoF > 0 ? '#ff9500' : '#aaa';
+
+        // Extra info line
+        let factExtra = null;
+        let factExtraColor = '#888';
+        if (pagada && metodosUsados) {
+            factExtra = `Pagado con: ${metodosUsados}`;
+            factExtraColor = '#34c759';
+        } else if (esAprobado && f.fechaAprobacion) {
+            const dAprobacion = new Date(f.fechaAprobacion).toLocaleDateString(getLocale(),{day:'numeric',month:'short'});
+            factExtra = `Aprobado el ${dAprobacion}${f.aprobadoPor ? ' por ' + f.aprobadoPor : ''} · Pendiente de cobro`;
+            factExtraColor = '#34c759';
+        } else if (!pagada && pagadoF > 0) {
+            factExtra = `Abonado: ${formatCurrency(pagadoF)} · Falta: ${formatCurrency(Math.max(0,f.total-pagadoF))}`;
+            factExtraColor = '#ff9500';
+        }
+
         eventos.push({
-            fecha:   f.fecha,
-            tipo:    'factura',
-            icon:    pagada ? '✅' : '⏳',
-            titulo:  `${f.numero}${pagada?' · Pagada':' · Abono parcial'}`,
-            sub:     `${getPrefijoProfesional(f.profesional)}${f.profesional}`,
-            detalle: detalleCompleto || null,
-            extra:   pagada && metodosUsados ? `Pagado con: ${metodosUsados}` : (!pagada && pagadoF > 0 ? `Abonado: ${formatCurrency(pagadoF)} · Pendiente: ${formatCurrency(Math.max(0,f.total-pagadoF))}` : null),
-            extraColor: pagada ? '#34c759' : '#ff9500',
-            monto:   pagada ? formatCurrency(f.total) : `${formatCurrency(pagadoF)} / ${formatCurrency(f.total)}`,
-            color:   pagada ? '#34c759' : '#ff9500',
-            data:    f,
+            fecha:      f.fecha,
+            tipo:       'factura',
+            icon:       factIcono,
+            titulo:     factTitulo,
+            sub:        `${getPrefijoProfesional(f.profesional)}${f.profesional}`,
+            detalle:    detalleCompleto || null,
+            extra:      factExtra,
+            extraColor: factExtraColor,
+            monto:      pagada ? formatCurrency(f.total) : pagadoF > 0 ? `${formatCurrency(pagadoF)} / ${formatCurrency(f.total)}` : formatCurrency(f.total),
+            color:      factColor,
+            data:       f,
         });
         // Cada pago recibido como sub-evento con detalle completo
         (f.pagos||[]).forEach(p => {
@@ -6547,14 +6581,28 @@ function verPresupuestoCotiz(facturaId) {
     }, 60);
 }
 
-function _aprobarPresupuesto() {
+async function _aprobarPresupuesto() {
     const wrap = document.getElementById('presupuestoAprobarWrap');
+    const facturaId = wrap?.dataset?.facturaId;
     if (wrap) { wrap.style.display = 'none'; delete wrap.dataset.facturaId; }
     closeModal('modalFacturaCliente');
-    // El presupuesto fue aprobado por el paciente.
-    // La factura ya existe como "pendiente" — recepción la verá en el tab Cobros.
-    // No abrimos cobro aquí: el doctor puede no tener permiso para cobrar,
-    // y el cobro lo procesa recepción de forma independiente.
+
+    // Guardar aprobación en la factura → Firebase
+    if (facturaId) {
+        const factura = appData.facturas.find(f => f.id === facturaId);
+        if (factura) {
+            factura.presupuestoAprobado  = true;
+            factura.fechaAprobacion      = new Date().toISOString();
+            factura.aprobadoPor          = appData.currentUser;
+            try {
+                await saveFacturas();
+                // Refrescar la ficha del paciente para que el badge se actualice
+                if (currentPacienteId) cambiarTabPaciente('tratamientos');
+            } catch(e) {
+                showError('Error al guardar aprobación.', e);
+            }
+        }
+    }
     showToast('✅ Presupuesto aprobado — pendiente de cobro en recepción', 4000);
 }
 
@@ -9995,8 +10043,10 @@ function aplicarFiltrosFacturas() {
         facturasFiltradas = facturasFiltradas.filter(f => new Date(f.fecha) <= hasta);
     }
 
-    // Filtro por estado
-    if (estado !== 'todos') {
+    // Filtro por estado (aprobado es un campo virtual, no un estado de la factura)
+    if (estado === 'aprobado') {
+        facturasFiltradas = facturasFiltradas.filter(f => f.presupuestoAprobado && f.estado !== 'pagada' && f.estado !== 'cancelada');
+    } else if (estado !== 'todos') {
         facturasFiltradas = facturasFiltradas.filter(f => f.estado === estado);
     }
 
@@ -10024,8 +10074,15 @@ function aplicarFiltrosFacturas() {
                         <div>
                             <div style="font-size: 12px; color: #8e8e93;">${f.numero} - ${formatDate(f.fecha)}</div>
                             <div class="item-title">${f.paciente}</div>
-                            <div style="font-size: 14px; color: ${f.estado === 'pagada' ? '#34c759' : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff' : '#ff3b30'}; font-weight: 600;">
-                                ${f.estado === 'pagada' ? '✅ Pagada' : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente` : `Balance: ${formatCurrency(balance)}`}
+                            <div style="font-size: 14px; color: ${
+                                f.estado === 'pagada' ? '#34c759'
+                                : (f.estado === 'parcial' || f.estado === 'partial') ? '#007aff'
+                                : f.presupuestoAprobado ? '#34c759'
+                                : '#ff3b30'}; font-weight: 600;">
+                                ${f.estado === 'pagada' ? '✅ Pagada'
+                                : (f.estado === 'parcial' || f.estado === 'partial') ? `💰 Con Abono: ${formatCurrency(balance)} pendiente`
+                                : f.presupuestoAprobado ? `✅ Aprobado · ${formatCurrency(balance)} por cobrar`
+                                : `⏳ Pendiente · ${formatCurrency(balance)}`}
                             </div>
                             <div style="font-size: 13px; color:var(--piedra); margin-top: 4px;">Total: ${formatCurrency(f.total)}</div>
                             ${f.profesional ? `<div style="font-size: 12px; color:var(--muted); margin-top: 3px;">👨‍⚕️ ${f.profesional}</div>` : ''}
