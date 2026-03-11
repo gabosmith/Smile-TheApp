@@ -12556,6 +12556,16 @@ function renderCobrosTab(subtab) {
         ">${s.label}</button>
     `).join('');
 
+    // Park any previously moved subtab nodes back to body before wiping innerHTML,
+    // so they aren't destroyed and can be re-used when switching subtabs
+    ['tab-cobrar','tab-ingresos','tab-cuadre','tab-gastos'].forEach(id => {
+        const node = document.getElementById(id);
+        if (node && node.parentElement && node.parentElement.id === 'cobros-content') {
+            node.style.display = 'none';
+            document.body.appendChild(node);
+        }
+    });
+
     tab.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
             <div class="section-title" style="margin-bottom:0">Cobros</div>
@@ -12658,8 +12668,16 @@ function renderCobrosContent(key) {
     }
 
     if (key === 'cobrar') {
+        // Move the real DOM node (don't copy innerHTML — that duplicates IDs
+        // and makes document.getElementById find the stale hidden original)
         const src = document.getElementById('tab-cobrar');
-        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (src) {
+            el.innerHTML = '';
+            src.style.display = 'block';
+            el.appendChild(src);
+        } else {
+            el.innerHTML = '<p>Cargando...</p>';
+        }
         if (typeof updateCobrarTab === 'function') updateCobrarTab();
     } else if (key === 'nueva') {
         // Fix B2: Build factura form directly (tab-factura element never existed in DOM)
@@ -12750,15 +12768,18 @@ function renderCobrosContent(key) {
         updateTotal();
     } else if (key === 'ingresos') {
         const src = document.getElementById('tab-ingresos');
-        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (src) { el.innerHTML = ''; src.style.display = 'block'; el.appendChild(src); }
+        else { el.innerHTML = '<p>Cargando...</p>'; }
         if (typeof updateIngresosTab === 'function') updateIngresosTab();
     } else if (key === 'cuadre') {
         const src = document.getElementById('tab-cuadre');
-        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (src) { el.innerHTML = ''; src.style.display = 'block'; el.appendChild(src); }
+        else { el.innerHTML = '<p>Cargando...</p>'; }
         if (typeof updateCuadreTab === 'function') updateCuadreTab();
     } else if (key === 'gastos') {
         const src = document.getElementById('tab-gastos');
-        el.innerHTML = src ? src.innerHTML : '<p>Cargando...</p>';
+        if (src) { el.innerHTML = ''; src.style.display = 'block'; el.appendChild(src); }
+        else { el.innerHTML = '<p>Cargando...</p>'; }
         if (typeof updateGastosTab === 'function') updateGastosTab();
     }
 }
