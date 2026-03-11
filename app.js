@@ -1239,34 +1239,66 @@ async function saveLaboratorios() {
 // Estas órdenes fueron creadas desde cotizaciones antes del fix del 11-mar-2026.
 // Las actualizamos a 'Toma de impresión' que es el primer estado válido del flujo.
 async function _migrarLaboratoriosPendientes() {
-    if (!appData.laboratorios || appData.laboratorios.length === 0) return;
-    const ESTADO_INVALIDO = 'Pendiente';
-    const ESTADO_CORRECTO = 'Toma de impresión';
-    const aReparar = appData.laboratorios.filter(o => o.estadoActual === ESTADO_INVALIDO);
-    if (aReparar.length === 0) return; // nada que reparar
-
     // Si no hay usuario logueado aún, esperar y reintentar en 3 segundos
     if (!appData.currentUser) {
-        console.log('[Lab] Migración pendiente — esperando usuario logueado...');
         setTimeout(() => _migrarLaboratoriosPendientes(), 3000);
         return;
     }
 
-    console.log(`[Lab] Migrando ${aReparar.length} orden(es) con estado '${ESTADO_INVALIDO}' → '${ESTADO_CORRECTO}'`);
-    aReparar.forEach(o => {
-        o.estadoActual = ESTADO_CORRECTO;
-        // Corregir también el primer evento del timeline si está en 'Pendiente'
-        if (o.timeline && o.timeline.length > 0 && o.timeline[0].estado === ESTADO_INVALIDO) {
-            o.timeline[0].estado = ESTADO_CORRECTO;
-            if (!o.timeline[0].notas) o.timeline[0].notas = 'Migrada desde cotización';
-        } else if (!o.timeline || o.timeline.length === 0) {
-            o.timeline = [{ estado: ESTADO_CORRECTO, fecha: o.fechaCreacion || new Date().toISOString(), usuario: o.creadoPor || 'Sistema', notas: 'Migrada desde cotización' }];
+    let huboCambios = false;
+
+    // ── PARTE 1: Recuperar órdenes de lab que están dentro de facturas
+    //    pero nunca se guardaron en appData.laboratorios (bug pre-fix) ──────────
+    const idsEnLab = new Set((appData.laboratorios || []).map(o => o.id));
+    (appData.facturas || []).forEach(f => {
+        (f.ordenesLab || []).forEach(o => {
+            if (!idsEnLab.has(o.id)) {
+                // Esta orden existe en la factura pero no en el array de lab → rescatarla
+                const ordenRecuperada = {
+                    ...o,
+                    facturaId:      o.facturaId      || f.id,
+                    facturaNumero:  o.facturaNumero  || f.numero,
+                    paciente:       o.paciente       || f.paciente,
+                    pacienteId:     o.pacienteId     || f.pacienteId,
+                    profesional:    o.profesional    || f.profesional,
+                    estadoActual:   (o.estadoActual && o.estadoActual !== 'Pendiente')
+                                        ? o.estadoActual
+                                        : 'Toma de impresión',
+                    fechaCreacion:  o.fechaCreacion  || f.fecha || new Date().toISOString(),
+                    timeline:       (o.timeline && o.timeline.length > 0)
+                                        ? o.timeline.map(e => ({
+                                              ...e,
+                                              estado: e.estado === 'Pendiente' ? 'Toma de impresión' : e.estado
+                                          }))
+                                        : [{ estado: 'Toma de impresión', fecha: o.fechaCreacion || f.fecha || new Date().toISOString(), usuario: o.profesional || f.profesional || 'Sistema', notas: 'Recuperada desde cotización' }],
+                    abonos:         o.abonos || [],
+                };
+                if (!appData.laboratorios) appData.laboratorios = [];
+                appData.laboratorios.push(ordenRecuperada);
+                idsEnLab.add(o.id);
+                huboCambios = true;
+                console.log(`[Lab] Recuperada orden ${o.id} (${o.descripcion}) de factura ${f.numero}`);
+            }
+        });
+    });
+
+    // ── PARTE 2: Corregir estado 'Pendiente' en órdenes ya existentes ──────────
+    (appData.laboratorios || []).forEach(o => {
+        if (o.estadoActual === 'Pendiente') {
+            o.estadoActual = 'Toma de impresión';
+            if (o.timeline && o.timeline.length > 0 && o.timeline[0].estado === 'Pendiente') {
+                o.timeline[0].estado = 'Toma de impresión';
+                if (!o.timeline[0].notas) o.timeline[0].notas = 'Estado corregido';
+            }
+            huboCambios = true;
         }
     });
 
+    if (!huboCambios) return;
+
     try {
         await saveLaboratorios();
-        console.log(`[Lab] Migración completada — ${aReparar.length} orden(es) reparadas.`);
+        console.log('[Lab] Migración completada — laboratorios sincronizados con Firebase.');
         updateLaboratorioTab();
     } catch(e) {
         console.error('[Lab] Error en migración:', e);
@@ -6959,6 +6991,11 @@ async function _cotizAgregarAFactura(paciente, procedimientos, ordenesLab) {
         // mientras Firebase procesa, lo que causaba duplicados
         closeModal('modalCotizItem');
         await saveFacturas();
+        // CRÍTICO: guardar laboratorios también — _cotizRegistrarOrdenesLab los agrega
+        // a appData.laboratorios en memoria pero sin este save nunca llegan a Firebase
+        if (ordenesLab && ordenesLab.length > 0) {
+            await saveLaboratorios();
+        }
         await savePaciente(paciente);
         cambiarTabPaciente('tratamientos');
         showToast('✓ Agregado a la cotización del paciente');
