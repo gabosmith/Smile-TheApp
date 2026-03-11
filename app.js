@@ -4286,6 +4286,19 @@ function mostrarReciboHTML(html, textoPlano) {
     }
 }
 
+
+// Enviar recibo de pago al paciente por WhatsApp
+function enviarReciboWhatsApp(pacienteId) {
+    const paciente = appData.pacientes.find(p => p.id === pacienteId);
+    const phone    = paciente?.telefono?.replace(/\D/g, '') || '';
+    const texto    = encodeURIComponent(currentReciboText || '');
+    const url      = phone
+        ? `https://wa.me/1${phone}?text=${texto}`
+        : `https://wa.me/?text=${texto}`;
+    window.open(url, '_blank');
+    showToast('💬 Abriendo WhatsApp...');
+}
+
 function compartirWhatsApp() {
     const texto = encodeURIComponent(currentReciboText);
     window.open(`https://wa.me/?text=${texto}`, '_blank');
@@ -6463,7 +6476,7 @@ function renderTabHistorial(paciente) {
 
     // Cambios de presupuesto (aprobaciones, eliminaciones, ediciones)
     // Estos vienen del historialCambios de cada factura del paciente
-    facturasDelPaciente.forEach(f => {
+    todasFacturas.forEach(f => {
         (f.historialCambios || []).forEach(c => {
             const iconMap = {
                 aprobacion:              '✅',
