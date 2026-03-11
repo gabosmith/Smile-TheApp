@@ -3037,6 +3037,9 @@ function generarFacturaCliente(factura, montoPagado, metodoPago) {
     document.getElementById('facturaClienteContent').innerHTML = facturaHTML;
 
     closeModal('modalPagarFactura');
+    // Always hide Aprobar button when opening as a real receipt (not presupuesto)
+    const _aw = document.getElementById('presupuestoAprobarWrap');
+    if (_aw) { _aw.style.display = 'none'; delete _aw.dataset.facturaId; }
     openModal('modalFacturaCliente');
 
     // Si el pago vino desde la ficha del paciente, volver a ella al cerrar el recibo
@@ -6499,19 +6502,18 @@ function verPresupuestoCotiz(facturaId) {
     if (!factura) { showToast('⚠️ No se encontró la cotización'); return; }
 
     // Reutilizar generarFacturaCliente con la factura real (sin pagos = presupuesto)
-    // Temporalmente eliminar pagos para el preview
-    const pagosBackup = factura.pagos;
+    const pagosBackup  = factura.pagos;
     const numeroBackup = factura.numero;
     factura.pagos  = [];
     factura.numero = 'PRESUPUESTO';
 
     generarFacturaCliente(factura, 0, '');
 
-    // Restore after render
+    // Restore inmediatamente después del render
     factura.pagos  = pagosBackup;
     factura.numero = numeroBackup;
 
-    // Patch the modal title and content text
+    // Patch title, content text, and show Aprobar button
     setTimeout(() => {
         const modalTitle = document.querySelector('#modalFacturaCliente .modal-title');
         if (modalTitle) modalTitle.textContent = '📋 Presupuesto';
@@ -6521,7 +6523,25 @@ function verPresupuestoCotiz(facturaId) {
                 .replace(/RECIBO DE PAGO/g, 'PRESUPUESTO')
                 .replace(/COMPROBANTE DE ABONO/g, 'PRESUPUESTO');
         }
+        // Show "Aprobar" button and store facturaId for _aprobarPresupuesto
+        const aprobarWrap = document.getElementById('presupuestoAprobarWrap');
+        if (aprobarWrap) {
+            aprobarWrap.style.display = 'block';
+            aprobarWrap.dataset.facturaId = facturaId;
+        }
     }, 60);
+}
+
+function _aprobarPresupuesto() {
+    const wrap = document.getElementById('presupuestoAprobarWrap');
+    const facturaId = wrap?.dataset?.facturaId;
+    // Hide Aprobar button for next time
+    if (wrap) { wrap.style.display = 'none'; delete wrap.dataset.facturaId; }
+    closeModal('modalFacturaCliente');
+    if (facturaId) {
+        // Small delay so ficha modal re-focuses before opening cobro
+        setTimeout(() => openPagarFactura(facturaId), 150);
+    }
 }
 
 function _tratSwitch(panel) {
