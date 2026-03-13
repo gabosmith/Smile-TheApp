@@ -2716,7 +2716,6 @@ function getComisionRate(tipo, person) {
 // Cobrar Tab
 function updateCobrarTab() {
     // Safety check: if the cobrar tab isn't visible yet, do nothing
-    // (renderCobrosContent moves the tab-cobrar node into view — this can be called before that happens)
     const cobradoHoyEl = document.getElementById('cobradoHoy');
     if (!cobradoHoyEl) return;
 
@@ -6331,6 +6330,7 @@ function renderTabHistorial(paciente) {
     }
 
     // Botones de acción en cotización
+    // Ver presupuesto es visible para TODOS los roles (admin, profesional, recepción)
     const verPresupuestoBtnHTML = facturaAbierta ? `
         <button onclick="verPresupuestoCotiz('${facturaAbierta.id}')"
             style="width:100%;padding:10px;margin-bottom:8px;
