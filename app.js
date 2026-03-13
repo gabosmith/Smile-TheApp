@@ -6379,109 +6379,80 @@ function _renderHistorialPanel(paciente, container) {
         return pagado < f.total;
     });
 
-    // Construir eventos unificados
+    // ── Construir eventos unificados ──────────────────────────────────
     const eventos = [];
 
-    // TODAS las facturas del paciente — incluyendo la activa
-    // La factura activa se incluye en el historial para mostrar procedimientos y pagos de hoy.
-    // Solo se excluye si NO tiene pagos ni procedimientos aún (factura vacía recién creada).
     todasFacturas.forEach(f => {
+        // Saltar factura activa completamente vacía
         const estaVacia = f.id === facturaAbierta?.id
             && (f.procedimientos||[]).length === 0
             && (f.pagos||[]).length === 0;
-        if (estaVacia) return; // factura abierta sin nada todavía → no mostrar
-        const pagadoF = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
-        const pagada  = pagadoF >= f.total;
-        const procsDetalle = (f.procedimientos||[]).length > 0
-            ? (f.procedimientos||[]).map(p =>
-                `${p.descripcion}${p.cantidad>1?' ×'+p.cantidad:''}${p.dientes?' · 🦷'+p.dientes:''}`
-              ).join(' · ')
-            : null;
-        const labsDetalle = (f.ordenesLab||[]).length > 0
-            ? (f.ordenesLab||[]).map(o => `🔬 ${o.descripcion||o.tipo||'Lab'}`).join(' · ')
-            : null;
-        const detalleCompleto = [procsDetalle, labsDetalle].filter(Boolean).join('  ·  ');
-        const metodosUsados = [...new Set((f.pagos||[]).map(p =>
-            ({efectivo:'💵 Efectivo',tarjeta:'💳 Tarjeta',transferencia:'🔄 Transferencia'})[p.metodo]||p.metodo||'Efectivo'
-        ))].join(' · ');
+        if (estaVacia) return;
 
-        // Build estado label: pagada > aprobado > parcial > pendiente
-        const esAprobado = f.presupuestoAprobado && !pagada;
-        const factIcono  = pagada ? '✅' : esAprobado ? '🟢' : pagadoF > 0 ? '◑' : '⏳';
-        const factTitulo = pagada
-            ? `${f.numero} · Pagada`
-            : esAprobado
-                ? `${f.numero} · Aprobado`
-                : pagadoF > 0
-                    ? `${f.numero} · Abono parcial`
-                    : `${f.numero} · Pendiente`;
-        const factColor  = pagada ? '#34c759' : esAprobado ? '#34c759' : pagadoF > 0 ? '#ff9500' : '#aaa';
-
-        // Extra info line
-        let factExtra = null;
-        let factExtraColor = '#888';
-        if (pagada && metodosUsados) {
-            factExtra = `Pagado con: ${metodosUsados}`;
-            factExtraColor = '#34c759';
-        } else if (esAprobado && f.fechaAprobacion) {
-            const dAprobacion = new Date(f.fechaAprobacion).toLocaleDateString(getLocale(),{day:'numeric',month:'short'});
-            factExtra = `Aprobado el ${dAprobacion}${f.aprobadoPor ? ' por ' + f.aprobadoPor : ''} · Pendiente de cobro`;
-            factExtraColor = '#34c759';
-        } else if (!pagada && pagadoF > 0) {
-            factExtra = `Abonado: ${formatCurrency(pagadoF)} · Falta: ${formatCurrency(Math.max(0,f.total-pagadoF))}`;
-            factExtraColor = '#ff9500';
-        }
-
-        eventos.push({
-            fecha:      f.fecha,
-            tipo:       'factura',
-            icon:       factIcono,
-            titulo:     factTitulo,
-            sub:        `${getPrefijoProfesional(f.profesional)}${f.profesional}`,
-            detalle:    detalleCompleto || null,
-            extra:      factExtra,
-            extraColor: factExtraColor,
-            monto:      pagada ? formatCurrency(f.total) : pagadoF > 0 ? `${formatCurrency(pagadoF)} / ${formatCurrency(f.total)}` : formatCurrency(f.total),
-            color:      factColor,
-            data:       f,
-        });
-        // Cada pago recibido como sub-evento con detalle completo
-        (f.pagos||[]).forEach(p => {
-            const metodoLabel = {
-                efectivo: '💵 Efectivo', tarjeta: '💳 Tarjeta', transferencia: '🔄 Transferencia'
-            }[p.metodo] || (p.metodo || 'Efectivo');
-            const totalProcsPago = (f.procedimientos||[]).map(pr =>
-                `${pr.descripcion}${pr.cantidad>1?' ×'+pr.cantidad:''}${pr.dientes?' 🦷'+pr.dientes:''}`
-            ).join(' · ');
-            const totalAbonado = (f.pagos||[]).reduce((s,pp)=>s+pp.monto,0);
-            const quedaPendiente = Math.max(0, f.total - totalAbonado);
+        // ── Cada procedimiento como evento individual ──
+        (f.procedimientos||[]).forEach(p => {
+            const diente = p.dientes ? ` · 🦷 ${p.dientes}` : '';
+            const cant   = p.cantidad > 1 ? ` ×${p.cantidad}` : '';
             eventos.push({
-                fecha:   p.fecha || f.fecha,
-                tipo:    'pago',
-                icon:    '💳',
-                titulo:  `${metodoLabel}`,
-                sub:     `${f.numero} · ${getPrefijoProfesional(f.profesional)}${f.profesional}`,
-                detalle: totalProcsPago || null,
-                extra:   quedaPendiente > 0
-                    ? `Pendiente: ${formatCurrency(quedaPendiente)}`
-                    : `Saldo saldado ✓`,
-                extraColor: quedaPendiente > 0 ? '#ff6b35' : '#34c759',
-                monto:   `+${formatCurrency(p.monto)}`,
-                color:   '#34c759',
-                data:    p,
-                facturaRef: f,
+                fecha:      f.fecha,
+                tipo:       'procedimiento',
+                icon:       '🦷',
+                titulo:     `${p.descripcion}${cant}`,
+                sub:        `${getPrefijoProfesional(f.profesional)}${f.profesional}${diente}`,
+                monto:      formatCurrency(p.precioUnitario * (p.cantidad||1)),
+                color:      'var(--clinic-color,#C4856A)',
+                data:       p,
             });
         });
+
+        // ── Cada pago como evento individual ──
+        (f.pagos||[]).forEach(p => {
+            const metodoLabel = {
+                efectivo: '💵 Efectivo',
+                tarjeta: '💳 Tarjeta',
+                transferencia: '🔄 Transferencia'
+            }[p.metodo] || p.metodo || 'Efectivo';
+            const totalAbonado  = (f.pagos||[]).reduce((s,pp) => s+pp.monto, 0);
+            const quedaPendiente = Math.max(0, f.total - totalAbonado);
+            eventos.push({
+                fecha:      p.fecha || f.fecha,
+                tipo:       'pago',
+                icon:       '💳',
+                titulo:     metodoLabel,
+                sub:        f.numero,
+                extra:      quedaPendiente > 0
+                    ? `Pendiente: ${formatCurrency(quedaPendiente)}`
+                    : `Saldo completo ✓`,
+                extraColor: quedaPendiente > 0 ? '#ff6b35' : '#34c759',
+                monto:      `+${formatCurrency(p.monto)}`,
+                color:      '#34c759',
+                data:       p,
+            });
+        });
+
+        // ── Presupuesto aprobado como evento ──
+        if (f.presupuestoAprobado && f.fechaAprobacion) {
+            eventos.push({
+                fecha:  f.fechaAprobacion,
+                tipo:   'aprobacion',
+                icon:   '✅',
+                titulo: 'Presupuesto aprobado',
+                sub:    `${f.numero}${f.aprobadoPor ? ' · por ' + f.aprobadoPor : ''}`,
+                monto:  formatCurrency(f.total),
+                color:  '#34c759',
+                data:   f,
+            });
+        }
     });
 
-    // Órdenes de lab
+    // ── Órdenes de laboratorio ──
     ordenesLab.forEach(o => {
         eventos.push({
             fecha:  o.fechaCreacion,
             tipo:   'lab',
             icon:   '🔬',
             titulo: o.descripcion || o.tipo || 'Trabajo de laboratorio',
-            sub:    `${o.laboratorio}${o.dientes?' · 🦷 '+o.dientes:''}`,
+            sub:    `${o.laboratorio||''}${o.dientes?' · 🦷 '+o.dientes:''}`,
             monto:  formatCurrency(o.precio||0),
             color:  getColorEstado(o.estadoActual) || '#888',
             badge:  o.estadoActual || 'Pendiente',
@@ -6489,35 +6460,26 @@ function _renderHistorialPanel(paciente, container) {
         });
     });
 
-    // Citas
+    // ── Citas ──
     citasPaciente.forEach(c => {
         eventos.push({
             fecha:  c.fecha,
             tipo:   'cita',
             icon:   '📅',
             titulo: c.motivo || 'Cita',
-            sub:    `${c.hora||''} · ${c.profesional||''}`,
+            sub:    `${c.hora ? c.hora + ' · ' : ''}${c.profesional||''}`,
             monto:  null,
             color:  getColorEstadoCita(c.estado||'Pendiente'),
-            badge:  c.estado||'Pendiente',
+            badge:  c.estado || 'Pendiente',
             data:   c,
         });
     });
 
-    // Cambios de presupuesto (aprobaciones, eliminaciones, ediciones)
-    // Estos vienen del historialCambios de cada factura del paciente
+    // ── Cambios de presupuesto ──
     todasFacturas.forEach(f => {
-        (f.historialCambios || []).forEach(c => {
-            const iconMap = {
-                aprobacion:              '✅',
-                eliminacion_proc:        '🗑️',
-                cancelacion_presupuesto: '❌',
-            };
-            const colorMap = {
-                aprobacion:              '#34c759',
-                eliminacion_proc:        '#ff6b35',
-                cancelacion_presupuesto: '#c0392b',
-            };
+        (f.historialCambios||[]).forEach(c => {
+            const iconMap  = { aprobacion:'✅', eliminacion_proc:'🗑️', cancelacion_presupuesto:'❌' };
+            const colorMap = { aprobacion:'#34c759', eliminacion_proc:'#ff6b35', cancelacion_presupuesto:'#c0392b' };
             eventos.push({
                 fecha:  c.fecha,
                 tipo:   'cambio',
@@ -6530,15 +6492,11 @@ function _renderHistorialPanel(paciente, container) {
             });
         });
     });
-    // También los del paciente directamente (cancelaciones de presupuestos aprobados)
-    (paciente.historialCambios || []).forEach(c => {
-        const iconMap = {
-            cancelacion_presupuesto: '❌',
-        };
+    (paciente.historialCambios||[]).forEach(c => {
         eventos.push({
             fecha:  c.fecha,
             tipo:   'cambio',
-            icon:   iconMap[c.tipo] || '📝',
+            icon:   '❌',
             titulo: c.detalle || 'Cambio en presupuesto',
             sub:    `Por: ${c.usuario}`,
             monto:  null,
@@ -6547,9 +6505,10 @@ function _renderHistorialPanel(paciente, container) {
         });
     });
 
-    // Ordenar por fecha descendente
+    // ── Ordenar por fecha descendente ──
     eventos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
+    // ── Renderizar ──────────────────────────────────────────────────
     let panelHist = '';
     if (eventos.length === 0) {
         panelHist = `
@@ -6567,46 +6526,68 @@ function _renderHistorialPanel(paciente, container) {
             porMes[key].push(ev);
         });
 
+        // Color del dot por tipo de evento
+        const dotColor = ev => {
+            if (ev.tipo === 'procedimiento') return 'var(--clinic-color,#C4856A)';
+            if (ev.tipo === 'pago')          return '#34c759';
+            if (ev.tipo === 'cita')          return ev.color || '#7B8FA1';
+            if (ev.tipo === 'lab')           return ev.color || '#888';
+            if (ev.tipo === 'aprobacion')    return '#34c759';
+            return ev.color || '#ccc';
+        };
+
         panelHist = Object.entries(porMes).map(([mes, evs]) => `
-            <div style="margin-bottom:20px;">
+            <div style="margin-bottom:24px;">
                 <div style="font-size:10px;font-weight:600;color:#bbb;letter-spacing:1.5px;
-                            text-transform:uppercase;margin-bottom:10px;padding-left:4px;">${mes}</div>
+                            text-transform:uppercase;margin-bottom:12px;padding-left:4px;">${mes}</div>
                 <div style="position:relative;padding-left:24px;">
-                    <!-- línea vertical -->
                     <div style="position:absolute;left:7px;top:8px;bottom:8px;width:1.5px;background:#f0f0f0;"></div>
-                    ${evs.map(ev => `
+                    ${evs.map(ev => {
+                        const dc = dotColor(ev);
+                        const fecha = new Date(ev.fecha);
+                        const fechaStr = isNaN(fecha) ? '' : fecha.toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});
+                        // Etiqueta de tipo para diferenciar visualmente
+                        const tipoLabel = {
+                            procedimiento: { label: 'Procedimiento', bg: 'rgba(196,133,106,0.1)', color: 'var(--clinic-color,#C4856A)' },
+                            pago:          { label: 'Pago',          bg: 'rgba(52,199,89,0.1)',   color: '#34c759' },
+                            cita:          { label: 'Cita',          bg: 'rgba(123,143,161,0.1)', color: '#7B8FA1' },
+                            lab:           { label: 'Lab',           bg: 'rgba(100,100,200,0.1)', color: '#6464C8' },
+                            aprobacion:    { label: 'Aprobado',      bg: 'rgba(52,199,89,0.1)',   color: '#34c759' },
+                            cambio:        { label: 'Cambio',        bg: 'rgba(200,100,50,0.1)',  color: '#c0392b' },
+                        }[ev.tipo] || { label: '', bg: 'transparent', color: '#888' };
+
+                        return `
                         <div style="position:relative;margin-bottom:10px;">
-                            <!-- dot -->
-                            <div style="position:absolute;left:-20px;top:10px;width:10px;height:10px;
-                                        border-radius:50%;background:${ev.color};border:2px solid white;
-                                        box-shadow:0 0 0 1.5px ${ev.color}44;"></div>
+                            <div style="position:absolute;left:-20px;top:12px;width:10px;height:10px;
+                                        border-radius:50%;background:${dc};border:2px solid white;
+                                        box-shadow:0 0 0 1.5px ${dc}44;"></div>
                             <div style="background:white;border-radius:12px;padding:11px 14px;
                                         border:1.5px solid #f5f5f5;">
                                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
                                     <div style="flex:1;min-width:0;">
-                                        <div style="font-size:13px;font-weight:500;color:#222;margin-bottom:2px;
-                                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                            ${ev.icon} ${ev.titulo}
+                                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
+                                            <span style="font-size:13px;font-weight:500;color:#222;">
+                                                ${ev.icon} ${ev.titulo}
+                                            </span>
+                                            <span style="font-size:10px;font-weight:600;padding:1px 7px;
+                                                         border-radius:100px;background:${tipoLabel.bg};
+                                                         color:${tipoLabel.color};white-space:nowrap;">
+                                                ${tipoLabel.label}
+                                            </span>
                                         </div>
-                                        <div style="font-size:11px;color:#aaa;">${ev.sub}</div>
-                                        ${ev.detalle ? `<div style="font-size:11px;color:#888;margin-top:4px;line-height:1.5;white-space:normal;">${ev.detalle}</div>` : ''}
-                                        ${ev.extra ? `<div style="font-size:11px;font-weight:500;margin-top:4px;color:${ev.extraColor||'#888'};">${ev.extra}</div>` : ''}
-                                        ${ev.badge?`
-                                        <span style="display:inline-block;margin-top:5px;font-size:10px;font-weight:600;
-                                                     padding:2px 8px;border-radius:100px;
-                                                     background:${ev.color}18;color:${ev.color};">
-                                            ${ev.badge}
-                                        </span>`:''}
+                                        <div style="font-size:11px;color:#aaa;">${ev.sub || ''}</div>
+                                        ${ev.extra ? `<div style="font-size:11px;font-weight:500;margin-top:3px;color:${ev.extraColor||'#888'};">${ev.extra}</div>` : ''}
+                                        ${ev.badge ? `<span style="display:inline-block;margin-top:4px;font-size:10px;font-weight:600;
+                                                           padding:2px 8px;border-radius:100px;
+                                                           background:${ev.color}18;color:${ev.color};">${ev.badge}</span>` : ''}
                                     </div>
                                     <div style="text-align:right;flex-shrink:0;">
-                                        ${ev.monto?`<div style="font-size:13px;font-weight:600;color:${ev.color};">${ev.monto}</div>`:''}
-                                        <div style="font-size:10px;color:#ccc;margin-top:2px;">
-                                            ${new Date(ev.fecha).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'})}
-                                        </div>
+                                        ${ev.monto ? `<div style="font-size:13px;font-weight:600;color:${dc};">${ev.monto}</div>` : ''}
+                                        <div style="font-size:10px;color:#ccc;margin-top:2px;">${fechaStr}</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>`).join('')}
+                        </div>`; }).join('')}
                 </div>
             </div>`).join('');
     }
