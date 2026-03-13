@@ -3151,12 +3151,21 @@
                 return;
             }
 
-            // Firestore rules require auth — sign in anonymously first
-            try {
-                if (!firebase.auth().currentUser) {
-                    await firebase.auth().signInAnonymously();
+            // Firestore rules require auth — sign in anonymously with retry
+            if (!firebase.auth().currentUser) {
+                for (let intento = 1; intento <= 3; intento++) {
+                    try {
+                        await firebase.auth().signInAnonymously();
+                        break;
+                    } catch(authErr) {
+                        if (intento < 3) {
+                            await new Promise(r => setTimeout(r, intento * 1000));
+                        } else {
+                            console.warn('SMILE: signInAnonymously falló 3 veces', authErr);
+                        }
+                    }
                 }
-            } catch(authErr) { /* non-critical — continue anyway */ }
+            }
 
             const cfgDoc = await db.collection('clinicas').doc(clinicaId)
                 .collection('config').doc('settings').get();
