@@ -725,7 +725,7 @@ async function showSection(section) {
   const main = document.getElementById('main');
   if (section === 'overview') renderOverview(main);
   else if (section === 'clinicas') renderClinicas(main);
-  else if (section === 'nueva') { renderNuevaClinica(main); setTimeout(cargarNotifsOnboarding, 100); }
+  else if (section === 'nueva') { renderNuevaClinica(main); setTimeout(cargarNotifsOnboarding, 100); setTimeout(cargarProspectos, 150); }
   else if (section === 'contactos') renderContactos(main);
   else if (section === 'errores') await renderErrorLog(main);
 
@@ -1538,6 +1538,9 @@ function renderNuevaClinica(main) {
       <!-- REGISTROS DEL ONBOARDING -->
       <div id="onboarding-notifs-panel" style="max-width:680px;margin-bottom:32px"></div>
 
+      <!-- PROSPECTOS ABANDONADOS -->
+      <div id="prospectos-panel" style="max-width:680px;margin-bottom:32px"></div>
+
       <div style="max-width:560px;background:var(--sand);border-radius:20px;padding:32px;border:1.5px solid rgba(168,159,150,.1)">
         <div class="modal-field">
           <label>Nombre de la clínica *</label>
@@ -1658,6 +1661,93 @@ function autoSlug(val) {
   const el = document.getElementById('new-id');
   if (el) el.value = slug;
 }
+
+async function cargarProspectos() {
+  const panel = document.getElementById('prospectos-panel');
+  if (!panel) return;
+  try {
+    const snap = await db.collection('prospectos')
+      .where('completado', '==', false)
+      .orderBy('fecha', 'desc')
+      .limit(20)
+      .get();
+
+    if (snap.empty) { panel.innerHTML = ''; return; }
+
+    const prospectos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    panel.innerHTML = `
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;">
+        <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
+                    color:var(--piedra);font-weight:600;">Prospectos abandonados</div>
+        <span style="background:var(--terra);color:white;padding:2px 8px;
+                     border-radius:100px;font-size:9px;font-weight:600;">
+          ${prospectos.length}
+        </span>
+        <div style="font-size:11px;color:var(--muted);margin-left:auto;">
+          Iniciaron el onboarding pero no completaron
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${prospectos.map(p => {
+          const fecha = p.fecha
+            ? new Date(p.fecha).toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+            : '—';
+          const pasoLabel = {
+            'paso-2': 'Abandonó en paso 2',
+            'paso-3': 'Abandonó en paso 3',
+            'paso-4': 'Abandonó en paso 4',
+            'paso-5': 'Abandonó en paso 5',
+            'paso-6': 'Abandonó en paso 6',
+            'paso-7': 'Llegó al resumen final',
+          }[p.pasoMax] || p.pasoMax || 'Paso desconocido';
+          const pasoColor = p.pasoMax === 'paso-7' ? '#e67e22' : 'var(--piedra)';
+          const waLink = p.email
+            ? 'mailto:' + p.email
+            : null;
+
+          return `
+          <div style="background:var(--sand);border:1.5px solid rgba(168,159,150,.15);
+                      border-radius:14px;padding:16px 18px;display:flex;
+                      align-items:center;gap:14px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <div style="font-size:14px;font-weight:500;color:var(--topo);margin-bottom:2px;">
+                ${p.clinica || p.nombre || p.email}
+              </div>
+              <div style="font-size:12px;color:var(--piedra);margin-bottom:4px;">
+                ${p.email || '—'} ${p.pais ? '· ' + p.pais : ''}
+              </div>
+              <div style="font-size:11px;color:${pasoColor};font-weight:500;">
+                ${pasoLabel} · ${fecha}
+              </div>
+              ${p.subdomain ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:monospace;">
+                smiledental.app/app.html?clinica=${p.subdomain}
+              </div>` : ''}
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+              ${p.email ? `
+              <a href="mailto:${p.email}?subject=Tu%20cl%C3%ADnica%20SMILE%20te%20espera&body=Hola%20${encodeURIComponent(p.nombre||'')}%2C%20vimos%20que%20empezaste%20a%20crear%20tu%20cl%C3%ADnica%20en%20SMILE..."
+                style="padding:8px 14px;background:var(--pizarra);color:white;border-radius:10px;
+                       font-size:11px;font-weight:500;text-decoration:none;letter-spacing:.5px;">
+                ✉️ Email
+              </a>` : ''}
+              <button onclick="db.collection('prospectos').doc('${p.id}').update({completado:true}).then(()=>cargarProspectos())"
+                style="padding:8px 14px;background:none;border:1.5px solid rgba(168,159,150,.3);
+                       border-radius:10px;font-size:11px;color:var(--piedra);cursor:pointer;
+                       font-family:inherit;">
+                Marcar como contactado
+              </button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  } catch(e) {
+    console.warn('[Prospectos]', e.message);
+    panel.innerHTML = '';
+  }
+}
+
 
 async function crearClinica() {
   const nombre      = document.getElementById('new-nombre').value.trim();

@@ -42,8 +42,16 @@ service cloud.firestore {
     }
 
     // ── Registro anti-spam de emails ──────────────────────────
-    // Guarda un índice email→clinicId para evitar clínicas duplicadas
     match /registros/{emailKey} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // ── Prospectos — leads que iniciaron onboarding ──────────
+    // Se crea al avanzar el paso 1, se marca completado=true al crear la clínica
+    match /prospectos/{emailKey} {
       allow read:   if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();

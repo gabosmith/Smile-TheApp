@@ -1436,8 +1436,38 @@ function prevStep(from) {
 // ─── STEP NAVIGATION ──────────────────────────────────
 function goNext(from) {
   if (!validateStep(from)) return;
+  // Capturar lead al avanzar del paso 1 — guardamos email+nombre+clínica en Firestore
+  // aunque nunca terminen el onboarding
+  if (from === 1) {
+    _guardarProspecto('paso-2');
+  }
   const next = nextStep(from);
   if (next) setStep(next);
+}
+
+// Guarda o actualiza el prospecto en /prospectos/{emailKey}
+async function _guardarProspecto(pasoActual) {
+  try {
+    const email = (state.adminEmail || '').toLowerCase().trim();
+    const nombre = (state.adminName || '').trim();
+    const clinica = (state.clinicName || '').trim();
+    const subdomain = (state.subdomain || '').trim();
+    if (!email) return;
+    const emailKey = email.replace(/[^a-z0-9]/g, '_');
+    await db.collection('prospectos').doc(emailKey).set({
+      email,
+      nombre,
+      clinica,
+      subdomain,
+      pasoMax: pasoActual,
+      fecha: new Date().toISOString(),
+      completado: false,
+      pais: state.pais || '',
+    }, { merge: true });
+  } catch(e) {
+    // Silencioso — no interrumpir el onboarding
+    console.warn('[Lead capture]', e.message);
+  }
 }
 
 function goBack(from) {
@@ -2091,43 +2121,63 @@ async function activateClinic() {
     btnIr.style.display = 'block';
     btnIr.onclick = () => window.location.href = appUrl;
 
-    // Build success details — clear login instructions
+    // ── Pantalla de éxito — jerarquía rediseñada ──
+    // Prioridad: 1) PIN  2) Enlace  3) ID de clínica  4) Resto
+    const planMonto = (() => { const b = state.plan === 'solo' ? 19 : 23; const m = (state.modules||[]).reduce((s,x)=>s+x.price,0); return b+m; })();
     document.getElementById('successDetails').innerHTML = `
-      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--light);margin-bottom:16px;text-align:center">
-        📋 Guarda estos datos — los necesitas para entrar
-      </div>
 
-      <div class="success-detail-card" style="grid-column:1/-1;border:none;box-shadow:var(--neu-pizarra);background:rgba(125,142,160,.07)">
-        <div class="sd-label">🔗 Cómo entrar a tu clínica</div>
-        <div style="font-size:13px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Usa el botón <strong style="color:var(--topo)">Entrar a mi clínica →</strong> de arriba o el enlace que copiaste. Solo necesitas tu PIN para entrar.
+      <!-- ── SECCIÓN CRÍTICA: PIN ── -->
+      <div style="grid-column:1/-1;background:linear-gradient(145deg,#1e1c1a,#2d2a27);
+                  border-radius:20px;padding:24px 22px;margin-bottom:4px;text-align:center;
+                  box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+        <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;
+                    color:rgba(255,255,255,0.4);margin-bottom:10px;">🔑 Tu PIN de acceso</div>
+        <div style="font-family:monospace;font-size:42px;font-weight:300;letter-spacing:12px;
+                    color:white;margin-bottom:12px;line-height:1;">${adminPassword}</div>
+        <div style="display:inline-block;background:rgba(255,80,80,0.15);border:1px solid rgba(255,80,80,0.3);
+                    border-radius:100px;padding:6px 16px;">
+          <span style="font-size:11px;color:#ff6b6b;font-weight:500;">
+            ⚠️ Guárdalo ahora — no lo podrás ver de nuevo
+          </span>
         </div>
       </div>
 
+      <!-- ── Copiar PIN ── -->
+      <div style="grid-column:1/-1;margin-bottom:8px;">
+        <button onclick="navigator.clipboard.writeText('${adminPassword}').then(()=>{ this.textContent='✓ PIN copiado'; setTimeout(()=>this.textContent='Copiar PIN',2000); })"
+          style="width:100%;padding:12px;background:var(--sand);color:var(--topo);border:none;
+                 border-radius:12px;font-size:11px;font-weight:500;font-family:inherit;
+                 letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;
+                 box-shadow:var(--neu-raised);transition:all .2s;">
+          Copiar PIN
+        </button>
+      </div>
+
+      <!-- ── ID de clínica ── -->
       <div class="success-detail-card" style="border:none;box-shadow:var(--neu-pizarra);background:rgba(125,142,160,.07)">
         <div class="sd-label">🏷️ ID de clínica</div>
-        <div class="sd-val" style="font-family:monospace;font-size:16px;color:var(--topo)">${clinicId}</div>
+        <div class="sd-val" style="font-family:monospace;font-size:15px;color:var(--topo);word-break:break-all;">${clinicId}</div>
       </div>
 
+      <!-- ── Admin ── -->
       <div class="success-detail-card" style="border:none;box-shadow:var(--neu-pizarra);background:rgba(125,142,160,.07)">
-        <div class="sd-label">🔑 PIN de acceso</div>
-        <div class="sd-val" style="font-family:monospace;letter-spacing:4px;font-size:24px;color:var(--pizarra)">${adminPassword}</div>
-      </div>
-
-      <div class="success-detail-card">
         <div class="sd-label">👤 Admin</div>
         <div class="sd-val">${state.adminName.trim()}</div>
       </div>
 
-      <div class="success-detail-card">
-        <div class="sd-label">💳 Plan mensual</div>
-        <div class="sd-val" style="color:var(--pizarra)">USD $${(() => { const b = state.plan === 'solo' ? 19 : 23; const m = (state.modules||[]).reduce((s,x)=>s+x.price,0); return b+m; })()}</div>
+      <!-- ── Plan ── -->
+      <div class="success-detail-card" style="grid-column:1/-1;border:none;box-shadow:var(--neu-pizarra);background:rgba(125,142,160,.07)">
+        <div class="sd-label">💳 Plan mensual · Trial 14 días gratis</div>
+        <div class="sd-val" style="color:var(--pizarra)">USD $${planMonto}/mes — empieza a cobrar después del trial</div>
       </div>
 
+      <!-- ── Cómo entrar ── -->
       <div class="success-detail-card" style="grid-column:1/-1;background:var(--surface);border:none">
-        <div class="sd-label">⚠️ Importante</div>
-        <div style="font-size:12px;color:var(--mid);line-height:1.7;margin-top:4px">
-          Guarda este PIN ahora — no lo podrás ver de nuevo. Puedes cambiarlo desde el panel de administración de la app.
+        <div class="sd-label">🔗 Cómo entrar siempre</div>
+        <div style="font-size:12px;color:var(--mid);line-height:1.8;margin-top:4px">
+          Usa el botón <strong style="color:var(--topo)">Entrar a mi clínica →</strong> de arriba,
+          o visita directamente <strong style="color:var(--topo);font-family:monospace;">smiledental.app/app.html?clinica=${clinicId}</strong><br>
+          Solo necesitas tu PIN para entrar. Puedes cambiarlo desde el panel de administración.
         </div>
       </div>
     `;
@@ -2142,8 +2192,19 @@ async function activateClinic() {
         pais: state.pais || '',
       });
     } catch(regErr) {
-      // No crítico — si falla el índice, la clínica ya fue creada
       console.warn('[Anti-spam] No se pudo registrar email:', regErr.message);
+    }
+
+    // ── Marcar prospecto como completado (ya no es un abandono) ──
+    try {
+      const emailKey3 = state.adminEmail.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+      await db.collection('prospectos').doc(emailKey3).set({
+        completado: true,
+        clinicId: clinicId,
+        fechaCompletado: new Date().toISOString(),
+      }, { merge: true });
+    } catch(e) {
+      console.warn('[Lead capture] No se pudo marcar como completado:', e.message);
     }
 
     const mockup = document.getElementById('appMockup');
