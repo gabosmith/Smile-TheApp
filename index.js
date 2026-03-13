@@ -13,11 +13,11 @@ function db() {
 }
 
 const PRICES = {
-  plan_solo: 'price_1T6ACOLHxsBx9pJ7jp5gbbOm',
-  plan_base_clinica: 'price_1T6ACjLHxsBx9pJ7TLpST2vr',
-  modulo_adicional: 'price_1T6AD0LHxsBx9pJ7WKz63YSd',
-  sucursal_adicional: 'price_1T6ADLLHxsBx9pJ74bu6Ltkb',
-  usuario_adicional: 'price_1T6ADcLHxsBx9pJ7OzEjuP3f',
+  plan_solo:          'price_1TALzuLHxsBx9pJ7qTIX9HlG',
+  plan_base_clinica:  'price_1TAM0YLHxsBx9pJ7dnbbuQXY',
+  modulo_adicional:   'price_1TAM0vLHxsBx9pJ7KPYLavYM',
+  sucursal_adicional: 'price_1TAM1TLHxsBx9pJ7OJOZddod',
+  usuario_adicional:  'price_1TAM1CLHxsBx9pJ7FPEmb4nJ',
 };
 
 const APP_URL_FALLBACK = 'https://smiledental.app';
