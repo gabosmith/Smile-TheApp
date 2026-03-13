@@ -6950,13 +6950,80 @@ function abrirModalRealizarProc(facturaId, procId) {
     const proc = (factura.procedimientos||[]).find(p => p.id === procId);
     if (!proc) return;
 
-    // Profesionales disponibles para el dropdown
+    const cantidad = proc.cantidad || 1;
+    // Parse existing teeth into array for pre-filling
+    const dientesExistentes = proc.dientes
+        ? proc.dientes.split(',').map(d => d.trim()).filter(Boolean)
+        : [];
+
     const profesionales = (appData.personal||[])
         .filter(p => p.tipo !== 'empleado')
         .map(p => `<option value="${p.nombre}" ${p.nombre === appData.currentUser ? 'selected' : ''}>${p.nombre}</option>`)
         .join('');
 
-    // Create modal dynamically
+    // Build unit rows — one per unit when cantidad > 1, single row otherwise
+    const buildUnitRows = () => {
+        if (cantidad === 1) {
+            return `
+            <div class="realizar-unit-row" data-unit="0"
+                style="background:var(--sand,#F5F2EE);border-radius:12px;padding:12px 14px;">
+                <div style="display:flex;gap:10px;align-items:flex-start;">
+                    <input type="checkbox" id="unit-check-0" checked
+                        style="margin-top:3px;width:16px;height:16px;accent-color:#34c759;cursor:pointer;flex-shrink:0;">
+                    <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+                        <div style="font-size:13px;font-weight:500;color:var(--topo);">
+                            🦷 ${proc.descripcion}
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <input type="text" placeholder="Diente (ej: 16)"
+                                value="${dientesExistentes[0] || ''}"
+                                data-field="diente"
+                                style="padding:8px 10px;border:none;border-radius:8px;
+                                       font-family:inherit;font-size:13px;background:white;
+                                       color:var(--topo);box-shadow:var(--neu-flat);">
+                            <input type="text" placeholder="Nota clínica..."
+                                data-field="nota"
+                                style="padding:8px 10px;border:none;border-radius:8px;
+                                       font-family:inherit;font-size:13px;background:white;
+                                       color:var(--topo);box-shadow:var(--neu-flat);">
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        // Multiple units
+        return Array.from({length: cantidad}, (_, i) => `
+            <div class="realizar-unit-row" data-unit="${i}"
+                style="background:var(--sand,#F5F2EE);border-radius:12px;padding:12px 14px;
+                       border:1.5px solid transparent;transition:border-color .15s;"
+                id="unit-row-${i}">
+                <div style="display:flex;gap:10px;align-items:flex-start;">
+                    <input type="checkbox" id="unit-check-${i}" checked
+                        onchange="document.getElementById('unit-row-${i}').style.borderColor=this.checked?'transparent':'rgba(200,50,50,0.2)';
+                                  document.getElementById('unit-row-${i}').style.opacity=this.checked?'1':'0.45';"
+                        style="margin-top:3px;width:16px;height:16px;accent-color:#34c759;cursor:pointer;flex-shrink:0;">
+                    <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+                        <div style="font-size:13px;font-weight:500;color:var(--topo);">
+                            🦷 ${proc.descripcion} — unidad ${i + 1}
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <input type="text" placeholder="Diente (ej: ${dientesExistentes[i] || (16 + i)})"
+                                value="${dientesExistentes[i] || ''}"
+                                data-field="diente"
+                                style="padding:8px 10px;border:none;border-radius:8px;
+                                       font-family:inherit;font-size:13px;background:white;
+                                       color:var(--topo);box-shadow:var(--neu-flat);">
+                            <input type="text" placeholder="Nota clínica..."
+                                data-field="nota"
+                                style="padding:8px 10px;border:none;border-radius:8px;
+                                       font-family:inherit;font-size:13px;background:white;
+                                       color:var(--topo);box-shadow:var(--neu-flat);">
+                        </div>
+                    </div>
+                </div>
+            </div>`).join('');
+    };
+
     let overlay = document.getElementById('modalRealizarProcOverlay');
     if (!overlay) {
         overlay = document.createElement('div');
@@ -6967,80 +7034,61 @@ function abrirModalRealizarProc(facturaId, procId) {
     }
 
     overlay.innerHTML = `
-        <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:520px;
+        <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:540px;
                     padding:24px 20px 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.15);
-                    animation:slideUp .25s cubic-bezier(.34,1.2,.64,1);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    animation:slideUp .25s cubic-bezier(.34,1.2,.64,1);
+                    max-height:88dvh;overflow-y:auto;">
+
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <div>
-                    <div style="font-size:11px;color:var(--piedra);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;">
-                        Marcar como realizado
-                    </div>
+                    <div style="font-size:11px;color:var(--piedra);letter-spacing:1px;
+                                text-transform:uppercase;margin-bottom:3px;">Plan de tratamiento</div>
                     <div style="font-size:16px;font-weight:500;color:var(--topo);">
-                        🦷 ${proc.descripcion}${proc.cantidad > 1 ? ' ×'+proc.cantidad : ''}
+                        🦷 ${proc.descripcion}
+                        ${cantidad > 1 ? `<span style="font-size:13px;color:var(--piedra);font-weight:400;"> ×${cantidad}</span>` : ''}
                     </div>
                 </div>
                 <button onclick="cerrarModalRealizarProc()"
                     style="width:32px;height:32px;border-radius:50%;border:none;background:var(--sand);
-                           cursor:pointer;font-size:18px;color:var(--piedra);display:flex;
-                           align-items:center;justify-content:center;">×</button>
+                           cursor:pointer;font-size:18px;color:var(--piedra);">×</button>
             </div>
 
-            <div style="display:flex;flex-direction:column;gap:14px;">
-                <!-- Doctor -->
-                <div>
-                    <label style="font-size:11px;font-weight:600;color:var(--piedra);
-                                  text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">
-                        Doctor que realizó
-                    </label>
-                    <select id="realizarProcDoctor"
-                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
-                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
-                               color:var(--topo);box-shadow:var(--neu-inset);appearance:none;">
-                        ${profesionales}
-                    </select>
-                </div>
+            ${cantidad > 1 ? `
+            <div style="font-size:12px;color:var(--piedra);margin-bottom:16px;line-height:1.5;">
+                Marca las unidades realizadas hoy. Las que desmarques quedarán pendientes para la próxima visita.
+            </div>` : '<div style="margin-bottom:16px;"></div>'}
 
-                <!-- Dientes -->
-                <div>
-                    <label style="font-size:11px;font-weight:600;color:var(--piedra);
-                                  text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">
-                        Diente(s) <span style="font-weight:300;text-transform:none;">(opcional)</span>
-                    </label>
-                    <input type="text" id="realizarProcDientes"
-                        value="${proc.dientes || ''}"
-                        placeholder="Ej: 16, 21, 36"
-                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
-                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
-                               color:var(--topo);box-shadow:var(--neu-inset);box-sizing:border-box;">
-                </div>
+            <!-- Doctor -->
+            <div style="margin-bottom:14px;">
+                <label style="font-size:11px;font-weight:600;color:var(--piedra);
+                              text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">
+                    Doctor que realizó
+                </label>
+                <select id="realizarProcDoctor"
+                    style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                           font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
+                           color:var(--topo);box-shadow:var(--neu-inset);appearance:none;">
+                    ${profesionales}
+                </select>
+            </div>
 
-                <!-- Nota clínica -->
-                <div>
-                    <label style="font-size:11px;font-weight:600;color:var(--piedra);
-                                  text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">
-                        Nota clínica <span style="font-weight:300;text-transform:none;">(opcional)</span>
-                    </label>
-                    <textarea id="realizarProcNota"
-                        placeholder="Ej: Sin complicaciones, anestesia local, paciente toleró bien..."
-                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
-                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
-                               color:var(--topo);box-shadow:var(--neu-inset);box-sizing:border-box;
-                               min-height:80px;resize:vertical;line-height:1.5;"></textarea>
-                </div>
+            <!-- Unidades -->
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+                ${buildUnitRows()}
             </div>
 
             <button onclick="confirmarRealizarProc('${facturaId}','${procId}')"
-                style="width:100%;margin-top:20px;padding:14px;background:#34c759;color:white;
+                style="width:100%;padding:14px;background:#34c759;color:white;
                        border:none;border-radius:14px;font-size:14px;font-weight:600;
                        font-family:inherit;cursor:pointer;letter-spacing:.3px;
                        box-shadow:0 4px 14px rgba(52,199,89,0.3);">
-                ✓ Confirmar realizado
+                ✓ Confirmar realizados
             </button>
         </div>
     `;
 
     overlay.style.display = 'flex';
-    setTimeout(() => document.getElementById('realizarProcNota')?.focus(), 100);
 }
 
 function cerrarModalRealizarProc() {
@@ -7054,41 +7102,97 @@ async function confirmarRealizarProc(facturaId, procId) {
     const proc = (factura.procedimientos||[]).find(p => p.id === procId);
     if (!proc) return;
 
-    const doctor  = document.getElementById('realizarProcDoctor')?.value || appData.currentUser;
-    const dientes = (document.getElementById('realizarProcDientes')?.value || '').trim();
-    const nota    = (document.getElementById('realizarProcNota')?.value || '').trim();
+    const doctor   = document.getElementById('realizarProcDoctor')?.value || appData.currentUser;
+    const cantidad = proc.cantidad || 1;
 
-    // Update procedure in memory
-    proc.realizado       = true;
-    proc.fechaRealizado  = new Date().toISOString();
-    proc.doctorRealizo   = doctor;
-    proc.dientes         = dientes || proc.dientes || null;
-    proc.notaClinica     = nota || null;
-
-    // Register in factura historialCambios for timeline
-    if (!factura.historialCambios) factura.historialCambios = [];
-    factura.historialCambios.push({
-        tipo:    'procedimiento_realizado',
-        fecha:   proc.fechaRealizado,
-        usuario: doctor,
-        detalle: `✓ ${proc.descripcion}${proc.cantidad > 1 ? ' ×'+proc.cantidad : ''}${dientes ? ' · 🦷 '+dientes : ''}${nota ? ' — '+nota : ''}`,
-        procId:  procId,
+    // Collect unit data from rows
+    const rows = document.querySelectorAll('.realizar-unit-row');
+    const unidades = Array.from(rows).map((row, i) => {
+        const checked = document.getElementById(`unit-check-${i}`)?.checked !== false;
+        const diente  = (row.querySelector('[data-field="diente"]')?.value || '').trim();
+        const nota    = (row.querySelector('[data-field="nota"]')?.value || '').trim();
+        return { checked, diente, nota };
     });
+
+    const realizadasHoy  = unidades.filter(u => u.checked);
+    const pendientesHoy  = unidades.filter(u => !u.checked);
+
+    if (realizadasHoy.length === 0) {
+        showToast('⚠️ Marca al menos una unidad como realizada', 3000, '#e65100');
+        return;
+    }
+
+    const idx = factura.procedimientos.findIndex(p => p.id === procId);
+    if (idx === -1) return;
+
+    if (!factura.historialCambios) factura.historialCambios = [];
+    const now = new Date().toISOString();
+
+    if (pendientesHoy.length === 0) {
+        // All units done — mark original proc as realizado
+        proc.realizado      = true;
+        proc.fechaRealizado = now;
+        proc.doctorRealizo  = doctor;
+        proc.dientes        = realizadasHoy.map(u => u.diente).filter(Boolean).join(', ') || proc.dientes || null;
+        proc.notaClinica    = realizadasHoy.map(u => u.nota).filter(Boolean).join('; ') || null;
+
+        factura.historialCambios.push({
+            tipo:    'procedimiento_realizado',
+            fecha:   now,
+            usuario: doctor,
+            detalle: `✓ ${proc.descripcion}${cantidad > 1 ? ' ×'+cantidad : ''}${proc.dientes ? ' · 🦷 '+proc.dientes : ''}${proc.notaClinica ? ' — '+proc.notaClinica : ''}`,
+            procId:  procId,
+        });
+    } else {
+        // Partial — split: mark orignal with realizadas count, add new proc for pendientes
+        const cantRealizadas = realizadasHoy.length;
+        const cantPendientes = pendientesHoy.length;
+        const dientesRealizados = realizadasHoy.map(u => u.diente).filter(Boolean).join(', ');
+        const notasRealizadas   = realizadasHoy.map(u => u.nota).filter(Boolean).join('; ');
+        const dientesPendientes = pendientesHoy.map(u => u.diente).filter(Boolean).join(', ');
+
+        // Update original proc → realized portion
+        proc.cantidad       = cantRealizadas;
+        proc.realizado      = true;
+        proc.fechaRealizado = now;
+        proc.doctorRealizo  = doctor;
+        proc.dientes        = dientesRealizados || proc.dientes || null;
+        proc.notaClinica    = notasRealizadas || null;
+
+        // Create new proc for pending portion
+        const procPendiente = {
+            id:            generateId(),
+            descripcion:   proc.descripcion,
+            cantidad:      cantPendientes,
+            precioUnitario: proc.precioUnitario,
+            dientes:       dientesPendientes || null,
+            descuentoPct:  proc.descuentoPct || 0,
+            realizado:     false,
+        };
+        // Insert pending proc right after the original
+        factura.procedimientos.splice(idx + 1, 0, procPendiente);
+
+        // Log to historial
+        factura.historialCambios.push({
+            tipo:    'procedimiento_realizado',
+            fecha:   now,
+            usuario: doctor,
+            detalle: `✓ ${proc.descripcion} ×${cantRealizadas}${dientesRealizados ? ' · 🦷 '+dientesRealizados : ''}${notasRealizadas ? ' — '+notasRealizadas : ''} (${cantPendientes} pendiente${cantPendientes > 1 ? 's' : ''})`,
+            procId:  procId,
+        });
+    }
 
     cerrarModalRealizarProc();
 
     try {
         await saveFacturas();
-        showToast('✓ Procedimiento registrado como realizado', 3000, '#34c759');
-        // Refresh tratamientos tab
+        const msg = pendientesHoy.length > 0
+            ? `✓ ${realizadasHoy.length} realizado${realizadasHoy.length>1?'s':''}, ${pendientesHoy.length} pendiente${pendientesHoy.length>1?'s':''}`
+            : '✓ Procedimiento completado';
+        showToast(msg, 3000, '#34c759');
         if (currentPacienteId) cambiarTabPaciente('tratamientos');
     } catch(e) {
         showError('Error al guardar.', e);
-        // Rollback
-        proc.realizado = false;
-        delete proc.fechaRealizado;
-        delete proc.doctorRealizo;
-        delete proc.notaClinica;
     }
 }
 
