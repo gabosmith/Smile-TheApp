@@ -6359,6 +6359,26 @@ function renderTabHistorial(paciente) {
     // Mezcla facturas pagadas + órdenes de lab + citas en timeline
     // ════════════════════════════════════════════════════════
 
+    // Render the full tab (creates tratPanelHist in DOM), then fill historial
+    _renderFullTratamientosTab(paciente, balanceBanner, toggleHTML, panelCotiz);
+}
+
+// ── Construye el HTML del historial y lo inyecta en `container` ──────────────
+// Separado de renderTabHistorial para poder ser llamado independientemente
+// (ej: cuando el doctor hace clic en "Historial" después de agregar procedimientos)
+function _renderHistorialPanel(paciente, container) {
+    if (!container) return;
+    const todasFacturas = getFacturasDePaciente(paciente).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+    const citasPaciente = getCitasDePaciente(paciente).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+    const ordenesLab    = (appData.laboratorios||[])
+        .filter(o => o.paciente === paciente.nombre || o.pacienteId === paciente.id)
+        .sort((a,b) => new Date(b.fechaCreacion)-new Date(a.fechaCreacion));
+    const facturaAbierta = todasFacturas.find(f => {
+        if ((f.estado||'').toLowerCase() === 'cancelada') return false;
+        const pagado = (f.pagos||[]).reduce((s,p) => s+p.monto, 0);
+        return pagado < f.total;
+    });
+
     // Construir eventos unificados
     const eventos = [];
 
@@ -6591,15 +6611,24 @@ function renderTabHistorial(paciente) {
             </div>`).join('');
     }
 
-    // ── Render final ────────────────────────────────────────
+    // ── Render final — inject into the container passed in ─────────────
+    container.innerHTML = panelHist;
+}
+
+// ── renderTabHistorial: builds full tratamientos tab (balance + toggle + panels) ──
+function _renderFullTratamientosTab(paciente, balanceBanner, toggleHTML, panelCotiz) {
     const _tabEl = document.getElementById('tabTratamientos') || document.getElementById('tabHistorial');
+    if (!_tabEl) return;
     _tabEl.innerHTML = `
         <div style="padding-bottom:24px;">
             ${balanceBanner}
             ${toggleHTML}
             <div id="tratPanelCotiz">${panelCotiz}</div>
-            <div id="tratPanelHist" style="display:none;">${panelHist}</div>
+            <div id="tratPanelHist" style="display:none;"></div>
         </div>`;
+    // Render historial immediately into the (now-existing) panel
+    const pH = document.getElementById('tratPanelHist');
+    if (pH) _renderHistorialPanel(paciente, pH);
 }
 
 // ── EDITAR / ELIMINAR PROCEDIMIENTO EN COTIZACIÓN ACTIVA ──────────────
@@ -6823,6 +6852,12 @@ function _tratSwitch(panel) {
         pC.style.display = 'block';     pH.style.display = 'none';
     } else {
         btnH.style.cssText += active;   btnC.style.cssText += inactive;
+        // Always re-render historial with fresh data from memory
+        // (avoids showing stale HTML from when the ficha was first opened)
+        if (currentPacienteId) {
+            const paciente = appData.pacientes.find(p => p.id === currentPacienteId);
+            if (paciente) _renderHistorialPanel(paciente, pH);
+        }
         pH.style.display = 'block';     pC.style.display = 'none';
     }
 }
