@@ -6362,9 +6362,14 @@ function renderTabHistorial(paciente) {
     // Construir eventos unificados
     const eventos = [];
 
-    // Facturas ya cobradas (o parcialmente abonadas distintas a la abierta)
+    // TODAS las facturas del paciente — incluyendo la activa
+    // La factura activa se incluye en el historial para mostrar procedimientos y pagos de hoy.
+    // Solo se excluye si NO tiene pagos ni procedimientos aún (factura vacía recién creada).
     todasFacturas.forEach(f => {
-        if (f.id === facturaAbierta?.id) return; // ya está en cotización
+        const estaVacia = f.id === facturaAbierta?.id
+            && (f.procedimientos||[]).length === 0
+            && (f.pagos||[]).length === 0;
+        if (estaVacia) return; // factura abierta sin nada todavía → no mostrar
         const pagadoF = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
         const pagada  = pagadoF >= f.total;
         const procsDetalle = (f.procedimientos||[]).length > 0
@@ -13186,14 +13191,17 @@ function renderCatalogoTab() {
                         <div style="font-size:15px;margin-bottom:8px">Sin procedimientos aún</div>
                         <div style="font-size:13px">Agrega los procedimientos que ofrece tu clínica</div>
                     </div>
-                ` : items.map((item, i) => `
+                ` : items.map((item, i) => {
+                    // Use item name as stable key — avoids wrong-item bug when list order changes
+                    const safeKey = encodeURIComponent(item.nombre || String(i));
+                    return `
                     <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0">
                         <div style="flex:1;font-size:14px;color:#1d1d1f;font-weight:500">${item.nombre}</div>
                         <div style="font-size:15px;font-weight:500;color:var(--clinic-color)">${formatCurrency(item.precio||0)}</div>
-                        <button onclick="abrirModalProcedimiento(${i})" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
-                        <button onclick="eliminarProcedimiento(${i})" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
+                        <button onclick="abrirModalProcedimientoByName('${safeKey}')" style="padding:6px 14px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--piedra);cursor:pointer" onmouseover="this.style.borderColor='var(--clinic-color)';this.style.color='var(--clinic-color)'" onmouseout="this.style.borderColor='#ddd';this.style.color='#666'">Editar</button>
+                        <button onclick="eliminarProcedimientoByName('${safeKey}')" style="padding:6px 10px;background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='#ff3b30';this.style.color='#ff3b30'" onmouseout="this.style.borderColor='#ddd';this.style.color='#999'">✕</button>
                     </div>
-                `).join('')}
+                `}).join('')}
             </div>
         </div>
         <div class="card" style="margin-top:16px;background:rgba(0,0,0,0.02)">
@@ -13301,6 +13309,20 @@ async function eliminarProcedimiento(idx) {
         renderCatalogoTab();
         showToast('✓ Eliminado');
     } catch(e) { console.error(e); }
+}
+
+// Name-based versions — immune to index shifting when catalog items are added/removed
+function abrirModalProcedimientoByName(safeKey) {
+    const nombre = decodeURIComponent(safeKey);
+    const idx = (clinicConfig.procItems || []).findIndex(it => it.nombre === nombre);
+    abrirModalProcedimiento(idx !== -1 ? idx : null);
+}
+
+async function eliminarProcedimientoByName(safeKey) {
+    const nombre = decodeURIComponent(safeKey);
+    const idx = (clinicConfig.procItems || []).findIndex(it => it.nombre === nombre);
+    if (idx === -1) { showToast('⚠️ No se encontró el procedimiento'); return; }
+    await eliminarProcedimiento(idx);
 }
 
 
