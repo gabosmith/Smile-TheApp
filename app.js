@@ -2715,13 +2715,18 @@ function getComisionRate(tipo, person) {
 
 // Cobrar Tab
 function updateCobrarTab() {
+    // Safety check: if the cobrar tab isn't visible yet, do nothing
+    // (renderCobrosContent moves the tab-cobrar node into view — this can be called before that happens)
+    const cobradoHoyEl = document.getElementById('cobradoHoy');
+    if (!cobradoHoyEl) return;
+
     const todayKey = getTodayKey();
     const cobradoHoy = appData.facturas
         .flatMap(f => f.pagos)
         .filter(p => isSameDayTZ(p.fecha, todayKey))
         .reduce((sum, p) => sum + p.monto, 0);
 
-    document.getElementById('cobradoHoy').textContent = formatCurrency(cobradoHoy);
+    cobradoHoyEl.textContent = formatCurrency(cobradoHoy);
 
     // Aplicar filtros (que también actualiza el contador de pendientes)
     aplicarFiltrosFacturas();
