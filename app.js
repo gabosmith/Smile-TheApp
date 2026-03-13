@@ -6223,45 +6223,116 @@ function renderTabHistorial(paciente) {
             appData.currentRole === 'admin' ||
             (facturaAbierta && facturaAbierta.profesional === appData.currentUser)
         );
-        const procsHTML = (facturaAbierta.procedimientos||[]).length === 0 ? '' :
-            (facturaAbierta.procedimientos||[]).map(p => {
-                const eCol = 'var(--clinic-color,#C4856A)';
-                const totalProc = p.precioUnitario * (p.cantidad||1);
-                const subtitulo = [
-                    p.cantidad > 1 ? `${p.cantidad} unidades` : null,
-                    p.dientes ? `Diente${p.dientes.includes(',')?' s':''} ${p.dientes}` : null,
-                    p.precioUnitario && p.cantidad > 1 ? `${formatCurrency(p.precioUnitario)} c/u` : null,
-                    p.descuentoPct > 0 ? `-${p.descuentoPct}%` : null,
-                ].filter(Boolean).join(' · ');
-                const editBtns = canEditCotiz ? `
-                    <div style="display:flex;gap:4px;margin-left:10px;flex-shrink:0;">
-                        <button onclick="editarProcCotiz('${facturaAbierta.id}','${p.id}')"
-                            style="width:26px;height:26px;border-radius:50%;border:none;
-                                   background:rgba(107,143,113,.12);color:var(--salvia,#6B8F71);
-                                   cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;"
-                            title="Editar">✏️</button>
-                        <button onclick="eliminarProcCotiz('${facturaAbierta.id}','${p.id}')"
-                            style="width:26px;height:26px;border-radius:50%;border:none;
-                                   background:rgba(220,50,50,.08);color:#c0392b;
-                                   cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;"
-                            title="Eliminar">×</button>
-                    </div>` : '';
+        // ── Plan de Tratamiento: separar realizados vs pendientes ──
+        const procsAll = facturaAbierta.procedimientos || [];
+        const procsPendientes = procsAll.filter(p => !p.realizado);
+        const procsRealizados = procsAll.filter(p => p.realizado);
+        const progresoPct = procsAll.length > 0 ? Math.round((procsRealizados.length / procsAll.length) * 100) : 0;
+
+        const _renderProcItem = (p, esRealizado) => {
+            const eCol = esRealizado ? '#34c759' : 'var(--clinic-color,#C4856A)';
+            const totalProc = p.precioUnitario * (p.cantidad||1);
+            const subtitulo = [
+                p.cantidad > 1 ? `${p.cantidad} unidades` : null,
+                p.dientes ? `🦷 ${p.dientes}` : null,
+                p.precioUnitario && p.cantidad > 1 ? `${formatCurrency(p.precioUnitario)} c/u` : null,
+            ].filter(Boolean).join(' · ');
+
+            if (esRealizado) {
+                const fechaReal = p.fechaRealizado
+                    ? new Date(p.fechaRealizado).toLocaleDateString(getLocale(),{day:'numeric',month:'short',year:'numeric'})
+                    : 'Sin fecha';
                 return `
-                <div style="display:flex;justify-content:space-between;align-items:center;
-                            padding:10px 0;border-bottom:1px solid rgba(30,28,26,.06);">
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-size:13px;font-weight:500;color:var(--topo);
-                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                            🦷 ${p.descripcion}
+                <div style="padding:10px 12px;border-radius:10px;background:rgba(52,199,89,0.06);
+                            border:1px solid rgba(52,199,89,0.15);margin-bottom:6px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="width:20px;height:20px;border-radius:50%;background:#34c759;
+                                    display:flex;align-items:center;justify-content:center;
+                                    color:white;font-size:10px;flex-shrink:0;">✓</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;font-weight:500;color:var(--topo);
+                                        text-decoration:line-through;opacity:0.6;">
+                                ${p.descripcion}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}
+                            </div>
+                            <div style="font-size:11px;color:#34c759;margin-top:1px;">
+                                ${fechaReal}${p.doctorRealizo ? ' · ' + p.doctorRealizo : ''}${p.dientes ? ' · 🦷 ' + p.dientes : ''}
+                            </div>
+                            ${p.notaClinica ? `<div style="font-size:11px;color:var(--piedra);
+                                margin-top:3px;font-style:italic;">"${p.notaClinica}"</div>` : ''}
                         </div>
-                        ${subtitulo ? `<div style="font-size:11px;color:var(--piedra);margin-top:2px;">${subtitulo}</div>` : ''}
-                    </div>
-                    <div style="display:flex;align-items:center;flex-shrink:0;margin-left:14px;">
-                        <span style="font-size:13px;font-weight:600;color:${eCol};">${formatCurrency(totalProc)}</span>
-                        ${editBtns}
+                        <span style="font-size:12px;font-weight:500;color:#34c759;flex-shrink:0;">
+                            ${formatCurrency(totalProc)}
+                        </span>
                     </div>
                 </div>`;
-            }).join('');
+            }
+
+            // Pendiente
+            const editBtns = canEditCotiz ? `
+                <button onclick="editarProcCotiz('${facturaAbierta.id}','${p.id}')"
+                    style="width:24px;height:24px;border-radius:50%;border:none;
+                           background:rgba(107,143,113,.12);color:var(--salvia,#6B8F71);
+                           cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;"
+                    title="Editar">✏️</button>
+                <button onclick="eliminarProcCotiz('${facturaAbierta.id}','${p.id}')"
+                    style="width:24px;height:24px;border-radius:50%;border:none;
+                           background:rgba(220,50,50,.08);color:#c0392b;
+                           cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;"
+                    title="Eliminar">×</button>` : '';
+
+            return `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 0;
+                        border-bottom:1px solid rgba(30,28,26,.06);">
+                <button onclick="abrirModalRealizarProc('${facturaAbierta.id}','${p.id}')"
+                    style="width:24px;height:24px;border-radius:50%;border:2px solid rgba(30,28,26,0.15);
+                           background:white;cursor:pointer;flex-shrink:0;transition:all .15s;
+                           display:flex;align-items:center;justify-content:center;"
+                    onmouseover="this.style.borderColor='#34c759';this.style.background='rgba(52,199,89,0.08)'"
+                    onmouseout="this.style.borderColor='rgba(30,28,26,0.15)';this.style.background='white'"
+                    title="Marcar como realizado">
+                </button>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:500;color:var(--topo);
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        ${p.descripcion}
+                    </div>
+                    ${subtitulo ? `<div style="font-size:11px;color:var(--piedra);margin-top:1px;">${subtitulo}</div>` : ''}
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+                    <span style="font-size:13px;font-weight:600;color:${eCol};">${formatCurrency(totalProc)}</span>
+                    ${editBtns}
+                </div>
+            </div>`;
+        };
+
+        // Progress bar
+        const progressBarHTML = procsAll.length > 1 ? `
+            <div style="margin-bottom:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:11px;color:var(--piedra);font-weight:500;">
+                        Progreso del tratamiento
+                    </span>
+                    <span style="font-size:11px;font-weight:600;color:${progresoPct===100?'#34c759':'var(--clinic-color,#C4856A)'};">
+                        ${procsRealizados.length}/${procsAll.length} realizados
+                    </span>
+                </div>
+                <div style="height:6px;background:rgba(30,28,26,0.08);border-radius:100px;overflow:hidden;">
+                    <div style="height:100%;width:${progresoPct}%;background:${progresoPct===100?'#34c759':'var(--clinic-color,#C4856A)'};
+                                border-radius:100px;transition:width .4s ease;"></div>
+                </div>
+            </div>` : '';
+
+        const pendientesHTML = procsPendientes.length === 0 ? '' :
+            procsPendientes.map(p => _renderProcItem(p, false)).join('');
+
+        const realizadosHTML = procsRealizados.length === 0 ? '' : `
+            <div style="margin-top:12px;">
+                <div style="font-size:10px;font-weight:600;color:#34c759;letter-spacing:1.5px;
+                            text-transform:uppercase;margin-bottom:8px;">✓ Realizados</div>
+                ${procsRealizados.map(p => _renderProcItem(p, true)).join('')}
+            </div>`;
+
+        const procsHTML = progressBarHTML + pendientesHTML + realizadosHTML;
 
         const labsHTML = (facturaAbierta.ordenesLab||[]).length === 0 ? '' :
             (facturaAbierta.ordenesLab||[]).map(o => {
@@ -6478,16 +6549,33 @@ function _renderHistorialPanel(paciente, container) {
     // ── Cambios de presupuesto ──
     todasFacturas.forEach(f => {
         (f.historialCambios||[]).forEach(c => {
-            const iconMap  = { aprobacion:'✅', eliminacion_proc:'🗑️', cancelacion_presupuesto:'❌' };
-            const colorMap = { aprobacion:'#34c759', eliminacion_proc:'#ff6b35', cancelacion_presupuesto:'#c0392b' };
+            const iconMap  = {
+                aprobacion:              '✅',
+                eliminacion_proc:        '🗑️',
+                cancelacion_presupuesto: '❌',
+                procedimiento_realizado: '🦷',
+            };
+            const colorMap = {
+                aprobacion:              '#34c759',
+                eliminacion_proc:        '#ff6b35',
+                cancelacion_presupuesto: '#c0392b',
+                procedimiento_realizado: 'var(--clinic-color,#C4856A)',
+            };
+            const tipoDisplay = {
+                aprobacion:              'Presupuesto aprobado',
+                eliminacion_proc:        'Procedimiento eliminado',
+                cancelacion_presupuesto: 'Presupuesto cancelado',
+                procedimiento_realizado: 'Realizado',
+            };
             eventos.push({
                 fecha:  c.fecha,
-                tipo:   'cambio',
+                tipo:   c.tipo === 'procedimiento_realizado' ? 'procedimiento' : 'cambio',
                 icon:   iconMap[c.tipo] || '📝',
                 titulo: c.detalle || 'Cambio en presupuesto',
-                sub:    `Por: ${c.usuario}`,
+                sub:    `${c.usuario}`,
                 monto:  null,
                 color:  colorMap[c.tipo] || '#888',
+                badge:  tipoDisplay[c.tipo] || null,
                 data:   c,
             });
         });
@@ -6851,6 +6939,158 @@ function _tratSwitch(panel) {
 
 let _cotizTipo = 'procedimiento';
 
+
+// ══════════════════════════════════════════════════════════════
+// PLAN DE TRATAMIENTO — Marcar procedimientos como realizados
+// ══════════════════════════════════════════════════════════════
+
+function abrirModalRealizarProc(facturaId, procId) {
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) return;
+    const proc = (factura.procedimientos||[]).find(p => p.id === procId);
+    if (!proc) return;
+
+    // Profesionales disponibles para el dropdown
+    const profesionales = (appData.personal||[])
+        .filter(p => p.tipo !== 'empleado')
+        .map(p => `<option value="${p.nombre}" ${p.nombre === appData.currentUser ? 'selected' : ''}>${p.nombre}</option>`)
+        .join('');
+
+    // Create modal dynamically
+    let overlay = document.getElementById('modalRealizarProcOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'modalRealizarProcOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10500;display:flex;align-items:flex-end;justify-content:center;padding:0;';
+        overlay.onclick = e => { if (e.target === overlay) cerrarModalRealizarProc(); };
+        document.body.appendChild(overlay);
+    }
+
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:520px;
+                    padding:24px 20px 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.15);
+                    animation:slideUp .25s cubic-bezier(.34,1.2,.64,1);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div>
+                    <div style="font-size:11px;color:var(--piedra);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;">
+                        Marcar como realizado
+                    </div>
+                    <div style="font-size:16px;font-weight:500;color:var(--topo);">
+                        🦷 ${proc.descripcion}${proc.cantidad > 1 ? ' ×'+proc.cantidad : ''}
+                    </div>
+                </div>
+                <button onclick="cerrarModalRealizarProc()"
+                    style="width:32px;height:32px;border-radius:50%;border:none;background:var(--sand);
+                           cursor:pointer;font-size:18px;color:var(--piedra);display:flex;
+                           align-items:center;justify-content:center;">×</button>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                <!-- Doctor -->
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:var(--piedra);
+                                  text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">
+                        Doctor que realizó
+                    </label>
+                    <select id="realizarProcDoctor"
+                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
+                               color:var(--topo);box-shadow:var(--neu-inset);appearance:none;">
+                        ${profesionales}
+                    </select>
+                </div>
+
+                <!-- Dientes -->
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:var(--piedra);
+                                  text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">
+                        Diente(s) <span style="font-weight:300;text-transform:none;">(opcional)</span>
+                    </label>
+                    <input type="text" id="realizarProcDientes"
+                        value="${proc.dientes || ''}"
+                        placeholder="Ej: 16, 21, 36"
+                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
+                               color:var(--topo);box-shadow:var(--neu-inset);box-sizing:border-box;">
+                </div>
+
+                <!-- Nota clínica -->
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:var(--piedra);
+                                  text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">
+                        Nota clínica <span style="font-weight:300;text-transform:none;">(opcional)</span>
+                    </label>
+                    <textarea id="realizarProcNota"
+                        placeholder="Ej: Sin complicaciones, anestesia local, paciente toleró bien..."
+                        style="width:100%;padding:11px 14px;border:none;border-radius:12px;
+                               font-family:inherit;font-size:14px;background:var(--sand,#F5F2EE);
+                               color:var(--topo);box-shadow:var(--neu-inset);box-sizing:border-box;
+                               min-height:80px;resize:vertical;line-height:1.5;"></textarea>
+                </div>
+            </div>
+
+            <button onclick="confirmarRealizarProc('${facturaId}','${procId}')"
+                style="width:100%;margin-top:20px;padding:14px;background:#34c759;color:white;
+                       border:none;border-radius:14px;font-size:14px;font-weight:600;
+                       font-family:inherit;cursor:pointer;letter-spacing:.3px;
+                       box-shadow:0 4px 14px rgba(52,199,89,0.3);">
+                ✓ Confirmar realizado
+            </button>
+        </div>
+    `;
+
+    overlay.style.display = 'flex';
+    setTimeout(() => document.getElementById('realizarProcNota')?.focus(), 100);
+}
+
+function cerrarModalRealizarProc() {
+    const overlay = document.getElementById('modalRealizarProcOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+async function confirmarRealizarProc(facturaId, procId) {
+    const factura = appData.facturas.find(f => f.id === facturaId);
+    if (!factura) return;
+    const proc = (factura.procedimientos||[]).find(p => p.id === procId);
+    if (!proc) return;
+
+    const doctor  = document.getElementById('realizarProcDoctor')?.value || appData.currentUser;
+    const dientes = (document.getElementById('realizarProcDientes')?.value || '').trim();
+    const nota    = (document.getElementById('realizarProcNota')?.value || '').trim();
+
+    // Update procedure in memory
+    proc.realizado       = true;
+    proc.fechaRealizado  = new Date().toISOString();
+    proc.doctorRealizo   = doctor;
+    proc.dientes         = dientes || proc.dientes || null;
+    proc.notaClinica     = nota || null;
+
+    // Register in factura historialCambios for timeline
+    if (!factura.historialCambios) factura.historialCambios = [];
+    factura.historialCambios.push({
+        tipo:    'procedimiento_realizado',
+        fecha:   proc.fechaRealizado,
+        usuario: doctor,
+        detalle: `✓ ${proc.descripcion}${proc.cantidad > 1 ? ' ×'+proc.cantidad : ''}${dientes ? ' · 🦷 '+dientes : ''}${nota ? ' — '+nota : ''}`,
+        procId:  procId,
+    });
+
+    cerrarModalRealizarProc();
+
+    try {
+        await saveFacturas();
+        showToast('✓ Procedimiento registrado como realizado', 3000, '#34c759');
+        // Refresh tratamientos tab
+        if (currentPacienteId) cambiarTabPaciente('tratamientos');
+    } catch(e) {
+        showError('Error al guardar.', e);
+        // Rollback
+        proc.realizado = false;
+        delete proc.fechaRealizado;
+        delete proc.doctorRealizo;
+        delete proc.notaClinica;
+    }
+}
 
 function _resetCotizItemModal() {
     window._editCotizFacturaId = null;
