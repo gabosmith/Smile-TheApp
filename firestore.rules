@@ -14,8 +14,16 @@ service cloud.firestore {
     // ── Clínicas ──────────────────────────────────────────────
     match /clinicas/{clinicId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated()
-                   && exists(/databases/$(database)/documents/clinicas/$(clinicId));
+
+      // Crear clínica nueva (onboarding) — la clínica no existe todavía
+      allow create: if isAuthenticated();
+
+      // Actualizar clínica existente — solo si ya existe
+      allow update: if isAuthenticated()
+                    && exists(/databases/$(database)/documents/clinicas/$(clinicId));
+
+      // Nunca borrar clínicas
+      allow delete: if false;
 
       match /config/{configDoc} {
         allow read:  if isAuthenticated();
@@ -33,21 +41,26 @@ service cloud.firestore {
       }
     }
 
+    // ── Registro anti-spam de emails ──────────────────────────
+    // Guarda un índice email→clinicId para evitar clínicas duplicadas
+    match /registros/{emailKey} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
     // ── Sentinel: pulso de vida por clínica ───────────────────
-    // La app escribe su heartbeat aquí cada 5 min
-    // El admin lo lee para ver el estado en tiempo real
     match /smile_health/{clinicId} {
       allow read:  if isAuthenticated();
       allow write: if isAuthenticated();
     }
 
     // ── Sentinel: errores de la app ───────────────────────────
-    // La app escribe errores aquí vía logErrorToFirestore()
-    // El admin los lee y puede marcarlos como resueltos
     match /smile_errors/{errorId} {
       allow read:   if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated(); // para marcar como resuelto
+      allow update: if isAuthenticated();
       allow delete: if false;
     }
 
