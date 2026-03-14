@@ -2445,6 +2445,11 @@ async function generarFactura() {
 
     const labMsg = tempOrdenesLab.length > 0 ? ` · ${tempOrdenesLab.length} orden(es) de lab creadas` : '';
 
+    // Registrar en auditoría
+    registrarAuditoria('crear', 'factura',
+        `Factura ${numeroFinal} · ${paciente} · ${formatCurrency(total)} · ${profesionalQueAtendio}`);
+    saveData('auditoria-factura').catch(() => {});
+
     // Toast adaptado por rol
     if (appData.currentRole === 'professional') {
         showToast('📋 Factura creada — queda pendiente de cobro en recepción' + labMsg);
@@ -2790,6 +2795,11 @@ async function confirmarPago() {
         showError('Error al registrar el pago. Intenta de nuevo.', saveErr);
         return;
     }
+
+    // Registrar en auditoría — trazabilidad financiera
+    registrarAuditoria('cobro', 'factura',
+        `Cobro ${formatCurrency(monto)} · ${metodo} · ${currentFacturaToPay.numero} · ${currentFacturaToPay.paciente}`);
+    saveData('auditoria-cobro').catch(() => {});
 
     // Generar factura para cliente
     generarFacturaCliente(currentFacturaToPay, monto, metodo);
@@ -3340,7 +3350,11 @@ function registrarGasto() {
 
     const backupGastos = appData.gastos.length;
     appData.gastos.push(gasto);
-    saveGastos().catch(() => {
+    registrarAuditoria('crear', 'gasto',
+        `Gasto ${formatCurrency(monto)} · ${desc} · ${proveedor} · ${metodo}`);
+    saveGastos().then(() => {
+        saveData('auditoria-gasto').catch(() => {});
+    }).catch(() => {
         appData.gastos.splice(backupGastos, 1); // revertir
         updateGastosTab();
         showToast('❌ No se pudo guardar el gasto. Intenta de nuevo.', 4000, '#c0392b');
@@ -10223,25 +10237,43 @@ if (!appData.auditLogs) {
     appData.auditLogs = [];
 }
 
-// Audit logs are queued in memory and flushed on the next natural saveData() call.
-// This avoids one saveData() per user action (which is expensive and causes extra snapshots).
+// ── AUDITORÍA ────────────────────────────────────────────────
+// Los logs financieros críticos (cobro, factura, gasto) se escriben
+// INMEDIATAMENTE en Firestore en la subcolección audit_logs.
+// Los demás se encolan en memoria y se persisten con el siguiente saveData().
+// ─────────────────────────────────────────────────────────────
+const _TIPOS_CRITICOS = new Set(['cobro', 'factura', 'gasto', 'cancelar', 'reversion']);
+
 function registrarAuditoria(accion, tipo, detalles) {
     const log = {
-        id: generateId('LOG-'),
-        fecha: new Date().toISOString(),
-        usuario: appData.currentUser,
-        accion: accion, // 'eliminar', 'modificar', 'acceso'
-        tipo: tipo,     // 'paciente', 'factura', 'personal', 'dato_sensible'
-        detalles: detalles
+        id:       generateId('LOG-'),
+        fecha:    new Date().toISOString(),
+        usuario:  appData.currentUser || 'Sistema',
+        rol:      appData.currentRole || '—',
+        accion,
+        tipo,
+        detalles,
+        clinicaId: CLINIC_PATH,
     };
 
-    if (!appData.auditLogs) {
-        appData.auditLogs = [];
-    }
-
+    // Cola en memoria (para el log visible en la app)
+    if (!appData.auditLogs) appData.auditLogs = [];
     appData.auditLogs.push(log);
-    // Limitar a 500 entradas — evita que el doc de Firebase crezca infinitamente
-    if (appData.auditLogs.length > 500) appData.auditLogs = appData.auditLogs.slice(-500);
+    if (appData.auditLogs.length > 1000) appData.auditLogs = appData.auditLogs.slice(-1000);
+
+    // Para eventos financieros críticos: escribir TAMBIÉN en subcolección de Firestore
+    // — persiste independientemente del documento principal, no tiene límite de 1000
+    if (_TIPOS_CRITICOS.has(tipo) && CLINIC_PATH) {
+        try {
+            const _db = (typeof db !== 'undefined') ? db : null;
+            const _user = (typeof firebase !== 'undefined') ? firebase.auth().currentUser : null;
+            if (_db && _user) {
+                _db.collection('clinicas').doc(CLINIC_PATH)
+                    .collection('audit_logs').add(log)
+                    .catch(e => console.warn('[Audit] No se pudo escribir en Firestore:', e.message));
+            }
+        } catch(e) { /* Firebase no disponible */ }
+    }
 }
 
 function verAuditoria() {
