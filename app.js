@@ -3487,10 +3487,13 @@ async function agregarPersonal() {
         showToast('⚠️ Ingresa el sueldo del empleado'); return;
     }
 
-    // Hash password before storing — never plaintext
-    const defaultPw   = tipo === 'empleado' ? 'empleado123' : null;
-    const rawPassword = (tipo !== 'empleado' && password) ? password : defaultPw;
-    const hashedPw    = rawPassword ? await hashPassword(rawPassword) : null;
+    // Hash PIN before storing — never plaintext
+    // Default 1234 para todos si no se especifica uno
+    if (tipo !== 'empleado' && password && !/^[0-9]{4}$/.test(password)) {
+        showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return;
+    }
+    const rawPassword = password || '1234';
+    const hashedPw    = await hashPassword(rawPassword);
 
     const esEmp = tipo === 'empleado';
     const tipoRem = esEmp ? 'salario'
@@ -3531,7 +3534,10 @@ async function agregarPersonal() {
     updatePersonalTab();
     updateProfessionalPicker();
     closeModal('modalAddPersonal');
-    showToast('✓ Personal agregado exitosamente');
+    const _pinDefault = !password; // true si no puso PIN → usó 1234
+    showToast(_pinDefault
+        ? '✓ Usuario creado · PIN por defecto: 1234 (recuérdaselo)'
+        : '✓ Personal agregado exitosamente');
 
     // Aviso de costo por usuario adicional
     const esAcceso = (person.tipo !== 'empleado') || person.canAccessReception;
@@ -4250,12 +4256,12 @@ async function guardarEdicion() {
 
     currentPersonalToEdit.nombre = nombre;
 
-    // Hash new password before saving — never store plaintext
+    // Hash new PIN before saving — must be exactly 4 digits
     if (password) {
-        if (password.length < 4) { showToast('⚠️ La contraseña debe tener al menos 4 caracteres'); return; }
+        if (!/^[0-9]{4}$/.test(password)) { showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return; }
         currentPersonalToEdit.password  = await hashPassword(password);
         currentPersonalToEdit._pwHashed = true;
-        registrarAuditoria('seguridad', 'cambio_contrasena', `Contraseña actualizada para ${nombre}`);
+        registrarAuditoria('seguridad', 'cambio_pin', `PIN actualizado para ${nombre}`);
     }
 
     if (currentPersonalToEdit.tipo === 'empleado') {
@@ -4602,14 +4608,14 @@ async function guardarIdentidadClinica() {
 }
 
 async function guardarContrasenaAdmin() {
-    const nueva    = document.getElementById('configNewPassword').value;
-    const confirma = document.getElementById('configConfirmPassword').value;
+    const nueva    = document.getElementById('configNewPassword').value.trim();
+    const confirma = document.getElementById('configConfirmPassword').value.trim();
 
-    if (!nueva || nueva.length < 6) {
-        showToast('⚠️ La contraseña debe tener al menos 6 caracteres'); return;
+    if (!nueva || !/^[0-9]{4}$/.test(nueva)) {
+        showToast('⚠️ El PIN debe ser exactamente 4 dígitos numéricos'); return;
     }
     if (nueva !== confirma) {
-        showToast('⚠️ Las contraseñas no coinciden'); return;
+        showToast('⚠️ Los PINs no coinciden'); return;
     }
 
     const admin = appData.personal.find(p => p.isAdmin);
@@ -4627,8 +4633,8 @@ async function guardarContrasenaAdmin() {
         await savePersonal();
         document.getElementById('configNewPassword').value  = '';
         document.getElementById('configConfirmPassword').value = '';
-        showToast('✓ Contraseña actualizada');
-        registrarAuditoria('seguridad', 'cambio_contrasena', 'Contraseña de administrador actualizada');
+        showToast('✓ PIN actualizado');
+        registrarAuditoria('seguridad', 'cambio_pin', 'PIN de administrador actualizado');
     } catch(e) {
         admin.password  = pwAnterior;    // rollback
         admin._pwHashed = pwHashedAntes;

@@ -2283,14 +2283,14 @@
                     <div style="margin-bottom: 28px;">
                         <div style="font-size: 11px; font-weight: 500; color:var(--piedra); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;">Seguridad</div>
                         <div class="form-group">
-                            <label>Nueva contraseña del administrador</label>
-                            <input type="password" id="configNewPassword" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+                            <label>Nuevo PIN del administrador</label>
+                            <input type="number" id="configNewPassword" placeholder="4 dígitos" maxlength="4" pattern="[0-9]{4}" autocomplete="off" style="-moz-appearance:textfield;" oninput="this.value=this.value.slice(0,4).replace(/[^0-9]/g,'')">
                         </div>
                         <div class="form-group">
-                            <label>Confirmar contraseña</label>
-                            <input type="password" id="configConfirmPassword" placeholder="Repite la contraseña" autocomplete="new-password">
+                            <label>Confirmar PIN</label>
+                            <input type="number" id="configConfirmPassword" placeholder="Repite el PIN" maxlength="4" pattern="[0-9]{4}" autocomplete="off" style="-moz-appearance:textfield;" oninput="this.value=this.value.slice(0,4).replace(/[^0-9]/g,'')">
                         </div>
-                        <button class="btn btn-submit" style="width: 100%;" onclick="withGuard(this, guardarContrasenaAdmin)">Cambiar Contraseña</button>
+                        <button class="btn btn-submit" style="width: 100%;" onclick="withGuard(this, guardarContrasenaAdmin)">Cambiar PIN</button>
                     </div>
 
                     <div style="border-top: 1px solid #f0f0f0; margin-bottom: 28px;"></div>
@@ -2563,7 +2563,7 @@
                 </select>
             </div>
 
-            <div class="form-group" id="passwordGroup"><label>Contraseña (Opcional)</label><input type="password" id="personalPassword" placeholder="Mínimo 4 caracteres"></div>
+            <div class="form-group" id="passwordGroup"><label>PIN de acceso <span style="font-size:11px;font-weight:300;color:var(--piedra);">(4 dígitos)</span></label><input type="number" id="personalPassword" placeholder="Ej: 1234" maxlength="4" pattern="[0-9]{4}" autocomplete="off" style="-moz-appearance:textfield;" oninput="this.value=this.value.slice(0,4).replace(/[^0-9]/g,'')"></div>
             <button class="btn btn-submit" onclick="withGuard(this, agregarPersonal)">Agregar Personal</button>
         </div>
     </div>
@@ -2643,7 +2643,7 @@
                 </select>
             </div>
 
-            <div class="form-group" id="editPasswordGroup"><label>Nueva Contraseña</label><input type="password" id="editPassword" placeholder="Dejar vacío para no cambiar"></div>
+            <div class="form-group" id="editPasswordGroup"><label>Cambiar PIN <span style="font-size:11px;font-weight:300;color:var(--piedra);">(4 dígitos, dejar vacío para no cambiar)</span></label><input type="number" id="editPassword" placeholder="Nuevo PIN" maxlength="4" pattern="[0-9]{4}" autocomplete="off" style="-moz-appearance:textfield;" oninput="this.value=this.value.slice(0,4).replace(/[^0-9]/g,'')"></div>
             <div class="form-group hidden" id="editReceptionGroup"><label>Acceso a Recepción</label><label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px;"><input type="checkbox" id="editReceptionAccess" style="width: 20px; height: 20px;"><span style="font-size: 14px;">Permitir acceso al módulo de Recepción</span></label></div>
             <div class="form-group hidden" id="editPayDateGroup"><label>Próxima Fecha de Pago</label><input type="date" id="editPayDate"></div>
             <button class="btn btn-submit" onclick="withGuard(this, guardarEdicion)">Guardar Cambios</button>
