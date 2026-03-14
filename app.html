@@ -3512,7 +3512,6 @@
         else                                  appData.currentRole = 'professional';
 
         appData.currentUser = person.nombre;
-        document.getElementById('password').value = _lsPin;
 
         await ensureFirebaseAuth();
         _flushErrorQueue().catch(() => {});
