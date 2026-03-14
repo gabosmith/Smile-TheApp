@@ -1580,6 +1580,17 @@
             Acceso al sistema
         </div>
 
+        <!-- UX #11: cambiar clínica — visible desde el inicio, no escondido detrás del PIN -->
+        <button onclick="lsCambiarClinica()"
+            style="margin-top:16px;padding:6px 16px;background:rgba(255,255,255,.15);
+                   color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.25);
+                   border-radius:100px;font-size:11px;font-family:inherit;cursor:pointer;
+                   letter-spacing:.5px;backdrop-filter:blur(4px);transition:all .2s;"
+            onmouseenter="this.style.background='rgba(255,255,255,.25)'"
+            onmouseleave="this.style.background='rgba(255,255,255,.15)'">
+            ⟵ Cambiar clínica
+        </button>
+
         <!-- powered by SMILE watermark -->
         <div style="position:absolute;bottom:12px;right:16px;
                     font-size:10px;color:rgba(255,255,255,.35);
@@ -1954,6 +1965,17 @@
                     </div>
                 </div>
 
+                <!-- UX #5: Cobro rápido para recepción -->
+                <button onclick="abrirCobroRapido()"
+                    style="width:100%;padding:14px;background:var(--clinic-color,#C4856A);
+                           color:white;border:none;border-radius:12px;font-size:14px;
+                           font-family:inherit;cursor:pointer;font-weight:500;
+                           letter-spacing:.3px;margin-bottom:16px;
+                           box-shadow:0 4px 14px rgba(196,133,106,.35);
+                           display:flex;align-items:center;justify-content:center;gap:8px;">
+                    ⚡ Cobro rápido
+                </button>
+
                 <div class="filter-card">
                     <div class="filter-label">Filtros</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
@@ -2032,6 +2054,20 @@
                         </div>
                     </div>
                 </div>
+                <!-- UX #8: Botón explícito de cierre del día -->
+                <div style="margin-top:20px;padding:0 4px;">
+                    <button onclick="_cerrarDiaCuadre()"
+                        style="width:100%;padding:14px;background:var(--clinic-color,#C4856A);
+                               color:white;border:none;border-radius:12px;font-size:14px;
+                               font-family:inherit;cursor:pointer;font-weight:500;letter-spacing:.3px;">
+                        ✓ Guardar cierre del día
+                    </button>
+                    <div id="cuadreSavedMsg" style="display:none;text-align:center;margin-top:8px;
+                        font-size:12px;color:var(--salvia,#6B8F71);">
+                        ✓ Cierre guardado correctamente
+                    </div>
+                </div>
+
                 <div id="historialCuadres" class="card" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h2>Historial (Última Semana)</h2>
@@ -3576,6 +3612,16 @@
         document.getElementById('lsPhasePIN').style.display   = 'none';
     }
 
+    // UX #11: volver a la pantalla de selección de clínica
+    // Limpia la sesión de clínica y recarga sin ?clinica= para mostrar el acceso
+    function lsCambiarClinica() {
+        sessionStorage.removeItem('smile_clinica_session');
+        localStorage.removeItem('smile_clinica');
+        // Redirigir a la misma página sin parámetros
+        const base = window.location.pathname;
+        window.location.href = base;
+    }
+
     // ── STRIPE REDIRECT HANDLER ─────────────────────────
     // Handles ?stripe=success and ?stripe=cancelled params after Stripe redirects back
     (function() {
@@ -3947,6 +3993,42 @@
         </div>
     </div>
 
+
+<!-- ═══ COBRO RÁPIDO MODAL (UX #5) ═══════════════════════ -->
+<div id="modalCobroRapido" class="modal" style="z-index:10600;">
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header" style="background:var(--clinic-color,#C4856A);color:white;border-radius:12px 12px 0 0;">
+            <div class="modal-title" style="color:white;">⚡ Cobro rápido</div>
+            <button class="close-modal" onclick="closeModal('modalCobroRapido')" style="color:white;">×</button>
+        </div>
+        <div style="padding:20px;">
+            <!-- Paso 1: paciente -->
+            <div id="crPaso1">
+                <div style="font-size:11px;color:var(--piedra);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Paciente</div>
+                <div style="position:relative;">
+                    <input id="crPacienteInput" type="text" placeholder="Buscar paciente..."
+                        oninput="_crBuscarPaciente()"
+                        style="width:100%;padding:12px 16px;border:1.5px solid rgba(30,28,26,.12);
+                               border-radius:12px;font-size:14px;font-family:inherit;
+                               background:var(--surface,#F5F2EE);color:var(--topo);
+                               box-sizing:border-box;outline:none;">
+                    <div id="crSuggestions" style="display:none;position:absolute;top:100%;left:0;right:0;
+                         background:white;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);
+                         z-index:200;overflow:hidden;max-height:220px;overflow-y:auto;margin-top:4px;"></div>
+                </div>
+                <div id="crPacienteInfo" style="display:none;margin-top:10px;padding:10px 14px;
+                     background:rgba(196,133,106,.08);border-radius:10px;
+                     border:1.5px solid rgba(196,133,106,.2);font-size:13px;color:var(--topo);"></div>
+            </div>
+            <!-- Paso 2: facturas pendientes del paciente -->
+            <div id="crPaso2" style="display:none;margin-top:16px;">
+                <div style="font-size:11px;color:var(--piedra);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Selecciona la factura</div>
+                <div id="crFacturasList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ══════════════════════════════════════════════════════════ -->
 
 <!-- ═══ INTERCOM ═══════════════════════════════════════ -->
 <script>

@@ -736,15 +736,22 @@ const sanitize = {
 
 // ── Error display helper — friendlier than alert() ──────
 function showError(msg, detail) {
+    // UX #7: mensajes en lenguaje humano — sin jerga técnica para el usuario
     const friendly = {
-        'permission-denied':  'Sin permiso para guardar. Recarga la página.',
-        'unavailable':        'Sin conexión con el servidor. Verifica tu internet.',
-        'deadline-exceeded':  'La operación tardó demasiado. Intenta de nuevo.',
-        'not-found':          'Documento no encontrado en Firebase.',
-        'already-exists':     'Ya existe un registro con ese ID.',
+        'permission-denied':    'Tu sesión no tiene permiso para hacer eso. Recarga la página e intenta de nuevo.',
+        'unavailable':          'No hay conexión con el servidor. Verifica tu internet e intenta de nuevo.',
+        'deadline-exceeded':    'La operación tardó demasiado. Verifica tu conexión e intenta de nuevo.',
+        'not-found':            'No se encontró el registro. Puede que haya sido eliminado.',
+        'already-exists':       'Ya existe un registro con ese dato. Verifica e intenta de nuevo.',
+        'unauthenticated':      'Tu sesión expiró. Recarga la página para continuar.',
+        'resource-exhausted':   'Demasiadas operaciones a la vez. Espera un momento e intenta de nuevo.',
+        'cancelled':            'La operación fue cancelada. Intenta de nuevo.',
+        'internal':             'Ocurrió un error interno. Intenta de nuevo en un momento.',
+        'js-runtime-error':     'Ocurrió un error inesperado. Recarga la página si el problema persiste.',
+        'promise-rejected':     'No se pudo completar la operación. Verifica tu conexión.',
     };
     const code = detail?.code?.replace('firestore/', '') || '';
-    const text = friendly[code] || msg;
+    const text = friendly[code] || (code ? `No se pudo completar la operación. (${code})` : msg);
     setConnectionState('error');
     showToast(`❌ ${text}`, 5000, '#c0392b');
     console.error('[SMILE]', msg, detail);
@@ -2588,6 +2595,139 @@ function getComisionRate(tipo, person) {
 }
 
 // Cobrar Tab
+// ════════════════════════════════════════════════════════
+// UX #5: COBRO RÁPIDO — flujo simplificado para recepción
+// Recepción no genera facturas — solo cobra las que el médico creó.
+// Este flujo: busca paciente → muestra sus facturas pendientes → abre cobro directo.
+// ════════════════════════════════════════════════════════
+
+function abrirCobroRapido() {
+    // Reset estado
+    document.getElementById('crPacienteInput').value = '';
+    document.getElementById('crSuggestions').style.display = 'none';
+    document.getElementById('crPacienteInfo').style.display = 'none';
+    document.getElementById('crPaso2').style.display = 'none';
+    document.getElementById('crFacturasList').innerHTML = '';
+    openModal('modalCobroRapido');
+    setTimeout(() => document.getElementById('crPacienteInput')?.focus(), 100);
+}
+
+function _crBuscarPaciente() {
+    const input = document.getElementById('crPacienteInput');
+    const sugg  = document.getElementById('crSuggestions');
+    const q     = input.value.toLowerCase().trim();
+
+    document.getElementById('crPaso2').style.display = 'none';
+    document.getElementById('crPacienteInfo').style.display = 'none';
+
+    if (q.length < 2) { sugg.style.display = 'none'; return; }
+
+    const matches = appData.pacientes.filter(p =>
+        p.nombre && (
+            p.nombre.toLowerCase().includes(q) ||
+            (p.telefono && p.telefono.includes(q)) ||
+            (p.cedula   && p.cedula.includes(q))
+        )
+    ).slice(0, 6);
+
+    if (!matches.length) { sugg.style.display = 'none'; return; }
+
+    sugg.innerHTML = matches.map(p => {
+        const pendientes = appData.facturas.filter(f =>
+            (f.pacienteId === p.id || f.paciente === p.nombre) &&
+            esFacturaReal(f) && f.estado !== 'pagada' && f.estado !== 'cancelada'
+        ).length;
+        return `<div onclick="_crSeleccionarPaciente('${p.id}')"
+                     style="padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,.06);
+                            display:flex;align-items:center;gap:12px;transition:background .15s;"
+                     onmouseenter="this.style.background='var(--surface)'"
+                     onmouseleave="this.style.background='transparent'">
+                    <div style="width:34px;height:34px;border-radius:50%;background:var(--clinic-color,#C4856A);
+                                color:white;display:flex;align-items:center;justify-content:center;
+                                font-size:13px;font-weight:600;flex-shrink:0;">
+                        ${(p.nombre||'?').charAt(0).toUpperCase()}
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:14px;font-weight:500;color:var(--topo);
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.nombre}</div>
+                        <div style="font-size:11px;color:var(--piedra);">
+                            ${p.telefono ? p.telefono + ' · ' : ''}${pendientes > 0 ? `<span style="color:var(--terra,#C4856A);font-weight:600;">${pendientes} pendiente${pendientes>1?'s':''}</span>` : 'Al día'}
+                        </div>
+                    </div>
+                </div>`;
+    }).join('');
+    sugg.style.display = 'block';
+}
+
+function _crSeleccionarPaciente(pacienteId) {
+    const sugg = document.getElementById('crSuggestions');
+    sugg.style.display = 'none';
+
+    const pac = appData.pacientes.find(p => p.id === pacienteId);
+    if (!pac) return;
+
+    document.getElementById('crPacienteInput').value = pac.nombre;
+
+    // Mostrar info del paciente
+    const bal = calcularBalancePaciente(pac);
+    const infoEl = document.getElementById('crPacienteInfo');
+    infoEl.style.display = 'block';
+    infoEl.innerHTML = `
+        <div style="font-weight:500;">${pac.nombre}</div>
+        <div style="font-size:12px;color:var(--piedra);margin-top:2px;">
+            ${pac.telefono || ''}${pac.cedula ? ' · ' + pac.cedula : ''}
+        </div>
+        ${bal > 0 ? `<div style="margin-top:6px;font-size:13px;color:var(--terra,#C4856A);font-weight:600;">
+            Saldo pendiente: ${formatCurrency(bal)}
+        </div>` : ''}
+    `;
+
+    // Mostrar facturas pendientes
+    const facturasPend = appData.facturas.filter(f =>
+        (f.pacienteId === pac.id || f.paciente === pac.nombre) &&
+        esFacturaReal(f) && f.estado !== 'pagada' && f.estado !== 'cancelada'
+    ).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+    const paso2 = document.getElementById('crPaso2');
+    const lista = document.getElementById('crFacturasList');
+
+    if (!facturasPend.length) {
+        lista.innerHTML = `<div style="text-align:center;padding:24px;color:var(--piedra);font-size:13px;">
+            <div style="font-size:28px;margin-bottom:8px;">✓</div>
+            Este paciente no tiene facturas pendientes
+        </div>`;
+    } else {
+        lista.innerHTML = facturasPend.map(f => {
+            const pagado  = (f.pagos||[]).reduce((s,p)=>s+p.monto,0);
+            const saldo   = Math.max(0, f.total - pagado);
+            const fecha   = new Date(f.fecha).toLocaleDateString(getLocale(),{day:'numeric',month:'short',year:'numeric'});
+            const procs   = (f.procedimientos||[]).map(p=>p.descripcion).join(', ') || 'Sin detalle';
+            return `
+            <div onclick="closeModal('modalCobroRapido');openPagarFactura('${f.id}')"
+                 style="padding:14px;background:var(--surface,#F5F2EE);border-radius:12px;
+                        margin-bottom:10px;cursor:pointer;border-left:4px solid var(--clinic-color,#C4856A);
+                        transition:box-shadow .15s;"
+                 onmouseenter="this.style.boxShadow='0 4px 14px rgba(30,28,26,.12)'"
+                 onmouseleave="this.style.boxShadow='none'">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+                    <div style="font-size:13px;font-weight:500;color:var(--topo);">${f.numero}</div>
+                    <div style="text-align:right;">
+                        <div style="font-size:15px;font-weight:600;color:var(--terra,#C4856A);">${formatCurrency(saldo)}</div>
+                        ${pagado > 0 ? `<div style="font-size:10px;color:var(--piedra);">Abonado: ${formatCurrency(pagado)}</div>` : ''}
+                    </div>
+                </div>
+                <div style="font-size:11px;color:var(--piedra);margin-bottom:4px;">${fecha} · ${f.profesional||''}</div>
+                <div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${procs}</div>
+                <div style="margin-top:10px;padding:8px 14px;background:var(--clinic-color,#C4856A);
+                            color:white;border-radius:8px;text-align:center;font-size:13px;font-weight:500;">
+                    Cobrar ahora →
+                </div>
+            </div>`;
+        }).join('');
+    }
+    paso2.style.display = 'block';
+}
+
 function updateCobrarTab() {
     // Safety check: if the cobrar tab isn't visible yet, do nothing
     const cobradoHoyEl = document.getElementById('cobradoHoy');
@@ -2816,6 +2956,27 @@ async function confirmarPago() {
 
     updateCobrarTab();
     closeModal('modalPagarFactura');
+
+    // UX #8: guardar snapshot del cuadre cuando hay un cobro real — no al abrir la tab
+    (function() {
+        const _tk = getTodayKey();
+        const _pagosHoy = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, _tk));
+        const _ef = _pagosHoy.filter(p=>p.metodo==='efectivo').reduce((s,p)=>s+p.monto,0);
+        const _ta = _pagosHoy.filter(p=>p.metodo==='tarjeta').reduce((s,p)=>s+p.monto,0);
+        const _tr = _pagosHoy.filter(p=>p.metodo==='transferencia').reduce((s,p)=>s+p.monto,0);
+        const _gi = (appData.gastos||[]).filter(g=>isSameDayTZ(g.fecha,_tk)).reduce((s,g)=>s+g.monto,0);
+        const _ge = (appData.gastos||[]).filter(g=>isSameDayTZ(g.fecha,_tk)&&g.metodo==='efectivo').reduce((s,g)=>s+g.monto,0);
+        const _ei = parseFloat(document.getElementById('efectivoInicial')?.value)||0;
+        guardarCuadreDiario(_tk, {
+            fecha: new Date().toISOString(),
+            efectivoInicial: _ei,
+            efectivo: _ef, tarjeta: _ta, transferencia: _tr,
+            totalIngresos: _ef+_ta+_tr,
+            gastos: _gi, gastosEfectivo: _ge,
+            balance: (_ef+_ta+_tr) - _gi,
+            efectivoCaja: _ei + _ef - _ge
+        });
+    })();
 
     // Fix 8: Refresh patient balance if patient record is open
     if (currentPacienteId) {
@@ -3164,21 +3325,10 @@ function updateCuadreTab() {
     document.getElementById('balanceDia').style.color = balance >= 0 ? 'var(--green, #6B8F71)' : 'var(--red, #C47070)';
     document.getElementById('efectivoCaja').textContent = formatCurrency(efectivoCaja);
 
-    // Guardar cuadre del día actual (solo si hay actividad)
-    if (totalIngresos > 0 || gastosHoy > 0) {
-        guardarCuadreDiario(todayKey, {
-            fecha: new Date().toISOString(),
-            efectivoInicial: efectivoInicial,
-            efectivo: efectivoHoy,
-            tarjeta: tarjetaHoy,
-            transferencia: transferenciaHoy,
-            totalIngresos: totalIngresos,
-            gastos: gastosHoy,
-            gastosEfectivo: gastosEfectivoHoy,
-            balance: balance,
-            efectivoCaja: efectivoCaja
-        });
-    }
+    // UX #8: el cuadre ya NO se auto-guarda al abrir la tab.
+    // Se guarda explícitamente cuando el admin presiona "Cerrar Día" 
+    // o automáticamente cuando se registra un pago/gasto (desde confirmarPago/registrarGasto).
+    // Esto evita que abrir el cuadre a las 8am con caja vacía cree un registro en el historial.
 
     // Mostrar historial solo para admin
     if (appData.currentRole === 'admin') {
@@ -3265,6 +3415,33 @@ function guardarCuadreDiario(fechaKey, cuadre) {
     }
     appData.cuadresDiarios[fechaKey] = cuadre;
     saveCuadres();
+}
+
+// UX #8: función de cierre explícito del día
+function _cerrarDiaCuadre() {
+    const todayKey = getTodayKey();
+    const pagosHoy = appData.facturas.flatMap(f => f.pagos||[]).filter(p => p && isSameDayTZ(p.fecha, todayKey));
+    const efectivo      = pagosHoy.filter(p=>p.metodo==='efectivo').reduce((s,p)=>s+p.monto,0);
+    const tarjeta       = pagosHoy.filter(p=>p.metodo==='tarjeta').reduce((s,p)=>s+p.monto,0);
+    const transferencia = pagosHoy.filter(p=>p.metodo==='transferencia').reduce((s,p)=>s+p.monto,0);
+    const totalIngresos = efectivo + tarjeta + transferencia;
+    const gastosHoy     = (appData.gastos||[]).filter(g=>isSameDayTZ(g.fecha,todayKey)).reduce((s,g)=>s+g.monto,0);
+    const gastosEfectivo = (appData.gastos||[]).filter(g=>isSameDayTZ(g.fecha,todayKey)&&g.metodo==='efectivo').reduce((s,g)=>s+g.monto,0);
+    const efectivoInicial = parseFloat(document.getElementById('efectivoInicial')?.value) || 0;
+    guardarCuadreDiario(todayKey, {
+        fecha:           new Date().toISOString(),
+        efectivoInicial, efectivo, tarjeta, transferencia,
+        totalIngresos,   gastos: gastosHoy, gastosEfectivo,
+        balance:         totalIngresos - gastosHoy,
+        efectivoCaja:    efectivoInicial + efectivo - gastosEfectivo,
+        cierreManual:    true,
+        cerradoPor:      appData.currentUser,
+    });
+    // Feedback visual
+    const msg = document.getElementById('cuadreSavedMsg');
+    if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3000); }
+    showToast('✓ Cierre del día guardado');
+    mostrarHistorialCuadres();
 }
 
 // Mostrar historial de última semana
@@ -4836,15 +5013,59 @@ function openModal(modalId) {
     document.getElementById(modalId).classList.add('active');
 }
 
+// UX #9: al cerrar modal por click fuera o botón X, verificar si hay trabajo sin guardar
+// Modales con estado: cotizaciones (tempProcedimientos) y nueva cita (campos llenos)
+const _MODALES_CON_ESTADO = new Set([
+    'modalAddProcedimiento', 'modalCotizItem', 'modalNuevaCita',
+    'modalAddGasto', 'modalNuevoPaciente', 'modalAddPersonal'
+]);
+
+function _modalTieneCambios(modalId) {
+    if (modalId === 'modalCotizItem') {
+        const desc = document.getElementById('cotizProcDesc')?.value?.trim();
+        return !!(desc);
+    }
+    if (modalId === 'modalNuevaCita') {
+        const motivo = document.getElementById('citaMotivo')?.value?.trim();
+        return !!(motivo);
+    }
+    if (modalId === 'modalAddGasto') {
+        const desc = document.getElementById('gastoDesc')?.value?.trim();
+        const monto = document.getElementById('gastoMonto')?.value?.trim();
+        return !!(desc || monto);
+    }
+    if (modalId === 'modalNuevoPaciente') {
+        const nombre = document.getElementById('nuevoPacienteNombre')?.value?.trim();
+        return !!(nombre);
+    }
+    if (modalId === 'modalAddPersonal') {
+        const nombre = document.getElementById('personalNombre')?.value?.trim();
+        return !!(nombre);
+    }
+    return false;
+}
+
 function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    if (_MODALES_CON_ESTADO.has(modalId) && _modalTieneCambios(modalId)) {
+        mostrarConfirmacion({
+            titulo: '¿Salir sin guardar?',
+            mensaje: 'Tienes cambios que no se han guardado. Si sales ahora, se perderán.',
+            tipo: 'advertencia',
+            confirmText: 'Sí, descartar',
+            onConfirm: () => { modal.classList.remove('active'); }
+        });
+        return;
+    }
+    modal.classList.remove('active');
 }
 
 // Close modal on outside click
 document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', function(e) {
         if (e.target === this) {
-            this.classList.remove('active');
+            closeModal(this.id);
         }
     });
 });
@@ -5897,11 +6118,22 @@ function renderTabResumen(paciente) {
                 <div style="font-size:11px;color:var(--piedra);margin-top:2px;letter-spacing:.5px;">Placas</div>
             </div>
             <div style="background:${balance>0?'rgba(196,133,106,.1)':'rgba(107,143,113,.1)'};padding:16px;border-radius:12px;
-                        border:1.5px solid ${balance>0?'rgba(196,133,106,.3)':'rgba(107,143,113,.3)'};">
+                        border:1.5px solid ${balance>0?'rgba(196,133,106,.3)':'rgba(107,143,113,.3)'};position:relative;overflow:hidden;">
                 <div style="font-size:18px;font-weight:500;color:${balance>0?'var(--terra,#C4856A)':'#3a7a4a'};letter-spacing:-.5px;">
-                    ${formatCurrency(balance)}
+                    ${balance>0 ? formatCurrency(balance) : '✓ Al día'}
                 </div>
                 <div style="font-size:11px;color:var(--piedra);margin-top:2px;letter-spacing:.5px;">Balance</div>
+                ${(() => {
+                    if (balance <= 0) return '';
+                    const facsPend = facturasPac.filter(f => esFacturaReal(f) && f.estado !== 'pagada' && f.estado !== 'cancelada');
+                    const nFacs = facsPend.length;
+                    const masAntigua = facsPend.reduce((min, f) => !min || new Date(f.fecha) < new Date(min.fecha) ? f : min, null);
+                    const diasDeuda = masAntigua ? Math.floor((Date.now() - new Date(masAntigua.fecha)) / 86400000) : 0;
+                    const urgente = diasDeuda > 30;
+                    return `<div style="font-size:10px;color:${urgente?'#c0392b':'var(--piedra)'};margin-top:4px;font-weight:${urgente?'600':'400'};">
+                        ${nFacs} factura${nFacs!==1?'s':''} · ${diasDeuda < 1 ? 'hoy' : diasDeuda === 1 ? 'ayer' : 'hace ' + diasDeuda + ' días'}
+                    </div>`;
+                })()}
             </div>
         </div>
 
@@ -7588,6 +7820,23 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
     const citasDia = citas.filter(c => _citaEnDia(c, diaKey))
         .sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
 
+    // UX #3: detectar solapamientos — marcar citas que chocan en mismo consultorio
+    const _solapaIds = new Set();
+    for (let i = 0; i < citasDia.length; i++) {
+        for (let j = i + 1; j < citasDia.length; j++) {
+            const ca = citasDia[i], cb = citasDia[j];
+            if (ca.consultorio !== cb.consultorio) continue;
+            const aStart = new Date(ca.fecha).getTime();
+            const aDur   = (ca.duracionMin || durMin) * 60000;
+            const bStart = new Date(cb.fecha).getTime();
+            const bDur   = (cb.duracionMin || durMin) * 60000;
+            if (aStart < bStart + bDur && aStart + aDur > bStart) {
+                _solapaIds.add(ca.id);
+                _solapaIds.add(cb.id);
+            }
+        }
+    }
+
     // Línea hora actual
     const ahora = new Date();
     const minAhora = ahora.getHours()*60 + ahora.getMinutes();
@@ -7640,6 +7889,7 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
                     transition:box-shadow .15s;"
              onmouseenter="this.style.boxShadow='0 4px 14px rgba(30,28,26,.18)'"
              onmouseleave="this.style.boxShadow='0 2px 8px rgba(30,28,26,.1)'">
+            ${_solapaIds.has(c.id) ? `<div style="background:#ff3b30;color:white;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 8px;margin:-7px -10px 5px;text-align:center;border-radius:6px 6px 0 0;">⚠ SOLAPAMIENTO</div>` : ''}
             <!-- Click area para abrir detalle (todo excepto botones) -->
             <div onclick="verDetalleCita('${c.id}')"
                  style="position:absolute;inset:0;cursor:pointer;z-index:1;"></div>
@@ -9118,25 +9368,49 @@ function buscarPacienteFactura() {
         return;
     }
 
-    suggestions.innerHTML = matches.map(p => `
-        <div onclick="seleccionarPacienteFactura('${p.nombre.replace(/'/g, "\'")}')"
-             style="padding:14px 16px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,0.06);
-                    transition:background 0.15s;display:flex;flex-direction:column;gap:3px"
+    // UX #10: mismo formato rico que la búsqueda en agenda — teléfono, cédula,
+    // balance pendiente y última visita para distinguir pacientes con nombre igual
+    suggestions.innerHTML = matches.map(p => {
+        const bal = calcularBalancePaciente(p);
+        const ultimaCita = getCitasDePaciente(p)
+            .filter(c => c.estado === 'Completada' || new Date(c.fecha) < new Date())
+            .sort((a,b) => new Date(b.fecha) - new Date(a.fecha))[0];
+        const ultimaVisita = ultimaCita
+            ? 'Últ. visita: ' + new Date(ultimaCita.fecha).toLocaleDateString(getLocale(), {day:'numeric', month:'short'})
+            : (p.fechaRegistro ? 'Registrado: ' + new Date(p.fechaRegistro).toLocaleDateString(getLocale(), {day:'numeric', month:'short'}) : '');
+        return `
+        <div onclick="seleccionarPacienteFactura('${p.nombre.replace(/'/g, "\'")}', '${p.id}')"
+             data-paciente-id="${p.id}"
+             style="padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(30,28,26,0.06);
+                    transition:background 0.15s;display:flex;align-items:center;gap:12px;"
              onmouseover="this.style.background='var(--surface)'"
              onmouseout="this.style.background='transparent'">
-            <div style="font-size:14px;font-weight:400;color:var(--dark)">${p.nombre}</div>
-            <div style="font-size:12px;color:var(--mid)">
-                ${p.cedula ? `<span style="margin-right:10px">📋 ${p.cedula}</span>` : ''}${p.telefono ? `📱 ${p.telefono}` : ''}
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--clinic-color,#C4856A);
+                        color:white;display:flex;align-items:center;justify-content:center;
+                        font-size:14px;font-weight:600;flex-shrink:0;">
+                ${(p.nombre||'?').charAt(0).toUpperCase()}
             </div>
-        </div>
-    `).join('');
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:500;color:var(--dark);
+                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.nombre}</div>
+                <div style="font-size:11px;color:var(--mid);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
+                    ${p.telefono ? `<span>📱 ${p.telefono}</span>` : ''}
+                    ${p.cedula   ? `<span>🪪 ${p.cedula}</span>`   : ''}
+                    ${ultimaVisita ? `<span style="color:var(--piedra);">${ultimaVisita}</span>` : ''}
+                </div>
+            </div>
+            ${bal > 0 ? `<div style="font-size:11px;font-weight:600;color:var(--terra,#C4856A);
+                              background:rgba(196,133,106,.1);border-radius:6px;padding:3px 7px;
+                              flex-shrink:0;white-space:nowrap;">${formatCurrency(bal)}</div>` : ''}
+        </div>`;
+    }).join('');
 
     suggestions.style.display = 'block';
 }
 
-function seleccionarPacienteFactura(nombre) {
-    const contenedor = document.getElementById('cobros-content') || document;
-    const input       = contenedor.querySelector('#pacienteNombre')       || document.getElementById('pacienteNombre');
+function seleccionarPacienteFactura(nombre, pacienteId) {
+    const contenedor  = document.getElementById('cobros-content') || document;
+    const input       = contenedor.querySelector('#pacienteNombre')            || document.getElementById('pacienteNombre');
     const suggestions = contenedor.querySelector('#pacienteNombreSuggestions') || document.getElementById('pacienteNombreSuggestions');
     if (!input) return;
 
@@ -9144,9 +9418,14 @@ function seleccionarPacienteFactura(nombre) {
     input.dataset.pacienteSeleccionado = 'true';
     if (suggestions) suggestions.style.display = 'none';
 
-    // Guardar ID del paciente para vinculación correcta
-    const pac = appData.pacientes.find(p => p.nombre === nombre);
-    input.dataset.pacienteId = pac ? pac.id : '';
+    // UX #10: preferir el ID pasado directamente desde el dropdown para evitar
+    // colisiones con pacientes de nombre idéntico
+    if (pacienteId) {
+        input.dataset.pacienteId = pacienteId;
+    } else {
+        const pac = appData.pacientes.find(p => p.nombre === nombre);
+        input.dataset.pacienteId = pac ? pac.id : '';
+    }
 }
 
 // ========================================
