@@ -11471,9 +11471,11 @@ function mostrarModal({ titulo, body, confirmText = 'Confirmar', onConfirm, hide
     overlay.innerHTML = `
         <div id="genericModalSheet" style="
             background:var(--white,#FDFCFB);border-radius:24px 24px 0 0;
-            width:100%;max-width:560px;max-height:92vh;overflow-y:auto;
-            padding:0 0 calc(env(safe-area-inset-bottom) + 16px);
+            width:100%;max-width:560px;max-height:88vh;overflow-y:auto;
+            overflow-x:hidden;
+            padding:0 0 calc(env(safe-area-inset-bottom) + 24px);
             animation:slideUp 0.3s cubic-bezier(0.34,1.1,0.64,1);
+            -webkit-overflow-scrolling:touch;
         ">
             <div style="position:sticky;top:0;background:var(--white,#FDFCFB);z-index:1;
                         padding:20px 24px 16px;border-bottom:1px solid rgba(30,28,26,0.07)">
@@ -14373,7 +14375,7 @@ let _zxingReader   = null;
 async function invAbrirScannerCamara() {
     const loaded = await _loadZxing();
     if (!loaded) {
-        showToast('⚠️ No se pudo cargar el scanner. Verificá tu conexión.', 3500, '#e65100');
+        showToast('⚠️ No se pudo cargar el escáner. Revisá tu conexión a internet e intentá de nuevo.', 4000, '#e65100');
         return;
     }
     if (_scannerActivo) return;
@@ -14563,12 +14565,23 @@ function _loadZxing() {
     return new Promise(resolve => {
         if (window.ZXingBrowser) { resolve(true); return; }
         const tag = document.getElementById('zxing-script');
-        const src = tag?.dataset?.src || 'https://unpkg.com/@zxing/browser@0.1.4/umd/index.min.js';
-        const s   = document.createElement('script');
-        s.src     = src;
-        s.onload  = () => resolve(true);
-        s.onerror = () => resolve(false);
-        document.head.appendChild(s);
+        // Primary: jsDelivr (very reliable globally). Fallback: unpkg.
+        const primary  = tag?.dataset?.src  || 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js';
+        const fallback = tag?.dataset?.fallback || 'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js';
+
+        function tryLoad(src, onSuccess, onFail) {
+            const s = document.createElement('script');
+            s.src = src;
+            s.onload  = onSuccess;
+            s.onerror = onFail;
+            document.head.appendChild(s);
+        }
+
+        tryLoad(
+            primary,
+            () => resolve(true),
+            () => tryLoad(fallback, () => resolve(true), () => resolve(false))
+        );
     });
 }
 
