@@ -1801,9 +1801,6 @@ function updateReceptionPicker() {
     });
 }
 
-
-}
-
 // Logout
 function logout() {
     shutdownIntercom();
