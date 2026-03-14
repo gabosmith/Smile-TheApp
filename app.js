@@ -1393,6 +1393,11 @@ function initRealtimeListener() {
 
             const data = doc.data() || {};
             _hydrate(data);
+            // FIX #3: aplicar las mismas limpiezas que loadData() hace al arrancar.
+            // Sin esto, datos que llegan por sync en tiempo real pueden tener estados
+            // legacy en inglés o cache de balance desactualizado.
+            _normalizarEstadosFacturas();
+            invalidateBalanceCache();
             updateLocalCache();
 
             // Refrescar la tab activa si el usuario ya esta logueado
@@ -2435,6 +2440,10 @@ async function generarFactura() {
     try {
         invalidateBalanceCache();
         await saveFacturas();
+        // FIX #1: persistir el cambio de estado de la cita a Firebase
+        // generarFactura() marca citaHoy como 'Completada' en memoria pero
+        // las citas viven en un campo separado del documento — hay que guardarlas explícitamente.
+        if (citaHoy) await saveCitas();
         await saveLaboratorios(); // crearOrdenesLabDesdeFactura may have added labs
     } catch(saveErr) {
         // Revertir mutaciones locales si Firebase rechazó la escritura
@@ -2499,7 +2508,7 @@ function updateIngresosTab() {
         .reduce((sum, f) => sum + ((f.pagos || []).reduce((s, p) => s + p.monto, 0) * comision / 100), 0);
 
     const porCobrar = misFacturas
-        .filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada')
+        .filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada' && esFacturaReal(f)) // FIX #2
         .reduce((sum, f) => sum + (f.total - (f.pagos || []).reduce((s, p) => s + p.monto, 0)), 0);
 
     document.getElementById('ingresosHoy').textContent = formatCurrency(ingresosHoy);
@@ -4906,14 +4915,35 @@ async function eliminarFactura(facturaId) {
             }
 
             const backupFacturas = [...appData.facturas];
+
+            // FIX #5: si esta factura fue la que marcó una cita como 'Completada',
+            // revertir la cita a 'Pendiente' para que no quede huérfana en la agenda.
+            let citaRevertida = null;
+            let citaEstadoAnterior = null;
+            if (factura.citaId) {
+                const citaVinculada = appData.citas.find(c => c.id === factura.citaId);
+                if (citaVinculada && citaVinculada.estado === 'Completada') {
+                    citaEstadoAnterior = citaVinculada.estado;
+                    citaVinculada.estado = 'Pendiente';
+                    citaVinculada.fechaCompletada = null;
+                    citaRevertida = citaVinculada;
+                }
+            }
+
             appData.facturas = appData.facturas.filter(f => f.id !== facturaId);
             try {
                 updateCobrarTab();
                 invalidateBalanceCache();
                 await saveFacturas();
+                if (citaRevertida) await saveCitas(); // persistir reversión de cita
                 showToast('✓ Factura eliminada correctamente');
             } catch(saveErr) {
                 appData.facturas = backupFacturas;
+                // Deshacer la reversión de la cita si Firebase falló
+                if (citaRevertida) {
+                    citaRevertida.estado = citaEstadoAnterior;
+                    citaRevertida.fechaCompletada = new Date().toISOString();
+                }
                 showError('Error al eliminar la factura.', saveErr);
             }
         }
@@ -10187,6 +10217,14 @@ function descargarRecetaPDF(recetaId) {
 // FUNCIÓN CENTRALIZADA DE BALANCE
 // ========================================
 
+// FIX #2: Helper para distinguir facturas reales de cotizaciones sin aprobar.
+// Una cotización que el paciente aún no aprobó NO es deuda — no debe aparecer
+// en "Por cobrar", en el cuadre, ni en el balance del paciente.
+// Una factura es "real" si fue aprobada como presupuesto O si ya tiene al menos un pago.
+function esFacturaReal(f) {
+    return f.presupuestoAprobado === true || (f.pagos && f.pagos.length > 0);
+}
+
 // Helper: buscar facturas de un paciente por ID o nombre (compatibilidad hacia atrás)
 function getFacturasDePaciente(paciente) {
     const nombreLower = (paciente.nombre || '').toLowerCase();
@@ -10194,6 +10232,7 @@ function getFacturasDePaciente(paciente) {
         (f.pacienteId && f.pacienteId === paciente.id) ||
         (f.paciente || '').toLowerCase() === nombreLower
     );
+
 }
 
 // Helper: buscar citas de un paciente por ID o nombre
@@ -10213,24 +10252,35 @@ function invalidateBalanceCache() {
     _balanceCache.clear();
 }
 
-function calcularBalancePaciente(nombrePaciente) {
-    const key = (nombrePaciente || '').toLowerCase() + ':' + _balanceCacheVersion;
-    if (_balanceCache.has(key)) return _balanceCache.get(key);
+// FIX #4: Acepta el objeto paciente completo O solo el nombre (compatibilidad).
+// La clave del cache usa el ID del paciente cuando está disponible — evita que
+// dos pacientes con el mismo nombre compartan balance.
+// FIX #2 integrado: solo cuenta facturas reales (aprobadas o con pagos), no cotizaciones.
+function calcularBalancePaciente(pacienteONombre) {
+    // Resolver a objeto paciente si recibimos un string
+    const paciente = typeof pacienteONombre === 'object' && pacienteONombre !== null
+        ? pacienteONombre
+        : appData.pacientes.find(p =>
+            (p.nombre || '').toLowerCase() === (pacienteONombre || '').toLowerCase()
+          );
 
-    const paciente = appData.pacientes.find(p =>
-        (p.nombre || '').toLowerCase() === (nombrePaciente || '').toLowerCase()
-    );
+    // Cache key: ID si disponible, nombre normalizado como fallback
+    const cacheKey = (paciente?.id || (typeof pacienteONombre === 'string' ? pacienteONombre : '').toLowerCase())
+        + ':' + _balanceCacheVersion;
+    if (_balanceCache.has(cacheKey)) return _balanceCache.get(cacheKey);
+
     const facturasPaciente = paciente
-        ? getFacturasDePaciente(paciente)
+        ? getFacturasDePaciente(paciente).filter(esFacturaReal)
         : appData.facturas.filter(f =>
-            (f.paciente || '').toLowerCase() === (nombrePaciente || '').toLowerCase()
+            (f.paciente || '').toLowerCase() === ((typeof pacienteONombre === 'string' ? pacienteONombre : '') || '').toLowerCase()
+            && esFacturaReal(f)
           );
 
     const balance = facturasPaciente.reduce((sum, f) => {
         const totalPagado = (f.pagos || []).reduce((s, p) => s + p.monto, 0);
         return sum + (f.total - totalPagado);
     }, 0);
-    _balanceCache.set(key, balance);
+    _balanceCache.set(cacheKey, balance);
     return balance;
 }
 
@@ -10976,14 +11026,16 @@ function updateDashboardTab() {
     const citasPendientes  = citasActivas.filter(c => c.estado === 'Pendiente' || c.estado === 'Confirmada').length;
     const enSala           = citasActivas.filter(c => c.estado === 'En Sala de Espera').length;
 
-    // Facturas
-    const facturasPendientes = facturasVista.filter(f => f.estado !== 'pagada' && f.estado !== 'cancelada');
+    // Facturas — FIX #2: excluir cotizaciones no aprobadas de los totales financieros
+    const facturasPendientes = facturasVista.filter(f =>
+        f.estado !== 'pagada' && f.estado !== 'cancelada' && esFacturaReal(f)
+    );
     const porCobrar = facturasPendientes.reduce((s,f) => {
         const pagado = (f.pagos||[]).reduce((ss,p)=>ss+p.monto,0);
         return s + Math.max(0, f.total - pagado);
     }, 0);
     const totalFacturado = facturasVista
-        .filter(f => f.estado !== 'cancelada')
+        .filter(f => f.estado !== 'cancelada' && esFacturaReal(f))
         .reduce((s,f)=>s+f.total, 0);
     const totalCobrado = facturasVista
         .flatMap(f=>f.pagos||[])
