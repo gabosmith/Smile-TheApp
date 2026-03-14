@@ -7878,53 +7878,123 @@ function _agendaDia(citas, horaApertura, horaCierre, durMin, todayKey, MESES, DI
             const pac = (appData.pacientes||[]).find(p=>p.nombre===c.paciente);
             return pac?.telefono || '';
         })();
+        // Calcular qué información cabe según el alto de la tarjeta
+        // hPx depende de duracionMin — cita de 30min ≈ 32px, 1h ≈ 60px, 2h ≈ 124px
+        const compacto = hPx < 36;   // tan pequeña que solo cabe 1 línea
+        const mediano  = hPx >= 36 && hPx < 56;  // cabe 2 líneas
+        const grande   = hPx >= 56;  // cabe todo
+
+        // Teléfono del paciente para WhatsApp
+        const pacObj = (appData.pacientes||[]).find(p => p.nombre === c.paciente);
+        const telPac = pacObj?.telefono || '';
+
+        // Duración formateada
+        const durLabel = dur >= 60
+            ? (dur % 60 === 0 ? `${dur/60}h` : `${Math.floor(dur/60)}h${dur%60}`)
+            : `${dur}min`;
+
         citasHTML += `
         <div draggable="true"
              ondragstart="_onDragStart(event,'${c.id}','${c.hora}')"
              ontouchstart="_touchDragStart(event,'${c.id}')"
              style="position:absolute;top:${topPx}px;left:56px;right:10px;height:${hPx}px;
                     background:white;border-radius:10px;border-left:4px solid ${eCol};
-                    box-shadow:0 2px 8px rgba(30,28,26,.1);padding:7px 10px;
+                    box-shadow:0 2px 8px rgba(30,28,26,.1);padding:${compacto?'4px 8px':'7px 10px'};
                     overflow:hidden;box-sizing:border-box;z-index:3;cursor:grab;
                     transition:box-shadow .15s;"
              onmouseenter="this.style.boxShadow='0 4px 14px rgba(30,28,26,.18)'"
              onmouseleave="this.style.boxShadow='0 2px 8px rgba(30,28,26,.1)'">
-            ${_solapaIds.has(c.id) ? `<div style="background:#ff3b30;color:white;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 8px;margin:-7px -10px 5px;text-align:center;border-radius:6px 6px 0 0;">⚠ SOLAPAMIENTO</div>` : ''}
-            <!-- Click area para abrir detalle (todo excepto botones) -->
+
+            ${_solapaIds.has(c.id) ? `<div style="background:#ff3b30;color:white;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 8px;margin:${compacto?'-4px -8px 3px':'-7px -10px 5px'};text-align:center;border-radius:6px 6px 0 0;">⚠ SOLAPAMIENTO</div>` : ''}
+
+            <!-- Zona clickeable -->
             <div onclick="verDetalleCita('${c.id}')"
                  style="position:absolute;inset:0;cursor:pointer;z-index:1;"></div>
-            <div style="position:relative;z-index:2;display:flex;justify-content:space-between;
-                        align-items:flex-start;gap:6px;pointer-events:none;">
-                <div style="flex:1;min-width:0;">
-                    <div style="font-weight:700;font-size:13px;color:var(--topo);
-                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                        ${c.hora}  ${c.paciente||'—'}
-                    </div>
-                    ${hPx>42?`<div style="font-size:11px;color:var(--piedra);margin-top:2px;
-                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                ${c.profesional||''} ${c.consultorio?'· C'+c.consultorio:''}
-                              </div>`:''}
-                    ${hPx>58&&c.motivo?`<div style="font-size:10px;color:var(--muted);margin-top:1px;
-                                             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                             ${c.motivo}</div>`:''}
+
+            ${compacto ? `
+            <!-- VISTA COMPACTA: todo en una sola línea -->
+            <div style="position:relative;z-index:2;display:flex;align-items:center;
+                        gap:5px;pointer-events:none;height:100%;">
+                <div style="font-weight:600;font-size:11px;color:var(--topo);
+                            white-space:nowrap;flex-shrink:0;">${c.hora}</div>
+                <div style="font-size:11px;color:var(--topo);font-weight:500;
+                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">
+                    ${c.paciente||'—'}
                 </div>
-                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-                    ${saldo?'<span style="font-size:9px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 4px;font-weight:600;">💰</span>':''}
-                    <span style="font-size:9px;background:${eCol}22;color:${eCol};
-                                 border-radius:4px;padding:2px 6px;font-weight:600;">${c.estado||'Pendiente'}</span>
+                <div style="display:flex;gap:3px;align-items:center;flex-shrink:0;">
+                    ${saldo?'<span style="font-size:8px;background:#fff3cd;color:#856404;border-radius:3px;padding:1px 3px;font-weight:600;">$</span>':''}
+                    <span style="font-size:8px;background:${eCol}22;color:${eCol};
+                                 border-radius:3px;padding:1px 4px;font-weight:600;white-space:nowrap;">
+                        ${(c.estado||'Pendiente').slice(0,4)}</span>
                 </div>
             </div>
-            ${hPx>44&&waTel?`
+            ` : mediano ? `
+            <!-- VISTA MEDIANA: 2 líneas — paciente + profesional/motivo -->
+            <div style="position:relative;z-index:2;pointer-events:none;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:12px;color:var(--topo);
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">
+                            ${c.hora} &nbsp;${c.paciente||'—'}
+                        </div>
+                        <div style="font-size:10px;color:var(--piedra);margin-top:2px;
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            ${[c.profesional, c.consultorio?'C'+c.consultorio:'', c.motivo].filter(Boolean).join(' · ')}
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:3px;align-items:center;flex-shrink:0;">
+                        ${saldo?'<span style="font-size:8px;background:#fff3cd;color:#856404;border-radius:3px;padding:1px 3px;font-weight:600;">💰</span>':''}
+                        <span style="font-size:9px;background:${eCol}22;color:${eCol};
+                                     border-radius:4px;padding:2px 5px;font-weight:600;white-space:nowrap;">
+                            ${c.estado||'Pendiente'}</span>
+                    </div>
+                </div>
+            </div>
+            ` : `
+            <!-- VISTA COMPLETA: todas las líneas + botón WA -->
+            <div style="position:relative;z-index:2;pointer-events:none;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+                    <div style="flex:1;min-width:0;">
+                        <!-- Hora + paciente -->
+                        <div style="font-weight:700;font-size:13px;color:var(--topo);
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            ${c.hora} &nbsp;${c.paciente||'—'}
+                        </div>
+                        <!-- Profesional + consultorio -->
+                        <div style="font-size:11px;color:var(--piedra);margin-top:3px;
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            ${c.profesional||''} ${c.consultorio?'· C'+c.consultorio:''}
+                        </div>
+                        <!-- Motivo -->
+                        ${c.motivo?`<div style="font-size:10px;color:var(--muted);margin-top:2px;
+                                               white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        ${c.motivo}</div>`:''}
+                        <!-- Duración -->
+                        ${hPx>80?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">
+                                        ⏱ ${durLabel}</div>`:''}
+                        <!-- Saldo pendiente -->
+                        ${hPx>96&&saldo?`<div style="font-size:10px;font-weight:600;color:var(--terra,#C4856A);
+                                              margin-top:3px;">💰 Saldo pendiente</div>`:''}
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;">
+                        ${saldo?'<span style="font-size:9px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 4px;font-weight:600;">💰</span>':''}
+                        <span style="font-size:9px;background:${eCol}22;color:${eCol};
+                                     border-radius:4px;padding:2px 6px;font-weight:600;">${c.estado||'Pendiente'}</span>
+                    </div>
+                </div>
+            </div>
+            ${telPac?`
             <button onclick="event.stopPropagation();_citaWA('${c.id}')"
-                    style="position:absolute;bottom:5px;right:8px;z-index:3;
+                    style="position:absolute;bottom:6px;right:8px;z-index:3;
                            background:#25D366;color:white;border:none;border-radius:6px;
                            padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;
-                           display:flex;align-items:center;gap:3px;">
+                           display:flex;align-items:center;gap:3px;pointer-events:auto;">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
                     <path d="M12 0C5.373 0 0 5.373 0 12c0 2.136.558 4.14 1.535 5.874L0 24l6.278-1.515A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.647-.49-5.172-1.348l-.371-.214-3.852.929.977-3.754-.237-.387A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
                 </svg>
                 WA</button>`:''}
+            `}
         </div>`;
     });
 
