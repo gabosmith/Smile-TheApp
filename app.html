@@ -1125,6 +1125,38 @@
         #verPacienteNombre { font-size: 18px !important; }
     }
 
+    /* ── V3 TABS: Plan, Historial, Clínico ─────────────── */
+    @media (max-width: 600px) {
+        /* Tab Plan: stats grid 2 cols */
+        #tabPlan [style*="grid-template-columns:repeat(3"],
+        #tabPlan [style*="grid-template-columns: repeat(3"] {
+            grid-template-columns: repeat(2,1fr) !important;
+            gap: 8px !important;
+        }
+        /* Tab Resumen: 4-col stats → 2-col */
+        #tabResumen [style*="grid-template-columns:repeat(4"],
+        #tabResumen [style*="grid-template-columns: repeat(4"] {
+            grid-template-columns: repeat(2,1fr) !important;
+            gap: 8px !important;
+        }
+        /* Historial: balance row 3-col stays, fine on mobile */
+        /* Plan: total footer flex wrap */
+        #tabPlan [style*="display:flex;justify-content:space-between"] {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        /* realizarProc modal: full width on mobile */
+        #modalRealizarProcOverlay > div {
+            width: 100% !important;
+            border-radius: 20px 20px 0 0 !important;
+            margin: 0 !important;
+        }
+        #modalRealizarProcOverlay {
+            align-items: flex-end !important;
+            padding: 0 !important;
+        }
+    }
+
     /* ── EDIT PATIENT MODAL: 2-col grids → 1-col on mobile ── */
     @media (max-width: 540px) {
         /* Teléfono + cédula */

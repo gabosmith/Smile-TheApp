@@ -6952,7 +6952,7 @@ function abrirModalRealizarProc(facturaId, procId) {
     if (!overlay) {
         overlay = document.createElement('div');
         overlay.id = 'modalRealizarProcOverlay';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10500;display:flex;align-items:flex-end;justify-content:center;padding:0;';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10500;display:flex;align-items:center;justify-content:center;padding:16px;';
         overlay.onclick = e => { if (e.target === overlay) cerrarModalRealizarProc(); };
         document.body.appendChild(overlay);
     }
@@ -6961,7 +6961,8 @@ function abrirModalRealizarProc(facturaId, procId) {
         <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:540px;
                     padding:24px 20px 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.15);
                     animation:slideUp .25s cubic-bezier(.34,1.2,.64,1);
-                    max-height:88dvh;overflow-y:auto;">
+                    max-height:min(88dvh,640px);overflow-y:auto;
+                    border-radius:20px;">
 
             <!-- Header -->
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
