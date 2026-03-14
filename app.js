@@ -1167,7 +1167,7 @@ async function saveCitas() {
         const safe = (appData.citas || []).map(c => sanitize.cita(c)).filter(Boolean);
         await db.collection('clinicas').doc(CLINIC_PATH).update({ citas: safe, lastUpdated: new Date().toISOString() });
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar citas.', e); }
+    } catch(e) { showError('Error al guardar citas.', e); throw e; }
 }
 
 async function saveFacturas() {
@@ -1178,7 +1178,7 @@ async function saveFacturas() {
         await db.collection('clinicas').doc(CLINIC_PATH).update({ facturas: safe, lastUpdated: new Date().toISOString() });
         invalidateBalanceCache();
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar facturas.', e); }
+    } catch(e) { showError('Error al guardar facturas.', e); throw e; }
 }
 
 async function saveGastos() {
@@ -1187,7 +1187,7 @@ async function saveGastos() {
         setConnectionState('saving');
         await db.collection('clinicas').doc(CLINIC_PATH).update({ gastos: appData.gastos || [], lastUpdated: new Date().toISOString() });
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar gastos.', e); }
+    } catch(e) { showError('Error al guardar gastos.', e); throw e; }
 }
 
 async function savePersonal() {
@@ -1196,7 +1196,7 @@ async function savePersonal() {
         setConnectionState('saving');
         await db.collection('clinicas').doc(CLINIC_PATH).update({ personal: appData.personal || [], lastUpdated: new Date().toISOString() });
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar personal.', e); }
+    } catch(e) { showError('Error al guardar personal.', e); throw e; }
 }
 
 async function saveLaboratorios() {
@@ -1214,7 +1214,7 @@ async function saveLaboratorios() {
         });
         if (labActual.length > 0) window._labCargadoConDatos = true;
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar laboratorios.', e); }
+    } catch(e) { showError('Error al guardar laboratorios.', e); throw e; }
 }
 
 
@@ -1295,7 +1295,7 @@ async function saveInventario() {
         const safe = (appData.inventario || []).map(i => sanitize.item(i)).filter(Boolean);
         await db.collection('clinicas').doc(CLINIC_PATH).update({ inventario: safe, lastUpdated: new Date().toISOString() });
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar inventario.', e); }
+    } catch(e) { showError('Error al guardar inventario.', e); throw e; }
 }
 
 async function saveAvances() {
@@ -1304,7 +1304,7 @@ async function saveAvances() {
         setConnectionState('saving');
         await db.collection('clinicas').doc(CLINIC_PATH).update({ avances: appData.avances || [], lastUpdated: new Date().toISOString() });
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar avances.', e); }
+    } catch(e) { showError('Error al guardar avances.', e); throw e; }
 }
 
 async function saveSettings() {
@@ -1313,7 +1313,7 @@ async function saveSettings() {
         setConnectionState('saving');
         await db.collection('clinicas').doc(CLINIC_PATH).update({ settings: appData.settings || {}, lastUpdated: new Date().toISOString() });
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar configuración.', e); }
+    } catch(e) { showError('Error al guardar configuración.', e); throw e; }
 }
 
 async function saveCuadres() {
@@ -1322,7 +1322,7 @@ async function saveCuadres() {
         setConnectionState('saving');
         await db.collection('clinicas').doc(CLINIC_PATH).update({ cuadresDiarios: appData.cuadresDiarios || {}, lastUpdated: new Date().toISOString() });
         setConnectionState('online');
-    } catch(e) { showError('Error al guardar cuadre.', e); }
+    } catch(e) { showError('Error al guardar cuadre.', e); throw e; }
 }
 
 async function deletePacienteDoc(pacienteId) {
@@ -2422,7 +2422,7 @@ async function generarFactura() {
     };
 
     // Guardar estado anterior para rollback si Firebase falla
-    const backupFacturas = appData.facturas.length;
+    const backupFacturas = [...appData.facturas]; // FIX: copia completa, no índice
     const backupCitaEstado = citaHoy ? citaHoy.estado : null;
 
     appData.facturas.push(factura);
@@ -2447,7 +2447,7 @@ async function generarFactura() {
         await saveLaboratorios(); // crearOrdenesLabDesdeFactura may have added labs
     } catch(saveErr) {
         // Revertir mutaciones locales si Firebase rechazó la escritura
-        appData.facturas.splice(backupFacturas, 1);
+        appData.facturas = backupFacturas; // restaurar array completo
         if (citaHoy && backupCitaEstado) citaHoy.estado = backupCitaEstado;
         throw saveErr; // re-throw para que el catch externo lo maneje
     }
@@ -2668,10 +2668,11 @@ function enviarCotizacion(facturaId) {
     const moneda    = clinicConfig.moneda || 'RD$';
     const fecha     = new Date(factura.fecha).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
     const balance   = factura.total - (factura.pagos || []).reduce((s, p) => s + p.monto, 0);
+    const _loc = getLocale(); // FIX: usar locale de la clínica, no hardcoded es-DO
 
     // Líneas de procedimientos
     const procs = (factura.procedimientos || [])
-        .map(p => `  • ${p.descripcion}${p.dientes ? ' (🦷 ' + p.dientes + ')' : ''}: ${moneda} ${Number(p.precio || 0).toLocaleString('es-DO')}`)
+        .map(p => `  • ${p.descripcion}${p.dientes ? ' (🦷 ' + p.dientes + ')' : ''}: ${moneda} ${Number(p.precio || 0).toLocaleString(_loc)}`)
         .join('\n');
 
     const mensaje =
@@ -2685,8 +2686,8 @@ function enviarCotizacion(facturaId) {
 ${procs || '  • (Sin procedimientos detallados)'}
 
 ━━━━━━━━━━━━━━━━━━━
-💰 *Total: ${moneda} ${Number(factura.total).toLocaleString('es-DO')}*
-${balance < factura.total ? `✅ Abonado: ${moneda} ${Number(factura.total - balance).toLocaleString('es-DO')}\n⏳ Pendiente: ${moneda} ${Number(balance).toLocaleString('es-DO')}` : ''}
+💰 *Total: ${moneda} ${Number(factura.total).toLocaleString(_loc)}*
+${balance < factura.total ? `✅ Abonado: ${moneda} ${Number(factura.total - balance).toLocaleString(_loc)}\n⏳ Pendiente: ${moneda} ${Number(balance).toLocaleString(_loc)}` : ''}
 
 _Para confirmar su cita o realizar consultas, responda este mensaje._`;
 
@@ -3357,20 +3358,22 @@ function registrarGasto() {
         aprobado:      true
     };
 
-    const backupGastos = appData.gastos.length;
+    const backupGastos = [...appData.gastos];
     appData.gastos.push(gasto);
     registrarAuditoria('crear', 'gasto',
         `Gasto ${formatCurrency(monto)} · ${desc} · ${proveedor} · ${metodo}`);
+    updateGastosTab();
+    closeModal('modalAddGasto');
+
+    // Guardar en Firebase — si falla, revertir y avisar
     saveGastos().then(() => {
+        showToast('✓ Gasto registrado');
         saveData('auditoria-gasto').catch(() => {});
     }).catch(() => {
-        appData.gastos.splice(backupGastos, 1); // revertir
+        appData.gastos = backupGastos; // revertir con copia completa, no por índice
         updateGastosTab();
         showToast('❌ No se pudo guardar el gasto. Intenta de nuevo.', 4000, '#c0392b');
     });
-    updateGastosTab();
-    closeModal('modalAddGasto');
-    showToast('✓ Gasto registrado');
 }
 
 function updateGastosTab() {
@@ -3868,6 +3871,7 @@ async function confirmarPagoSalarioFijo(person) {
                         + '================================\n\n'
                         + 'Registrado por: ' + appData.currentUser + '\nFirma: _____________________\n';
             const backupAvances = [...appData.avances];
+            const backupPersonal = appData.personal.map(p => ({...p})); // copia plana para rollback
             appData.avances = appData.avances.filter(a => a.personalId !== person.id);
             const idx = appData.personal.findIndex(p => p.id === person.id);
             if (idx >= 0) appData.personal[idx].lastPaymentDate = new Date().toISOString();
@@ -3878,11 +3882,14 @@ async function confirmarPagoSalarioFijo(person) {
             mostrarReciboHTML(reciboHTMLsf, recibo);
             try {
                 await savePersonal();
+                await saveAvances();
                 closeModal('modalPersonalDetail');
                 openModal('modalRecibo');
                 updatePersonalTab();
             } catch(e) {
-                appData.avances = backupAvances;
+                // Rollback completo: avances Y lastPaymentDate
+                appData.avances  = backupAvances;
+                appData.personal = backupPersonal;
                 showError('Error al registrar el pago.', e);
             }
         }
@@ -4106,6 +4113,7 @@ Firma: _____________________
 
     try {
         await savePersonal();
+        await saveAvances(); // FIX: avances se limpian en memoria pero necesitan persistirse
         closeModal('modalPersonalDetail');
         openModal('modalRecibo');
         updatePersonalTab();
@@ -4344,7 +4352,7 @@ function registrarAvance() {
         registradoPor: appData.currentUser
     };
 
-    const backupAvances = appData.avances.length;
+    const backupAvances = [...appData.avances]; // FIX: copia completa, no solo el índice
     appData.avances.push(avance);
     closeModal('modalAvance');
     saveAvances().then(() => {
@@ -4355,7 +4363,7 @@ function registrarAvance() {
             setTimeout(() => openPersonalDetail(currentPersonalDetail.id), 300);
         }
     }).catch(e => {
-        appData.avances.splice(backupAvances, 1); // rollback
+        appData.avances = backupAvances; // rollback completo
         showError('Error al registrar el avance.', e);
     });
 }
@@ -5393,7 +5401,7 @@ function verPaciente(pacienteId) {
     document.getElementById('verPacienteSubtitulo').textContent = subtitulo;
 
     // ── Cobrar pill en header ────────────────────────────
-    const _balHeader = calcularBalancePaciente(paciente.nombre);
+    const _balHeader = calcularBalancePaciente(paciente); // FIX #4: pass object for ID-based lookup
     const _canCobrarH = appData.currentRole === 'admin' || appData.currentRole === 'reception' || tienePermiso('cobrar');
     const _factPendH = appData.facturas.find(f =>
         (f.pacienteId === paciente.id || f.paciente === paciente.nombre) &&
@@ -5851,7 +5859,7 @@ function renderTabResumen(paciente) {
         edad = a + ' años';
     }
 
-    const balance        = calcularBalancePaciente(paciente.nombre);
+    const balance        = calcularBalancePaciente(paciente); // FIX #4: object → ID-based cache key
     const facturasPac    = getFacturasDePaciente(paciente);
     const totalCitas     = getCitasDePaciente(paciente).length;
     const totalRecetas   = (paciente.recetas || []).length;
@@ -6173,7 +6181,7 @@ function renderTabHistorialV3(paciente) {
         .sort((a,b) => new Date(b.fechaCreacion)-new Date(a.fechaCreacion));
 
     // Balance header
-    const balance        = calcularBalancePaciente(paciente.nombre);
+    const balance        = calcularBalancePaciente(paciente); // FIX #4: object → ID-based cache key
     const totalFacturado = todasFacturas.reduce((s,f)=>s+f.total,0);
     const totalPagado    = todasFacturas.reduce((s,f)=>s+(f.pagos||[]).reduce((sp,p)=>sp+p.monto,0),0);
     const bannerColor    = balance > 0 ? 'var(--terra,#C4856A)' : 'var(--salvia,#6B8F71)';
@@ -15206,7 +15214,21 @@ async function eliminarPacienteActual(pacienteIdParam) {
         confirmText: 'Sí, Eliminar Paciente',
         onConfirm: async () => {
             const backupPacientes = [...appData.pacientes];
+            const backupCitas     = [...appData.citas];
             appData.pacientes = appData.pacientes.filter(p => p.id !== pacienteId);
+
+            // FIX #8: limpiar citas del paciente eliminado de la agenda.
+            // Las facturas se conservan como registro histórico financiero,
+            // pero las citas futuras huérfanas no deben aparecer en la agenda.
+            const citasEliminadas = appData.citas.filter(c =>
+                c.pacienteId === pacienteId || c.paciente === paciente.nombre
+            );
+            if (citasEliminadas.length > 0) {
+                appData.citas = appData.citas.filter(c =>
+                    c.pacienteId !== pacienteId && c.paciente !== paciente.nombre
+                );
+            }
+
             registrarAuditoria('eliminar', 'paciente',
                 `${paciente.nombre}${paciente.cedula ? ' · Cédula: ' + paciente.cedula : ''}`);
             // Close UI immediately (optimistic)
@@ -15214,17 +15236,25 @@ async function eliminarPacienteActual(pacienteIdParam) {
                 const el = document.getElementById(id);
                 if (el && el.classList.contains('active')) closeModal(id);
             });
+            invalidateBalanceCache();
             updatePacientesTab();
+            if (citasEliminadas.length > 0) updateAgendaTab();
             showToast('✓ Paciente eliminado');
-            // Soft-delete: marcar como eliminado en Firestore
-            // (Las reglas bloquean .delete() desde el cliente por seguridad)
-            db.collection('clinicas').doc(CLINIC_PATH)
-                .collection('pacientes').doc(pacienteId)
-                .update({ eliminado: true, eliminadoEn: new Date().toISOString(), eliminadoPor: appData.currentUser || 'admin' })
-                .catch(e => {
-                    // También intentar guardarlo en el doc principal via saveData
-                    saveData('eliminarPaciente').catch(() => {});
-                });
+
+            // Soft-delete en Firestore + persistir citas limpias
+            try {
+                await db.collection('clinicas').doc(CLINIC_PATH)
+                    .collection('pacientes').doc(pacienteId)
+                    .update({ eliminado: true, eliminadoEn: new Date().toISOString(), eliminadoPor: appData.currentUser || 'admin' });
+                if (citasEliminadas.length > 0) await saveCitas();
+            } catch(e) {
+                // Rollback optimistic changes si Firebase falla
+                appData.pacientes = backupPacientes;
+                appData.citas     = backupCitas;
+                invalidateBalanceCache();
+                updatePacientesTab();
+                showError('Error al eliminar el paciente. Los cambios fueron revertidos.', e);
+            }
         }
     });
 }

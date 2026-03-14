@@ -3131,10 +3131,10 @@
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- ZXing barcode scanner — loaded lazily on first scan -->
     <script id="zxing-script" data-src="https://unpkg.com/@zxing/browser@0.1.4/umd/index.min.js"></script>
@@ -3155,8 +3155,15 @@
         try {
             const clinicaId = (() => {
                 const url = new URLSearchParams(window.location.search).get('clinica');
-                if (url) { localStorage.setItem('smile_clinica', url); return url; }
-                return localStorage.getItem('smile_clinica') || null;
+                // FIX #6: usar el mismo mecanismo que app.js detectClinica()
+                // app.js usa sessionStorage con clave 'smile_clinica_session'.
+                // Antes este script usaba localStorage/'smile_clinica' — clave y
+                // storage distintos — y CLINIC_PATH quedaba null al cargar sin URL.
+                if (url) {
+                    sessionStorage.setItem('smile_clinica_session', url);
+                    return url;
+                }
+                return sessionStorage.getItem('smile_clinica_session') || null;
             })();
 
             // No clinic in URL or storage — let app.js show the access overlay
