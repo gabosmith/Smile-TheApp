@@ -5474,10 +5474,12 @@ const ESTADOS_ORDEN = ['sano','caries','extraccion','corona','implante','ausente
 let _dienteActual = null;  // { numero, paciente }
 let _longPressTimer = null;
 
-function renderTabOdontograma(paciente) {
+function renderTabOdontograma(paciente, _targetEl) {
     const canEdit = appData.currentRole === 'admin' || appData.currentRole === 'professional';
     const odonto  = paciente.odontograma || {};
-    const tab = document.getElementById('tabOdontograma');
+    // Accept an optional target element (used by renderTabClinico)
+    // Falls back to the canonical tabOdontograma element
+    const tab = _targetEl || document.getElementById('tabOdontograma');
     if (!tab) return;
 
     const clinicColor = clinicConfig.color || '#C4856A';
@@ -6296,7 +6298,7 @@ function renderTabClinico(paciente) {
                         <div style="font-size:13px;font-weight:500;color:var(--topo);">${formatDate(r.fecha)}</div>
                         <div style="font-size:11px;color:var(--piedra);">Dr. ${r.profesional}</div>
                     </div>
-                    <button onclick="imprimirReceta('${paciente.id}','${r.id||''}')"
+                    <button onclick="currentPacienteRecetas=appData.pacientes.find(p=>p.id==='${paciente.id}');descargarRecetaPDF('${r.id||''}')"
                         style="padding:5px 12px;border:1.5px solid rgba(30,28,26,.12);border-radius:100px;
                                background:white;font-size:11px;font-family:inherit;cursor:pointer;color:var(--topo);">
                         Imprimir
@@ -6315,7 +6317,7 @@ function renderTabClinico(paciente) {
             </div>`).join('')}
 
             ${(appData.currentRole === 'admin' || appData.currentRole === 'professional') ? `
-            <button onclick="abrirModalReceta('${paciente.id}')"
+            <button onclick="abrirRecetasMedicas('${paciente.id}')"
                 style="width:100%;padding:11px;margin-top:6px;border:1.5px dashed rgba(30,28,26,.15);
                        border-radius:12px;background:transparent;font-size:13px;
                        font-family:inherit;cursor:pointer;color:var(--piedra);">
@@ -6323,17 +6325,9 @@ function renderTabClinico(paciente) {
             </button>` : ''}
         </div>`;
 
-    // Render odontograma en el sub-container
+    // Render odontograma directamente en el sub-container, sin intercambiar IDs
     const odoEl = el.querySelector('#tabClinico-odonto');
-    if (odoEl) {
-        // Temporarily point the odonto render target to our div
-        const _origEl = document.getElementById('tabOdontograma');
-        const fakeTarget = { id: 'tabOdontograma', innerHTML: '' };
-        // Use a div proxy
-        odoEl.id = 'tabOdontograma';
-        renderTabOdontograma(paciente);
-        odoEl.id = 'tabClinico-odonto';
-    }
+    if (odoEl) renderTabOdontograma(paciente, odoEl);
 }
 
 
@@ -13056,8 +13050,10 @@ function _renderCobrosCobradasTab(el) {
     }
 
     const totalCobrado = facturasPagadas.reduce((s,f) => s + f.total, 0);
+    const esAdmin = appData.currentRole === 'admin';
 
     el.innerHTML = `
+        ${esAdmin ? `
         <div style="background:rgba(107,143,113,.08);border:1.5px solid rgba(107,143,113,.2);
                     border-radius:12px;padding:14px 16px;margin-bottom:18px;
                     display:flex;justify-content:space-between;align-items:center;">
@@ -13066,7 +13062,7 @@ function _renderCobrosCobradasTab(el) {
                 <div style="font-size:22px;font-weight:300;color:var(--salvia,#6B8F71);">${formatCurrency(totalCobrado)}</div>
             </div>
             <div style="font-size:13px;color:var(--piedra);">${facturasPagadas.length} factura${facturasPagadas.length!==1?'s':''}</div>
-        </div>
+        </div>` : ''}
         ${facturasPagadas.map(f => {
             const fecha = new Date(f.fecha).toLocaleDateString(getLocale(),{day:'numeric',month:'short',year:'numeric'});
             const ultimoPago = (f.pagos||[]).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha))[0];
